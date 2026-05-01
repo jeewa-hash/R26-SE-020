@@ -1,62 +1,53 @@
-import sqlite3
-import uuid
+import pymongo
 import os
+import uuid
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 class DBAdapter:
-    def __init__(self, db_path):
-        self.db_path = db_path
-        self.init_db()
-
-    def get_connection(self):
-        return sqlite3.connect(self.db_path)
-
-    def init_db(self):
-        with self.get_connection() as conn:
-            conn.execute('''
-                CREATE TABLE IF NOT EXISTS service_session (
-                    id TEXT PRIMARY KEY,
-                    step INTEGER,
-                    category TEXT,
-                    object_name TEXT,
-                    service_type TEXT,
-                    sub_service_type TEXT,
-                    confidence TEXT,
-                    details TEXT,
-                    room_location TEXT,
-                    urgency TEXT,
-                    usability TEXT,
-                    location_address TEXT,
-                    latitude REAL,
-                    longitude REAL,
-                    created_at TEXT
-                )
-            ''')
+    def __init__(self, uri=None):
+        self.uri = uri or os.getenv("MONGO_URI", "mongodb://localhost:27017/ServiceSeeker")
+        print(f"Connecting to MongoDB...")
+        self.client = pymongo.MongoClient(self.uri)
+        # Hardcode the DB name to match your Atlas setup exactly
+        db_name = "ServiceSeeker"
+        self.db = self.client[db_name]
+        self.collection = self.db["service_sessions"]
+        print(f"Connected to database: {db_name}")
 
     def save_session(self, session):
-        with self.get_connection() as conn:
-            conn.execute('''
-                INSERT OR REPLACE INTO service_session 
-                (id, step, category, object_name, service_type, sub_service_type, confidence, details, room_location, urgency, usability, location_address, latitude, longitude, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                session.id, session.step, session.category, session.object_name, 
-                session.service_type, session.sub_service_type, session.confidence, 
-                session.details, session.room_location, session.urgency, 
-                session.usability, session.location_address, session.latitude, 
-                session.longitude, session.created_at
-            ))
+        """Save or update a session in MongoDB"""
+        if isinstance(session, dict):
+            session_data = session.copy()
+            session_id = session_data.get('id')
+        else:
+            session_data = vars(session).copy()
+            session_id = getattr(session, 'id', None)
+
+        # Ensure we don't save any internal pymongo _id if it exists
+        if '_id' in session_data:
+            del session_data['_id']
+            
+        self.collection.update_one(
+            {"id": session_id},
+            {"$set": session_data},
+            upsert=True
+        )
 
     def get_session(self, session_id):
-        with self.get_connection() as conn:
-            conn.row_factory = sqlite3.Row
-            row = conn.execute('SELECT * FROM service_session WHERE id = ?', (session_id,)).fetchone()
-            if row:
-                return SessionProxy(dict(row))
+        """Retrieve a session from MongoDB and wrap it in a SessionProxy"""
+        data = self.collection.find_one({"id": session_id})
+        if data:
+            return SessionProxy(data)
         return None
 
 class SessionProxy:
     def __init__(self, data):
+        # Convert any potential BSON types to standard Python types if needed
+        # but for now simple update is fine
         self.__dict__.update(data)
     
     def to_dict(self):
@@ -75,4 +66,4 @@ class SessionProxy:
         }
 
 # Global DB manager for the app
-db_manager = DBAdapter(os.path.join(os.path.dirname(__file__), "../service_discovery.db"))
+db_manager = DBAdapter()

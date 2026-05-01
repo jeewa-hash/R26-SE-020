@@ -8,7 +8,7 @@ from werkzeug.utils import secure_filename
 # Modular Imports
 from constants import ISSUE_MAPPING
 from ml_handler import MLHandler
-from db_adapter import db_manager, SessionProxy # Replaced SQLAlchemy with stable adapter
+from db_adapter import db_manager, SessionProxy 
 from engine import ConversationEngine
 
 app = Flask(__name__)
@@ -61,9 +61,10 @@ def predict():
         
         confidence_str = f"{confidence*100:.2f}%"
 
-        # Create Persistent Session
+        # Create Persistent Session with readable ID (e.g. REPAIR-A7B2)
+        session_id = f"REPAIR-{str(uuid.uuid4().hex[:4].upper())}"
         session = SessionProxy({
-            "id": str(uuid.uuid4()),
+            "id": session_id,
             "step": 1,
             "category": category,
             "object_name": object_name,
@@ -98,11 +99,16 @@ def predict():
         session.step = 1
         db_manager.save_session(session)
 
+        next_q = ConversationEngine.get_next_question(session)
+        # Suggest the detected item if we have one
+        if identified_item and next_q:
+            next_q['question'] = f"I think this is a {identified_item}. Is that correct? If not, what device has the issue?"
+
         return jsonify({
             'session_id': session.id,
             'object': session.object_name,
             'confidence': confidence_str,
-            'next_question': ConversationEngine.get_next_question(session)
+            'next_question': next_q
         })
 
     except Exception as e:

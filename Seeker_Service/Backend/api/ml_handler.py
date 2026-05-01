@@ -89,7 +89,7 @@ class MLHandler:
             return {
                 "success": True,
                 "category": category,
-                "detected_object": ISSUE_MAPPING.get(category, ISSUE_MAPPING["electrical"])['object'],
+                "detected_object": identified_sub if identified_sub else ISSUE_MAPPING.get(category, {}).get('object', 'Item'),
                 "problem_type": identified_sub,
                 "confidence_score": confidence
             }
