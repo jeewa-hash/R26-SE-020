@@ -16,6 +16,7 @@ app.use('/uploads', createProxyMiddleware({
 app.use('/api/auth', createProxyMiddleware({
     target: 'http://127.0.0.1:4003',
     changeOrigin: true,
+    pathRewrite: { '^/api/auth': '' },
     onError: (err, req, res) => { console.error('Proxy Error (/api/auth):', err.message); res.status(500).send('Proxy Error'); }
 }));
 
@@ -28,7 +29,7 @@ app.use('/api', createProxyMiddleware({
 
 app.get('/', (req, res) => res.send('🚀 API Gateway is Running!'));
 
-const PORT = process.env.PORT || 4004;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
     console.log(`----------------------------------------------`);
     console.log(`🚀 API Gateway running on: http://localhost:${PORT}`);
