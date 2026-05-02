@@ -20,27 +20,30 @@ class DBAdapter:
     def save_session(self, session):
         """Save or update session safely"""
 
+        # 🔥 FIX: correctly extract data
         if isinstance(session, dict):
             session_data = session.copy()
+        elif hasattr(session, "data"):
+            session_data = session.data.copy()   # ✅ FIX HERE
         else:
             session_data = vars(session).copy()
 
-        # ✅ FIX 1: unify session id handling
+        # ✅ unify session id handling
         session_id = (
             session_data.get("id")
             or session_data.get("session_id")
             or getattr(session, "id", None)
-            or str(session_data.get("_id", ""))
         )
 
         if not session_id:
             raise ValueError("Session must have 'id' or 'session_id'")
 
-        session_data["id"] = session_id  # enforce consistency
+        session_data["id"] = session_id
 
-        # remove Mongo internal id
+        # remove Mongo internal id if exists
         session_data.pop("_id", None)
 
+        # ✅ save/update
         self.collection.update_one(
             {"id": session_id},
             {"$set": session_data},
@@ -59,8 +62,18 @@ class SessionProxy:
     def __init__(self, data):
         self.data = data
 
+    # 🔥 OPTIONAL BUT VERY USEFUL (prevents future bugs)
+    def __getattr__(self, item):
+        return self.data.get(item)
+
+    def __setattr__(self, key, value):
+        if key == "data":
+            super().__setattr__(key, value)
+        else:
+            self.data[key] = value
+
     def to_dict(self):
-        """Safe export (won't crash if fields missing)"""
+        """Safe export"""
         return {
             "session_id": self.data.get("id"),
             "step": self.data.get("step"),
