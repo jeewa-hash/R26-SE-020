@@ -1,13 +1,63 @@
 import pandas as pd
 import numpy as np
+import requests
 from datetime import datetime, timedelta
 
-# 1. මූලික සැකසුම් (Basic Configurations)
-start_date = datetime(2023, 1, 1)
-end_date = datetime(2025, 12, 31)
-date_range = pd.date_range(start_date, end_date)
+# 1. මූලික සැකසුම් (Configurations)
+START_DATE = "2023-01-01"
+END_DATE = "2025-12-31"
+LAT, LON = 6.9271, 79.8612  # Colombo Coordinates
+API_KEY_CALENDARIFIC = 'miym2tkkEJmfOBLwiuzTlabtwhIhEPrn' 
 
-# සේවා කාණ්ඩ 16 සහ සපයන්නන් ප්‍රමාණය
+# --- STEP 1: කාලගුණ දත්ත ලබා ගැනීම (Open-Meteo API) ---
+print("Fetching real weather data from Open-Meteo...")
+weather_url = (
+    f"https://archive-api.open-meteo.com/v1/archive?"
+    f"latitude={LAT}&longitude={LON}&start_date={START_DATE}&end_date={END_DATE}"
+    f"&daily=precipitation_sum&timezone=auto"
+)
+
+try:
+    response = requests.get(weather_url)
+    if response.status_code == 200:
+        w_data = response.json()
+        weather_df = pd.DataFrame({
+            'Date': pd.to_datetime(w_data['daily']['time']),
+            'Rainfall_Value': w_data['daily']['precipitation_sum'] # සැබෑ මිලිමීටර් අගය
+        })
+        weather_df.set_index('Date', inplace=True)
+        print("Successfully fetched weather data via Open-Meteo!")
+    else:
+        print(f"Weather API Error: Status {response.status_code}")
+        weather_df = pd.DataFrame()
+except Exception as e:
+    print(f"Weather Fetch Error: {e}")
+    weather_df = pd.DataFrame()
+
+# Fallback in case Open-Meteo fails
+if weather_df.empty:
+    print("Warning: Weather API failed. Using simulated weather logic...")
+    weather_df = pd.DataFrame(index=pd.date_range(START_DATE, END_DATE))
+    weather_df['Rainfall_Value'] = np.random.choice([0, 0, 10, 0, 15], len(weather_df))
+
+# --- STEP 2: නිවාඩු දින දත්ත ලබා ගැනීම (Calendarific API) ---
+print("Fetching holiday data from Calendarific...")
+holidays_list = []
+for year in [2023, 2024, 2025]:
+    try:
+        url = f"https://calendarific.com/api/v2/holidays?&api_key={API_KEY_CALENDARIFIC}&country=LK&year={year}"
+        res = requests.get(url)
+        if res.status_code == 200:
+            data = res.json()
+            if 'response' in data and 'holidays' in data['response']:
+                for h in data['response']['holidays']:
+                    iso_date_only = h['date']['iso'][:10]
+                    holidays_list.append(datetime.strptime(iso_date_only, "%Y-%m-%d").date())
+                print(f"Fetched holidays for {year}!")
+    except Exception as e:
+        print(f"Holiday Error for {year}: {e}")
+
+# --- STEP 3: දත්ත ජනනය සහ තර්කනය (Logic Integration) ---
 categories = {
     "Electrical repairs": 8, "Plumbing": 8, "Furniture repair": 7,
     "Roofing": 18, "Painting": 18, "House cleaning": 10,
@@ -17,85 +67,107 @@ categories = {
     "Child care": 8, "Pet care": 7, "Personal assistance": 7
 }
 
-cities = ["Colombo", "Gampaha", "Kandy", "Galle", "Kurunegala"]
 data_rows = []
 sunny_days_counter = 0
+rainy_days_counter = 0 
+date_range = pd.date_range(START_DATE, END_DATE)
 
-print("Generating specialized research data (R26-SE-020)... Please wait.")
+print("Applying Behavioral Logic with Enhanced Real-Data Features...")
 
-# 2. දත්ත ජනනය කිරීමේ ප්‍රධාන ලූපය
 for current_date in date_range:
-    month = current_date.month
+    curr_d = current_date.date()
+    date_str = current_date.strftime('%Y-%m-%d')
     is_weekend = current_date.weekday() >= 5
     
-    # කාලගුණික තත්ත්වය තීරණය කිරීම
-    rainy_months = [5, 6, 10, 11]
-    if month in rainy_months:
-        rainfall_level = "High" if np.random.random() > 0.4 else "Low"
-    else:
-        rainfall_level = "High" if np.random.random() > 0.8 else "Low"
-        
-    if rainfall_level == "Low":
-        sunny_days_counter += 1
-    else:
+    # 1. Real Weather Logic
+    actual_rainfall = weather_df.loc[current_date, 'Rainfall_Value'] if current_date in weather_df.index else 0
+    is_rainy = 1 if actual_rainfall > 5 else 0
+    is_sunny = 1 if actual_rainfall <= 5 else 0
+    rainfall_level = "High" if is_rainy else "Low"
+
+    # Counters update
+    if is_rainy:
+        rainy_days_counter += 1
         sunny_days_counter = 0
+    else:
+        sunny_days_counter += 1
+        rainy_days_counter = 0
 
-    is_holiday = 1 if (month == 4 and 12 <= current_date.day <= 15) or \
-                      (month == 12 and current_date.day == 25) else 0
-    event = "Avurudu" if month == 4 else ("Christmas" if month == 12 else "None")
+    # 2. Special Event Logic (සති 3කට කලින් සිට 1 වන ලෙස - Jan 1, April, Dec)
+    is_special_event = 0
+    for h_date in holidays_list:
+        if h_date.month in [1, 4, 12]:
+            days_until = (h_date - curr_d).days
+            if 0 <= days_until <= 21: # දින 21කට පෙර සිට නිවාඩු දිනය දක්වා
+                is_special_event = 1
+                break
 
+    # 3. Pre-Holiday Spike (පැරණි Demand Logic සඳහා)
+    is_pre_holiday_surge = False
+    for h_date in holidays_list:
+        if h_date.month in [4, 12, 1]:
+            days_diff = (h_date - curr_d).days
+            if 7 <= days_diff <= 21: 
+                is_pre_holiday_surge = True
+
+    # 4. Long Weekend Detector
+    is_long_weekend = False
+    check_dates = [curr_d, curr_d + timedelta(days=1), curr_d + timedelta(days=2)]
+    non_working_days = 0
+    for d in check_dates:
+        if d.weekday() >= 5 or d in holidays_list:
+            non_working_days += 1
+    if non_working_days >= 3:
+        is_long_weekend = True
+
+    # Category-wise Demand Logic
     for cat_name, provider_count in categories.items():
         for p_id in range(1, provider_count + 1):
-            # Base random noise
-            demand = np.random.randint(0, 3)
-            
-            # --- 1. උත්සව කාලසීමාවන් (Seasonal Spikes) ---
-            if month == 4 or month == 12:
-                if cat_name in ["Painting", "House cleaning", "Furniture repair", "Sofa, carpet & curtain cleaning"]:
-                    demand += np.random.randint(5, 10)
-            
-            # --- 2. සාමාන්‍ය කාලගුණික බලපෑම (Roofing/Plumbing) ---
-            if rainfall_level == "High" and cat_name in ["Roofing", "Plumbing"]:
-                demand += np.random.randint(4, 8)
+            demand = np.random.randint(0, 3) 
 
-            # --- 3. Grass Cutting විශේෂිත තර්කනය (Updated) ---
-            if cat_name == "Grass cutting":
-                if rainfall_level == "High":
-                    demand = np.random.randint(0, 2) # වහිනකොට ඉල්ලුම ඉතා අඩුයි
-                else:
-                    # සාමාන්‍ය පායන දවසක ඉල්ලුම (Baseline demand on a sunny day)
-                    demand = np.random.randint(2, 5) 
-                    
-                    # වැස්සට පස්සේ දවස් 5ක් දිගටම පෑයුවොත් ඉල්ලුම වැඩිවීම (Post-rain Surge)
-                    if sunny_days_counter >= 5:
-                        demand += np.random.randint(6, 12)
-            
-            # --- 4. සති/සති අන්ත විශේෂිත තර්කනය (Care vs. Other Services) ---
-            care_services = ["Child care", "Pet care", "Personal assistance"]
-            
-            if cat_name in care_services:
-                if not is_weekend:
-                    demand += np.random.randint(5, 9) # සතියේ දිනවල ඉල්ලුම වැඩියි
-                else:
-                    demand += np.random.randint(0, 2)
-            else:
-                # Grass cutting හැර අනෙකුත් සේවාවලට සති අන්තයේ අමතර ඉල්ලුමක්
-                if is_weekend and cat_name != "Grass cutting":
-                    demand += np.random.randint(2, 5)
+            maint_repair = ["Electrical repairs", "Plumbing", "Furniture repair", "Roofing", "Grass cutting", "Landscaping", "Watering"]
+            if cat_name in maint_repair:
+                if is_weekend: demand += np.random.randint(3, 7)
+                if is_rainy and cat_name in ["Roofing", "Plumbing"]: demand += np.random.randint(5, 10)
+                if cat_name == "Grass cutting":
+                    if is_rainy: demand = 0
+                    elif sunny_days_counter >= 5: demand += np.random.randint(8, 15)
+
+            if is_pre_holiday_surge and cat_name in ["Painting", "House cleaning", "Sofa, carpet & curtain cleaning"]:
+                demand += np.random.randint(8, 15)
+
+            # Child care සහ Personal assistance සඳහා logic එක
+            if cat_name in ["Child care", "Personal assistance"]:
+                # සාමාන්‍ය වැඩ කරන දිනවල ඉල්ලුම (Weekday boost)
+                if not is_weekend and curr_d not in holidays_list: 
+                    demand += np.random.randint(6, 11)
+                else: 
+                    demand = np.random.randint(0, 2)
+                
+                # අලුත් Logic: අගෝස්තු සහ දෙසැම්බර් පාසල් නිවාඩු කාලයේදී Child care ඉල්ලුම වැඩි කිරීම
+                if cat_name == "Child care" and current_date.month in [8, 12]:
+                    demand += np.random.randint(10, 20)
+
+            if cat_name == "Pet care":
+                if is_long_weekend: demand += np.random.randint(10, 18)
+                elif not is_weekend: demand += np.random.randint(4, 7)
 
             data_rows.append({
-                "Date": current_date.strftime('%Y-%m-%d'),
+                "Date": date_str,
                 "Category": cat_name,
                 "Provider_ID": f"PRO-{cat_name[:3].upper()}-{p_id:02d}",
-                "City": np.random.choice(cities),
                 "Demand_Count": max(0, demand),
-                "Is_Holiday": is_holiday,
-                "Event_Type": event,
                 "Rainfall_Level": rainfall_level,
-                "Sunny_Days_Consecutive": sunny_days_counter
+                "Is_Rainy": is_rainy,
+                "Is_Sunny": is_sunny,
+                "Is_Holiday": 1 if curr_d in holidays_list else 0,
+                "Is_Long_Weekend": 1 if is_long_weekend else 0,
+                "Special_Event": is_special_event,
+                "Sunny_Days_Consecutive": sunny_days_counter,
+                "Rainy_Days_Consecutive": rainy_days_counter
             })
 
-# 3. CSV ගොනුවක් ලෙස සුරැකීම
+# 4. CSV ගොනුව සුරැකීම
 df = pd.DataFrame(data_rows)
-df.to_csv("SL_MicroEntrepreneur_Demand_Data_v3.csv", index=False)
-print(f"Success! Saved {len(df)} rows to SL_MicroEntrepreneur_Demand_Data_v3.csv")
+df.to_csv("SL_MicroEntrepreneur_Final_API_Data.csv", index=False)
+print(f"\nSuccess! Child care demand updated for Aug/Dec. Dataset saved to SL_MicroEntrepreneur_Final_API_Data.csv")
