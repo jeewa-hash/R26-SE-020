@@ -1,0 +1,24 @@
+names:
+  0: electrical_repair
+  1: plumbing_repair
+  2: furniture_repair
+  3: roofing_repair
+  4: painting_renovation
+  5: house_cleaning
+  6: post_construction_cleaning
+  7: move_in_out_cleaning
+  8: sofa_carpet_curtain_cleaning
+
+categories:
+  repairing:
+    - electrical_repair
+    - plumbing_repair
+    - furniture_repair
+    - roofing_repair
+    - painting_renovation
+
+  cleaning:
+    - house_cleaning
+    - post_construction_cleaning
+    - move_in_out_cleaning
+    - sofa_carpet_curtain_cleaning
