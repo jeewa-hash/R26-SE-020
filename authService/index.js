@@ -20,6 +20,9 @@ app.use('/', providerAuthRoutes);
 const seekerAuthRoutes = require('./routes/seekerAuthRoutes');
 app.use('/seeker', seekerAuthRoutes);
 
+const adminRoutes = require('./routes/adminRoutes');
+app.use('/admin', adminRoutes);
+
 app.get('/', (req, res) => res.send('🚀 AuthService is Running!'));
 
 const PORT = process.env.PORT || 4003;
