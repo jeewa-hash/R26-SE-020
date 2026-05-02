@@ -17,6 +17,9 @@ mongoose.connect(MONGO_URI)
 const providerAuthRoutes = require('./routes/providerAuthRoutes');
 app.use('/', providerAuthRoutes);
 
+const seekerAuthRoutes = require('./routes/seekerAuthRoutes');
+app.use('/seeker', seekerAuthRoutes);
+
 app.get('/', (req, res) => res.send('🚀 AuthService is Running!'));
 
 const PORT = process.env.PORT || 4003;
