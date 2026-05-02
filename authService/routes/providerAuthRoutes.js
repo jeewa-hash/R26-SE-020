@@ -37,6 +37,7 @@ const upload = multer({
 });
 
 // Routes
+router.post('/generate-bio', providerAuthController.generateBio);
 router.post('/register', upload.single('nicImage'), providerAuthController.register);
 router.post('/login', providerAuthController.login);
 

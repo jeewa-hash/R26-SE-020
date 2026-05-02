@@ -1,11 +1,36 @@
 const Provider = require('../models/Provider');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Generate Bio Logic
+exports.generateBio = async (req, res) => {
+  try {
+    const { rawBio } = req.body;
+    
+    if (!rawBio || !process.env.GEMINI_API_KEY) {
+      return res.status(400).json({ message: 'Raw text or API key missing' });
+    }
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const prompt = `Rewrite this simple text into a professional service provider bio for a portfolio. Keep it concise (2-3 sentences) and highly professional. Do not add placeholder info like [Your Name]. Just provide the bio text itself. Original text: "${rawBio}"`;
+    const result = await model.generateContent(prompt);
+    const generatedBio = result.response.text().trim();
+
+    res.status(200).json({ generatedBio });
+  } catch (err) {
+    console.error('Gemini AI Error:', err.message);
+    res.status(500).json({ message: 'Failed to generate bio' });
+  }
+};
 
 // Registration Logic
 exports.register = async (req, res) => {
   try {
-    const { email, password, role, nicNumber, category, district, latitude, longitude, telephone } = req.body;
+    const { email, password, role, nicNumber, category, district, latitude, longitude, telephone, rawBio } = req.body;
 
     // Security Check: Prevent users from registering as Admin
     if (role === 'Admin') {
@@ -44,6 +69,7 @@ exports.register = async (req, res) => {
       telephone,
       category,
       district,
+      bio: rawBio || '',
       location: (latitude && longitude) ? { latitude: parseFloat(latitude), longitude: parseFloat(longitude) } : undefined,
       isVerified: false,
     });
@@ -57,6 +83,7 @@ exports.register = async (req, res) => {
       role: user.role,
       nicNumber: user.nicNumber,
       nicImage: user.nicImage,
+      bio: user.bio,
       isVerified: user.isVerified,
     };
 
