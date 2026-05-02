@@ -38,6 +38,7 @@ export default function RegisterScreen({ navigation }) {
   const [district, setDistrict] = useState(DISTRICTS[0]);
   const [rawBio, setRawBio] = useState('');
   const [nicImage, setNicImage] = useState(null);
+  const [profileImage, setProfileImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [generatingBio, setGeneratingBio] = useState(false);
   const [isBioGenerated, setIsBioGenerated] = useState(false);
@@ -144,6 +145,34 @@ export default function RegisterScreen({ navigation }) {
     }
   };
 
+  const pickProfileImageFromGallery = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled) {
+      setProfileImage(result.assets[0]);
+    }
+  };
+
+  const scanProfileImageFromCamera = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert("Permission Refused", "You've refused to allow this app to access your camera!");
+      return;
+    }
+    let result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled) {
+      setProfileImage(result.assets[0]);
+    }
+  };
+
   const handleGenerateBio = async () => {
     if (!rawBio) {
       Alert.alert('Error', 'Please enter a brief description first.');
@@ -208,6 +237,14 @@ export default function RegisterScreen({ navigation }) {
 
     formData.append('nicImage', { uri: localUri, name: filename, type });
 
+    if (profileImage) {
+      const pLocalUri = profileImage.uri;
+      const pFilename = pLocalUri.split('/').pop();
+      const pMatch = /\.(\w+)$/.exec(pFilename);
+      const pType = pMatch ? `image/${pMatch[1]}` : `image`;
+      formData.append('profileImage', { uri: pLocalUri, name: pFilename, type: pType });
+    }
+
     try {
       const response = await axios.post(`${API_URL}/register`, formData, {
         headers: {
@@ -234,6 +271,29 @@ export default function RegisterScreen({ navigation }) {
     >
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Create Provider Account</Text>
+
+        <View style={styles.profileImageContainer}>
+          <TouchableOpacity onPress={() => {
+            Alert.alert(
+              "Profile Picture",
+              "Choose an option",
+              [
+                { text: "Camera", onPress: scanProfileImageFromCamera },
+                { text: "Gallery", onPress: pickProfileImageFromGallery },
+                { text: "Cancel", style: "cancel" }
+              ]
+            );
+          }}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage.uri }} style={styles.profileImage} />
+            ) : (
+              <View style={styles.profileImagePlaceholder}>
+                <MaterialIcons name="person" size={50} color="#ccc" />
+                <Text style={styles.profileImageText}>Add Photo</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
 
       <TextInput style={styles.input} placeholder="Full Name" value={name} onChangeText={setName} />
       <TextInput style={styles.input} placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
@@ -468,6 +528,10 @@ export default function RegisterScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 20, backgroundColor: '#f5f5f5' },
   title: { fontSize: 26, fontWeight: 'bold', color: '#333', marginBottom: 20, textAlign: 'center' },
+  profileImageContainer: { alignItems: 'center', marginBottom: 20 },
+  profileImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: '#007bff' },
+  profileImagePlaceholder: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#e9ecef', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#ddd', borderStyle: 'dashed' },
+  profileImageText: { color: '#999', fontSize: 12, marginTop: 5 },
   label: { fontSize: 16, fontWeight: 'bold', color: '#555', marginBottom: 5, marginTop: 10 },
   locationContainer: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#ddd', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   locationText: { fontSize: 14, color: '#333', fontWeight: 'bold', flex: 1 },

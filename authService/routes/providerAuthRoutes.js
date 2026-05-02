@@ -38,7 +38,7 @@ const upload = multer({
 
 // Routes
 router.post('/generate-bio', providerAuthController.generateBio);
-router.post('/register', upload.single('nicImage'), providerAuthController.register);
+router.post('/register', upload.fields([{ name: 'nicImage', maxCount: 1 }, { name: 'profileImage', maxCount: 1 }]), providerAuthController.register);
 router.post('/login', providerAuthController.login);
 
 module.exports = router;

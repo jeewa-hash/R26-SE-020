@@ -46,6 +46,10 @@ const providerSchema = new mongoose.Schema(
       type: String,
       required: false, // Make false because Admin might not have one, or handled later
     },
+    profileImage: {
+      type: String,
+      required: false,
+    },
     isVerified: {
       type: Boolean,
       default: false,
