@@ -23,8 +23,8 @@ const retrainRoutes = require('./routes/retrain');
 // සටහන: ඔයාගේ routes folder එකේ testML.js නමින් file එකක් තියෙන්න ඕනේ.
 
 // --- Route Mounting ---
-app.use('/api', testMLRoutes);
-app.use('/api', retrainRoutes);
+app.use('/', testMLRoutes);
+app.use('/', retrainRoutes);
 
 // Base route for testing
 app.get('/', (req, res) => {

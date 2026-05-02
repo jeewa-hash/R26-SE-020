@@ -1,0 +1,115 @@
+const Provider = require('../models/Provider');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+// Registration Logic
+exports.register = async (req, res) => {
+  try {
+    const { email, password, role, nicNumber, category, district, latitude, longitude, telephone } = req.body;
+
+    // Security Check: Prevent users from registering as Admin
+    if (role === 'Admin') {
+      return res.status(403).json({ message: 'Unauthorized role assignment' });
+    }
+
+    // Check if user already exists with email
+    let user = await Provider.findOne({ email });
+    if (user) {
+      return res.status(400).json({ message: 'User already exists with this email' });
+    }
+
+    // Check if user already exists with NIC
+    let existingNic = await Provider.findOne({ nicNumber });
+    if (existingNic) {
+      return res.status(400).json({ message: 'User already exists with this NIC number' });
+    }
+
+    // Get the path of the uploaded file if exists
+    let nicImage = null;
+    if (req.file) {
+      nicImage = req.file.path; // Multer saves the file info here
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create a new Provider
+    user = new Provider({
+      email,
+      password: hashedPassword,
+      role,
+      nicNumber,
+      nicImage,
+      telephone,
+      category,
+      district,
+      location: (latitude && longitude) ? { latitude: parseFloat(latitude), longitude: parseFloat(longitude) } : undefined,
+      isVerified: false,
+    });
+
+    await user.save();
+
+    // Remove password from response
+    const userResponse = {
+      _id: user._id,
+      email: user.email,
+      role: user.role,
+      nicNumber: user.nicNumber,
+      nicImage: user.nicImage,
+      isVerified: user.isVerified,
+    };
+
+    res.status(201).json({ message: 'User registered successfully', user: userResponse });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Login Logic
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check if user exists
+    const user = await Provider.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid Credentials' });
+    }
+
+    // Validate password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid Credentials' });
+    }
+
+    // Check Verification Status
+    if (!user.isVerified) {
+      return res.status(403).json({ 
+        message: "Verification Pending! We've received your NIC details. You’ll be able to log in once our admin approves your profile. After admin approval you will receive an email to inform it." 
+      });
+    }
+
+    // Generate JWT
+    const payload = {
+      user: {
+        id: user._id,
+        role: user.role,
+      },
+    };
+
+    jwt.sign(
+      payload,
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' },
+      (err, token) => {
+        if (err) throw err;
+        res.json({ token, role: user.role, message: 'Logged in successfully' });
+      }
+    );
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
