@@ -49,10 +49,16 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'User already exists with this NIC number' });
     }
 
-    // Get the path of the uploaded file if exists
+    // Get the path of the uploaded files if exist
     let nicImage = null;
-    if (req.file) {
-      nicImage = req.file.path; // Multer saves the file info here
+    let profileImage = null;
+    if (req.files) {
+      if (req.files['nicImage']) {
+        nicImage = req.files['nicImage'][0].path;
+      }
+      if (req.files['profileImage']) {
+        profileImage = req.files['profileImage'][0].path;
+      }
     }
 
     // Hash password
@@ -66,6 +72,7 @@ exports.register = async (req, res) => {
       role,
       nicNumber,
       nicImage,
+      profileImage,
       telephone,
       category,
       district,
@@ -83,6 +90,7 @@ exports.register = async (req, res) => {
       role: user.role,
       nicNumber: user.nicNumber,
       nicImage: user.nicImage,
+      profileImage: user.profileImage,
       bio: user.bio,
       isVerified: user.isVerified,
     };
