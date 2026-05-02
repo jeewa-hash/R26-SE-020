@@ -36,8 +36,12 @@ export default function RegisterScreen({ navigation }) {
   const [countryCode, setCountryCode] = useState('+94');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [district, setDistrict] = useState(DISTRICTS[0]);
+  const [rawBio, setRawBio] = useState('');
   const [nicImage, setNicImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [generatingBio, setGeneratingBio] = useState(false);
+  const [isBioGenerated, setIsBioGenerated] = useState(false);
+  const [isBioEditable, setIsBioEditable] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [location, setLocation] = useState(null);
@@ -140,9 +144,28 @@ export default function RegisterScreen({ navigation }) {
     }
   };
 
+  const handleGenerateBio = async () => {
+    if (!rawBio) {
+      Alert.alert('Error', 'Please enter a brief description first.');
+      return;
+    }
+    setGeneratingBio(true);
+    try {
+      const response = await axios.post(`${API_URL}/generate-bio`, { rawBio });
+      setRawBio(response.data.generatedBio);
+      setIsBioGenerated(true);
+      setIsBioEditable(false);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to generate bio. Please try again.');
+      console.log('Bio Gen Error:', error.response?.data || error.message);
+    } finally {
+      setGeneratingBio(false);
+    }
+  };
+
   const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPassword || !nicNumber || !telephone || !category || !district) {
-      Alert.alert('Error', 'Please fill in all text fields');
+    if (!name || !email || !password || !confirmPassword || !nicNumber || !telephone || !category || !district || !rawBio) {
+      Alert.alert('Error', 'Please fill in all text fields, including your skill description');
       return;
     }
     if (!isPasswordValid) {
@@ -173,6 +196,7 @@ export default function RegisterScreen({ navigation }) {
     formData.append('role', 'ServiceProvider');
     formData.append('category', category);
     formData.append('district', district);
+    formData.append('rawBio', rawBio);
     formData.append('latitude', location.latitude.toString());
     formData.append('longitude', location.longitude.toString());
 
@@ -191,7 +215,7 @@ export default function RegisterScreen({ navigation }) {
         },
       });
 
-      Alert.alert('Success', 'Registered successfully! Please login.', [
+      Alert.alert('Success', 'Registered successfully! Please wait for admin approval to login.', [
         { text: 'OK', onPress: () => navigation.navigate('Login') }
       ]);
     } catch (error) {
@@ -214,6 +238,57 @@ export default function RegisterScreen({ navigation }) {
       <TextInput style={styles.input} placeholder="Full Name" value={name} onChangeText={setName} />
       <TextInput style={styles.input} placeholder="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
       <TextInput style={styles.input} placeholder="NIC Number" value={nicNumber} onChangeText={setNicNumber} />
+
+      <Text style={styles.label}>Brief Description of Your Skills</Text>
+      {isBioEditable ? (
+        <TextInput 
+          style={[styles.input, { height: 160, textAlignVertical: 'top', marginBottom: 10 }]} 
+          placeholder="E.g., I am a good carpenter, 5 years work in Colombo" 
+          multiline
+          numberOfLines={6}
+          value={rawBio} 
+          onChangeText={setRawBio} 
+        />
+      ) : (
+        <ScrollView style={[styles.input, { height: 160, marginBottom: 10, backgroundColor: '#e9ecef' }]}>
+          <Text style={{ color: '#555', fontSize: 14 }}>{rawBio}</Text>
+        </ScrollView>
+      )}
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 15 }}>
+        {isBioGenerated ? (
+          <>
+            <TouchableOpacity style={styles.generateBtn} onPress={handleGenerateBio} disabled={generatingBio}>
+              {generatingBio ? <ActivityIndicator size="small" color="#fff" /> : (
+                <>
+                  <MaterialIcons name="autorenew" size={18} color="#fff" style={{ marginRight: 5 }} />
+                  <Text style={styles.generateBtnText}>Re-generate</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            
+            {isBioEditable ? (
+              <TouchableOpacity style={styles.editBtn} onPress={() => setIsBioEditable(false)}>
+                <MaterialIcons name="save" size={18} color="#fff" style={{ marginRight: 5 }} />
+                <Text style={styles.generateBtnText}>Save</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.editBtn} onPress={() => setIsBioEditable(true)}>
+                <MaterialIcons name="edit" size={18} color="#fff" style={{ marginRight: 5 }} />
+                <Text style={styles.generateBtnText}>Edit</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        ) : (
+          <TouchableOpacity style={styles.generateBtn} onPress={handleGenerateBio} disabled={generatingBio}>
+            {generatingBio ? <ActivityIndicator size="small" color="#fff" /> : (
+              <>
+                <MaterialIcons name="auto-awesome" size={18} color="#fff" style={{ marginRight: 5 }} />
+                <Text style={styles.generateBtnText}>Generate AI Bio</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
       
       <Text style={styles.label}>Telephone Number</Text>
       <View style={styles.phoneContainer}>
@@ -410,6 +485,9 @@ const styles = StyleSheet.create({
   mapBtnText: { color: '#fff', fontWeight: 'bold', marginLeft: 5, fontSize: 16 },
 
   input: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#ddd' },
+  generateBtn: { backgroundColor: '#6f42c1', paddingHorizontal: 15, paddingVertical: 10, borderRadius: 8, alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row' },
+  editBtn: { backgroundColor: '#28a745', paddingHorizontal: 15, paddingVertical: 10, borderRadius: 8, alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row' },
+  generateBtnText: { color: '#fff', fontWeight: 'bold' },
   phoneContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, height: 50 },
   countryCodePicker: { flex: 1, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginRight: 10, justifyContent: 'center' },
   phoneInput: { flex: 2, backgroundColor: '#fff', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', height: '100%' },
