@@ -14,7 +14,7 @@ class ConversationEngine:
             
         current_step_config = steps[step]
         
-        # Handle conditional steps (like Step 3 which depends on Step 1 or Step 2 answer)
+        # Handle conditional steps (like Step 2/3 which depend on earlier answers)
         # We check if the config has a 'question' key. If not, it's a nested dictionary.
         if 'question' not in current_step_config:
             # Conditional logic: find the matching key from previous answers
@@ -25,10 +25,6 @@ class ConversationEngine:
             if session.category == "plumbing" and step == 3:
                 key = session.details # The problem type from Step 1
             
-            # For furniture assembly
-            if session.category == "furniture" and step == 3 and session.details == "Needs assembly":
-                key = "Needs assembly"
-
             sub_config = current_step_config.get(key)
             if not sub_config:
                 # Fallback if specific mapping not found

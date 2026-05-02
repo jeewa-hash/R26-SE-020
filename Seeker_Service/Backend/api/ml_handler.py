@@ -4,6 +4,9 @@ import os
 import json
 from constants import ISSUE_MAPPING, ELECTRICAL_PREFIXES, PLUMBING_PREFIXES, FURNITURE_PREFIXES, SUB_CATEGORY_MAPPING
 
+GENERIC_CLASSES = {"Electrical_Repair", "Furniture_Repair", "Plumbing"}
+
+
 class MLHandler:
     _instance = None
 
@@ -49,6 +52,15 @@ class MLHandler:
             return "furniture"
         return "electrical"
 
+    def _infer_category_from_label(self, class_name):
+        if class_name == "Electrical_Repair" or any(class_name.startswith(prefix) for prefix in ELECTRICAL_PREFIXES):
+            return "electrical"
+        if class_name == "Plumbing" or any(class_name.startswith(prefix) for prefix in PLUMBING_PREFIXES):
+            return "plumbing"
+        if class_name == "Furniture_Repair" or any(class_name.startswith(prefix) for prefix in FURNITURE_PREFIXES):
+            return "furniture"
+        return None
+
     def predict(self, img_path):
         """
         🟢 Image Model Implementation
@@ -73,11 +85,62 @@ class MLHandler:
 
             # Step 2: Feature Extraction & Prediction
             predictions = self.model.predict(x)
-            idx = np.argmax(predictions)
-            confidence = float(np.max(predictions))
-            
-            raw_class = self.class_names.get(idx, "unknown")
-            category = self.normalize_category(raw_class)
+            probs = predictions[0]
+
+            ranked_indices = np.argsort(probs)[::-1]
+            top_idx = int(ranked_indices[0])
+            top_class = self.class_names.get(top_idx, "unknown")
+            top_prob = float(probs[top_idx])
+
+            # Category-first selection:
+            # 1) Sum probabilities by service category.
+            # 2) Choose the best category.
+            # 3) Pick the best class from that category, preferring specific labels.
+            category_scores = {"electrical": 0.0, "plumbing": 0.0, "furniture": 0.0}
+            for idx, prob in enumerate(probs):
+                class_name = self.class_names.get(int(idx), "unknown")
+                cat = self._infer_category_from_label(class_name)
+                if cat in category_scores:
+                    category_scores[cat] += float(prob)
+
+            category = max(category_scores, key=category_scores.get)
+
+            selected_idx = top_idx
+            selected_class = top_class
+            selected_prob = top_prob
+
+            best_specific_idx = None
+            best_specific_prob = -1.0
+            best_generic_idx = None
+            best_generic_prob = -1.0
+
+            for idx in ranked_indices:
+                class_name = self.class_names.get(int(idx), "unknown")
+                prob = float(probs[int(idx)])
+                class_cat = self._infer_category_from_label(class_name)
+                if class_cat != category:
+                    continue
+
+                if class_name in GENERIC_CLASSES:
+                    if prob > best_generic_prob:
+                        best_generic_prob = prob
+                        best_generic_idx = int(idx)
+                else:
+                    if prob > best_specific_prob:
+                        best_specific_prob = prob
+                        best_specific_idx = int(idx)
+
+            if best_specific_idx is not None:
+                selected_idx = best_specific_idx
+                selected_class = self.class_names.get(best_specific_idx, "unknown")
+                selected_prob = float(probs[best_specific_idx])
+            elif best_generic_idx is not None:
+                selected_idx = best_generic_idx
+                selected_class = self.class_names.get(best_generic_idx, "unknown")
+                selected_prob = float(probs[best_generic_idx])
+
+            raw_class = selected_class
+            confidence = selected_prob
             
             # Step 3: Mapping to Service Logic
             identified_sub = None
@@ -91,7 +154,9 @@ class MLHandler:
                 "category": category,
                 "detected_object": identified_sub if identified_sub else ISSUE_MAPPING.get(category, {}).get('object', 'Item'),
                 "problem_type": identified_sub,
-                "confidence_score": confidence
+                "confidence_score": confidence,
+                "raw_class": raw_class,
+                "category_scores": category_scores
             }
         except Exception as e:
             print(f"Prediction error: {e}")

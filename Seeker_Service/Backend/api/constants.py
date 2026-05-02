@@ -5,46 +5,50 @@ ISSUE_MAPPING = {
         "object": "Electrical device",
         "steps": {
             1: {
-                "question": "What device has the issue?",
-                "options": ["Fan", "TV", "Fridge", "Washing Machine", "Light", "Rice Cooker"]
+                "question": "Which electrical item needs service?",
+                "options": ["Fan", "TV", "Fridge", "Washing Machine", "Light", "Rice Cooker", "Other appliance"]
             },
             2: {
                 "Fan": {
-                    "question": "What is happening with your Fan?",
-                    "options": ["Not working at all", "Power issue", "Making loud noise", "Spinning too slow", "Burning smell"]
+                    "question": "What issue does the fan show right now?",
+                    "options": ["Not working at all", "No power", "Loud noise", "Slow spinning", "Burning smell"]
                 },
                 "TV": {
-                    "question": "What's wrong with your TV display?",
-                    "options": ["Black screen", "Cracked screen", "No signal", "Power won't turn on", "Sound but no picture"]
+                    "question": "What is the main TV problem?",
+                    "options": ["Black screen", "Cracked screen", "No signal", "Power not turning on", "Sound but no picture"]
                 },
                 "Fridge": {
-                    "question": "What issue do you notice with your Fridge?",
-                    "options": ["Not cooling at all", "Ice buildup in freezer", "Water leaking inside", "Making strange noises", "Door seal is broken"]
+                    "question": "What is the fridge issue you need fixed?",
+                    "options": ["Not cooling", "Ice buildup", "Water leakage", "Unusual noise", "Door seal broken"]
                 },
                 "Light": {
-                    "question": "What is the problem with the Lighting?",
-                    "options": ["Flickering constantly", "Not turning on", "Broken bulb holder", "LED strip malfunction"]
+                    "question": "What lighting problem do you have?",
+                    "options": ["Flickering", "Not turning on", "Broken holder", "LED strip issue"]
                 },
                 "Washing Machine": {
-                    "question": "What's wrong with the Washing Machine?",
-                    "options": ["Drum not spinning", "Water leaking out", "Showing an error code", "Not starting the cycle", "Making loud vibrations"]
+                    "question": "What issue does the washing machine show?",
+                    "options": ["Drum not spinning", "Water leaking", "Error code shown", "Cycle not starting", "Loud vibration"]
                 },
                 "Rice Cooker": {
-                    "question": "How is your Rice Cooker behaving?",
-                    "options": ["Not heating at all", "Rice is getting burnt", "Power switch is stuck/broken", "Takes too long to cook", "Burning smell when used"]
+                    "question": "What issue does the rice cooker have?",
+                    "options": ["Not heating", "Food getting burnt", "Power switch broken", "Very slow cooking", "Burning smell"]
+                },
+                "Other appliance": {
+                    "question": "What is the issue with the appliance?",
+                    "options": ["No power", "Sparking/smoke", "Noise/vibration", "Overheating", "Other fault"]
                 }
             },
             3: {
-                "question": "Is this a new problem or has it happened before?",
-                "options": ["First time", "Recurring issue", "Previously repaired"]
+                "question": "Is there any immediate electrical risk?",
+                "options": ["No immediate risk", "Sparking/smoke noticed", "Burning smell", "Power trips repeatedly"]
             },
             4: {
-                "question": "How urgent is this?",
-                "options": ["Low (can wait)", "Medium (need soon)", "High (urgent repair)"]
+                "question": "When do you need this service?",
+                "options": ["Flexible (within 2-3 days)", "Soon (within 24 hours)", "Urgent (as soon as possible)"]
             },
             5: {
-                "question": "Where is the issue located?",
-                "options": ["Living Room", "Kitchen", "Bedroom", "Bathroom", "Outdoor"]
+                "question": "Where is the electrical item located?",
+                "options": ["Living Room", "Kitchen", "Bedroom", "Bathroom", "Outdoor", "Office/Shop"]
             }
         }
     },
@@ -52,33 +56,45 @@ ISSUE_MAPPING = {
         "object": "Plumbing system",
         "steps": {
             1: {
-                "question": "What is the problem type?",
-                "options": ["Leakage", "Blockage", "Low water pressure", "Overflow"]
+                "question": "What plumbing issue do you need help with?",
+                "options": ["Leakage", "Blockage", "Low water pressure", "Overflow", "Pipe damage"]
             },
             2: {
-                "question": "Where is the issue located?",
-                "options": ["Kitchen sink", "Bathroom", "Toilet", "Pipe / wall", "Water tank"]
+                "question": "Where exactly is the plumbing issue?",
+                "options": ["Kitchen sink", "Bathroom", "Toilet", "Wall/pipe line", "Water tank", "Outdoor line"]
             },
             3: {
                 "Leakage": {
-                    "question": "What is the specific leakage issue?",
+                    "question": "How severe is the leakage right now?",
                     "options": ["Small drip", "Continuous leak", "Heavy water flow"]
                 },
                 "Blockage": {
-                    "question": "What is the specific blockage issue?",
+                    "question": "How bad is the blockage?",
                     "options": ["Fully blocked", "Slow drainage", "Dirty water backup"]
                 },
                 "Toilet": {
-                    "question": "What is the toilet issue?",
+                    "question": "What toilet issue do you see?",
                     "options": ["Flush not working", "Overflowing", "Water keeps running"]
+                },
+                "Low water pressure": {
+                    "question": "How does the low water pressure issue appear?",
+                    "options": ["Only one tap affected", "Multiple taps affected", "No water at times", "Pressure drops at peak hours"]
+                },
+                "Overflow": {
+                    "question": "Where is overflow happening?",
+                    "options": ["Toilet tank", "Water tank", "Sink", "Drain line"]
+                },
+                "Pipe damage": {
+                    "question": "What pipe damage do you observe?",
+                    "options": ["Visible crack", "Burst pipe", "Joint loosened", "Rust/corrosion leak"]
                 }
             },
             4: {
-                "question": "How urgent is this?",
-                "options": ["Low", "Medium", "High"]
+                "question": "How urgent is the plumbing service?",
+                "options": ["Low (can wait)", "Medium (today)", "High (immediate)"]
             },
             5: {
-                "question": "Please provide your location:",
+                "question": "Please share service address details for plumber visit:",
                 "type": "location_picker",
                 "options": ["Enter location manually", "Use current location"]
             }
@@ -88,38 +104,76 @@ ISSUE_MAPPING = {
         "object": "Furniture",
         "steps": {
             1: {
-                "question": "What type of furniture?",
-                "options": ["Chair", "Table", "Sofa", "Bed", "Other"]
+                "question": "Which furniture item needs work?",
+                "options": ["Chair", "Table", "Sofa", "Bed", "Wardrobe/Cabinet", "Needs assembly", "Other"]
             },
             2: {
                 "Chair": {
-                    "question": "What is wrong with your chair?",
-                    "options": ["Broken leg", "Wobbly/unstable", "Loose joints", "Missing screws", "Fabric/cushion damage"]
+                    "question": "What is the chair problem?",
+                    "options": ["Broken leg", "Wobbly/unstable", "Loose joints", "Missing screws", "Seat/back damage"]
                 },
                 "Table": {
-                    "question": "What is happening with the table?",
-                    "options": ["Broken leg", "Cracked surface", "Unstable/shaky", "Scratches/polish issue"]
+                    "question": "What is the table issue?",
+                    "options": ["Broken leg", "Cracked surface", "Unstable/shaky", "Top surface damage"]
                 },
                 "Sofa": {
-                    "question": "What issue do you see with the sofa?",
-                    "options": ["Torn fabric", "Sagging cushion", "Broken frame", "Stains", "Spring issue"]
+                    "question": "What issue does the sofa have?",
+                    "options": ["Torn fabric", "Sagging cushion", "Broken frame", "Stain/deep cleaning needed", "Spring issue"]
+                },
+                "Bed": {
+                    "question": "What issue does the bed have?",
+                    "options": ["Broken frame", "Noisy joints", "Support slats damaged", "Headboard issue"]
+                },
+                "Wardrobe/Cabinet": {
+                    "question": "What is the wardrobe/cabinet issue?",
+                    "options": ["Door misaligned", "Hinge broken", "Drawer jammed", "Panel damage"]
                 },
                 "Needs assembly": {
                     "question": "What assembly service do you need?",
                     "options": ["Full installation", "Parts already available", "Disassembled furniture"]
+                },
+                "Other": {
+                    "question": "What type of furniture service is needed?",
+                    "options": ["Repair", "Assembly", "Polish/refinish", "Part replacement"]
                 }
             },
             3: {
-                "question": "Is the item still usable?",
-                "options": ["Yes (minor issue)", "No (completely broken)"]
+                "Sofa": {
+                    "question": "For sofa fabric work, what support do you need?",
+                    "options": ["Patch/repair fabric", "Replace upholstery", "Deep cleaning + stain treatment", "Need technician inspection first"]
+                },
+                "Chair": {
+                    "question": "What should the technician prepare for chair repair?",
+                    "options": ["Wood/glue fixing", "Tightening joints/screws", "Seat cushion repair", "Need inspection first"]
+                },
+                "Table": {
+                    "question": "What service outcome do you need for the table?",
+                    "options": ["Structural repair", "Surface crack repair", "Polish/refinish", "Need inspection first"]
+                },
+                "Bed": {
+                    "question": "What bed repair support is needed?",
+                    "options": ["Frame reinforcement", "Noise/joint fixing", "Slat replacement", "Need inspection first"]
+                },
+                "Wardrobe/Cabinet": {
+                    "question": "What cabinet/wardrobe support is needed?",
+                    "options": ["Hinge/door alignment", "Drawer track repair", "Panel replacement", "Need inspection first"]
+                },
+                "Other": {
+                    "question": "What type of help do you need for this furniture?",
+                    "options": ["Repair", "Assembly", "Refinishing", "Inspection visit"]
+                }
             },
             4: {
-                "question": "How urgent is this?",
-                "options": ["Low", "Medium", "High"]
+                "question": "How urgent is the furniture service?",
+                "options": ["Low (scheduled)", "Medium (this week)", "High (urgent)"]
             },
             5: {
-                "question": "Where is it located?",
-                "options": ["Living Room", "Bedroom", "Office", "Outdoor"]
+                "question": "Is on-site work possible at your place?",
+                "options": ["Yes, on-site possible", "No, pickup needed", "Not sure"]
+            },
+            6: {
+                "question": "Where is the furniture located?",
+                "options": ["Living Room", "Bedroom", "Office", "Outdoor", "Commercial space"]
             }
         }
     }
