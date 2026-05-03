@@ -33,6 +33,10 @@ const adminSchema = new mongoose.Schema(
       required: true,
       default: 'Admin',
     },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
