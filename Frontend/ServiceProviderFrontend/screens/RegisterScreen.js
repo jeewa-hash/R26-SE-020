@@ -8,7 +8,7 @@ import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import { IP_ADDRESS } from '../config';
 
-const API_URL = `http://${IP_ADDRESS}:4004/api/auth`;
+const API_URL = `http://${IP_ADDRESS}:4003`;
 
 const CATEGORIES = [
   "Electrical repairs", "Plumbing", "Furniture repair",

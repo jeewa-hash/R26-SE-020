@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell } from 'react-icons/fi';
+import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers } from 'react-icons/fi';
 import { HiOutlineShieldCheck } from 'react-icons/hi';
 
 function Layout() {
@@ -54,6 +54,13 @@ function Layout() {
           >
             <span className="sidebar-link-icon"><FiUserPlus /></span>
             Register Admin
+          </NavLink>
+          <NavLink
+            to="/users"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiUsers /></span>
+            View Users
           </NavLink>
 
           <div className="sidebar-section-label">System</div>

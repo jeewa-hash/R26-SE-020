@@ -131,6 +131,10 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid Credentials' });
     }
 
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'Your account has been blocked by the Administrator.' });
+    }
+
     if (!user.isEmailVerified) {
       return res.status(403).json({
         message: "Email verification pending.",

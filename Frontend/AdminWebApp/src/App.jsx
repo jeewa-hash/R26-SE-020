@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import RegisterAdminPage from './pages/RegisterAdminPage';
+import ViewUsersPage from './pages/ViewUsersPage';
 import './App.css';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
         >
           <Route index element={<HomePage />} />
           <Route path="register-admin" element={<RegisterAdminPage />} />
+          <Route path="users" element={<ViewUsersPage />} />
         </Route>
 
         {/* Catch-all redirect */}

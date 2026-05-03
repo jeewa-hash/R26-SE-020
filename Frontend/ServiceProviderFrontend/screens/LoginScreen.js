@@ -5,7 +5,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
 
-const API_URL = `http://${IP_ADDRESS}:4004/api/auth`;
+const API_URL = `http://${IP_ADDRESS}:4003`;
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');

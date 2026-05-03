@@ -8,7 +8,7 @@ import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import { IP_ADDRESS } from '../config';
 
-const API_URL = `http://${IP_ADDRESS}:4004/api/auth/seeker`;
+const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 
 const DISTRICTS = [
   "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", "Galle", "Gampaha", 
@@ -158,7 +158,7 @@ export default function RegisterScreen({ navigation }) {
       const filename = localUri.split('/').pop();
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : `image`;
-      formData.append('profileImage', { uri: localUri, name: filename, type });
+      formData.append('profilePicture', { uri: localUri, name: filename, type });
     }
 
     try {

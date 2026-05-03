@@ -4,7 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import { IP_ADDRESS } from '../config';
 
-const API_URL = `http://${IP_ADDRESS}:4004/api/auth/seeker`;
+const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 
 export default function VerifyOTPScreen({ route, navigation }) {
   const { email } = route.params;
