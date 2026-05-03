@@ -1,4 +1,6 @@
 const Admin = require('../models/Admin');
+const Provider = require('../models/Provider');
+const Seeker = require('../models/Seeker');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
@@ -112,6 +114,10 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid Credentials' });
     }
 
+    if (admin.isBlocked) {
+      return res.status(403).json({ message: 'Your account has been blocked by the Administrator.' });
+    }
+
     const payload = {
       user: {
         id: admin._id,
@@ -165,5 +171,111 @@ exports.getProfile = async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get dashboard stats
+exports.getDashboardStats = async (req, res) => {
+  try {
+    const adminCount = await Admin.countDocuments();
+    const providerCount = await Provider.countDocuments();
+    const seekerCount = await Seeker.countDocuments();
+
+    res.json({
+      adminCount,
+      providerCount,
+      seekerCount
+    });
+  } catch (err) {
+    console.error('Error fetching dashboard stats:', err.message);
+    res.status(500).json({ message: 'Server error while fetching stats' });
+  }
+};
+
+// Get all users
+exports.getAllUsers = async (req, res) => {
+  try {
+    const admins = await Admin.find().select('-password');
+    const providers = await Provider.find().select('-password');
+    const seekers = await Seeker.find().select('-password');
+
+    res.json({
+      admins,
+      providers,
+      seekers
+    });
+  } catch (err) {
+    console.error('Error fetching all users:', err.message);
+    res.status(500).json({ message: 'Server error while fetching users' });
+  }
+};
+
+// Helper to get model by type
+const getModelByType = (type) => {
+  if (type === 'admin') return Admin;
+  if (type === 'provider') return Provider;
+  if (type === 'seeker') return Seeker;
+  return null;
+};
+
+// Update user details
+exports.updateUser = async (req, res) => {
+  try {
+    const { type, id } = req.params;
+    const Model = getModelByType(type);
+    
+    if (!Model) return res.status(400).json({ message: 'Invalid user type' });
+
+    // Prevent password updates through this route
+    if (req.body.password) {
+      delete req.body.password;
+    }
+
+    const updatedUser = await Model.findByIdAndUpdate(id, req.body, { new: true }).select('-password');
+    if (!updatedUser) return res.status(404).json({ message: 'User not found' });
+
+    res.json(updatedUser);
+  } catch (err) {
+    console.error('Error updating user:', err.message);
+    res.status(500).json({ message: 'Server error while updating user' });
+  }
+};
+
+// Delete user
+exports.deleteUser = async (req, res) => {
+  try {
+    const { type, id } = req.params;
+    const Model = getModelByType(type);
+    
+    if (!Model) return res.status(400).json({ message: 'Invalid user type' });
+
+    const deletedUser = await Model.findByIdAndDelete(id);
+    if (!deletedUser) return res.status(404).json({ message: 'User not found' });
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting user:', err.message);
+    res.status(500).json({ message: 'Server error while deleting user' });
+  }
+};
+
+// Toggle user status (Block/Unblock)
+exports.toggleUserStatus = async (req, res) => {
+  try {
+    const { type, id } = req.params;
+    const Model = getModelByType(type);
+    
+    if (!Model) return res.status(400).json({ message: 'Invalid user type' });
+
+    const user = await Model.findById(id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.isBlocked = !user.isBlocked;
+    await user.save();
+
+    res.json({ message: `User successfully ${user.isBlocked ? 'blocked' : 'unblocked'}`, isBlocked: user.isBlocked });
+  } catch (err) {
+    console.error('Error toggling user status:', err.message);
+    res.status(500).json({ message: 'Server error while toggling status' });
   }
 };

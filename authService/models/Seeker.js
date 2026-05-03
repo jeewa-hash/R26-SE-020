@@ -53,6 +53,10 @@ const seekerSchema = new mongoose.Schema(
       type: Date,
       required: false,
     },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
