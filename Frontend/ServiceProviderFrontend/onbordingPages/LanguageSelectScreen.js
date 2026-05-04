@@ -25,7 +25,7 @@ export default function LanguageSelectScreen({ navigation }) {
     await AsyncStorage.setItem('selectedLanguage', selectedLang);
     navigation.reset({
       index: 0,
-      routes: [{ name: 'Home' }],
+      routes: [{ name: 'NewsFeedScreen' }],
     });
   };
 

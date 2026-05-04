@@ -10,7 +10,7 @@ import { useColorScheme } from 'react-native';
 import './locales'; // Initialize i18n
 import LanguageSelectScreen from './onbordingPages/LanguageSelectScreen';
 import HomeScreen from './screens/HomeScreen';
-
+import NewsFeedScreen from './pages/NewsFeedScreen';
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -47,7 +47,7 @@ export default function App() {
       <PaperProvider theme={theme}>
         <NavigationContainer>
           <Stack.Navigator
-            initialRouteName={isFirstLaunch ? 'LanguageSelect' : 'Home'}
+            initialRouteName={isFirstLaunch ? 'LanguageSelect' : 'NewsFeed'}
           >
             <Stack.Screen
               name="LanguageSelect"
@@ -58,6 +58,11 @@ export default function App() {
               name="Home"
               component={HomeScreen}
               options={{ title: 'Provider Dashboard', headerLeft: null }}
+            />
+            <Stack.Screen
+              name="NewsFeed"
+              component={NewsFeedScreen}
+              options={{ headerShown: false }}
             />
           </Stack.Navigator>
         </NavigationContainer>
