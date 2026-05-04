@@ -4,6 +4,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
+import { saveCredentials } from '../utils/biometricAuth';
 
 const API_URL = `http://${IP_ADDRESS}:4003`;
 
@@ -26,12 +27,11 @@ export default function LoginScreen({ navigation }) {
         password
       });
 
-      // On Success, save JWT and Role
+      await saveCredentials(response.data.token, response.data.role);
       await AsyncStorage.setItem('userToken', response.data.token);
       await AsyncStorage.setItem('userRole', response.data.role);
 
       Alert.alert('Success', 'Logged in successfully!');
-      // Navigate to Home screen
       navigation.replace('Home');
       
     } catch (error) {
