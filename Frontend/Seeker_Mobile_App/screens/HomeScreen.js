@@ -7,6 +7,7 @@ import {
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 
 // Enable smooth animations for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -71,6 +72,75 @@ export default function HomeScreen() {
     }
   };
 
+  // Handle image upload and detection
+  const handleImageUpload = async () => {
+  try {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Need permission to access gallery');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    console.log("Picker result:", result);
+
+    if (result.canceled) return;
+
+    const imageUri = result.assets[0].uri;
+
+    console.log("Image URI:", imageUri);
+
+    const formData = new FormData();
+
+    formData.append('image', {
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: 'photo.jpg',
+    });
+
+    const response = await fetch('http://10.0.2.2:5000/predict', {
+      method: 'POST',
+      body: formData,
+    });
+
+    console.log("Response status:", response.status);
+
+    const data = await response.json();
+
+    console.log("Backend response:", data);
+
+    if (data.object) {
+      Alert.alert(
+        'Detection Result',
+        `Detected: ${data.object}\nConfidence: ${data.confidence}`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              navigation.navigate("FollowUpScreen", {
+                initialMessage: `I need help with ${data.object}`,
+                backendResponse: data,
+                source: "image", 
+              });
+            }
+          }
+        ]
+      );
+    } else {
+      Alert.alert('Error', 'No object detected');
+    }
+
+  } catch (error) {
+    console.log("UPLOAD ERROR:", error);
+    Alert.alert('Error', error.message);
+  }
+};
   const handleStartBidding = () => {
     Alert.alert(
       "Start Bidding",
@@ -82,17 +152,9 @@ export default function HomeScreen() {
     );
   };
 
-  const handleCreatePost = () => {
-    Alert.alert(
-      "Create Post",
-      "What would you like to post?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Service Request", onPress: () => navigation.navigate("CreatePostScreen") },
-        { text: "Job Offer", onPress: () => navigation.navigate("JobOfferScreen") }
-      ]
-    );
-  };
+ const handleCreatePost = () => {
+  navigation.navigate("CreatePostScreen");
+};
 
   const handleNotifications = () => {
     navigation.navigate("NotificationsScreen");
@@ -267,7 +329,7 @@ export default function HomeScreen() {
                 ))}
 
                 {cat.id === 1 && (
-                  <TouchableOpacity style={styles.specialUploadBtn} activeOpacity={0.8}>
+                  <TouchableOpacity style={styles.specialUploadBtn} activeOpacity={0.8} onPress={handleImageUpload}>
                     <LinearGradient
                       colors={['#667eea', '#764ba2']}
                       start={{ x: 0, y: 0 }}

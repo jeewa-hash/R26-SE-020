@@ -14,8 +14,7 @@ import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplet
 import { Ionicons } from "@expo/vector-icons";
 
 export default function FollowUpScreen({ route, navigation }) {
-  const { initialMessage } = route.params;
-
+const { initialMessage, backendResponse, source } = route.params;
   const [questionData, setQuestionData] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,82 +26,102 @@ export default function FollowUpScreen({ route, navigation }) {
 
   // 🔵 Start prediction
   useEffect(() => {
-    const startPredict = async () => {
-      try {
-        const res = await fetch("http://10.0.2.2:5002/text-predict", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: initialMessage }),
-        });
-
-        const data = await res.json();
-
-        if (data.next_question) {
-          setQuestionData(data.next_question);
-          setSessionId(data.session_id);
-          setSelectedOption(null);
-          setProgress(20);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    startPredict();
-  }, [initialMessage]);
-
-  // 🔵 Handle answer with optional skip
-  const handleAnswer = async (answer = null) => {
+  const startPredict = async () => {
     try {
-      const finalAnswer = answer || selectedOption;
-      
-      if (questionData) {
-        setUserAnswers(prev => [
-          ...prev,
-          {
-            question: questionData.question,
-            answer: finalAnswer || "Skipped",
-            timestamp: new Date().toISOString(),
-            type: questionData.type || "multiple_choice",
-            answerKey: questionData.answer_key,
-          }
-        ]);
-      }
-      
-      const payload = {
-        session_id: sessionId,
-        answer_key: questionData.answer_key,
-        answer: finalAnswer || "skipped",
-      };
+      // ⭐ IMAGE FLOW (ONLY ADD THIS BLOCK)
+      if (source === "image" && backendResponse) {
+        console.log("Using image response");
 
-      const res = await fetch("http://10.0.2.2:5002/text-chat", {
+        setQuestionData(backendResponse.next_question);
+        setSessionId(backendResponse.session_id);
+        setSelectedOption(null);
+        setProgress(20);
+        return; // 🚨 VERY IMPORTANT
+      }
+
+      // ✅ KEEP YOUR TEXT FLOW EXACTLY SAME
+      const res = await fetch("http://10.0.2.2:5002/text-predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ text: initialMessage }),
       });
 
       const data = await res.json();
 
-      if (data.success && data.final_decision) {
-        setQuestionData(null);
-        setFinalDecision(data);
-        setProgress(100);
-        return;
-      }
-
-      const nextQ = data.next_question || data.question;
-
-      if (nextQ) {
-        setQuestionData(nextQ);
+      if (data.next_question) {
+        setQuestionData(data.next_question);
+        setSessionId(data.session_id);
         setSelectedOption(null);
-        setProgress(prev => Math.min(prev + 20, 90));
+        setProgress(20);
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
+
+  startPredict();
+}, []);
+
+  // 🔵 Handle answer with optional skip
+ const handleAnswer = async (answer = null) => {
+  try {
+    const finalAnswer = answer || selectedOption;
+
+    // ✅ SAVE ANSWERS (THIS IS WHY SUMMARY WAS EMPTY)
+    if (questionData) {
+      setUserAnswers(prev => [
+        ...prev,
+        {
+          question: questionData.question,
+          answer: finalAnswer || "Skipped",
+        }
+      ]);
+    }
+
+    const payload = {
+      session_id: sessionId,
+      answer_key: questionData.answer_key,
+      answer: finalAnswer || "skipped",
+    };
+
+    const endpoint =
+      source === "image"
+        ? "http://10.0.2.2:5000/chat"
+        : "http://10.0.2.2:5002/text-chat";
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    console.log("Response:", data);
+
+    // ✅ SHOW SUMMARY SCREEN INSTEAD OF DIRECT FINAL
+    if (data.final_decision) {
+      setQuestionData(null);
+      setFinalDecision(data);
+      setShowSummaryScreen(true); // ⭐ IMPORTANT
+      setProgress(100);
+      return;
+    }
+
+    const nextQ = data.next_question || data.question;
+
+    if (nextQ) {
+      setQuestionData(nextQ);
+      setSelectedOption(null);
+      setProgress(prev => Math.min(prev + 20, 90));
+    }
+
+  } catch (err) {
+    console.error("ERROR:", err);
+  }
+};
 
   const toggleSection = (index) => {
     setExpandedSections(prev => ({
