@@ -64,48 +64,63 @@ def keyword_router(text):
 @app.route("/text-predict", methods=["POST"])
 def text_predict():
     data = request.json or {}
-    text = (data.get("text") or "").strip().lower()
+    text = (data.get("text") or "").strip()
 
     if not text:
         return jsonify({"error": "text is required"}), 400
 
     # =========================
-    # 🔥 FIX 1: FORCE REPAIR DETECTION
+    # 1. ML PREDICTION (PRIMARY)
     # =========================
-    repair_keywords = ["repair", "fix", "broken", "repiar", "fan", "light", "switch"]
+    ml_result = handler.predict(text)
 
-    cleaning_keywords = ["clean", "dust", "bathroom", "kitchen", "sofa"]
-
-    repair_score = sum(1 for w in repair_keywords if w in text)
-    cleaning_score = sum(1 for w in cleaning_keywords if w in text)
-
-    if repair_score >= cleaning_score:
-        service = "repairing"
-    else:
-        service = "cleaning"
+    service = ml_result["service"]
+    sub_service = ml_result["sub_service"]
+    confidence = ml_result["confidence_score"]
 
     # =========================
-    # 🔥 FIX 2: SMART SUBSERVICE DETECTION
+    # 2. LOW CONFIDENCE FALLBACK
     # =========================
-    sub_service = "general"
+    if confidence < 0.60:
+        text_l = text.lower()
+
+        if any(k in text_l for k in ["clean", "dust", "sofa", "bath"]):
+            service = "cleaning"
+            sub_service = "general"
+
+        elif any(k in text_l for k in ["repair", "fix", "broken", "not working"]):
+            service = "repairing"
+            sub_service = "general"
+
+        else:
+            service = "repairing"
+            sub_service = "general"
+
+    # =========================
+    # 3. SMART SUBSERVICE FIX
+    # =========================
+    text_l = text.lower()
 
     repair_map = {
         "fan": "fan",
         "light": "light",
         "switch": "electric",
         "tv": "tv",
-        "fridge": "fridge"
+        "fridge": "fridge",
+        "pipe": "pipe",
+        "tap": "tap",
+        "chair": "chair"
     }
 
     for k, v in repair_map.items():
-        if k in text:
+        if k in text_l:
             sub_service = v
             break
 
     result = {
         "service": service,
         "sub_service": sub_service,
-        "confidence_score": 0.95
+        "confidence_score": float(confidence)
     }
 
     # =========================

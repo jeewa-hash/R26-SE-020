@@ -42,5 +42,4 @@ class TextHandler:
         return {
             "service": service,
             "sub_service": sub_service,
-            "confidence_score": float(min(service_conf, sub_conf))
-        }
+ "confidence_score": float(service_conf)        }
