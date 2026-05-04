@@ -15,4 +15,16 @@ router.put('/users/:type/:id', adminController.verifyAdmin, adminController.upda
 router.delete('/users/:type/:id', adminController.verifyAdmin, adminController.deleteUser);
 router.patch('/users/:type/:id/status', adminController.verifyAdmin, adminController.toggleUserStatus);
 
+// Provider NIC Verification Routes
+router.get('/providers/unverified', adminController.verifyAdmin, adminController.getUnverifiedProviders);
+router.get('/providers/rejected', adminController.verifyAdmin, adminController.getRejectedProviders);
+router.get('/providers/:id/verify-details', adminController.verifyAdmin, adminController.getProviderVerificationDetails);
+router.patch('/providers/:id/verify', adminController.verifyAdmin, adminController.verifyProvider);
+
+// Admin Notification Routes
+router.get('/notifications', adminController.verifyAdmin, adminController.getNotifications);
+router.patch('/notifications/:id/read', adminController.verifyAdmin, adminController.markNotificationAsRead);
+router.patch('/notifications/read-all', adminController.verifyAdmin, adminController.markAllNotificationsAsRead);
+router.delete('/notifications', adminController.verifyAdmin, adminController.clearAllNotifications);
+
 module.exports = router;
