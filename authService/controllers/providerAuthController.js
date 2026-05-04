@@ -1,7 +1,9 @@
 const Provider = require('../models/Provider');
+const Notification = require('../models/Notification');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { sendVerificationPendingEmail } = require('../utils/emailService');
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -82,6 +84,29 @@ exports.register = async (req, res) => {
     });
 
     await user.save();
+
+    // Send verification pending email
+    try {
+      await sendVerificationPendingEmail(user.email, user.email.split('@')[0]);
+    } catch (emailErr) {
+      console.error('[Register] Failed to send verification pending email:', emailErr.message);
+      // Don't fail registration if email fails
+    }
+
+    // Create admin notification for new provider registration
+    try {
+      const notification = new Notification({
+        type: 'provider_registration',
+        title: 'New Provider Registration',
+        message: `A new service provider (${email}) has registered and is awaiting NIC verification.`,
+        relatedId: user._id.toString(),
+        isRead: false,
+      });
+      await notification.save();
+      console.log('[Notification] Created for new provider:', email);
+    } catch (notifErr) {
+      console.error('[Notification] Failed to create notification:', notifErr.message);
+    }
 
     // Remove password from response
     const userResponse = {

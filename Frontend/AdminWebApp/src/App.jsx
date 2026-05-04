@@ -6,6 +6,8 @@ import HomePage from './pages/HomePage';
 import RegisterAdminPage from './pages/RegisterAdminPage';
 import ViewUsersPage from './pages/ViewUsersPage';
 import ManageCategoriesPage from './pages/ManageCategoriesPage';
+import ProviderVerificationPage from './pages/ProviderVerificationPage';
+import RejectedVerificationsPage from './pages/RejectedVerificationsPage';
 import './App.css';
 
 function App() {
@@ -28,6 +30,8 @@ function App() {
           <Route path="register-admin" element={<RegisterAdminPage />} />
           <Route path="users" element={<ViewUsersPage />} />
           <Route path="categories" element={<ManageCategoriesPage />} />
+          <Route path="verify-provider/:id" element={<ProviderVerificationPage />} />
+          <Route path="rejected-verifications" element={<RejectedVerificationsPage />} />
         </Route>
 
         {/* Catch-all redirect */}
