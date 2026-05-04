@@ -31,7 +31,7 @@ function AppNavigator() {
         options={{ headerShown: false }}
       />
 
-      {/* Auth */}
+      
       <Stack.Screen
         name="Login"
         component={LoginScreen}
