@@ -6,8 +6,7 @@ from joblib import dump
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
-from preprocess import normalize_text
-
+from utils.preprocess import normalize_text
 TARGET_PER_SUBSERVICE = 80
 RANDOM_SEED = 42
 
