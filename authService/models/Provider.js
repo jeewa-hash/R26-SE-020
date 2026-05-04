@@ -62,6 +62,15 @@ const providerSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    gender: {
+      type: String,
+      enum: ['Male', 'Female'],
+      required: false,
+    },
+    address: {
+      type: String,
+      required: false,
+    },
     isRejected: {
       type: Boolean,
       default: false,

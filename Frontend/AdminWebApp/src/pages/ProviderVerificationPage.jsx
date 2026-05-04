@@ -204,6 +204,14 @@ function ProviderVerificationPage() {
                 <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-400)', marginBottom: '4px', display: 'block' }}>Category</label>
                 <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0 }}>{provider.category || 'N/A'}</p>
               </div>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-400)', marginBottom: '4px', display: 'block' }}>Gender</label>
+                <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0 }}>{provider.gender || 'N/A'}</p>
+              </div>
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-400)', marginBottom: '4px', display: 'block' }}>Address</label>
+                <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0 }}>{provider.address || 'N/A'}</p>
+              </div>
             </div>
           </div>
 

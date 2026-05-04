@@ -32,7 +32,7 @@ exports.generateBio = async (req, res) => {
 // Registration Logic
 exports.register = async (req, res) => {
   try {
-    const { email, password, role, nicNumber, category, district, latitude, longitude, telephone, rawBio } = req.body;
+    const { email, password, role, nicNumber, category, district, latitude, longitude, telephone, rawBio, gender, address } = req.body;
 
     // Security Check: Prevent users from registering as Admin
     if (role === 'Admin') {
@@ -79,6 +79,8 @@ exports.register = async (req, res) => {
       category,
       district,
       bio: rawBio || '',
+      gender: gender || undefined,
+      address: address || undefined,
       location: (latitude && longitude) ? { latitude: parseFloat(latitude), longitude: parseFloat(longitude) } : undefined,
       isVerified: false,
     });
@@ -117,6 +119,8 @@ exports.register = async (req, res) => {
       nicImage: user.nicImage,
       profileImage: user.profileImage,
       bio: user.bio,
+      gender: user.gender,
+      address: user.address,
       isVerified: user.isVerified,
     };
 

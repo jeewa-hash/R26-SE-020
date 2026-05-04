@@ -11,6 +11,7 @@ function ViewUsersPage () {
   const [searchTerm, setSearchTerm] = useState('');
   const [districtFilter, setDistrictFilter] = useState('All');
   const [providerCategoryFilter, setProviderCategoryFilter] = useState('All');
+  const [genderFilter, setGenderFilter] = useState('All');
 
   const DISTRICT_OPTIONS = ['All', 'Gampaha', 'Colombo'];
 
@@ -71,6 +72,7 @@ function ViewUsersPage () {
   const AUTH_SERVICE_URL = 'http://localhost:4003';
 
   const providerCategories = ['All', ...Array.from(new Set(users.providers.map((provider) => provider.category).filter(Boolean)))];
+  const genderOptions = ['All', 'Male', 'Female'];
 
   const filterUsers = (list, type) => {
     const term = searchTerm.trim().toLowerCase();
@@ -81,7 +83,8 @@ function ViewUsersPage () {
       const matchesSearch = !term || name.toLowerCase().includes(term) || email.toLowerCase().includes(term);
       const matchesDistrict = districtFilter === 'All' || (user.district && user.district.toLowerCase() === districtFilter.toLowerCase());
       const matchesCategory = type !== 'provider' || providerCategoryFilter === 'All' || (user.category && user.category.toLowerCase() === providerCategoryFilter.toLowerCase());
-      return matchesSearch && matchesDistrict && matchesCategory;
+      const matchesGender = type !== 'provider' || genderFilter === 'All' || (user.gender && user.gender === genderFilter);
+      return matchesSearch && matchesDistrict && matchesCategory && matchesGender;
     });
   };
 
@@ -455,6 +458,19 @@ function ViewUsersPage () {
                     ))}
                   </select>
                 </div>
+                <div className="filter-divider"></div>
+                <div className="filter-control-group">
+                  <label>Gender</label>
+                  <select
+                    className="filter-select"
+                    value={genderFilter}
+                    onChange={(e) => setGenderFilter(e.target.value)}
+                  >
+                    {genderOptions.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </div>
               </>
             )}
           </div>
@@ -503,6 +519,8 @@ function ViewUsersPage () {
                   <div className="detail-row"><div className="detail-label">NIC Number</div><div className="detail-value">{viewData.nicNumber || 'N/A'}</div></div>
                   <div className="detail-row"><div className="detail-label">Category</div><div className="detail-value">{viewData.category || 'N/A'}</div></div>
                   <div className="detail-row"><div className="detail-label">District</div><div className="detail-value">{viewData.district || 'N/A'}</div></div>
+                  <div className="detail-row"><div className="detail-label">Gender</div><div className="detail-value">{viewData.gender || 'N/A'}</div></div>
+                  <div className="detail-row"><div className="detail-label">Address</div><div className="detail-value">{viewData.address || 'N/A'}</div></div>
                   <div className="detail-row"><div className="detail-label">Bio</div><div className="detail-value">{viewData.bio || 'N/A'}</div></div>
                   <div className="detail-row">
                     <div className="detail-label">Profile Verified</div>

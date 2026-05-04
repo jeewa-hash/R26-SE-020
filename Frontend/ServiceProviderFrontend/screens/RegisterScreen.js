@@ -29,6 +29,8 @@ export default function RegisterScreen({ navigation }) {
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [category, setCategory] = useState('');
   const [district, setDistrict] = useState(DISTRICTS[0]);
+  const [gender, setGender] = useState('Male');
+  const [address, setAddress] = useState('');
   const [rawBio, setRawBio] = useState('');
   const [nicImage, setNicImage] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
@@ -207,7 +209,7 @@ export default function RegisterScreen({ navigation }) {
   };
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPassword || !nicNumber || !telephone || !category || !district || !rawBio) {
+    if (!name || !email || !password || !confirmPassword || !nicNumber || !telephone || !category || !district || !gender || !address || !rawBio) {
       Alert.alert('Error', 'Please fill in all text fields, including your skill description');
       return;
     }
@@ -239,6 +241,8 @@ export default function RegisterScreen({ navigation }) {
     formData.append('role', 'ServiceProvider');
     formData.append('category', category);
     formData.append('district', district);
+    formData.append('gender', gender);
+    formData.append('address', address);
     formData.append('rawBio', rawBio);
     formData.append('latitude', location.latitude.toString());
     formData.append('longitude', location.longitude.toString());
@@ -399,6 +403,24 @@ export default function RegisterScreen({ navigation }) {
           </Picker>
         )}
       </View>
+
+      <Text style={styles.label}>Gender</Text>
+      <View style={styles.pickerContainer}>
+        <Picker selectedValue={gender} onValueChange={(itemValue) => setGender(itemValue)}>
+          <Picker.Item label="Male" value="Male" />
+          <Picker.Item label="Female" value="Female" />
+        </Picker>
+      </View>
+
+      <Text style={styles.label}>Address</Text>
+      <TextInput
+        style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+        placeholder="Enter your address"
+        multiline
+        numberOfLines={3}
+        value={address}
+        onChangeText={setAddress}
+      />
 
       <Text style={styles.label}>District</Text>
       <View style={styles.pickerContainer}>
