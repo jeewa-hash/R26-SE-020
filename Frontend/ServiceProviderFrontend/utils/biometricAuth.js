@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY = 'workwave_userToken';
 const ROLE_KEY = 'workwave_userRole';
+const APP_LOCK_KEY = 'workwave_appLockEnabled';
 
 /**
  * Check if the device has biometric hardware and enrolled biometrics
@@ -97,6 +98,32 @@ export async function clearCredentials() {
     return true;
   } catch (error) {
     console.error('Clear credentials error:', error);
+    return false;
+  }
+}
+
+/**
+ * Get App Lock enabled status from secure storage
+ */
+export async function getAppLockEnabled() {
+  try {
+    const value = await SecureStore.getItemAsync(APP_LOCK_KEY);
+    return value === 'true';
+  } catch (error) {
+    console.error('Get app lock error:', error);
+    return false;
+  }
+}
+
+/**
+ * Set App Lock enabled status in secure storage
+ */
+export async function setAppLockEnabled(enabled) {
+  try {
+    await SecureStore.setItemAsync(APP_LOCK_KEY, enabled ? 'true' : 'false');
+    return true;
+  } catch (error) {
+    console.error('Set app lock error:', error);
     return false;
   }
 }

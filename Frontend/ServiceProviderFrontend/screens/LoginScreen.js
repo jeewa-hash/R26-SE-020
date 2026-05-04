@@ -1,16 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
-import {
-  saveCredentials,
-  hasStoredCredentials,
-  isBiometricAvailable,
-  promptBiometric,
-  getToken,
-} from '../utils/biometricAuth';
+import { saveCredentials } from '../utils/biometricAuth';
 
 const API_URL = `http://${IP_ADDRESS}:4003`;
 
@@ -19,32 +13,6 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [fingerprintReady, setFingerprintReady] = useState(false);
-
-  useEffect(() => {
-    checkFingerprintStatus();
-  }, []);
-
-  const checkFingerprintStatus = async () => {
-    const hasCreds = await hasStoredCredentials();
-    const bioAvailable = await isBiometricAvailable();
-    setFingerprintReady(hasCreds && bioAvailable);
-  };
-
-  const handleFingerprintLogin = async () => {
-    const result = await promptBiometric();
-    if (result.success) {
-      const token = await getToken();
-      if (token) {
-        navigation.replace('Home');
-      } else {
-        Alert.alert('Error', 'Session expired. Please log in with your password.');
-        setFingerprintReady(false);
-      }
-    } else {
-      Alert.alert('Authentication Failed', 'Fingerprint verification failed. Please use your password.');
-    }
-  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -124,17 +92,6 @@ export default function LoginScreen({ navigation }) {
         )}
       </TouchableOpacity>
 
-        {fingerprintReady && (
-          <TouchableOpacity
-            style={styles.fingerprintButton}
-            onPress={handleFingerprintLogin}
-            activeOpacity={0.8}
-          >
-            <MaterialIcons name="fingerprint" size={26} color="#6366f1" />
-            <Text style={styles.fingerprintButtonText}>Login with Fingerprint</Text>
-          </TouchableOpacity>
-        )}
-
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
           <TouchableOpacity onPress={() => navigation.navigate('Register')}>
@@ -207,22 +164,5 @@ const styles = StyleSheet.create({
   link: {
     color: '#007bff', 
     fontWeight: 'bold'
-  },
-  fingerprintButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 8,
-    marginTop: 12,
-    borderWidth: 1.5,
-    borderColor: '#6366f1',
-    gap: 8,
-  },
-  fingerprintButtonText: {
-    color: '#6366f1',
-    fontSize: 15,
-    fontWeight: '700',
   }
 });
