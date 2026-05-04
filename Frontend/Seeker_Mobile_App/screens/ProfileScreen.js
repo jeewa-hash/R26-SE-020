@@ -77,6 +77,7 @@ export default function ProfileScreen() {
       date: "Mar 15, 2024",
       price: "$180",
       rating: 5,
+      image: "https://randomuser.me/api/portraits/men/1.jpg",
     },
     {
       id: 4,
@@ -85,6 +86,7 @@ export default function ProfileScreen() {
       date: "Mar 10, 2024",
       price: "$95",
       rating: 4,
+      image: "https://randomuser.me/api/portraits/men/2.jpg",
     },
   ];
 
@@ -174,6 +176,32 @@ export default function ProfileScreen() {
     Alert.alert("Responses", `${post.responses} provider(s) have responded to this post`);
   };
 
+  const handleWriteReview = (service) => {
+    navigation.navigate("FeedbackScreen", { service });
+  };
+
+  const handleMessageProvider = (booking) => {
+    navigation.navigate("ChatScreen", { 
+      provider: booking.provider,
+      bookingId: booking.id 
+    });
+  };
+
+  const handleReschedule = (booking) => {
+    Alert.alert(
+      "Reschedule",
+      `Would you like to reschedule ${booking.title}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Reschedule", onPress: () => navigation.navigate("RescheduleScreen", { booking }) }
+      ]
+    );
+  };
+
+  const handleViewProvider = (provider) => {
+    navigation.navigate("ProvidersScreen", { provider });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -190,13 +218,17 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Profile Info */}
-        <View style={styles.profileSection}>
+        {/* Profile Info - Make it clickable to navigate to profile edit */}
+        <TouchableOpacity 
+          style={styles.profileSection}
+          onPress={() => setShowEditModal(true)}
+          activeOpacity={0.7}
+        >
           <View style={styles.avatarSection}>
             <Image source={{ uri: userData.avatar }} style={styles.avatar} />
-            <TouchableOpacity style={styles.cameraIcon}>
+            <View style={styles.cameraIcon}>
               <Ionicons name="camera" size={16} color="#fff" />
-            </TouchableOpacity>
+            </View>
           </View>
           
           <Text style={styles.userName}>{userData.name}</Text>
@@ -215,17 +247,27 @@ export default function ProfileScreen() {
             </View>
             <Text style={styles.ratingValue}>{userData.rating}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
-        {/* Star Points */}
-        <View style={styles.starPointsContainer}>
+        {/* Star Points - Clickable to view points history */}
+        <TouchableOpacity 
+          style={styles.starPointsContainer}
+          onPress={() => navigation.navigate("StarPointsScreen")}
+        >
           <Ionicons name="star" size={18} color="#FBBF24" />
           <Text style={styles.starPointsText}>{userData.starPoints} Star Points</Text>
-        </View>
+          <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+        </TouchableOpacity>
 
-        {/* Weekly Spend Chart */}
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Weekly Spend</Text>
+        {/* Weekly Spend Chart - Clickable to view detailed analytics */}
+        <TouchableOpacity 
+          style={styles.chartContainer}
+          onPress={() => navigation.navigate("SpendAnalyticsScreen")}
+        >
+          <View style={styles.chartHeader}>
+            <Text style={styles.chartTitle}>Weekly Spend</Text>
+            <Ionicons name="bar-chart-outline" size={18} color="#667eea" />
+          </View>
           <View style={styles.chartBars}>
             {weeklySpend.map((item, index) => (
               <View key={index} style={styles.chartBarItem}>
@@ -245,9 +287,9 @@ export default function ProfileScreen() {
               </View>
             ))}
           </View>
-        </View>
+        </TouchableOpacity>
 
-        {/* Tab Navigation - Bookings, My Posts, History */}
+        {/* Tab Navigation */}
         <View style={styles.tabsContainer}>
           <TouchableOpacity 
             style={[styles.tab, activeTab === 'bookings' && styles.activeTab]}
@@ -274,7 +316,10 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             {activeBookings.map((booking) => (
               <View key={booking.id} style={styles.bookingCardLarge}>
-                <View style={styles.bookingLargeHeader}>
+                <TouchableOpacity 
+                  style={styles.bookingLargeHeader}
+                  onPress={() => handleViewProvider(booking.provider)}
+                >
                   <Image source={{ uri: booking.image }} style={styles.providerImageLarge} />
                   <View style={styles.bookingLargeInfo}>
                     <Text style={styles.bookingTitleLarge}>{booking.title}</Text>
@@ -286,13 +331,19 @@ export default function ProfileScreen() {
                       <Text style={styles.bookingDetailText}>{booking.time}</Text>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
                 <View style={styles.bookingActions}>
-                  <TouchableOpacity style={styles.messageButton}>
+                  <TouchableOpacity 
+                    style={styles.messageButton}
+                    onPress={() => handleMessageProvider(booking)}
+                  >
                     <Ionicons name="chatbubble-outline" size={18} color="#667eea" />
                     <Text style={styles.messageButtonText}>Message</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.rescheduleButton}>
+                  <TouchableOpacity 
+                    style={styles.rescheduleButton}
+                    onPress={() => handleReschedule(booking)}
+                  >
                     <Ionicons name="time-outline" size={18} color="#fff" />
                     <Text style={styles.rescheduleButtonText}>Reschedule</Text>
                   </TouchableOpacity>
@@ -307,7 +358,10 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             {userPosts.map((post) => (
               <View key={post.id} style={styles.postCard}>
-                <View style={styles.postHeader}>
+                <TouchableOpacity 
+                  style={styles.postHeader}
+                  onPress={() => navigation.navigate("PostDetailScreen", { post })}
+                >
                   <Image source={{ uri: post.image }} style={styles.postImage} />
                   <View style={styles.postInfo}>
                     <Text style={styles.postTitle}>{post.title}</Text>
@@ -316,7 +370,7 @@ export default function ProfileScreen() {
                   <View style={[styles.postStatus, post.status === 'open' ? styles.statusOpen : styles.statusClosed]}>
                     <Text style={styles.postStatusText}>{post.status === 'open' ? 'Open' : 'Closed'}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
                 
                 <Text style={styles.postDescription} numberOfLines={2}>
                   {post.description}
@@ -367,7 +421,10 @@ export default function ProfileScreen() {
                   <View style={styles.historyStars}>
                     {renderStars(service.rating)}
                   </View>
-                  <TouchableOpacity style={styles.reviewLink}>
+                  <TouchableOpacity 
+                    style={styles.reviewLink}
+                    onPress={() => handleWriteReview(service)}
+                  >
                     <Text style={styles.reviewLinkText}>Write a Review</Text>
                   </TouchableOpacity>
                 </View>
@@ -582,11 +639,16 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   chartTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 20,
   },
   chartBars: {
     flexDirection: 'row',
@@ -723,7 +785,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#fff',
   },
-  // My Posts Styles
   postCard: {
     backgroundColor: '#fff',
     borderRadius: 14,
@@ -768,7 +829,6 @@ const styles = StyleSheet.create({
   postStatusText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#10B981',
   },
   postDescription: {
     fontSize: 13,
