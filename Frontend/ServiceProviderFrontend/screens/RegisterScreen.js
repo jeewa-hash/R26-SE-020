@@ -10,15 +10,6 @@ import { IP_ADDRESS } from '../config';
 
 const API_URL = `http://${IP_ADDRESS}:4003`;
 
-const CATEGORIES = [
-  "Electrical repairs", "Plumbing", "Furniture repair",
-  "Roofing", "Painting", "House cleaning",
-  "Post-construction cleaning", "Move-in / move-out cleaning",
-  "Sofa, carpet & curtain cleaning", "Grass cutting",
-  "Watering", "Landscaping", "Planting",
-  "Child care", "Pet care", "Personal assistance"
-];
-
 const DISTRICTS = [
   "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", "Galle", "Gampaha", 
   "Hambantota", "Jaffna", "Kalutara", "Kandy", "Kegalle", "Kilinochchi", "Kurunegala", 
@@ -34,8 +25,12 @@ export default function RegisterScreen({ navigation }) {
   const [nicNumber, setNicNumber] = useState('');
   const [telephone, setTelephone] = useState('');
   const [countryCode, setCountryCode] = useState('+94');
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [category, setCategory] = useState('');
   const [district, setDistrict] = useState(DISTRICTS[0]);
+  const [gender, setGender] = useState('Male');
+  const [address, setAddress] = useState('');
   const [rawBio, setRawBio] = useState('');
   const [nicImage, setNicImage] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
@@ -55,6 +50,27 @@ export default function RegisterScreen({ navigation }) {
   });
 
   const [findingLocation, setFindingLocation] = useState(false);
+
+  // Fetch categories from backend
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/categories`);
+        const fetched = response.data;
+        setCategories(fetched);
+        if (fetched.length > 0) {
+          setCategory(fetched[0].name);
+        }
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+        Alert.alert('Error', 'Failed to load categories. Please try again later.');
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   // Password Validations
   const isLengthValid = password.length >= 4;
@@ -193,7 +209,7 @@ export default function RegisterScreen({ navigation }) {
   };
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPassword || !nicNumber || !telephone || !category || !district || !rawBio) {
+    if (!name || !email || !password || !confirmPassword || !nicNumber || !telephone || !category || !district || !gender || !address || !rawBio) {
       Alert.alert('Error', 'Please fill in all text fields, including your skill description');
       return;
     }
@@ -225,6 +241,8 @@ export default function RegisterScreen({ navigation }) {
     formData.append('role', 'ServiceProvider');
     formData.append('category', category);
     formData.append('district', district);
+    formData.append('gender', gender);
+    formData.append('address', address);
     formData.append('rawBio', rawBio);
     formData.append('latitude', location.latitude.toString());
     formData.append('longitude', location.longitude.toString());
@@ -375,10 +393,34 @@ export default function RegisterScreen({ navigation }) {
 
       <Text style={styles.label}>Category</Text>
       <View style={styles.pickerContainer}>
-        <Picker selectedValue={category} onValueChange={(itemValue) => setCategory(itemValue)}>
-          {CATEGORIES.map((cat, idx) => <Picker.Item key={idx} label={cat} value={cat} />)}
+        {categoriesLoading ? (
+          <ActivityIndicator style={{ padding: 12 }} color="#007bff" />
+        ) : (
+          <Picker selectedValue={category} onValueChange={(itemValue) => setCategory(itemValue)}>
+            {categories.map((cat) => (
+              <Picker.Item key={cat._id} label={cat.name} value={cat.name} />
+            ))}
+          </Picker>
+        )}
+      </View>
+
+      <Text style={styles.label}>Gender</Text>
+      <View style={styles.pickerContainer}>
+        <Picker selectedValue={gender} onValueChange={(itemValue) => setGender(itemValue)}>
+          <Picker.Item label="Male" value="Male" />
+          <Picker.Item label="Female" value="Female" />
         </Picker>
       </View>
+
+      <Text style={styles.label}>Address</Text>
+      <TextInput
+        style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+        placeholder="Enter your address"
+        multiline
+        numberOfLines={3}
+        value={address}
+        onChangeText={setAddress}
+      />
 
       <Text style={styles.label}>District</Text>
       <View style={styles.pickerContainer}>

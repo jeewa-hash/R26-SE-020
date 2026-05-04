@@ -20,6 +20,14 @@ class QuestionEngine:
         return new_flow
 
     # -------------------------
+    # Normalize user input
+    # -------------------------
+    def _normalize_answer(self, ans):
+        if not isinstance(ans, str):
+            return ans
+        return ans.strip().lower()
+
+    # -------------------------
     # START SESSION
     # -------------------------
     def start(self, service, sub_service=None):
@@ -31,23 +39,28 @@ class QuestionEngine:
 
         flow = self._normalize_flow(flow)
 
-        # Default start
         start_step = 1
 
-        # OPTIONAL: cleaning shortcut routing
-        if service == "cleaning" and sub_service:
-            start_map = {
-                "kitchen cleaning": "kitchen_q1",
-                "bathroom cleaning": "bathroom_q1",
-                "office cleaning": "office_q1",
-                "post-construction cleaning": "postconstruction_q1",
-                "move-in/move-out cleaning": "moveinout_q1",
-                "sofa/carpet/curtain cleaning": "sofa_q1"
+        # -------------------------
+        # SMART REPAIR SKIP (NEW FIX)
+        # -------------------------
+        if service == "repairing" and sub_service:
+            # skip item question if already known
+            sub_map = {
+                "fan": "electrical_q2",
+                "tv": "electrical_q2",
+                "fridge": "electrical_q2",
+                "washing machine": "electrical_q2",
+                "light": "electrical_q2",
+                "rice cooker": "electrical_q2",
+                "pipe": "plumbing_q1",
+                "tap": "plumbing_q1",
+                "chair": "furniture_q2",
+                "sofa": "furniture_q2"
             }
-            start_step = start_map.get(sub_service, 1)
+            start_step = sub_map.get(sub_service.lower(), 1)
 
         q = flow.get(start_step)
-
         if not q:
             raise ValueError(f"Invalid start step {start_step}")
 
@@ -60,12 +73,17 @@ class QuestionEngine:
         return session_id, self._format_question(start_step, q)
 
     # -------------------------
-    # FORMAT QUESTION
+    # FORMAT QUESTION (SAFE FIX)
     # -------------------------
     def _format_question(self, step, q):
+
+        # 🔴 FIX: auto_route or invalid node protection
+        if not isinstance(q, dict) or "question" not in q:
+            return None
+
         return {
             "step": step,
-            "question": q["question"],
+            "question": q.get("question"),
             "options": q.get("options", []),
             "type": q.get("type", "standard"),
             "answer_key": q.get("answer_key")
@@ -90,18 +108,19 @@ class QuestionEngine:
             return {"error": f"Invalid step {current_q}"}
 
         # -------------------------
-        # SAVE ANSWER USING KEY
+        # SAVE ANSWER
         # -------------------------
         answer_key = q_data.get("answer_key", str(current_q))
         session["answers"][answer_key] = answer
 
         # -------------------------
-        # NEXT STEP LOGIC
+        # NEXT STEP LOGIC (FIXED SAFE ROUTING)
         # -------------------------
         next_q = q_data.get("next")
 
         if isinstance(next_q, dict):
-            next_step = next_q.get(answer, next_q.get("default"))
+            norm_answer = self._normalize_answer(answer)
+            next_step = next_q.get(norm_answer, next_q.get("default"))
         else:
             next_step = next_q
 
@@ -114,7 +133,8 @@ class QuestionEngine:
         session["current_q"] = next_step
         next_data = flow.get(next_step)
 
-        if not next_data:
+        # 🔴 FIX: auto_route skip handling
+        if not next_data or not isinstance(next_data, dict) or "question" not in next_data:
             return self._build_final_output(session_id)
 
         return {
@@ -164,9 +184,13 @@ class QuestionEngine:
         }
 
     # -------------------------
-    # SUMMARY BUILDER
+    # SUMMARY BUILDER (FIXED FOR REPAIRING)
     # -------------------------
     def _build_summary(self, service, answers):
+
+        if service == "repairing":
+            return f"{answers.get('item')} | {answers.get('issue', '')}"
+
         if service == "cleaning":
             return f"{answers.get('service_type')} | {answers.get('main_issue', '')}"
 
@@ -185,7 +209,7 @@ class QuestionEngine:
         if not schedule:
             return "Normal"
 
-        s = schedule.lower()
+        s = str(schedule).lower()
 
         if "today" in s or "as soon" in s:
             return "High"

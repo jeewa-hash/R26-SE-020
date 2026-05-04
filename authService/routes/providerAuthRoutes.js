@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const providerAuthController = require('../controllers/providerAuthController');
+const ServiceCategory = require('../models/ServiceCategory');
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, '../uploads');
@@ -40,5 +41,16 @@ const upload = multer({
 router.post('/generate-bio', providerAuthController.generateBio);
 router.post('/register', upload.fields([{ name: 'nicImage', maxCount: 1 }, { name: 'profileImage', maxCount: 1 }]), providerAuthController.register);
 router.post('/login', providerAuthController.login);
+
+// Public route to fetch all service categories
+router.get('/categories', async (req, res) => {
+  try {
+    const categories = await ServiceCategory.find().sort({ name: 1 });
+    res.status(200).json(categories);
+  } catch (err) {
+    console.error('Error fetching categories:', err.message);
+    res.status(500).json({ message: 'Server error while fetching categories' });
+  }
+});
 
 module.exports = router;

@@ -58,6 +58,27 @@ const providerSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    extractedNicNumber: {
+      type: String,
+      required: false,
+    },
+    gender: {
+      type: String,
+      enum: ['Male', 'Female'],
+      required: false,
+    },
+    address: {
+      type: String,
+      required: false,
+    },
+    isRejected: {
+      type: Boolean,
+      default: false,
+    },
+    adminNote: {
+      type: String,
+      required: false,
+    },
   },
   { timestamps: true }
 );

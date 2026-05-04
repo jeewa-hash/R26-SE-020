@@ -1,9 +1,12 @@
 const Admin = require('../models/Admin');
 const Provider = require('../models/Provider');
 const Seeker = require('../models/Seeker');
+const Notification = require('../models/Notification');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const { extractNicFromImage } = require('../utils/ocr');
+const { sendApprovalEmail, sendRejectionEmail } = require('../utils/emailService');
 
 // Email transporter (same config as seeker)
 const transporter = nodemailer.createTransport({
@@ -264,7 +267,7 @@ exports.toggleUserStatus = async (req, res) => {
   try {
     const { type, id } = req.params;
     const Model = getModelByType(type);
-    
+
     if (!Model) return res.status(400).json({ message: 'Invalid user type' });
 
     const user = await Model.findById(id);
@@ -277,5 +280,170 @@ exports.toggleUserStatus = async (req, res) => {
   } catch (err) {
     console.error('Error toggling user status:', err.message);
     res.status(500).json({ message: 'Server error while toggling status' });
+  }
+};
+
+// Get all unverified service providers (pending verification)
+exports.getUnverifiedProviders = async (req, res) => {
+  try {
+    const providers = await Provider.find({
+      isVerified: false,
+      $or: [{ isRejected: false }, { isRejected: { $exists: false } }]
+    })
+      .select('-password')
+      .sort({ createdAt: -1 });
+    res.json(providers);
+  } catch (err) {
+    console.error('Error fetching unverified providers:', err.message);
+    res.status(500).json({ message: 'Server error while fetching unverified providers' });
+  }
+};
+
+// Get all rejected service providers
+exports.getRejectedProviders = async (req, res) => {
+  try {
+    const providers = await Provider.find({ isRejected: true })
+      .select('-password')
+      .sort({ createdAt: -1 });
+    res.json(providers);
+  } catch (err) {
+    console.error('Error fetching rejected providers:', err.message);
+    res.status(500).json({ message: 'Server error while fetching rejected providers' });
+  }
+};
+
+// Get provider verification details with OCR extraction
+exports.getProviderVerificationDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const provider = await Provider.findById(id).select('-password');
+    if (!provider) {
+      return res.status(404).json({ message: 'Provider not found' });
+    }
+
+    // Run OCR if not already extracted and image exists
+    if (!provider.extractedNicNumber && provider.nicImage) {
+      const extracted = await extractNicFromImage(provider.nicImage);
+      if (extracted) {
+        provider.extractedNicNumber = extracted;
+        await provider.save();
+      }
+    }
+
+    res.json(provider);
+  } catch (err) {
+    console.error('Error fetching verification details:', err.message);
+    res.status(500).json({ message: 'Server error while fetching verification details' });
+  }
+};
+
+// Approve or reject a provider verification
+exports.verifyProvider = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, adminNote } = req.body;
+
+    if (!action || !['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ message: 'Invalid action. Use "approve" or "reject".' });
+    }
+
+    if (action === 'reject' && (!adminNote || !adminNote.trim())) {
+      return res.status(400).json({ message: 'Admin note is required when rejecting a provider.' });
+    }
+
+    const provider = await Provider.findById(id);
+    if (!provider) {
+      return res.status(404).json({ message: 'Provider not found' });
+    }
+
+    if (action === 'approve') {
+      provider.isVerified = true;
+      provider.isRejected = false;
+      provider.isBlocked = false;
+      provider.adminNote = '';
+      await provider.save();
+
+      // Send approval email
+      try {
+        await sendApprovalEmail(provider.email, provider.email.split('@')[0]);
+      } catch (emailErr) {
+        console.error('[Verify] Failed to send approval email:', emailErr.message);
+      }
+
+      res.json({ message: 'Provider approved successfully', isVerified: true });
+    } else {
+      provider.isVerified = false;
+      provider.isRejected = true;
+      provider.isBlocked = false;
+      provider.adminNote = adminNote.trim();
+      await provider.save();
+
+      // Send rejection email
+      try {
+        await sendRejectionEmail(provider.email, provider.email.split('@')[0], adminNote.trim());
+      } catch (emailErr) {
+        console.error('[Verify] Failed to send rejection email:', emailErr.message);
+      }
+
+      res.json({ message: 'Provider rejected successfully', isVerified: false, isRejected: true });
+    }
+  } catch (err) {
+    console.error('Error verifying provider:', err.message);
+    res.status(500).json({ message: 'Server error while verifying provider' });
+  }
+};
+
+// Get all notifications
+exports.getNotifications = async (req, res) => {
+  try {
+    const notifications = await Notification.find()
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.json(notifications);
+  } catch (err) {
+    console.error('Error fetching notifications:', err.message);
+    res.status(500).json({ message: 'Server error while fetching notifications' });
+  }
+};
+
+// Mark a single notification as read
+exports.markNotificationAsRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const notification = await Notification.findByIdAndUpdate(
+      id,
+      { isRead: true },
+      { new: true }
+    );
+    if (!notification) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+    res.json({ message: 'Notification marked as read', notification });
+  } catch (err) {
+    console.error('Error marking notification as read:', err.message);
+    res.status(500).json({ message: 'Server error while updating notification' });
+  }
+};
+
+// Mark all notifications as read
+exports.markAllNotificationsAsRead = async (req, res) => {
+  try {
+    await Notification.updateMany({ isRead: false }, { isRead: true });
+    res.json({ message: 'All notifications marked as read' });
+  } catch (err) {
+    console.error('Error marking all notifications as read:', err.message);
+    res.status(500).json({ message: 'Server error while updating notifications' });
+  }
+};
+
+// Clear all notifications
+exports.clearAllNotifications = async (req, res) => {
+  try {
+    await Notification.deleteMany({});
+    res.json({ message: 'All notifications cleared' });
+  } catch (err) {
+    console.error('Error clearing notifications:', err.message);
+    res.status(500).json({ message: 'Server error while clearing notifications' });
   }
 };

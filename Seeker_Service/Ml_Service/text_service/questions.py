@@ -29,40 +29,55 @@ TEXT_QUESTION_FLOW = {
         },
 
         # ─── FULL HOUSE ───────────────────────
-        "full_house_q1": {
-            "question": "Do you need a deep clean or a regular maintenance clean?",
-            "answer_key": "clean_type",
-            "options": [
-                "deep clean - not cleaned in a long time",
-                "regular maintenance clean",
-                "not sure"
-            ],
-            "next": "full_house_q2"
-        },
-        "full_house_q2": {
-            "question": "How many bedrooms does the house have?",
-            "answer_key": "house_size",
-            "options": [
-                "1 bedroom",
-                "2 bedrooms",
-                "3 bedrooms",
-                "4+ bedrooms"
-            ],
-            "next": "full_house_q3"
-        },
-        "full_house_q3": {
-            "question": "Which areas need special attention?",
-            "answer_key": "focus_areas",
-            "options": [
-                "kitchen and appliances",
-                "bathrooms",
-                "windows and glass",
-                "floors and carpets",
-                "all areas equally"
-            ],
-            "next": "common_schedule"
-        },
+        # ─── FULL HOUSE ───────────────────────
+"full_house_q1": {
+    "question": "Do you need a deep clean or a regular maintenance clean?",
+    "answer_key": "clean_type",
+    "options": [
+        "deep clean - not cleaned in a long time",
+        "regular maintenance clean",
+        "not sure"
+    ],
+    "next": "full_house_q2"
+},
 
+"full_house_q2": {
+    "question": "How many bedrooms does the house have?",
+    "answer_key": "house_size",
+    "options": [
+        "1 bedroom",
+        "2 bedrooms",
+        "3 bedrooms",
+        "4+ bedrooms"
+    ],
+    "next": "full_house_q2b"   # 👈 CHANGED (important)
+},
+
+# ⭐ NEW QUESTION ADDED
+"full_house_q2b": {
+    "question": "How many bathrooms need cleaning?",
+    "answer_key": "bathroom_count",
+    "options": [
+        "1 bathroom",
+        "2 bathrooms",
+        "3 bathrooms",
+        "4+ bathrooms"
+    ],
+    "next": "full_house_q3"
+},
+
+"full_house_q3": {
+    "question": "Which areas need special attention?",
+    "answer_key": "focus_areas",
+    "options": [
+        "kitchen and appliances",
+        "bathrooms",
+        "windows and glass",
+        "floors and carpets",
+        "all areas equally"
+    ],
+    "next": "common_schedule"
+},
         # ─── KITCHEN ──────────────────────────
         "kitchen_q1": {
             "question": "What is the main issue in your kitchen?",
@@ -696,12 +711,114 @@ TEXT_QUESTION_FLOW = {
             "answer_key": "location",
             "type": "text_input",
             "next": "common_care_notes"
-        },
-        "common_care_notes": {
-            "question": "Any special medical conditions, allergies, or important instructions?",
-            "answer_key": "special_notes",
-            "type": "text_input",
-            "next": None
         }
+    },
+    # ═══════════════════════════════════════════
+# 4. REPAIRING
+# ═══════════════════════════════════════════
+"repairing": {
+
+    # ✅ SMART ENTRY POINT (NO CATEGORY QUESTION ANYMORE)
+    1: {
+        "question": "What do you want to repair?",
+        "answer_key": "item",
+        "options": [
+            "Fan",
+            "TV",
+            "Fridge",
+            "Washing Machine",
+            "Light",
+            "Rice Cooker",
+            "Pipe",
+            "Tap",
+            "Chair",
+            "Other"
+        ],
+        "next": "auto_route"
+    },
+
+    # 🔥 SMART ROUTER (KEY FIX)
+    "auto_route": {
+        "next": {
+            "fan": "electrical_q2",
+            "tv": "electrical_q2",
+            "fridge": "electrical_q2",
+            "washing machine": "electrical_q2",
+            "light": "electrical_q2",
+            "rice cooker": "electrical_q2",
+
+            "pipe": "plumbing_q1",
+            "tap": "plumbing_q1",
+
+            "chair": "furniture_q2",
+            "sofa": "furniture_q2",
+
+            "default": "electrical_q2"
+        }
+    },
+
+    # ───────── ELECTRICAL ─────────
+    "electrical_q2": {
+        "question": "What issue are you facing with the item?",
+        "answer_key": "issue",
+        "options": [
+            "Not working at all",
+            "No power",
+            "Loud noise",
+            "Slow spinning",
+            "Burning smell",
+            "Other fault"
+        ],
+        "next": "electrical_q3"
+    },
+
+    "electrical_q3": {
+        "question": "How urgent is this issue?",
+        "answer_key": "urgency",
+        "options": [
+            "Low",
+            "Medium",
+            "High (urgent)"
+        ],
+        "next": "common_repair_location"
+    },
+
+    # ───────── PLUMBING ─────────
+    "plumbing_q1": {
+        "question": "What plumbing issue do you have?",
+        "answer_key": "issue",
+        "options": ["Leakage", "Blockage", "Low pressure", "Other"],
+        "next": "plumbing_q2"
+    },
+
+    "plumbing_q2": {
+        "question": "How urgent is it?",
+        "answer_key": "urgency",
+        "options": ["Low", "Medium", "High"],
+        "next": "common_repair_location"
+    },
+
+    # ───────── FURNITURE ─────────
+    "furniture_q2": {
+        "question": "What is the problem?",
+        "answer_key": "issue",
+        "options": ["Broken", "Loose", "Damage", "Other"],
+        "next": "furniture_q3"
+    },
+
+    "furniture_q3": {
+        "question": "How urgent is repair?",
+        "answer_key": "urgency",
+        "options": ["Low", "Medium", "High"],
+        "next": "common_repair_location"
+    },
+
+    # ───────── COMMON ─────────
+    "common_repair_location": {
+        "question": "Where is the service needed? Enter your address or area.",
+        "answer_key": "location",
+        "type": "text_input",
+        "next": None
     }
+}
 }
