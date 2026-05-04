@@ -20,11 +20,13 @@ mongoose.connect(MONGO_URI)
 // --- Import Routes ---
 const testMLRoutes = require('./routes/testML'); 
 const retrainRoutes = require('./routes/retrain');
+const categoryRoutes = require('./routes/categoryRoutes');
 // සටහන: ඔයාගේ routes folder එකේ testML.js නමින් file එකක් තියෙන්න ඕනේ.
 
 // --- Route Mounting ---
 app.use('/', testMLRoutes);
 app.use('/', retrainRoutes);
+app.use('/', categoryRoutes);
 
 // Base route for testing
 app.get('/', (req, res) => {

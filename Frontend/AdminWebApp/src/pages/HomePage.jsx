@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { FiUsers, FiUserPlus, FiActivity, FiShield } from 'react-icons/fi';
+import { FiUsers, FiUserPlus, FiActivity, FiShield, FiLayers } from 'react-icons/fi';
 import { HiOutlineBriefcase, HiOutlineUserGroup } from 'react-icons/hi';
 import { API_BASE_URL } from '../config';
 
@@ -97,9 +97,9 @@ function HomePage() {
             <FiUsers className="qa-icon" />
             View All Users
           </button>
-          <button className="quick-action-btn">
-            <HiOutlineBriefcase className="qa-icon" />
-            Manage Providers
+          <button className="quick-action-btn" onClick={() => navigate('/categories')}>
+            <FiLayers className="qa-icon" />
+            Manage Service Categories
           </button>
           <button className="quick-action-btn">
             <FiActivity className="qa-icon" />

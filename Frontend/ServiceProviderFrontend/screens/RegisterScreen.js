@@ -10,15 +10,6 @@ import { IP_ADDRESS } from '../config';
 
 const API_URL = `http://${IP_ADDRESS}:4003`;
 
-const CATEGORIES = [
-  "Electrical repairs", "Plumbing", "Furniture repair",
-  "Roofing", "Painting", "House cleaning",
-  "Post-construction cleaning", "Move-in / move-out cleaning",
-  "Sofa, carpet & curtain cleaning", "Grass cutting",
-  "Watering", "Landscaping", "Planting",
-  "Child care", "Pet care", "Personal assistance"
-];
-
 const DISTRICTS = [
   "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", "Galle", "Gampaha", 
   "Hambantota", "Jaffna", "Kalutara", "Kandy", "Kegalle", "Kilinochchi", "Kurunegala", 
@@ -34,7 +25,9 @@ export default function RegisterScreen({ navigation }) {
   const [nicNumber, setNicNumber] = useState('');
   const [telephone, setTelephone] = useState('');
   const [countryCode, setCountryCode] = useState('+94');
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [category, setCategory] = useState('');
   const [district, setDistrict] = useState(DISTRICTS[0]);
   const [rawBio, setRawBio] = useState('');
   const [nicImage, setNicImage] = useState(null);
@@ -55,6 +48,27 @@ export default function RegisterScreen({ navigation }) {
   });
 
   const [findingLocation, setFindingLocation] = useState(false);
+
+  // Fetch categories from backend
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/categories`);
+        const fetched = response.data;
+        setCategories(fetched);
+        if (fetched.length > 0) {
+          setCategory(fetched[0].name);
+        }
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+        Alert.alert('Error', 'Failed to load categories. Please try again later.');
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
 
   // Password Validations
   const isLengthValid = password.length >= 4;
@@ -375,9 +389,15 @@ export default function RegisterScreen({ navigation }) {
 
       <Text style={styles.label}>Category</Text>
       <View style={styles.pickerContainer}>
-        <Picker selectedValue={category} onValueChange={(itemValue) => setCategory(itemValue)}>
-          {CATEGORIES.map((cat, idx) => <Picker.Item key={idx} label={cat} value={cat} />)}
-        </Picker>
+        {categoriesLoading ? (
+          <ActivityIndicator style={{ padding: 12 }} color="#007bff" />
+        ) : (
+          <Picker selectedValue={category} onValueChange={(itemValue) => setCategory(itemValue)}>
+            {categories.map((cat) => (
+              <Picker.Item key={cat._id} label={cat.name} value={cat.name} />
+            ))}
+          </Picker>
+        )}
       </View>
 
       <Text style={styles.label}>District</Text>
