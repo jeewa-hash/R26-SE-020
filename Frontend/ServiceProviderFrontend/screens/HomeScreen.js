@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearCredentials } from '../utils/biometricAuth';
 
 export default function HomeScreen({ navigation }) {
   const handleLogout = async () => {
+    await clearCredentials();
     await AsyncStorage.removeItem('userToken');
     await AsyncStorage.removeItem('userRole');
     navigation.replace('Login');
