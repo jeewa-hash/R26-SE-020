@@ -27,4 +27,8 @@ router.patch('/notifications/:id/read', adminController.verifyAdmin, adminContro
 router.patch('/notifications/read-all', adminController.verifyAdmin, adminController.markAllNotificationsAsRead);
 router.delete('/notifications', adminController.verifyAdmin, adminController.clearAllNotifications);
 
+// Audit Log Routes
+router.get('/audit-logs', adminController.verifyAdmin, adminController.getAuditLogs);
+router.post('/audit-logs/internal', adminController.createAuditLogInternal);
+
 module.exports = router;

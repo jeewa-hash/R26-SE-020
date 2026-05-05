@@ -15,7 +15,7 @@ const PenaltyManagementPage = () => {
       maxScore: 100,
       status: 'Active',
       systemAction: 'unlocked',
-      inquiryStatus: 'Not Required',
+      inquiryStatus: 'Submitted',
       missedServices: [
         { id: 101, date: '2024-05-01', time: '10:00 AM', location: 'Colombo 03' },
         { id: 102, date: '2024-05-02', time: '02:30 PM', location: 'Nugegoda' },
@@ -43,10 +43,10 @@ const PenaltyManagementPage = () => {
       name: 'Kasun Rathnayake',
       role: 'Electrician',
       avatar: 'https://randomuser.me/api/portraits/men/3.jpg',
-      score: 42,
+      score: 100,
       maxScore: 100,
-      status: 'Active',
-      systemAction: 'unlocked',
+      status: 'Suspended',
+      systemAction: 'locked',
       inquiryStatus: 'Not Yet',
       missedServices: [
         { id: 301, date: '2024-05-04', time: '01:00 PM', location: 'Mount Lavinia' },
@@ -89,8 +89,8 @@ const PenaltyManagementPage = () => {
   ]);
 
   const stats = {
-    activeInquiries: 14,
-    blockedAccounts: 8
+    activeInquiries: 3,
+    blockedAccounts: 1
   };
 
   const handleToggleAction = (e, id) => {
@@ -98,8 +98,8 @@ const PenaltyManagementPage = () => {
     setWorkers(prev => prev.map(worker => {
       if (worker.id === id) {
         const newAction = worker.systemAction === 'unlocked' ? 'locked' : 'unlocked';
-        return { 
-          ...worker, 
+        return {
+          ...worker,
           systemAction: newAction,
           status: newAction === 'locked' ? 'Blocked' : 'Active'
         };
@@ -109,9 +109,9 @@ const PenaltyManagementPage = () => {
   };
 
   const getScoreColor = (score) => {
-    if (score < 30) return '#4f46e5'; 
-    if (score < 70) return '#f59e0b'; 
-    return '#ef4444'; 
+    if (score < 30) return '#4f46e5';
+    if (score < 70) return '#f59e0b';
+    return '#ef4444';
   };
 
   const getInquiryBadgeClass = (status) => {
@@ -138,6 +138,27 @@ const PenaltyManagementPage = () => {
           <button className="export-btn">
             Export CSV <HiOutlineExternalLink />
           </button>
+        </div>
+      </div>
+
+      <div className="penalty-stats">
+        <div className="stat-card">
+          <div className="stat-icon blue">
+            <FiShield />
+          </div>
+          <div className="stat-info">
+            <span className="stat-label">ACTIVE INQUIRIES</span>
+            <span className="stat-value">{stats.activeInquiries}</span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon red">
+            <FiUser />
+          </div>
+          <div className="stat-info">
+            <span className="stat-label">BLOCKED ACCOUNTS</span>
+            <span className="stat-value">{stats.blockedAccounts < 10 ? `0${stats.blockedAccounts}` : stats.blockedAccounts}</span>
+          </div>
         </div>
       </div>
 
@@ -171,9 +192,9 @@ const PenaltyManagementPage = () => {
                       <span className="score-value">{worker.score}/100</span>
                     </div>
                     <div className="score-bar-bg">
-                      <div 
-                        className="score-bar-fill" 
-                        style={{ 
+                      <div
+                        className="score-bar-fill"
+                        style={{
                           width: `${worker.score}%`,
                           backgroundColor: getScoreColor(worker.score)
                         }}
@@ -183,13 +204,15 @@ const PenaltyManagementPage = () => {
                 </td>
                 <td>
                   <div className={`status-badge ${worker.status.toLowerCase()}`}>
-                    {worker.status === 'Active' ? <FiCheckCircle /> : <FiXCircle />}
+                    {worker.status === 'Active' && <FiCheckCircle />}
+                    {worker.status === 'Blocked' && <FiXCircle />}
+                    {worker.status === 'Suspended' && <FiClock />}
                     {worker.status}
                   </div>
                 </td>
                 <td>
                   <div className="action-toggle-container">
-                    <button 
+                    <button
                       className={`toggle-btn ${worker.systemAction}`}
                       onClick={(e) => handleToggleAction(e, worker.id)}
                     >
@@ -209,27 +232,6 @@ const PenaltyManagementPage = () => {
         </table>
       </div>
 
-      <div className="penalty-stats">
-        <div className="stat-card">
-          <div className="stat-icon blue">
-            <FiShield />
-          </div>
-          <div className="stat-info">
-            <span className="stat-label">ACTIVE INQUIRIES</span>
-            <span className="stat-value">{stats.activeInquiries}</span>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon red">
-            <FiUser />
-          </div>
-          <div className="stat-info">
-            <span className="stat-label">BLOCKED ACCOUNTS</span>
-            <span className="stat-value">{stats.blockedAccounts < 10 ? `0${stats.blockedAccounts}` : stats.blockedAccounts}</span>
-          </div>
-        </div>
-      </div>
-
       {/* Details Modal */}
       {selectedWorker && (
         <div className="modal-overlay" onClick={closeDetails}>
@@ -244,11 +246,11 @@ const PenaltyManagementPage = () => {
               </div>
               <button className="modal-close" onClick={closeDetails}><FiX /></button>
             </div>
-            
+
             <div className="modal-body">
               <h4 className="section-title">Consecutive Missed Services</h4>
               <p className="section-subtitle">Detailed log of the 3 most recent missed service appointments.</p>
-              
+
               <div className="missed-services-list">
                 {selectedWorker.missedServices.map((service, index) => (
                   <div key={service.id} className="missed-service-item">
