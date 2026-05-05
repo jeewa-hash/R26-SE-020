@@ -14,6 +14,14 @@ import CreatePostScreen from './screens/CreatePostScreen';
 import LanguageScreen from './screens/LanguageScreen';
 import FeedbackScreen from './screens/FeedbackScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
+import BiddingScreen from './screens/BiddingScreen';
+import BidResponsesScreen from './screens/BidResponsesScreen';
+import { ChatProvider } from './context/ChatContext';
+import ChatListScreen from './screens/ChatListScreen';
+import ChatScreen from './screens/ChatScreen';
+
+
+
 import './i18n';
 import { LanguageProvider } from './context/LanguageContext';
 import { loadLanguage } from './i18n';
@@ -89,11 +97,30 @@ function AppNavigator() {
         component={FeedbackScreen} 
         options={{ headerShown: false }} 
     />
-    <Stack.Screen 
-  name="NotificationsScreen" 
-  component={NotificationsScreen} 
-  options={{ headerShown: false }} 
-/>
+     <Stack.Screen 
+      name="NotificationsScreen" 
+      component={NotificationsScreen} 
+      options={{ headerShown: false }} 
+    />
+     <Stack.Screen
+        name="BiddingScreen"
+        component={BiddingScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+      name="ChatListScreen" 
+      component={ChatListScreen} 
+      options={{ headerShown: false }} />
+
+      <Stack.Screen 
+      name="ChatScreen" 
+      component={ChatScreen} 
+      options={{ headerShown: false }} />
+      <Stack.Screen 
+       name="BidResponsesScreen" 
+       component={BidResponsesScreen} 
+       options={{ headerShown: false }} 
+       />
 
     </Stack.Navigator>
   );
@@ -104,9 +131,11 @@ export default function App() {
     
   return (
     <LanguageProvider>
+      <ChatProvider>
       <NavigationContainer>
         <AppNavigator />
       </NavigationContainer>
+       </ChatProvider>
     </LanguageProvider>
   );
 }

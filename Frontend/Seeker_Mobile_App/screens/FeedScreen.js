@@ -235,7 +235,7 @@ export default function FeedScreen({ navigation }) {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Community Feed</Text>
+          {/* <Text style={styles.headerTitle}>Community Feed</Text> */}
           <TouchableOpacity style={styles.createPostBtn} onPress={handleCreatePost}>
             <Ionicons name="create-outline" size={24} color="#fff" />
           </TouchableOpacity>

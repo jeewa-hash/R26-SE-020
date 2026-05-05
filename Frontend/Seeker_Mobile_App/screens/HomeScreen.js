@@ -51,6 +51,11 @@ export default function HomeScreen() {
     navigation.navigate("ProfileScreen");
   };
 
+  // Handle chat navigation
+  const handleChatPress = () => {
+    navigation.navigate("ChatListScreen");
+  };
+
   // Logic to handle search navigation
   const handleSearch = async () => {
     if (searchQuery.trim().length > 0) {
@@ -74,87 +79,72 @@ export default function HomeScreen() {
 
   // Handle image upload and detection
   const handleImageUpload = async () => {
-  try {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Need permission to access gallery');
-      return;
-    }
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Need permission to access gallery');
+        return;
+      }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
 
-    console.log("Picker result:", result);
+      if (result.canceled) return;
 
-    if (result.canceled) return;
+      const imageUri = result.assets[0].uri;
+      const formData = new FormData();
 
-    const imageUri = result.assets[0].uri;
+      formData.append('image', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'photo.jpg',
+      });
 
-    console.log("Image URI:", imageUri);
+      const response = await fetch('http://10.0.2.2:5000/predict', {
+        method: 'POST',
+        body: formData,
+      });
 
-    const formData = new FormData();
+      const data = await response.json();
 
-    formData.append('image', {
-      uri: imageUri,
-      type: 'image/jpeg',
-      name: 'photo.jpg',
-    });
-
-    const response = await fetch('http://10.0.2.2:5000/predict', {
-      method: 'POST',
-      body: formData,
-    });
-
-    console.log("Response status:", response.status);
-
-    const data = await response.json();
-
-    console.log("Backend response:", data);
-
-    if (data.object) {
-      Alert.alert(
-        'Detection Result',
-        `Detected: ${data.object}\nConfidence: ${data.confidence}`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              navigation.navigate("FollowUpScreen", {
-                initialMessage: `I need help with ${data.object}`,
-                backendResponse: data,
-                source: "image", 
-              });
+      if (data.object) {
+        Alert.alert(
+          'Detection Result',
+          `Detected: ${data.object}\nConfidence: ${data.confidence}`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.navigate("FollowUpScreen", {
+                  initialMessage: `I need help with ${data.object}`,
+                  backendResponse: data,
+                  source: "image", 
+                });
+              }
             }
-          }
-        ]
-      );
-    } else {
-      Alert.alert('Error', 'No object detected');
-    }
+          ]
+        );
+      } else {
+        Alert.alert('Error', 'No object detected');
+      }
 
-  } catch (error) {
-    console.log("UPLOAD ERROR:", error);
-    Alert.alert('Error', error.message);
-  }
-};
-  const handleStartBidding = () => {
-    Alert.alert(
-      "Start Bidding",
-      "Create a new bidding request?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Start", onPress: () => navigation.navigate("BiddingScreen") }
-      ]
-    );
+    } catch (error) {
+      console.log("UPLOAD ERROR:", error);
+      Alert.alert('Error', error.message);
+    }
   };
 
- const handleCreatePost = () => {
-  navigation.navigate("CreatePostScreen");
-};
+  const handleStartBidding = () => {
+    navigation.navigate("BiddingScreen");
+  };
+
+  const handleCreatePost = () => {
+    navigation.navigate("CreatePostScreen");
+  };
 
   const handleNotifications = () => {
     navigation.navigate("NotificationsScreen");
@@ -182,6 +172,14 @@ export default function HomeScreen() {
               <Text style={styles.subGreeting}>What do you need help with today?</Text>
             </View>
             <View style={styles.headerActions}>
+              {/* Chat Icon */}
+              <TouchableOpacity style={styles.chatBtn} onPress={handleChatPress}>
+                <View style={styles.chatBadge}>
+                  <Text style={styles.chatBadgeText}>2</Text>
+                </View>
+                <Ionicons name="chatbubbles-outline" size={24} color="#fff" />
+              </TouchableOpacity>
+
               {/* Notification Icon */}
               <TouchableOpacity style={styles.notificationBtn} onPress={handleNotifications}>
                 <View style={styles.notificationBadge}>
@@ -377,7 +375,10 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 14, color: '#ffffffCC', letterSpacing: 0.5 },
   userName: { fontSize: 28, fontWeight: '700', color: '#fff', marginTop: 4, marginBottom: 8 },
   subGreeting: { color: '#ffffffCC', fontSize: 14 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  chatBtn: { position: 'relative', padding: 4 },
+  chatBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#FF6B6B', borderRadius: 10, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center', zIndex: 1, paddingHorizontal: 4 },
+  chatBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   notificationBtn: { position: 'relative', padding: 4 },
   notificationBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#FF6B6B', borderRadius: 10, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center', zIndex: 1, paddingHorizontal: 4 },
   notificationCount: { color: '#fff', fontSize: 10, fontWeight: '700' },
