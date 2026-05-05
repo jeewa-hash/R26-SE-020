@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { ActivityIndicator, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -28,9 +30,11 @@ import { loadLanguage } from './i18n';
 const Stack = createStackNavigator();
 
 
-function AppNavigator() {
+function AppNavigator({ initialRouteName }) {
+  const { t } = useTranslation();
+
   return (
-    <Stack.Navigator initialRouteName="Language">
+    <Stack.Navigator initialRouteName={initialRouteName}>
 
       {/* Language selection first */}
       <Stack.Screen
@@ -60,13 +64,13 @@ function AppNavigator() {
       <Stack.Screen
         name="Home"
         component={HomeScreen}
-        options={{ title: 'Seeker Dashboard', headerLeft: null }}
+        options={{ title: t('nav_dashboard'), headerLeft: null }}
       />
 
       <Stack.Screen
         name="FollowUpScreen"
         component={FollowUpScreen}
-        options={{ title: 'Follow Up Questions' }}
+        options={{ title: t('nav_follow_up') }}
       />
 
       <Stack.Screen
@@ -90,7 +94,7 @@ function AppNavigator() {
       <Stack.Screen
         name="ProvidersScreen"
         component={ProvidersScreen}
-        options={{ title: 'Available Providers' }}
+        options={{ title: t('nav_providers') }}
       />
       <Stack.Screen 
         name="FeedbackScreen" 
@@ -128,12 +132,32 @@ function AppNavigator() {
 
 /* ✅ Root App */
 export default function App() {
-    
+  const [bootstrapped, setBootstrapped] = useState(false);
+  const [initialRouteName, setInitialRouteName] = useState('Language');
+
+  useEffect(() => {
+    const bootstrapLanguage = async () => {
+      await loadLanguage();
+      setInitialRouteName('Language');
+      setBootstrapped(true);
+    };
+
+    bootstrapLanguage();
+  }, []);
+
+  if (!bootstrapped) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#007bff" />
+      </View>
+    );
+  }
+
   return (
     <LanguageProvider>
       <ChatProvider>
       <NavigationContainer>
-        <AppNavigator />
+        <AppNavigator initialRouteName={initialRouteName} />
       </NavigationContainer>
        </ChatProvider>
     </LanguageProvider>

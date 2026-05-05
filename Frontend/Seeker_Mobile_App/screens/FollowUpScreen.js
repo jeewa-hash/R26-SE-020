@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,9 +12,11 @@ import {
 } from "react-native";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { Ionicons } from "@expo/vector-icons";
+import { LanguageContext } from "../context/LanguageContext";
 
 export default function FollowUpScreen({ route, navigation }) {
 const { initialMessage, backendResponse, source } = route.params;
+  const { language } = useContext(LanguageContext);
   const [questionData, setQuestionData] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +45,10 @@ const { initialMessage, backendResponse, source } = route.params;
       const res = await fetch("http://10.0.2.2:5002/text-predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: initialMessage }),
+        body: JSON.stringify({
+          text: initialMessage,
+          app_lan: language === "si" ? "si" : "en",
+        }),
       });
 
       const data = await res.json();
@@ -84,6 +89,7 @@ const { initialMessage, backendResponse, source } = route.params;
       session_id: sessionId,
       answer_key: questionData.answer_key,
       answer: finalAnswer || "skipped",
+      app_lan: language === "si" ? "si" : "en",
     };
 
     const endpoint =

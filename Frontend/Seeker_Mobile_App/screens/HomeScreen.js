@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   ScrollView, Image, SafeAreaView, LayoutAnimation, Platform, 
@@ -8,6 +8,8 @@ import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import { useTranslation } from 'react-i18next';
+import { LanguageContext } from '../context/LanguageContext';
 
 // Enable smooth animations for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -36,6 +38,8 @@ const CATEGORIES = [
 ];
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
+  const { language } = useContext(LanguageContext);
   const [expandedId, setExpandedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -60,10 +64,11 @@ export default function HomeScreen() {
   const handleSearch = async () => {
     if (searchQuery.trim().length > 0) {
       try {
+        const appLanguage = language === 'si' ? 'si' : 'en';
         const res = await fetch("http://10.0.2.2:5002/text-predict", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: searchQuery }),
+          body: JSON.stringify({ text: searchQuery, app_lan: appLanguage }),
         });
         const data = await res.json();
 
@@ -83,7 +88,7 @@ export default function HomeScreen() {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Need permission to access gallery');
+        Alert.alert(t('common_error'), t('home_permission_gallery'));
         return;
       }
 
@@ -103,6 +108,7 @@ export default function HomeScreen() {
         type: 'image/jpeg',
         name: 'photo.jpg',
       });
+      formData.append('app_lan', language === 'si' ? 'si' : 'en');
 
       const response = await fetch('http://10.0.2.2:5000/predict', {
         method: 'POST',
@@ -113,11 +119,11 @@ export default function HomeScreen() {
 
       if (data.object) {
         Alert.alert(
-          'Detection Result',
-          `Detected: ${data.object}\nConfidence: ${data.confidence}`,
+          t('home_detection_result'),
+          `${t('home_detected')}: ${data.object}\n${t('home_confidence')}: ${data.confidence}`,
           [
             {
-              text: 'OK',
+              text: t('common_ok'),
               onPress: () => {
                 navigation.navigate("FollowUpScreen", {
                   initialMessage: `I need help with ${data.object}`,
@@ -129,12 +135,12 @@ export default function HomeScreen() {
           ]
         );
       } else {
-        Alert.alert('Error', 'No object detected');
+        Alert.alert(t('common_error'), t('home_no_object_detected'));
       }
 
     } catch (error) {
       console.log("UPLOAD ERROR:", error);
-      Alert.alert('Error', error.message);
+      Alert.alert(t('common_error'), error.message);
     }
   };
 
@@ -167,9 +173,9 @@ export default function HomeScreen() {
         >
           <View style={styles.header}>
             <View>
-              <Text style={styles.greeting}>Good morning,</Text>
+              <Text style={styles.greeting}>{t('good_morning')}</Text>
               <Text style={styles.userName}>Tashmi 👋</Text>
-              <Text style={styles.subGreeting}>What do you need help with today?</Text>
+              <Text style={styles.subGreeting}>{t('what_help_today')}</Text>
             </View>
             <View style={styles.headerActions}>
               {/* Chat Icon */}
@@ -204,7 +210,7 @@ export default function HomeScreen() {
               <MaterialIcons name="search" size={22} color="#667eea" />
             </TouchableOpacity>
             <TextInput 
-              placeholder="Search for any service..." 
+              placeholder={t('search_placeholder')}
               placeholderTextColor="#999"
               style={styles.searchInput}
               value={searchQuery}
@@ -226,19 +232,19 @@ export default function HomeScreen() {
           {showFilters && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChips}>
               <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>Nearby</Text>
+                <Text style={styles.filterChipText}>{t('home_nearby')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>Top Rated</Text>
+                <Text style={styles.filterChipText}>{t('home_top_rated')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>Lowest Price</Text>
+                <Text style={styles.filterChipText}>{t('home_lowest_price')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>Available Now</Text>
+                <Text style={styles.filterChipText}>{t('home_available_now')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>24/7 Support</Text>
+                <Text style={styles.filterChipText}>{t('home_support_24_7')}</Text>
               </TouchableOpacity>
             </ScrollView>
           )}
@@ -254,7 +260,7 @@ export default function HomeScreen() {
               style={styles.actionGradient}
             >
               <MaterialIcons name="gavel" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Bidding</Text>
+              <Text style={styles.actionButtonText}>{t('bidding')}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -266,7 +272,7 @@ export default function HomeScreen() {
               style={styles.actionGradient}
             >
               <MaterialIcons name="post-add" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Create Post</Text>
+              <Text style={styles.actionButtonText}>{t('create_post')}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -278,16 +284,16 @@ export default function HomeScreen() {
               style={styles.actionGradient}
             >
               <MaterialIcons name="feed" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Feed</Text>
+              <Text style={styles.actionButtonText}>{t('feed')}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
 
         {/* Section Header */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>All Services</Text>
+          <Text style={styles.sectionTitle}>{t('all_services')}</Text>
           <TouchableOpacity>
-            <Text style={styles.seeAllText}>See All</Text>
+            <Text style={styles.seeAllText}>{t('home_see_all')}</Text>
           </TouchableOpacity>
         </View>
         
@@ -335,7 +341,7 @@ export default function HomeScreen() {
                       style={styles.gradientButton}
                     >
                       <MaterialIcons name="camera-alt" size={20} color="#fff" />
-                      <Text style={styles.uploadText}>Upload Repair Photo</Text>
+                      <Text style={styles.uploadText}>{t('home_upload_repair_photo')}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 )}
@@ -353,10 +359,10 @@ export default function HomeScreen() {
             style={styles.promoGradient}
           >
             <View style={styles.promoContent}>
-              <Text style={styles.promoTitle}>Special Offer</Text>
-              <Text style={styles.promoText}>Get 20% off on first service</Text>
+              <Text style={styles.promoTitle}>{t('home_special_offer')}</Text>
+              <Text style={styles.promoText}>{t('home_first_service_discount')}</Text>
               <TouchableOpacity style={styles.promoBtn}>
-                <Text style={styles.promoBtnText}>Book Now →</Text>
+                <Text style={styles.promoBtnText}>{t('home_book_now')}</Text>
               </TouchableOpacity>
             </View>
             <MaterialIcons name="local-offer" size={60} color="#ffffff30" style={styles.promoIcon} />

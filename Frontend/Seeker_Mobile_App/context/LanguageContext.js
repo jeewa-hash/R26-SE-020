@@ -4,7 +4,7 @@ import i18n from "../i18n";
 export const LanguageContext = createContext();
 
 export const LanguageProvider = ({ children }) => {
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState(i18n.language || "en");
 
   const changeLanguage = (lang) => {
     setLanguage(lang);

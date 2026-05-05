@@ -26,14 +26,20 @@ i18n.use(initReactI18next).init({
 export const loadLanguage = async () => {
   const lang = await AsyncStorage.getItem(LANG_KEY);
   if (lang) {
-    i18n.changeLanguage(lang);
+    await i18n.changeLanguage(lang);
   }
+  return lang || "en";
 };
 
 // change language
 export const setLanguage = async (lang) => {
   await AsyncStorage.setItem(LANG_KEY, lang);
   await i18n.changeLanguage(lang);
+};
+
+export const getSavedLanguage = async () => {
+  const lang = await AsyncStorage.getItem(LANG_KEY);
+  return lang || "en";
 };
 
 export default i18n;
