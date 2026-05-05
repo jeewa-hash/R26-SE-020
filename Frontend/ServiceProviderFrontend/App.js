@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, AppState } from 'react-native';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef, CommonActions } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { MaterialIcons } from '@expo/vector-icons';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import HomeScreen from './screens/HomeScreen';
 import NotificationScreen from './screens/NotificationScreen';
+import ProfileScreen from './screens/ProfileScreen';
+import SettingsScreen from './screens/SettingsScreen';
 import {
   isBiometricAvailable,
   promptBiometric,
@@ -16,6 +20,64 @@ import {
 } from './utils/biometricAuth';
 
 const Stack = createStackNavigator();
+const Tab = createBottomTabNavigator();
+
+function TabNavigator() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Home') {
+            iconName = focused ? 'home' : 'home-outline';
+          } else if (route.name === 'Settings') {
+            iconName = focused ? 'settings' : 'settings-outline';
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'person' : 'person-outline';
+          }
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#6366f1',
+        tabBarInactiveTintColor: '#9ca3af',
+        tabBarStyle: {
+          height: 60,
+          paddingBottom: 10,
+          paddingTop: 5,
+          backgroundColor: '#fff',
+          borderTopWidth: 1,
+          borderTopColor: '#f3f4f6',
+        },
+        headerStyle: {
+          backgroundColor: '#fff',
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 1,
+          borderBottomColor: '#f3f4f6',
+        },
+        headerTitleStyle: {
+          fontWeight: 'bold',
+          color: '#1f2937',
+        },
+      })}
+    >
+      <Tab.Screen 
+        name="Home" 
+        component={HomeScreen} 
+        options={{ title: 'Work Wave' }}
+      />
+      <Tab.Screen 
+        name="Settings" 
+        component={SettingsScreen} 
+        options={{ title: 'Settings', headerShown: true }}
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen} 
+        options={{ title: 'Profile', headerShown: true }}
+      />
+    </Tab.Navigator>
+  );
+}
 
 function LockScreen({ onUnlock, onPasswordFallback }) {
   const [unlocking, setUnlocking] = useState(false);
@@ -147,26 +209,25 @@ export default function App() {
   return (
     <View style={{ flex: 1 }}>
       <NavigationContainer ref={navigationRef}>
-        <Stack.Navigator initialRouteName={hasToken ? 'Home' : 'Login'}>
+        <Stack.Navigator initialRouteName={hasToken ? 'Main' : 'Login'}>
           <Stack.Screen
             name="Login"
             component={LoginScreen}
-            options={{ title: 'Provider Login' }}
+            options={{ title: 'Provider Login', headerShown: false }}
           />
           <Stack.Screen
             name="Register"
             component={RegisterScreen}
-            options={{ title: 'Provider Registration' }}
+            options={{ title: 'Provider Registration', headerShown: false }}
           />
           <Stack.Screen
-            name="Home"
-            component={HomeScreen}
-            options={{ title: 'Provider Dashboard', headerLeft: null }}
+            name="Main"
+            component={TabNavigator}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="Notifications"
             component={NotificationScreen}
-            options={{ title: 'Notifications' }}
           />
         </Stack.Navigator>
       </NavigationContainer>

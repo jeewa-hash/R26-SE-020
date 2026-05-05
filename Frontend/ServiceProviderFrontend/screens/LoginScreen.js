@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,8 +31,7 @@ export default function LoginScreen({ navigation }) {
       await AsyncStorage.setItem('userToken', response.data.token);
       await AsyncStorage.setItem('userRole', response.data.role);
 
-      Alert.alert('Success', 'Logged in successfully!');
-      navigation.replace('Home');
+      navigation.replace('Main');
       
     } catch (error) {
       const msg = error.response?.data?.message || 'Something went wrong';
@@ -44,109 +43,180 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-      style={{ flex: 1 }}
-    >
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Welcome Back</Text>
-        
-        <TextInput 
-          style={styles.input} 
-          placeholder="Email" 
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
-        
-        <View style={styles.passwordContainer}>
-          <TextInput 
-            style={styles.passwordInput} 
-            placeholder="Password" 
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
-          />
-          <TouchableOpacity 
-            style={styles.eyeIcon} 
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <MaterialIcons 
-              name={showPassword ? 'visibility' : 'visibility-off'} 
-              size={24} 
-              color="#777" 
-            />
-          </TouchableOpacity>
-        </View>
-      
-      <TouchableOpacity 
-        style={styles.button} 
-        onPress={handleLogin}
-        disabled={loading}
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1 }}
       >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Login</Text>
-        )}
-      </TouchableOpacity>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <MaterialIcons name="waves" size={40} color="#6366f1" />
+            </View>
+            <Text style={styles.title}>Work Wave</Text>
+            <Text style={styles.subtitle}>Welcome back, provider!</Text>
+          </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.link}>Register Here</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <View style={styles.inputContainer}>
+                <MaterialIcons name="email" size={20} color="#9ca3af" style={styles.inputIcon} />
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="name@example.com" 
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputContainer}>
+                <MaterialIcons name="lock" size={20} color="#9ca3af" style={styles.inputIcon} />
+                <TextInput 
+                  style={styles.input} 
+                  placeholder="Enter your password" 
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholderTextColor="#9ca3af"
+                />
+                <TouchableOpacity 
+                  style={styles.eyeIcon} 
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <MaterialIcons 
+                    name={showPassword ? 'visibility' : 'visibility-off'} 
+                    size={20} 
+                    color="#9ca3af" 
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+          
+            <TouchableOpacity 
+              style={[styles.button, loading && styles.buttonDisabled]} 
+              onPress={handleLogin}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>New to Work Wave? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <Text style={styles.link}>Create Account</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1, 
-    justifyContent: 'center', 
-    padding: 20, 
-    backgroundColor: '#f5f5f5'
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 24,
+    justifyContent: 'center',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: '#f3f4ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   title: {
     fontSize: 28, 
     fontWeight: 'bold', 
-    color: '#333', 
-    marginBottom: 30, 
-    textAlign: 'center'
+    color: '#111827',
   },
-  input: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#ddd'
+  subtitle: {
+    fontSize: 16,
+    color: '#6b7280',
+    marginTop: 8,
   },
-  passwordContainer: {
+  form: {
+    width: '100%',
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 15,
+    borderColor: '#e5e7eb',
   },
-  passwordInput: {
+  inputIcon: {
+    paddingLeft: 15,
+  },
+  input: {
     flex: 1,
     padding: 15,
+    fontSize: 15,
+    color: '#111827',
   },
   eyeIcon: {
     padding: 15,
   },
+  forgotPassword: {
+    alignSelf: 'center',
+    marginBottom: 24,
+  },
+  forgotPasswordText: {
+    color: '#6366f1',
+    fontWeight: '600',
+    fontSize: 14,
+  },
   button: {
-    backgroundColor: '#007bff',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: '#6366f1',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 10
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  buttonDisabled: {
+    backgroundColor: '#a5b4fc',
   },
   buttonText: {
     color: '#fff', 
@@ -156,13 +226,15 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row', 
     justifyContent: 'center', 
-    marginTop: 20
+    marginTop: 32
   },
   footerText: {
-    color: '#666'
+    color: '#6b7280',
+    fontSize: 15,
   },
   link: {
-    color: '#007bff', 
-    fontWeight: 'bold'
+    color: '#6366f1', 
+    fontWeight: 'bold',
+    fontSize: 15,
   }
 });

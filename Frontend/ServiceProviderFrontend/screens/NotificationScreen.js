@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, SafeAreaView } from 'react-native';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
 
 const API_URL = `http://${IP_ADDRESS}:4003`;
 
-export default function NotificationScreen() {
+export default function NotificationScreen({ navigation }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -14,13 +14,30 @@ export default function NotificationScreen() {
   useEffect(() => {
     fetchNotifications();
     
-    // Also poll every 10 seconds while on this screen
     const intervalId = setInterval(() => {
       fetchNotifications(false);
     }, 10000);
     
     return () => clearInterval(intervalId);
   }, []);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: 'Notifications',
+      headerTitleStyle: {
+        fontWeight: 'bold',
+        color: '#111827',
+      },
+      headerLeft: () => (
+        <TouchableOpacity 
+          style={{ marginLeft: 15 }} 
+          onPress={() => navigation.goBack()}
+        >
+          <MaterialIcons name="arrow-back" size={26} color="#333" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const fetchNotifications = async (showLoading = true) => {
     if (showLoading && !refreshing) setLoading(true);
@@ -107,115 +124,129 @@ export default function NotificationScreen() {
 
   const formatDate = (dateString) => {
     const d = new Date(dateString);
-    return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+    const now = new Date();
+    const diff = now - d;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return d.toLocaleDateString();
   };
 
   const renderItem = ({ item }) => (
     <TouchableOpacity 
       style={[styles.notificationCard, !item.isRead && styles.unreadCard]}
       onPress={() => !item.isRead && markAsRead(item._id)}
-      activeOpacity={0.8}
+      activeOpacity={0.7}
     >
-      <View style={styles.iconContainer}>
+      <View style={[styles.iconContainer, { backgroundColor: !item.isRead ? '#6366f115' : '#f3f4f6' }]}>
         <MaterialIcons 
           name={item.type === 'high_demand_alert' ? 'trending-up' : 'notifications'} 
-          size={24} 
-          color={!item.isRead ? '#4f46e5' : '#6b7280'} 
+          size={22} 
+          color={!item.isRead ? '#6366f1' : '#6b7280'} 
         />
       </View>
       <View style={styles.textContainer}>
-        <Text style={[styles.title, !item.isRead && styles.unreadText]}>{item.title}</Text>
-        <Text style={styles.message}>{item.message}</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, !item.isRead && styles.unreadText]}>{item.title}</Text>
+          {!item.isRead && <View style={styles.unreadDot} />}
+        </View>
+        <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
         <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
       </View>
-      {!item.isRead && <View style={styles.unreadDot} />}
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4f46e5" />
+        <ActivityIndicator size="large" color="#6366f1" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {notifications.length > 0 && (
-        <View style={styles.actionHeader}>
-          <TouchableOpacity onPress={markAllAsRead} style={styles.actionBtn}>
-            <MaterialIcons name="done-all" size={20} color="#4f46e5" />
-            <Text style={styles.actionBtnText}>Mark all as read</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={clearAll} style={styles.actionBtn}>
-            <MaterialIcons name="delete-outline" size={20} color="#ef4444" />
-            <Text style={[styles.actionBtnText, { color: '#ef4444' }]}>Clear all</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        {notifications.length > 0 && (
+          <View style={styles.actionHeader}>
+            <TouchableOpacity onPress={markAllAsRead} style={styles.actionBtn}>
+              <MaterialIcons name="done-all" size={18} color="#6366f1" />
+              <Text style={styles.actionBtnText}>Mark all read</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={clearAll} style={styles.actionBtn}>
+              <MaterialIcons name="delete-sweep" size={18} color="#ef4444" />
+              <Text style={[styles.actionBtnText, { color: '#ef4444' }]}>Clear all</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-      {notifications.length === 0 ? (
-        <View style={styles.center}>
-          <MaterialIcons name="notifications-none" size={64} color="#ccc" />
-          <Text style={styles.emptyText}>No notifications yet</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={notifications}
-          keyExtractor={(item) => item._id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContainer}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#4f46e5']}
-            />
-          }
-        />
-      )}
-    </View>
+        {notifications.length === 0 ? (
+          <View style={styles.center}>
+            <View style={styles.emptyIconContainer}>
+              <MaterialIcons name="notifications-none" size={60} color="#d1d5db" />
+            </View>
+            <Text style={styles.emptyTitle}>All caught up!</Text>
+            <Text style={styles.emptySubtitle}>You'll see your notifications here when they arrive.</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={notifications}
+            keyExtractor={(item) => item._id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#6366f1']}
+                tintColor="#6366f1"
+              />
+            }
+          />
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    padding: 20,
   },
   actionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
+    gap: 6,
   },
   actionBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#4f46e5',
-    marginLeft: 4,
+    color: '#6366f1',
   },
   listContainer: {
     padding: 16,
@@ -223,59 +254,81 @@ const styles = StyleSheet.create({
   notificationCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 2,
-    alignItems: 'flex-start',
   },
   unreadCard: {
-    backgroundColor: '#eef2ff',
+    backgroundColor: '#f9faff',
     borderLeftWidth: 4,
-    borderLeftColor: '#4f46e5',
+    borderLeftColor: '#6366f1',
   },
   iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
-    marginTop: 2,
   },
   textContainer: {
     flex: 1,
   },
-  title: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 4,
   },
+  title: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#4b5563',
+  },
   unreadText: {
-    fontWeight: 'bold',
     color: '#111827',
+    fontWeight: 'bold',
   },
   message: {
     fontSize: 14,
-    color: '#4b5563',
-    marginBottom: 8,
+    color: '#6b7280',
     lineHeight: 20,
+    marginBottom: 6,
   },
   date: {
     fontSize: 12,
     color: '#9ca3af',
   },
   unreadDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#4f46e5',
-    marginLeft: 8,
-    marginTop: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#6366f1',
   },
-  emptyText: {
-    fontSize: 16,
-    color: '#9ca3af',
-    marginTop: 16,
-  }
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: '#6b7280',
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
 });
