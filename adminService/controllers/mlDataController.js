@@ -55,8 +55,23 @@ const fetchRainForDate = async (dateObj, coords) => {
     const dateString = formatISODate(dateObj);
     const { latitude, longitude } = coords;
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(dateObj);
+    target.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
+
+    let apiUrl = OPEN_METEO_URL; // Default archive
+    
+    if (diffDays >= 0 && diffDays <= 14) {
+        apiUrl = 'https://api.open-meteo.com/v1/forecast';
+    } else if (diffDays > 14) {
+        // Weather forecast beyond 14 days is not supported by free API
+        return false;
+    }
+
     try {
-        const response = await axios.get(OPEN_METEO_URL, {
+        const response = await axios.get(apiUrl, {
             params: {
                 latitude,
                 longitude,
@@ -71,7 +86,7 @@ const fetchRainForDate = async (dateObj, coords) => {
         const rainSum = response?.data?.daily?.rain_sum?.[0];
         return Number(rainSum) > 0.5;
     } catch (error) {
-        console.warn('[WARNING] Open-Meteo lookup failed:', error.message || error);
+        console.warn(`[WARNING] Open-Meteo lookup failed for ${dateString}:`, error.message);
         return false;
     }
 };
@@ -239,4 +254,50 @@ const getSmartPrediction = async (req, res) => {
     }
 };
 
-module.exports = { logServiceForML, getSmartPrediction };
+const getSmartPredictionBatch = async (req, res) => {
+    try {
+        const { dates, categories, districts } = req.body;
+
+        if (!Array.isArray(dates) || !Array.isArray(categories) || !Array.isArray(districts)) {
+            return res.status(400).json({ error: 'dates, categories, and districts must be arrays' });
+        }
+
+        const allPredictions = [];
+
+        // Concurrency limiter logic
+        const fetchPrediction = async (date, category, district) => {
+            try {
+                const features = await prepareFeatures(date, category, district);
+                const response = await axios.post('http://127.0.0.1:5000/predict', features);
+                return response.data;
+            } catch (err) {
+                console.warn(`[WARNING] Failed prediction for ${district} - ${category} on ${date}:`, err.message);
+                return null;
+            }
+        };
+
+        const promises = [];
+        for (const date of dates) {
+            for (const category of categories) {
+                for (const district of districts) {
+                    promises.push(fetchPrediction(date, category, district));
+                }
+            }
+        }
+
+        // Wait for all to finish
+        // For large arrays (e.g. 14 * 10 * 2 = 280), Node.js can handle `Promise.all` easily if the Python server is fast.
+        // Waitress handles concurrency.
+        const results = await Promise.all(promises);
+        
+        // Filter out any nulls from failures
+        const validResults = results.filter(r => r !== null);
+
+        res.json({ predictions: validResults });
+    } catch (error) {
+        console.error('[ERROR] Error in smart prediction batch:', error.message || error);
+        res.status(500).json({ error: 'Batch prediction failed', details: error.message });
+    }
+};
+
+module.exports = { logServiceForML, getSmartPrediction, getSmartPredictionBatch };
