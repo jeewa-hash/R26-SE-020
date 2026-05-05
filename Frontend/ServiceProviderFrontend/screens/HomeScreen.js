@@ -1,35 +1,27 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { clearCredentials, getAppLockEnabled, setAppLockEnabled, isBiometricAvailable } from '../utils/biometricAuth';
 import { IP_ADDRESS } from '../config';
 
 const API_URL = `http://${IP_ADDRESS}:4003`;
 
 export default function HomeScreen({ navigation }) {
-  const [appLockEnabled, setAppLockEnabledState] = useState(false);
-  const [hasBiometric, setHasBiometric] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    loadAppLockState();
-  }, []);
-
-  // Use focus effect and interval to poll notifications
   useEffect(() => {
     let intervalId;
     const unsubscribe = navigation.addListener('focus', () => {
       fetchUnreadCount();
-      intervalId = setInterval(fetchUnreadCount, 10000); // Poll every 10 seconds while focused
+      intervalId = setInterval(fetchUnreadCount, 10000);
     });
     
     const unsubscribeBlur = navigation.addListener('blur', () => {
       if (intervalId) clearInterval(intervalId);
     });
 
-    fetchUnreadCount(); // Initial fetch
-    intervalId = setInterval(fetchUnreadCount, 10000); // Also start interval on mount
+    fetchUnreadCount();
+    intervalId = setInterval(fetchUnreadCount, 10000);
     
     return () => {
       unsubscribe();
@@ -66,7 +58,7 @@ export default function HomeScreen({ navigation }) {
           style={styles.bellContainer} 
           onPress={() => navigation.navigate('Notifications')}
         >
-          <MaterialIcons name="notifications" size={26} color="#333" />
+          <MaterialIcons name="notifications-none" size={28} color="#333" />
           {unreadCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -74,144 +66,183 @@ export default function HomeScreen({ navigation }) {
           )}
         </TouchableOpacity>
       ),
+      headerTitle: 'Work Wave',
+      headerTitleStyle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#1f2937',
+      },
     });
   }, [navigation, unreadCount]);
 
-  const loadAppLockState = async () => {
-    const enabled = await getAppLockEnabled();
-    const bioAvailable = await isBiometricAvailable();
-    setAppLockEnabledState(enabled);
-    setHasBiometric(bioAvailable);
-  };
+  const QuickAction = ({ icon, label, color, onPress }) => (
+    <TouchableOpacity style={styles.actionCard} onPress={onPress}>
+      <View style={[styles.actionIconContainer, { backgroundColor: color + '15' }]}>
+        <MaterialIcons name={icon} size={24} color={color} />
+      </View>
+      <Text style={styles.actionLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
 
-  const toggleAppLock = async (value) => {
-    if (value && !hasBiometric) {
-      Alert.alert('Not Available', 'Biometric authentication is not available on this device.');
-      return;
-    }
-    setAppLockEnabledState(value);
-    await setAppLockEnabled(value);
-    Alert.alert('App Lock', value ? 'App Lock is now enabled' : 'App Lock is now disabled');
-  };
-
-  const handleLogout = async () => {
-    await clearCredentials();
-    await AsyncStorage.removeItem('userToken');
-    await AsyncStorage.removeItem('userRole');
-    navigation.replace('Login');
-  };
+  const StatCard = ({ label, value, icon, color }) => (
+    <View style={styles.statCard}>
+      <View style={styles.statInfo}>
+        <Text style={styles.statLabel}>{label}</Text>
+        <Text style={styles.statValue}>{value}</Text>
+      </View>
+      <View style={[styles.statIconContainer, { backgroundColor: color + '15' }]}>
+        <MaterialIcons name={icon} size={20} color={color} />
+      </View>
+    </View>
+  );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome Provider!</Text>
-      <Text style={styles.subtitle}>Your account is verified and active.</Text>
-
-      <View style={styles.lockCard}>
-        <View style={styles.lockRow}>
-          <View style={styles.lockInfo}>
-            <MaterialIcons name={appLockEnabled ? 'lock' : 'lock-open'} size={22} color="#6366f1" />
-            <Text style={styles.lockLabel}>App Lock</Text>
-          </View>
-          <Switch
-            value={appLockEnabled}
-            onValueChange={toggleAppLock}
-            trackColor={{ false: '#ccc', true: '#6366f1' }}
-            thumbColor={appLockEnabled ? '#fff' : '#f4f3f4'}
-          />
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.welcomeSection}>
+          <Text style={styles.greeting}>Hello, Provider!</Text>
+          <Text style={styles.subtitle}>Your account is verified and active.</Text>
         </View>
-        <Text style={styles.lockDescription}>
-          {appLockEnabled
-            ? 'Your app is protected with biometric authentication.'
-            : 'Enable to require fingerprint or Face ID when opening the app.'}
-        </Text>
-      </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleLogout}>
-        <Text style={styles.buttonText}>Logout</Text>
-      </TouchableOpacity>
-    </View>
+        <View style={styles.statsRow}>
+          <StatCard label="Earnings" value="$1,240" icon="attach-money" color="#10b981" />
+          <StatCard label="Jobs" value="12" icon="work" color="#6366f1" />
+        </View>
+
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionsGrid}>
+          <QuickAction icon="add-task" label="New Job" color="#6366f1" />
+          <QuickAction icon="history" label="History" color="#f59e0b" />
+          <QuickAction icon="person" label="Profile" color="#10b981" onPress={() => navigation.navigate('Profile')} />
+          <QuickAction icon="settings" label="Settings" color="#6b7280" onPress={() => navigation.navigate('Settings')} />
+        </View>
+        
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f5f5f5'
   },
-  title: {
-    fontSize: 28,
+  welcomeSection: {
+    marginBottom: 25,
+    paddingTop: 10,
+  },
+  greeting: {
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
+    color: '#111827',
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 40,
+    fontSize: 15,
+    color: '#6b7280',
+    marginTop: 4,
   },
-  lockCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    width: '100%',
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  lockRow: {
+  statsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: 15,
+    marginBottom: 25,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  statInfo: {
+    flex: 1,
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  statIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 15,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 15,
+    marginBottom: 25,
+  },
+  actionCard: {
+    width: '47.5%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  actionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 10,
   },
-  lockInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  lockLabel: {
-    fontSize: 16,
+  actionLabel: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#333',
-  },
-  lockDescription: {
-    fontSize: 13,
-    color: '#888',
-    lineHeight: 18,
-  },
-  button: {
-    backgroundColor: '#dc3545',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold'
+    color: '#374151',
   },
   bellContainer: {
     marginRight: 15,
-    padding: 5,
+    position: 'relative',
   },
   badge: {
     position: 'absolute',
-    right: 0,
-    top: 0,
+    top: -2,
+    right: -2,
     backgroundColor: '#ef4444',
     borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    minWidth: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   badgeText: {
     color: '#fff',
     fontSize: 10,
     fontWeight: 'bold',
-  }
+  },
 });
