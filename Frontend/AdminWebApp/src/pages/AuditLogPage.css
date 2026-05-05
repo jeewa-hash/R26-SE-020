@@ -155,6 +155,7 @@
 .cat-badge.category { background: #fef3c7; color: #92400e; }
 .cat-badge.nic { background: #dcfce7; color: #15803d; }
 .cat-badge.admin { background: #f3e8ff; color: #7e22ce; }
+.cat-badge.demand-forecasting { background: #e0e7ff; color: #4338ca; }
 
 .owner-cell {
   display: flex;

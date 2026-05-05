@@ -88,6 +88,7 @@ const AuditLogPage = () => {
             <option value="User">User Actions</option>
             <option value="Category">Category Actions</option>
             <option value="NIC">NIC Verifications</option>
+            <option value="Demand Forecasting">Demand Forecasting</option>
           </select>
         </div>
 
@@ -142,7 +143,7 @@ const AuditLogPage = () => {
                       <span className="action-text">{log.action}</span>
                     </td>
                     <td>
-                      <span className={`cat-badge ${log.category.toLowerCase()}`}>
+                      <span className={`cat-badge ${log.category.toLowerCase().replace(' ', '-')}`}>
                         {log.category}
                       </span>
                     </td>

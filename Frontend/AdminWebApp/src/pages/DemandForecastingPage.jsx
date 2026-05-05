@@ -144,6 +144,27 @@ const DemandForecastingPage = () => {
 
       setPredictions(finalResults);
 
+      // Audit Log for Prediction
+      try {
+        const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+        const adminId = adminUser.id || adminUser._id;
+        if (adminId) {
+          await axios.post(`${API_BASE_URL}/audit-logs/internal`, {
+            action: 'Generated Demand Forecast',
+            category: 'Demand Forecasting',
+            adminId: adminId,
+            target: { name: `Forecast for ${selectedDistrict} - ${selectedCategory}`, type: 'FORECAST' },
+            metadata: {
+              district: selectedDistrict,
+              category: selectedCategory,
+              timeframe: selectedTimeframe
+            }
+          });
+        }
+      } catch (logErr) {
+        console.warn('Failed to log prediction action:', logErr.message);
+      }
+
     } catch (err) {
       console.error(err);
       setError("Prediction failed. " + (err.response?.data?.error || err.message));
@@ -155,6 +176,7 @@ const DemandForecastingPage = () => {
   const handleRetrain = async () => {
     setRetraining(true);
     setRetrainResult(null);
+    let successStatus = false;
     try {
       const response = await axios.post(`${ADMIN_SERVICE_URL}/retrain`);
       setRetrainResult({
@@ -162,6 +184,7 @@ const DemandForecastingPage = () => {
         message: response.data.message || "Model retrained successfully!",
         details: response.data.details
       });
+      successStatus = true;
     } catch (err) {
       setRetrainResult({
         success: false,
@@ -170,6 +193,25 @@ const DemandForecastingPage = () => {
       });
     } finally {
       setRetraining(false);
+      
+      // Audit Log for Retraining
+      try {
+        const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
+        const adminId = adminUser.id || adminUser._id;
+        if (adminId) {
+          await axios.post(`${API_BASE_URL}/audit-logs/internal`, {
+            action: successStatus ? 'Model Retrained Successfully' : 'Model Retraining Failed',
+            category: 'Demand Forecasting',
+            adminId: adminId,
+            target: { name: 'Demand Forecasting ML Model', type: 'RETRAIN' },
+            metadata: {
+              status: successStatus ? 'Success' : 'Failed'
+            }
+          });
+        }
+      } catch (logErr) {
+        console.warn('Failed to log retrain action:', logErr.message);
+      }
     }
   };
 
