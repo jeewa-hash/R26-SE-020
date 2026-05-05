@@ -1,5 +1,25 @@
 const jwt = require('jsonwebtoken');
 const ServiceCategory = require('../models/ServiceCategory');
+const axios = require('axios');
+
+const AUTH_SERVICE_URL = 'http://127.0.0.1:4000/api/auth';
+
+const logAudit = async (req, action, target) => {
+  try {
+    const adminId = req.user.id;
+    console.log(`Attempting to log audit: ${action} for admin ${adminId}`);
+    
+    await axios.post(`${AUTH_SERVICE_URL}/admin/audit-logs/internal`, {
+      action,
+      category: 'Category',
+      adminId,
+      target
+    });
+    console.log(`Audit log successfully sent to authService for action: ${action}`);
+  } catch (err) {
+    console.error('Failed to log audit in adminService:', err.message);
+  }
+};
 
 // Middleware to verify admin JWT token
 exports.verifyAdmin = async (req, res, next) => {
@@ -72,6 +92,8 @@ exports.createCategory = async (req, res) => {
     const category = new ServiceCategory({ name: trimmedName });
     await category.save();
 
+    await logAudit(req, 'Category Created', { id: category._id, name: category.name, type: 'Category' });
+
     res.status(201).json({ message: 'Category created successfully', category });
   } catch (err) {
     console.error('Error creating category:', err.message);
@@ -110,6 +132,8 @@ exports.updateCategory = async (req, res) => {
       return res.status(404).json({ message: 'Category not found' });
     }
 
+    await logAudit(req, 'Category Updated', { id: category._id, name: category.name, type: 'Category' });
+
     res.status(200).json({ message: 'Category updated successfully', category });
   } catch (err) {
     console.error('Error updating category:', err.message);
@@ -127,6 +151,8 @@ exports.deleteCategory = async (req, res) => {
     if (!category) {
       return res.status(404).json({ message: 'Category not found' });
     }
+
+    await logAudit(req, 'Category Deleted', { id: category._id, name: category.name, type: 'Category' });
 
     res.status(200).json({ message: 'Category deleted successfully' });
   } catch (err) {

@@ -7,6 +7,8 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const { extractNicFromImage } = require('../utils/ocr');
 const { sendApprovalEmail, sendRejectionEmail } = require('../utils/emailService');
+const { createAuditLog } = require('../utils/auditLogger');
+const AuditLog = require('../models/AuditLog');
 
 // Email transporter (same config as seeker)
 const transporter = nodemailer.createTransport({
@@ -71,6 +73,15 @@ exports.register = async (req, res) => {
     });
 
     await admin.save();
+
+    // Create Audit Log
+    const currentAdmin = await Admin.findById(req.user.id);
+    await createAuditLog({
+      action: 'Admin Registered',
+      category: 'Admin',
+      admin: currentAdmin,
+      target: { id: admin._id, name: admin.fullName, type: 'Admin' }
+    });
 
     // Send credentials email to the new admin
     const mailOptions = {
@@ -237,6 +248,15 @@ exports.updateUser = async (req, res) => {
     const updatedUser = await Model.findByIdAndUpdate(id, req.body, { new: true }).select('-password');
     if (!updatedUser) return res.status(404).json({ message: 'User not found' });
 
+    // Create Audit Log
+    const currentAdmin = await Admin.findById(req.user.id);
+    await createAuditLog({
+      action: `User Updated (${type})`,
+      category: 'User',
+      admin: currentAdmin,
+      target: { id: updatedUser._id, name: updatedUser.name || updatedUser.fullName || updatedUser.email, type }
+    });
+
     res.json(updatedUser);
   } catch (err) {
     console.error('Error updating user:', err.message);
@@ -254,6 +274,15 @@ exports.deleteUser = async (req, res) => {
 
     const deletedUser = await Model.findByIdAndDelete(id);
     if (!deletedUser) return res.status(404).json({ message: 'User not found' });
+
+    // Create Audit Log
+    const currentAdmin = await Admin.findById(req.user.id);
+    await createAuditLog({
+      action: `User Deleted (${type})`,
+      category: 'User',
+      admin: currentAdmin,
+      target: { id: deletedUser._id, name: deletedUser.name || deletedUser.fullName || deletedUser.email, type }
+    });
 
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
@@ -275,6 +304,15 @@ exports.toggleUserStatus = async (req, res) => {
 
     user.isBlocked = !user.isBlocked;
     await user.save();
+
+    // Create Audit Log
+    const currentAdmin = await Admin.findById(req.user.id);
+    await createAuditLog({
+      action: user.isBlocked ? 'User Blocked' : 'User Unblocked',
+      category: 'User',
+      admin: currentAdmin,
+      target: { id: user._id, name: user.name || user.fullName || user.email, type }
+    });
 
     res.json({ message: `User successfully ${user.isBlocked ? 'blocked' : 'unblocked'}`, isBlocked: user.isBlocked });
   } catch (err) {
@@ -364,6 +402,15 @@ exports.verifyProvider = async (req, res) => {
       provider.adminNote = '';
       await provider.save();
 
+      // Create Audit Log
+      const currentAdmin = await Admin.findById(req.user.id);
+      await createAuditLog({
+        action: 'NIC Approved',
+        category: 'NIC',
+        admin: currentAdmin,
+        target: { id: provider._id, name: provider.email, type: 'Provider' }
+      });
+
       // Send approval email
       try {
         await sendApprovalEmail(provider.email, provider.email.split('@')[0]);
@@ -378,6 +425,16 @@ exports.verifyProvider = async (req, res) => {
       provider.isBlocked = false;
       provider.adminNote = adminNote.trim();
       await provider.save();
+
+      // Create Audit Log
+      const currentAdmin = await Admin.findById(req.user.id);
+      await createAuditLog({
+        action: 'NIC Rejected',
+        category: 'NIC',
+        admin: currentAdmin,
+        target: { id: provider._id, name: provider.email, type: 'Provider' },
+        metadata: { reason: adminNote.trim() }
+      });
 
       // Send rejection email
       try {
@@ -445,5 +502,61 @@ exports.clearAllNotifications = async (req, res) => {
   } catch (err) {
     console.error('Error clearing notifications:', err.message);
     res.status(500).json({ message: 'Server error while clearing notifications' });
+  }
+};
+
+// Get audit logs with filtering, pagination, and sorting
+exports.getAuditLogs = async (req, res) => {
+  try {
+    const { category, startDate, endDate, page = 1, limit = 10 } = req.query;
+    
+    let query = {};
+    if (category) query.category = category;
+    
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    const logs = await AuditLog.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    const total = await AuditLog.countDocuments(query);
+
+    res.json({
+      logs,
+      total,
+      pages: Math.ceil(total / limit),
+      currentPage: parseInt(page)
+    });
+  } catch (err) {
+    console.error('Error fetching audit logs:', err.message);
+    res.status(500).json({ message: 'Server error while fetching audit logs' });
+  }
+};
+
+// Internal route for other services to create audit logs
+exports.createAuditLogInternal = async (req, res) => {
+  try {
+    const { action, category, adminId, target, metadata } = req.body;
+    
+    const admin = await Admin.findById(adminId);
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+
+    await createAuditLog({
+      action,
+      category,
+      admin,
+      target,
+      metadata
+    });
+
+    res.status(201).json({ message: 'Audit log created' });
+  } catch (err) {
+    console.error('Error in internal audit log creation:', err.message);
+    res.status(500).json({ message: 'Internal server error' });
   }
 };

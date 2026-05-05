@@ -154,6 +154,12 @@
   border-color: #fecaca;
 }
 
+.status-badge.suspended {
+  background-color: var(--warning-light);
+  color: var(--warning-700);
+  border-color: #fef08a;
+}
+
 .action-toggle-container {
   display: flex;
   align-items: center;
@@ -421,5 +427,71 @@
 .footer-stat .value {
   font-size: 18px;
   font-weight: 700;
+}
+
+/* Penalty Stats Cards */
+.penalty-stats {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 8px;
+}
+
+.stat-card {
+  flex: 1;
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--gray-200);
+  transition: var(--transition-normal);
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.stat-icon.blue {
+  background-color: var(--primary-50);
+  color: var(--primary-600);
+}
+
+.stat-icon.red {
+  background-color: var(--danger-light);
+  color: var(--danger);
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--gray-900);
+  line-height: 1;
 }
 

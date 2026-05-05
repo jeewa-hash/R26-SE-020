@@ -10,6 +10,7 @@ import ProviderVerificationPage from './pages/ProviderVerificationPage';
 import RejectedVerificationsPage from './pages/RejectedVerificationsPage';
 import PenaltyManagementPage from './pages/PenaltyManagementPage';
 import InquiriesPage from './pages/InquiriesPage';
+import AuditLogPage from './pages/AuditLogPage';
 import './App.css';
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
           <Route path="rejected-verifications" element={<RejectedVerificationsPage />} />
           <Route path="penalty-management" element={<PenaltyManagementPage />} />
           <Route path="inquiries" element={<InquiriesPage />} />
+          <Route path="audit-logs" element={<AuditLogPage />} />
         </Route>
 
         {/* Catch-all redirect */}
