@@ -19,11 +19,11 @@ export default function LanguageScreen({ navigation }) {
       <Text style={styles.title}>{t("select_language")}</Text>
 
       <TouchableOpacity onPress={() => selectLang("en")}>
-        <Text>English</Text>
+        <Text>{t("language_english")}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => selectLang("si")}>
-        <Text>සිංහල</Text>
+        <Text>{t("language_sinhala")}</Text>
       </TouchableOpacity>
     </View>
   );
