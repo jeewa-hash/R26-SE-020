@@ -31,4 +31,7 @@ router.delete('/notifications', adminController.verifyAdmin, adminController.cle
 router.get('/audit-logs', adminController.verifyAdmin, adminController.getAuditLogs);
 router.post('/audit-logs/internal', adminController.createAuditLogInternal);
 
+// Demand Forecasting Alert Route
+router.post('/notify-high-demand', adminController.verifyAdmin, adminController.dispatchHighDemandAlerts);
+
 module.exports = router;

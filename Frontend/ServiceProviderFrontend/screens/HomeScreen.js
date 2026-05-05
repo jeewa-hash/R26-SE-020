@@ -1,16 +1,81 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearCredentials, getAppLockEnabled, setAppLockEnabled, isBiometricAvailable } from '../utils/biometricAuth';
+import { IP_ADDRESS } from '../config';
+
+const API_URL = `http://${IP_ADDRESS}:4003`;
 
 export default function HomeScreen({ navigation }) {
   const [appLockEnabled, setAppLockEnabledState] = useState(false);
   const [hasBiometric, setHasBiometric] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     loadAppLockState();
   }, []);
+
+  // Use focus effect and interval to poll notifications
+  useEffect(() => {
+    let intervalId;
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchUnreadCount();
+      intervalId = setInterval(fetchUnreadCount, 10000); // Poll every 10 seconds while focused
+    });
+    
+    const unsubscribeBlur = navigation.addListener('blur', () => {
+      if (intervalId) clearInterval(intervalId);
+    });
+
+    fetchUnreadCount(); // Initial fetch
+    intervalId = setInterval(fetchUnreadCount, 10000); // Also start interval on mount
+    
+    return () => {
+      unsubscribe();
+      unsubscribeBlur();
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [navigation]);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+
+      const response = await fetch(`${API_URL}/notifications`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        const unread = data.filter(n => !n.isRead).length;
+        setUnreadCount(unread);
+      }
+    } catch (err) {
+      console.log('Error fetching notifications count:', err);
+    }
+  };
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          style={styles.bellContainer} 
+          onPress={() => navigation.navigate('Notifications')}
+        >
+          <MaterialIcons name="notifications" size={26} color="#333" />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, unreadCount]);
 
   const loadAppLockState = async () => {
     const enabled = await getAppLockEnabled();
@@ -127,5 +192,26 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold'
+  },
+  bellContainer: {
+    marginRight: 15,
+    padding: 5,
+  },
+  badge: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   }
 });

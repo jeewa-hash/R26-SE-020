@@ -2,11 +2,13 @@ const Admin = require('../models/Admin');
 const Provider = require('../models/Provider');
 const Seeker = require('../models/Seeker');
 const Notification = require('../models/Notification');
+const ProviderNotification = require('../models/ProviderNotification');
+const HighDemandAlertLog = require('../models/HighDemandAlertLog');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const { extractNicFromImage } = require('../utils/ocr');
-const { sendApprovalEmail, sendRejectionEmail } = require('../utils/emailService');
+const { sendApprovalEmail, sendRejectionEmail, sendHighDemandEmail } = require('../utils/emailService');
 const { createAuditLog } = require('../utils/auditLogger');
 const AuditLog = require('../models/AuditLog');
 
@@ -558,5 +560,87 @@ exports.createAuditLogInternal = async (req, res) => {
   } catch (err) {
     console.error('Error in internal audit log creation:', err.message);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Dispatch High Demand Alerts to Providers
+exports.dispatchHighDemandAlerts = async (req, res) => {
+  try {
+    const { category, district, timeframe, avgDemand, confidence } = req.body;
+    
+    // Check if we already sent this specific alert today
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    const existingLog = await HighDemandAlertLog.findOne({
+      category,
+      district,
+      timeframe,
+      date: todayStr
+    });
+
+    if (existingLog) {
+      return res.status(200).json({ message: 'Alerts already dispatched for this category, district, and timeframe today. Skipping to prevent spam.' });
+    }
+
+    // Find verified, active providers in the district and category
+    const query = {
+      role: 'ServiceProvider',
+      isVerified: true,
+      isBlocked: false,
+    };
+    if (district !== 'All Districts') query.district = district;
+    if (category !== 'All Categories') query.category = category;
+
+    const providers = await Provider.find(query);
+
+    if (providers.length === 0) {
+      // Record log even if no providers, to not retry
+      await HighDemandAlertLog.create({ category, district, timeframe, date: todayStr });
+      return res.status(200).json({ message: 'No providers found to send alerts to.' });
+    }
+
+    // Dispatch emails and notifications
+    for (const provider of providers) {
+      // Create In-App Notification
+      await ProviderNotification.create({
+        providerId: provider._id,
+        title: `🚀 High Demand Alert: ${category}!`,
+        message: `High demand predicted for ${category} in ${district} for ${timeframe}. Stay active to grab more job requests and increase your earnings!`,
+        type: 'high_demand_alert'
+      });
+
+      // Send Email
+      if (provider.email) {
+        try {
+          await sendHighDemandEmail(
+            provider.email,
+            provider.fullName || 'Provider', // Fallback if fullName isn't present
+            category,
+            district,
+            avgDemand,
+            confidence
+          );
+        } catch (err) {
+          console.warn(`Failed to send high demand email to ${provider.email}`);
+        }
+      }
+    }
+
+    // Save to tracking DB
+    await HighDemandAlertLog.create({ category, district, timeframe, date: todayStr });
+
+    // Optional: Log to AuditLog
+    await createAuditLog({
+      action: 'Dispatched High Demand Alerts',
+      category: 'Demand Forecasting',
+      admin: req.user,
+      target: { name: `Alerts sent to ${providers.length} providers`, type: 'ALERT' },
+      metadata: { category, district, timeframe }
+    });
+
+    res.status(200).json({ message: `High Demand alerts successfully sent to ${providers.length} providers.` });
+  } catch (err) {
+    console.error('Error dispatching high demand alerts:', err);
+    res.status(500).json({ message: 'Internal server error while dispatching alerts' });
   }
 };

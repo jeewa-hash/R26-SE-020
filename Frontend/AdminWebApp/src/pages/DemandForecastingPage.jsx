@@ -144,6 +144,29 @@ const DemandForecastingPage = () => {
 
       setPredictions(finalResults);
 
+      // Auto-trigger High Demand Alerts
+      const token = localStorage.getItem('adminToken');
+      if (token) {
+        for (const res of finalResults) {
+          const confValue = parseFloat(res.Average_Confidence.replace('%', ''));
+          if (res.Average_Demand >= 8 && confValue >= 90) {
+            try {
+              await axios.post(`${API_BASE_URL}/notify-high-demand`, {
+                category: res.Category,
+                district: res.District,
+                timeframe: selectedTimeframe,
+                avgDemand: res.Average_Demand,
+                confidence: confValue
+              }, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+            } catch (alertErr) {
+              console.warn(`Failed to dispatch alert for ${res.Category}:`, alertErr.response?.data?.message || alertErr.message);
+            }
+          }
+        }
+      }
+
       // Audit Log for Prediction
       try {
         const adminUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
