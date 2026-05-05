@@ -8,6 +8,8 @@ import ViewUsersPage from './pages/ViewUsersPage';
 import ManageCategoriesPage from './pages/ManageCategoriesPage';
 import ProviderVerificationPage from './pages/ProviderVerificationPage';
 import RejectedVerificationsPage from './pages/RejectedVerificationsPage';
+import PenaltyManagementPage from './pages/PenaltyManagementPage';
+import InquiriesPage from './pages/InquiriesPage';
 import './App.css';
 
 function App() {
@@ -32,6 +34,8 @@ function App() {
           <Route path="categories" element={<ManageCategoriesPage />} />
           <Route path="verify-provider/:id" element={<ProviderVerificationPage />} />
           <Route path="rejected-verifications" element={<RejectedVerificationsPage />} />
+          <Route path="penalty-management" element={<PenaltyManagementPage />} />
+          <Route path="inquiries" element={<InquiriesPage />} />
         </Route>
 
         {/* Catch-all redirect */}

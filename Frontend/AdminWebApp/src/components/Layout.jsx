@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
-import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock } from 'react-icons/fi';
+import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare } from 'react-icons/fi';
 import { HiOutlineShieldCheck } from 'react-icons/hi';
 
 function Layout() {
@@ -11,25 +11,24 @@ function Layout() {
 
   const [notifications, setNotifications] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [notifLoading, setNotifLoading] = useState(false);
   const dropdownRef = useRef(null);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      if (!token) return;
-      const response = await axios.get(`${API_BASE_URL}/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications(response.data);
-    } catch (err) {
-      console.error('Failed to fetch notifications', err);
-    }
-  };
-
   useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const token = localStorage.getItem('adminToken');
+        if (!token) return;
+        const response = await axios.get(`${API_BASE_URL}/notifications`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setNotifications(response.data);
+      } catch (err) {
+        console.error('Failed to fetch notifications', err);
+      }
+    };
+
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
@@ -162,6 +161,20 @@ function Layout() {
           >
             <span className="sidebar-link-icon"><FiXCircle /></span>
             Rejected Verifications
+          </NavLink>
+          <NavLink
+            to="/penalty-management"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiAlertCircle /></span>
+            Penalty Management
+          </NavLink>
+          <NavLink
+            to="/inquiries"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiMessageSquare /></span>
+            Inquiries
           </NavLink>
 
           <div className="sidebar-section-label">System</div>
