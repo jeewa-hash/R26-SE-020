@@ -53,4 +53,10 @@ router.get('/categories', async (req, res) => {
   }
 });
 
+// Notification routes
+router.get('/notifications', providerAuthController.verifyProvider, providerAuthController.getNotifications);
+router.patch('/notifications/read-all', providerAuthController.verifyProvider, providerAuthController.markAllNotificationsAsRead);
+router.delete('/notifications', providerAuthController.verifyProvider, providerAuthController.clearAllNotifications);
+router.patch('/notifications/:id/read', providerAuthController.verifyProvider, providerAuthController.markNotificationAsRead);
+
 module.exports = router;

@@ -6,6 +6,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import HomeScreen from './screens/HomeScreen';
+import NotificationScreen from './screens/NotificationScreen';
 import {
   isBiometricAvailable,
   promptBiometric,
@@ -161,6 +162,11 @@ export default function App() {
             name="Home"
             component={HomeScreen}
             options={{ title: 'Provider Dashboard', headerLeft: null }}
+          />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationScreen}
+            options={{ title: 'Notifications' }}
           />
         </Stack.Navigator>
       </NavigationContainer>
