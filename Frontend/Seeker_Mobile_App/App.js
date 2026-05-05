@@ -5,6 +5,11 @@ import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import VerifyOTPScreen from './screens/VerifyOTPScreen';
 import HomeScreen from './screens/HomeScreen';
+import FollowUpScreen from './screens/FollowUpScreen';
+import ProvidersScreen from './screens/ProvidersScreen'; 
+import FeedScreen from './screens/FeedScreen';
+import ProfileScreen from './screens/ProfileScreen';
+
 
 const Stack = createStackNavigator();
 
@@ -32,7 +37,29 @@ export default function App() {
           component={HomeScreen} 
           options={{ title: 'Seeker Dashboard', headerLeft: null }} 
         />
+        <Stack.Screen 
+          name="FollowUpScreen" 
+          component={FollowUpScreen} 
+          options={{ title: 'Follow Up Questions' }} 
+        />
+        <Stack.Screen 
+  name="FeedScreen" 
+  component={FeedScreen} 
+  options={{ headerShown: false }} 
+/>
+<Stack.Screen 
+  name="ProfileScreen" 
+  component={ProfileScreen} 
+  options={{ headerShown: false }} 
+/>
+        {/* Add the ProvidersScreen here */}
+        <Stack.Screen 
+          name="ProvidersScreen" 
+          component={ProvidersScreen} 
+          options={{ title: 'Available Providers' }} 
+        />
       </Stack.Navigator>
+      
     </NavigationContainer>
   );
 }

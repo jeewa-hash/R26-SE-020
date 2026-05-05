@@ -1,7 +1,9 @@
 const Provider = require('../models/Provider');
+const Notification = require('../models/Notification');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { sendVerificationPendingEmail } = require('../utils/emailService');
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -30,7 +32,7 @@ exports.generateBio = async (req, res) => {
 // Registration Logic
 exports.register = async (req, res) => {
   try {
-    const { email, password, role, nicNumber, category, district, latitude, longitude, telephone, rawBio } = req.body;
+    const { email, password, role, nicNumber, category, district, latitude, longitude, telephone, rawBio, gender, address } = req.body;
 
     // Security Check: Prevent users from registering as Admin
     if (role === 'Admin') {
@@ -77,11 +79,36 @@ exports.register = async (req, res) => {
       category,
       district,
       bio: rawBio || '',
+      gender: gender || undefined,
+      address: address || undefined,
       location: (latitude && longitude) ? { latitude: parseFloat(latitude), longitude: parseFloat(longitude) } : undefined,
       isVerified: false,
     });
 
     await user.save();
+
+    // Send verification pending email
+    try {
+      await sendVerificationPendingEmail(user.email, user.email.split('@')[0]);
+    } catch (emailErr) {
+      console.error('[Register] Failed to send verification pending email:', emailErr.message);
+      // Don't fail registration if email fails
+    }
+
+    // Create admin notification for new provider registration
+    try {
+      const notification = new Notification({
+        type: 'provider_registration',
+        title: 'New Provider Registration',
+        message: `A new service provider (${email}) has registered and is awaiting NIC verification.`,
+        relatedId: user._id.toString(),
+        isRead: false,
+      });
+      await notification.save();
+      console.log('[Notification] Created for new provider:', email);
+    } catch (notifErr) {
+      console.error('[Notification] Failed to create notification:', notifErr.message);
+    }
 
     // Remove password from response
     const userResponse = {
@@ -92,6 +119,8 @@ exports.register = async (req, res) => {
       nicImage: user.nicImage,
       profileImage: user.profileImage,
       bio: user.bio,
+      gender: user.gender,
+      address: user.address,
       isVerified: user.isVerified,
     };
 
@@ -117,6 +146,10 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid Credentials' });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'Your account has been blocked by the Administrator.' });
     }
 
     // Check Verification Status
