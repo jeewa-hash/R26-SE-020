@@ -9,7 +9,7 @@ const auditLogSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: ['User', 'Category', 'NIC', 'Admin'],
+      enum: ['User', 'Category', 'NIC', 'Admin', 'Demand Forecasting'],
     },
     actionOwner: {
       adminId: {
