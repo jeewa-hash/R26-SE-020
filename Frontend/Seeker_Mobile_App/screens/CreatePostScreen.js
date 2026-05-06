@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useContext } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   Image,
   Alert,
   Platform,
-  KeyboardAvoidingView,
   ActivityIndicator,
   Animated,
   Dimensions,
@@ -21,11 +20,24 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
+import { LanguageContext } from '../context/LanguageContext';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
+
+// IMPORTANT: Change this based on your setup
+// For Android Emulator: 'http://10.0.2.2:6000'
+// For iOS Simulator: 'http://localhost:6000'
+// For Physical Device: 'http://YOUR_COMPUTER_IP:6000' (e.g., 'http://192.168.1.100:6000')
+const API_BASE_URL = Platform.OS === 'android' 
+  ? 'http://10.0.2.2:6000'  // Android Emulator
+  : 'http://localhost:6000'; // iOS Simulator
 
 export default function CreatePostScreen() {
   const navigation = useNavigation();
+  const { t } = useTranslation();
+  const { language } = useContext(LanguageContext);
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [title, setTitle] = useState('');
@@ -35,6 +47,7 @@ export default function CreatePostScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedImages, setSelectedImages] = useState([]);
   const [activeField, setActiveField] = useState(null);
+  const [category, setCategory] = useState('');
   
   const scrollY = useRef(new Animated.Value(0)).current;
   const titleScale = scrollY.interpolate({
@@ -42,6 +55,13 @@ export default function CreatePostScreen() {
     outputRange: [1, 0.95],
     extrapolate: 'clamp',
   });
+
+  const categories = [
+    'Repairing Services',
+    'Cleaning Services',
+    'Gardening Services',
+    'Care & Personal Support'
+  ];
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -53,7 +73,7 @@ export default function CreatePostScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.9,
+      quality: 0.7,
     });
     if (!result.canceled) {
       setSelectedImages([...selectedImages, result.assets[0].uri]);
@@ -74,7 +94,37 @@ export default function CreatePostScreen() {
     });
   };
 
-  const handleSubmit = () => {
+  const uploadImages = async () => {
+    const uploadedUrls = [];
+    for (let imageUri of selectedImages) {
+      try {
+        const formData = new FormData();
+        formData.append('image', {
+          uri: imageUri,
+          type: 'image/jpeg',
+          name: 'post_image.jpg',
+        });
+
+        const response = await fetch(`${API_BASE_URL}/upload`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        const data = await response.json();
+        if (data.url) {
+          uploadedUrls.push(data.url);
+        }
+      } catch (error) {
+        console.log('Image upload error:', error);
+      }
+    }
+    return uploadedUrls;
+  };
+
+  const handleSubmit = async () => {
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a title');
       return;
@@ -85,11 +135,62 @@ export default function CreatePostScreen() {
     }
     
     setLoading(true);
-    setTimeout(() => {
+    
+    try {
+      // Get user token
+      const token = await AsyncStorage.getItem('userToken');
+      const userId = await AsyncStorage.getItem('userId');
+      
+      // Upload images first
+      let imageUrls = [];
+      if (selectedImages.length > 0) {
+        imageUrls = await uploadImages();
+      }
+      
+      // Prepare post data
+      const postData = {
+        title: title.trim(),
+        description: description.trim(),
+        location: location || '',
+        budget: budget || '',
+        scheduledDate: selectedDate.toISOString(),
+        images: imageUrls,
+        category: category || 'Other',
+        userId: userId || 'user_' + Date.now(),
+        status: 'open',
+        userLanguage: language === 'si' ? 'si' : 'en',
+        createdAt: new Date().toISOString(),
+      };
+      
+      console.log('Sending to:', `${API_BASE_URL}/create`);
+      console.log('Post data:', postData);
+      
+      // Send to backend
+      const response = await fetch(`${API_BASE_URL}/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(postData),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        Alert.alert(
+          'Success!', 
+          'Your service request has been posted successfully!',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } else {
+        Alert.alert('Error', data.message || 'Failed to create post');
+      }
+    } catch (error) {
+      console.error('Submit error:', error);
+      Alert.alert('Error', `Network error: ${error.message}. Please check if backend server is running on ${API_BASE_URL}`);
+    } finally {
       setLoading(false);
-      Alert.alert('Success', 'Your service request has been posted!');
-      navigation.goBack();
-    }, 1000);
+    }
   };
 
   return (
@@ -128,6 +229,26 @@ export default function CreatePostScreen() {
 
         {/* Form Container */}
         <View style={styles.formContainer}>
+          {/* Category Selection */}
+          <View style={[styles.inputContainer, activeField === 'category' && styles.inputContainerActive]}>
+            <Text style={styles.inputLabel}>Select Category 📂</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.categoryContainer}>
+                {categories.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.categoryChip, category === cat && styles.categoryChipActive]}
+                    onPress={() => setCategory(cat)}
+                  >
+                    <Text style={[styles.categoryChipText, category === cat && styles.categoryChipTextActive]}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+
           {/* Title Field */}
           <View style={[styles.inputContainer, activeField === 'title' && styles.inputContainerActive]}>
             <Text style={styles.inputLabel}>What do you need? ✨</Text>
@@ -164,7 +285,6 @@ export default function CreatePostScreen() {
 
           {/* Quick Info Grid */}
           <View style={styles.infoGrid}>
-            {/* Location Card */}
             <TouchableOpacity 
               style={styles.infoCard} 
               onPress={() => {
@@ -188,7 +308,6 @@ export default function CreatePostScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Budget Card */}
             <TouchableOpacity 
               style={styles.infoCard} 
               onPress={() => {
@@ -210,7 +329,6 @@ export default function CreatePostScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Date Card */}
             <TouchableOpacity 
               style={styles.infoCard} 
               onPress={() => setShowDatePicker(true)}
@@ -244,7 +362,7 @@ export default function CreatePostScreen() {
           {/* Image Upload Section */}
           <View style={styles.uploadSection}>
             <Text style={styles.sectionTitle}>📸 Add Photos</Text>
-            <Text style={styles.sectionSubtitle}>Show providers what you need</Text>
+            <Text style={styles.sectionSubtitle}>Show providers what you need (Optional)</Text>
             
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScroll}>
               {selectedImages.map((uri, index) => (
@@ -395,6 +513,26 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 8,
     textAlign: 'right',
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  categoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+  categoryChipActive: {
+    backgroundColor: '#667eea',
+  },
+  categoryChipText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  categoryChipTextActive: {
+    color: '#fff',
   },
   infoGrid: {
     flexDirection: 'row',

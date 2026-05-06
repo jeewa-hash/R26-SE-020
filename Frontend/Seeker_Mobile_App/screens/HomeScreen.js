@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { LanguageContext } from '../context/LanguageContext';
 import { getSlideshowData } from '../data/seasonalData';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Enable smooth animations for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -120,6 +121,7 @@ export default function HomeScreen() {
   const [expandedId, setExpandedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigation = useNavigation();
 
   const toggleExpand = (id) => {
@@ -135,6 +137,22 @@ export default function HomeScreen() {
     navigation.navigate("ChatListScreen");
   };
 
+  const handleNotifications = () => {
+    navigation.navigate("NotificationsScreen");
+  };
+
+  const handleStartBidding = () => {
+    navigation.navigate("BiddingScreen");
+  };
+
+  const handleCreatePost = () => {
+    navigation.navigate("CreatePostScreen");
+  };
+
+  const handleGoToFeed = () => {
+    navigation.navigate("FeedScreen");
+  };
+
   const handleSearch = async () => {
     if (searchQuery.trim().length > 0) {
       try {
@@ -146,54 +164,95 @@ export default function HomeScreen() {
         });
         const data = await res.json();
 
+        navigation.navigate("FollowUpScreen", {
+          initialMessage: searchQuery,
+          backendResponse: data,
+        });
+      } catch (err) {
+        console.error("Error calling backend:", err);
+      }
+    }
+  };
+
+  const handleImageUpload = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert(t('common_error'), t('home_permission_gallery'));
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      const imageUri = result.assets[0].uri;
+      const formData = new FormData();
+
+      formData.append('image', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'photo.jpg',
+      });
+      formData.append('app_lan', language === 'si' ? 'si' : 'en');
+
+      const response = await fetch('http://10.0.2.2:5000/predict', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.object) {
+        Alert.alert(
+          t('home_detection_result'),
+          `${t('home_detected')}: ${data.object}\n${t('home_confidence')}: ${data.confidence}`,
+          [
+            {
+              text: t('common_ok'),
+              onPress: () => {
+                navigation.navigate("FollowUpScreen", {
+                  initialMessage: `I need help with ${data.object}`,
+                  backendResponse: data,
+                  source: "image", 
+                });
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert(t('common_error'), t('home_no_object_detected'));
+      }
+
+    } catch (error) {
+      console.log("UPLOAD ERROR:", error);
+      Alert.alert(t('common_error'), error.message);
+    }
+  };
+
+  // Fetch unread notifications count
+  const fetchUnreadCount = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+      
+      // This is a placeholder - replace with your actual API call
+      setUnreadCount(3);
+    } catch (err) {
+      console.log('Error fetching notifications count:', err);
+    }
+  };
+
   useEffect(() => {
     fetchUnreadCount();
     const intervalId = setInterval(fetchUnreadCount, 15000);
     return () => clearInterval(intervalId);
   }, []);
-
-  const handleImageUpload = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) return;
-
-      const response = await fetch(`${API_URL}/notifications`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      const data = await response.json();
-      if (response.ok) {
-        const unread = data.filter(n => !n.isRead).length;
-        setUnreadCount(unread);
-      }
-    } catch (err) {
-      console.log('Error fetching seeker notifications count:', err);
-    }
-  };
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity 
-          style={styles.bellContainer} 
-          onPress={() => navigation.navigate('Notifications')}
-        >
-          <MaterialIcons name="notifications-none" size={28} color="#333" />
-          {unreadCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation, unreadCount]);
-
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem('userToken');
-    await AsyncStorage.removeItem('userRole');
-    navigation.replace('Login');
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -222,7 +281,7 @@ export default function HomeScreen() {
 
               <TouchableOpacity style={styles.notificationBtn} onPress={handleNotifications}>
                 <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationCount}>3</Text>
+                  <Text style={styles.notificationCount}>{unreadCount}</Text>
                 </View>
                 <Ionicons name="notifications-outline" size={24} color="#fff" />
               </TouchableOpacity>
@@ -431,82 +490,18 @@ const styles = StyleSheet.create({
   filterChips: { flexDirection: 'row', marginTop: 12, gap: 8 },
   filterChip: { backgroundColor: '#F3F4F6', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
   filterChipText: { fontSize: 13, color: '#6B7280' },
-  // Slideshow Styles
-  slideshowContainer: {
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  slideCard: {
-    width: width - 32,
-    height: 180,
-    marginHorizontal: 16,
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  slideImage: {
-    width: '100%',
-    height: '100%',
-  },
-  slideOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '100%',
-    justifyContent: 'flex-end',
-    padding: 16,
-  },
-  slideContent: {
-    marginBottom: 16,
-  },
-  slideTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  slideSubtitle: {
-    fontSize: 14,
-    color: '#ffffffCC',
-    marginBottom: 12,
-  },
-  slideButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  slideButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#fff',
-  },
-  dotContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#D1D5DB',
-    marginHorizontal: 4,
-  },
-  activeDot: {
-    width: 24,
-    backgroundColor: '#667eea',
-  },
+  slideshowContainer: { marginTop: 20, marginBottom: 10 },
+  slideCard: { width: width - 32, height: 180, marginHorizontal: 16, borderRadius: 20, overflow: 'hidden', backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
+  slideImage: { width: '100%', height: '100%' },
+  slideOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '100%', justifyContent: 'flex-end', padding: 16 },
+  slideContent: { marginBottom: 16 },
+  slideTitle: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 4 },
+  slideSubtitle: { fontSize: 14, color: '#ffffffCC', marginBottom: 12 },
+  slideButton: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+  slideButtonText: { fontSize: 12, fontWeight: '500', color: '#fff' },
+  dotContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D5DB', marginHorizontal: 4 },
+  activeDot: { width: 24, backgroundColor: '#667eea' },
   actionButtonsRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginTop: 20 },
   actionButton: { flex: 1, borderRadius: 10, overflow: 'hidden' },
   actionGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, gap: 6 },
