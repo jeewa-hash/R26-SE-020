@@ -11,6 +11,7 @@ import HomeScreen from './screens/HomeScreen';
 import NotificationScreen from './screens/NotificationScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import SubmitInquiryScreen from './screens/SubmitInquiryScreen';
 import {
   isBiometricAvailable,
   promptBiometric,
@@ -228,6 +229,11 @@ export default function App() {
           <Stack.Screen
             name="Notifications"
             component={NotificationScreen}
+          />
+          <Stack.Screen
+            name="SubmitInquiry"
+            component={SubmitInquiryScreen}
+            options={{ title: 'Submit Inquiry' }}
           />
         </Stack.Navigator>
       </NavigationContainer>
