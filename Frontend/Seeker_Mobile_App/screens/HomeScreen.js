@@ -1,8 +1,8 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useRef, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   ScrollView, Image, SafeAreaView, LayoutAnimation, Platform, 
-  UIManager, Dimensions, Alert 
+  UIManager, Dimensions, Alert, FlatList 
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { LanguageContext } from '../context/LanguageContext';
+import { getSlideshowData } from '../data/seasonalData';
 
 // Enable smooth animations for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -37,6 +38,82 @@ const CATEGORIES = [
   }
 ];
 
+// Slideshow Component using shared data
+const Slideshow = () => {
+  const navigation = useNavigation();
+  const flatListRef = useRef();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const slideshowData = getSlideshowData();
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (flatListRef.current && slideshowData.length > 0) {
+        const nextIndex = (currentIndex + 1) % slideshowData.length;
+        setCurrentIndex(nextIndex);
+        flatListRef.current.scrollToIndex({ index: nextIndex, animated: true });
+      }
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [currentIndex, slideshowData.length]);
+
+  const renderSlide = ({ item }) => (
+    <TouchableOpacity 
+      style={styles.slideCard}
+      onPress={() => navigation.navigate("SeasonalDemandsScreen")}
+      activeOpacity={0.95}
+    >
+      <Image source={{ uri: item.image }} style={styles.slideImage} />
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.7)']}
+        style={styles.slideOverlay}
+      >
+        <View style={styles.slideContent}>
+          <Text style={styles.slideTitle}>{item.title}</Text>
+          <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
+          <View style={styles.slideButton}>
+            <Text style={styles.slideButtonText}>Shop Now →</Text>
+          </View>
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+
+  const renderDot = () => (
+    <View style={styles.dotContainer}>
+      {slideshowData.map((_, index) => (
+        <View
+          key={index}
+          style={[
+            styles.dot,
+            currentIndex === index && styles.activeDot,
+          ]}
+        />
+      ))}
+    </View>
+  );
+
+  if (slideshowData.length === 0) return null;
+
+  return (
+    <View style={styles.slideshowContainer}>
+      <FlatList
+        ref={flatListRef}
+        data={slideshowData}
+        renderItem={renderSlide}
+        keyExtractor={(item) => item.id.toString()}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(event) => {
+          const index = Math.round(event.nativeEvent.contentOffset.x / (width - 32));
+          setCurrentIndex(index);
+        }}
+      />
+      {renderDot()}
+    </View>
+  );
+};
+
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { language } = useContext(LanguageContext);
@@ -50,17 +127,14 @@ export default function HomeScreen() {
     setExpandedId(expandedId === id ? null : id);
   };
 
-  // Handle profile navigation
   const handleProfilePress = () => {
     navigation.navigate("ProfileScreen");
   };
 
-  // Handle chat navigation
   const handleChatPress = () => {
     navigation.navigate("ChatListScreen");
   };
 
-  // Logic to handle search navigation
   const handleSearch = async () => {
     if (searchQuery.trim().length > 0) {
       try {
@@ -82,7 +156,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Handle image upload and detection
   const handleImageUpload = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -178,7 +251,6 @@ export default function HomeScreen() {
               <Text style={styles.subGreeting}>{t('what_help_today')}</Text>
             </View>
             <View style={styles.headerActions}>
-              {/* Chat Icon */}
               <TouchableOpacity style={styles.chatBtn} onPress={handleChatPress}>
                 <View style={styles.chatBadge}>
                   <Text style={styles.chatBadgeText}>2</Text>
@@ -186,7 +258,6 @@ export default function HomeScreen() {
                 <Ionicons name="chatbubbles-outline" size={24} color="#fff" />
               </TouchableOpacity>
 
-              {/* Notification Icon */}
               <TouchableOpacity style={styles.notificationBtn} onPress={handleNotifications}>
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationCount}>3</Text>
@@ -194,7 +265,6 @@ export default function HomeScreen() {
                 <Ionicons name="notifications-outline" size={24} color="#fff" />
               </TouchableOpacity>
               
-              {/* Profile Button with Navigation */}
               <TouchableOpacity style={styles.profileBtn} onPress={handleProfilePress}>
                 <Image source={{ uri: 'https://i.pravatar.cc/150?img=7' }} style={styles.profilePic} />
                 <View style={styles.onlineDot} />
@@ -228,7 +298,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           
-          {/* Filter Chips */}
           {showFilters && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChips}>
               <TouchableOpacity style={styles.filterChip}>
@@ -250,7 +319,10 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Action Buttons Row - 3 buttons */}
+        {/* Slideshow - Using shared data */}
+        <Slideshow />
+
+        {/* Action Buttons Row */}
         <View style={styles.actionButtonsRow}>
           <TouchableOpacity style={styles.actionButton} onPress={handleStartBidding}>
             <LinearGradient
@@ -320,7 +392,6 @@ export default function HomeScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* Sub-categories Grid */}
             {expandedId === cat.id && (
               <View style={styles.subGrid}>
                 {cat.subcategories.map((sub, index) => (
@@ -398,6 +469,82 @@ const styles = StyleSheet.create({
   filterChips: { flexDirection: 'row', marginTop: 12, gap: 8 },
   filterChip: { backgroundColor: '#F3F4F6', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
   filterChipText: { fontSize: 13, color: '#6B7280' },
+  // Slideshow Styles
+  slideshowContainer: {
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  slideCard: {
+    width: width - 32,
+    height: 180,
+    marginHorizontal: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  slideImage: {
+    width: '100%',
+    height: '100%',
+  },
+  slideOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '100%',
+    justifyContent: 'flex-end',
+    padding: 16,
+  },
+  slideContent: {
+    marginBottom: 16,
+  },
+  slideTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  slideSubtitle: {
+    fontSize: 14,
+    color: '#ffffffCC',
+    marginBottom: 12,
+  },
+  slideButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  slideButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#fff',
+  },
+  dotContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#D1D5DB',
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    width: 24,
+    backgroundColor: '#667eea',
+  },
   actionButtonsRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginTop: 20 },
   actionButton: { flex: 1, borderRadius: 10, overflow: 'hidden' },
   actionGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, gap: 6 },

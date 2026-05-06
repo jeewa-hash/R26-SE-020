@@ -21,6 +21,7 @@ import BidResponsesScreen from './screens/BidResponsesScreen';
 import { ChatProvider } from './context/ChatContext';
 import ChatListScreen from './screens/ChatListScreen';
 import ChatScreen from './screens/ChatScreen';
+import SeasonalDemandsScreen from './screens/SeasonalDemandsScreen';
 
 
 
@@ -115,6 +116,11 @@ function AppNavigator({ initialRouteName }) {
       name="ChatListScreen" 
       component={ChatListScreen} 
       options={{ headerShown: false }} />
+      <Stack.Screen 
+      name="SeasonalDemandsScreen" 
+      component={SeasonalDemandsScreen} 
+      options={{ headerShown: false }} 
+      />
 
       <Stack.Screen 
       name="ChatScreen" 
