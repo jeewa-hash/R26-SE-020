@@ -65,6 +65,7 @@ export default function NotificationScreen({ navigation }) {
     }
   };
 
+  
   const markAllAsRead = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
