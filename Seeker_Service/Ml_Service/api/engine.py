@@ -21,9 +21,10 @@ class ConversationEngine:
             # Priority: service_type (Step 1) or details (Step 2/Problem Type)
             key = session.service_type  # e.g. "Fan", "Chair"
             
-            # For plumbing, Step 3 might depend on Step 1 (Problem Type)
-            if session.category == "plumbing" and step == 3:
-                key = session.details # The problem type from Step 1
+            # For plumbing, Step 2 and Step 3 depend on Step 1 (Problem Type).
+            # Your persistence stores plumbing Step-1 answer into `session.details`.
+            if session.category == "plumbing" and step in {2, 3}:
+                key = session.details
             
             sub_config = current_step_config.get(key)
             if not sub_config:
