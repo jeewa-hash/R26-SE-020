@@ -151,7 +151,16 @@ export default function App() {
     const bootstrapApp = async () => {
       try {
         await loadLanguage();
-        setInitialRouteName('Login');
+        
+        // Persistent Login Logic
+        const token = await AsyncStorage.getItem('userToken');
+        const role = await AsyncStorage.getItem('userRole');
+
+        if (token && role === 'Seeker') {
+          setInitialRouteName('Home');
+        } else {
+          setInitialRouteName('Login');
+        }
       } catch (err) {
         console.log('Bootstrap error:', err);
         setInitialRouteName('Login');

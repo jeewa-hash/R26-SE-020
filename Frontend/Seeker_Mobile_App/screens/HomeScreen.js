@@ -432,6 +432,17 @@ export default function HomeScreen() {
           </LinearGradient>
         </View>
 
+        {/* Logout Button */}
+        <TouchableOpacity 
+          style={styles.logoutBtnContainer} 
+          onPress={handleLogout}
+        >
+          <View style={styles.logoutBtn}>
+            <MaterialIcons name="logout" size={20} color="#EF4444" />
+            <Text style={styles.logoutText}>Logout</Text>
+          </View>
+        </TouchableOpacity>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -439,6 +450,32 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
+  logoutBtnContainer: {
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  logoutText: {
+    color: '#EF4444',
+    fontSize: 15,
+    fontWeight: '600',
+  },
   headerGradient: { borderBottomLeftRadius: 30, borderBottomRightRadius: 30, paddingBottom: 30 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20 },
   greeting: { fontSize: 14, color: '#ffffffCC', letterSpacing: 0.5 },
