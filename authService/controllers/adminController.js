@@ -3,6 +3,7 @@ const Provider = require('../models/Provider');
 const Seeker = require('../models/Seeker');
 const Notification = require('../models/Notification');
 const ProviderNotification = require('../models/ProviderNotification');
+const SeekerNotification = require('../models/SeekerNotification');
 const HighDemandAlertLog = require('../models/HighDemandAlertLog');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -11,6 +12,7 @@ const { extractNicFromImage } = require('../utils/ocr');
 const { sendApprovalEmail, sendRejectionEmail, sendHighDemandEmail } = require('../utils/emailService');
 const { createAuditLog } = require('../utils/auditLogger');
 const AuditLog = require('../models/AuditLog');
+
 
 // Email transporter (same config as seeker)
 const transporter = nodemailer.createTransport({
@@ -593,37 +595,37 @@ exports.dispatchHighDemandAlerts = async (req, res) => {
 
     const providers = await Provider.find(query);
 
-    if (providers.length === 0) {
-      // Record log even if no providers, to not retry
+    // Also Dispatch notifications to Seekers in that district
+    // This helps seekers know when demand is high so they can book in advance
+    const seekers = await Seeker.find({ 
+      district: district === 'All Districts' ? { $exists: true } : district,
+      isEmailVerified: true,
+      isBlocked: false
+    });
+
+    if (providers.length === 0 && seekers.length === 0) {
+      // Record log even if no one found, to not retry
       await HighDemandAlertLog.create({ category, district, timeframe, date: todayStr });
-      return res.status(200).json({ message: 'No providers found to send alerts to.' });
+      return res.status(200).json({ message: 'No providers or seekers found to send alerts to.' });
     }
 
-    // Dispatch emails and notifications
+    // Dispatch notifications to Providers (Emails skipped as per requirement)
     for (const provider of providers) {
-      // Create In-App Notification
       await ProviderNotification.create({
         providerId: provider._id,
         title: `🚀 High Demand Alert: ${category}!`,
         message: `High demand predicted for ${category} in ${district} for ${timeframe}. Stay active to grab more job requests and increase your earnings!`,
         type: 'high_demand_alert'
       });
+    }
 
-      // Send Email
-      if (provider.email) {
-        try {
-          await sendHighDemandEmail(
-            provider.email,
-            provider.fullName || 'Provider', // Fallback if fullName isn't present
-            category,
-            district,
-            avgDemand,
-            confidence
-          );
-        } catch (err) {
-          console.warn(`Failed to send high demand email to ${provider.email}`);
-        }
-      }
+    for (const seeker of seekers) {
+      await SeekerNotification.create({
+        seekerId: seeker._id,
+        title: `🚀 High Demand Alert: ${category}!`,
+        message: `We're seeing high demand for ${category} in ${district} for ${timeframe}. Book your service early to ensure availability!`,
+        type: 'high_demand_alert'
+      });
     }
 
     // Save to tracking DB
@@ -634,11 +636,11 @@ exports.dispatchHighDemandAlerts = async (req, res) => {
       action: 'Dispatched High Demand Alerts',
       category: 'Demand Forecasting',
       admin: req.user,
-      target: { name: `Alerts sent to ${providers.length} providers`, type: 'ALERT' },
+      target: { name: `Alerts sent to ${providers.length} providers and ${seekers.length} seekers`, type: 'ALERT' },
       metadata: { category, district, timeframe }
     });
 
-    res.status(200).json({ message: `High Demand alerts successfully sent to ${providers.length} providers.` });
+    res.status(200).json({ message: `High Demand alerts successfully sent to ${providers.length} providers and ${seekers.length} seekers.` });
   } catch (err) {
     console.error('Error dispatching high demand alerts:', err);
     res.status(500).json({ message: 'Internal server error while dispatching alerts' });

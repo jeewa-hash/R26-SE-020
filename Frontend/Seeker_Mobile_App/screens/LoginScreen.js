@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -21,7 +21,14 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API_URL}/login`, { email, password });
+      console.log(`Attempting login at: ${API_URL}/login`);
+      const response = await axios.post(`${API_URL}/login`, { email, password }, {
+        timeout: 5000,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
 
       // On Success, save JWT and Role
       await AsyncStorage.setItem('userToken', response.data.token);
@@ -31,7 +38,14 @@ export default function LoginScreen({ navigation }) {
       navigation.replace('Home');
       
     } catch (error) {
-      const msg = error.response?.data?.message || 'Something went wrong';
+      console.error('Login error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config?.url
+      });
+
+      const msg = error.response?.data?.message || 'Network error or server is down. Please check your connection.';
       const requiresOTP = error.response?.data?.requiresOTP;
 
       if (requiresOTP) {

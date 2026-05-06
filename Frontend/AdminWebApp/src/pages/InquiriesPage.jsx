@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FiSearch, FiFilter, FiCheck, FiX, FiEye, FiMessageSquare, FiCalendar, FiClock, FiUser } from 'react-icons/fi';
+import { FiCheck, FiX, FiEye, FiMessageSquare, FiCalendar, FiClock, FiUser, FiArrowLeft } from 'react-icons/fi';
 import './InquiriesPage.css';
 
 const InquiriesPage = () => {
@@ -13,6 +13,10 @@ const InquiriesPage = () => {
       submittedDate: '2024-05-01',
       status: 'Submitted',
       reason: 'Vehicle breakdown during travel to the location.',
+      evidenceImages: [
+        'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=800&q=80'
+      ],
       missedServices: [
         { date: '2024-04-28', time: '08:00 AM', location: 'Gampaha' },
         { date: '2024-04-29', time: '11:00 AM', location: 'Kiribathgoda' },
@@ -26,6 +30,9 @@ const InquiriesPage = () => {
       submittedDate: '2024-05-02',
       status: 'Approved',
       reason: 'Sudden medical emergency, medical reports attached.',
+      evidenceImages: [
+        'https://images.unsplash.com/photo-1580281657525-2f24d6d5a535?auto=format&fit=crop&w=800&q=80'
+      ],
       missedServices: [
         { date: '2024-04-25', time: '10:00 AM', location: 'Colombo 07' },
         { date: '2024-04-26', time: '01:00 PM', location: 'Borella' },
@@ -40,6 +47,9 @@ const InquiriesPage = () => {
       submittedDate: '2024-05-03',
       status: 'Rejected',
       reason: 'Family event overlapping with service hours.',
+      evidenceImages: [
+        'https://images.unsplash.com/photo-1526055034924-64c6d47f3e9e?auto=format&fit=crop&w=800&q=80'
+      ],
       missedServices: [
         { date: '2024-04-20', time: '02:00 PM', location: 'Negombo' },
         { date: '2024-04-21', time: '11:30 AM', location: 'Seeduwa' },
@@ -120,8 +130,22 @@ const InquiriesPage = () => {
         <div className="modal-overlay" onClick={() => setSelectedInquiry(null)}>
           <div className="review-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Inquiry Review</h3>
-              <button className="close-btn" onClick={() => setSelectedInquiry(null)}><FiX /></button>
+              <button className="back-btn" onClick={() => setSelectedInquiry(null)}>
+                <FiArrowLeft /> Back
+              </button>
+              <div className="modal-title-group">
+                <h3>Inquiry Review</h3>
+                <div className="modal-meta">
+                  <span className="modal-meta-item"><strong>Provider:</strong> {selectedInquiry.providerName}</span>
+                  <span className="modal-meta-item"><strong>Submitted:</strong> {selectedInquiry.submittedDate}</span>
+                </div>
+              </div>
+              <button className="close-btn" onClick={() => setSelectedInquiry(null)}><FiX /> Close</button>
+            </div>
+
+            <div className="detail-summary">
+              <div className="detail-summary-item"><strong>Provider:</strong> {selectedInquiry.providerName}</div>
+              <div className="detail-summary-item"><strong>Submitted Date:</strong> {selectedInquiry.submittedDate}</div>
             </div>
             
             <div className="modal-body">
@@ -161,6 +185,20 @@ const InquiriesPage = () => {
                 </div>
               </div>
 
+              <div className="review-section evidence-section">
+                <div className="section-header">
+                  <FiCalendar /> <h4>Evidence</h4>
+                </div>
+                <div className="evidence-grid">
+                  {selectedInquiry.evidenceImages?.map((image, index) => (
+                    <div key={index} className="evidence-card">
+                      <img src={image} alt={`Evidence ${index + 1}`} />
+                      <p>Evidence {index + 1}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {selectedInquiry.status === 'Submitted' ? (
                 <div className="review-section">
                   <div className="section-header">
@@ -179,6 +217,9 @@ const InquiriesPage = () => {
                     <button className="approve-btn" onClick={() => handleReview('Approved')}>
                       <FiCheck /> Approve & Reinstate
                     </button>
+                    <button className="modal-close-action" onClick={() => setSelectedInquiry(null)}>
+                      <FiX /> Close
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -189,6 +230,11 @@ const InquiriesPage = () => {
                   <div className={`decision-box ${getStatusClass(selectedInquiry.status)}`}>
                     <p className="status">Status: {selectedInquiry.status}</p>
                     {selectedInquiry.adminNote && <p className="note">Note: {selectedInquiry.adminNote}</p>}
+                  </div>
+                  <div className="action-buttons action-buttons-center">
+                    <button className="modal-close-action" onClick={() => setSelectedInquiry(null)}>
+                      <FiX /> Close
+                    </button>
                   </div>
                 </div>
               )}

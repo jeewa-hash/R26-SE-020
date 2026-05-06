@@ -124,6 +124,46 @@ export default function ProfileScreen() {
     },
   ];
 
+  // User created bids
+  const [userBids, setUserBids] = useState([
+    {
+      id: 1,
+      category: "Repairing Services",
+      service: "Plumbing",
+      title: "Need plumber for bathroom leak",
+      description: "Urgent pipe leak in kitchen sink. Need experienced plumber.",
+      budget: "$100 - $200",
+      location: "Colombo",
+      status: "active",
+      responses: 3,
+      createdAt: "2024-05-01T10:30:00Z",
+    },
+    {
+      id: 2,
+      category: "Cleaning Services",
+      service: "House Cleaning",
+      title: "Deep cleaning for 3BHK apartment",
+      description: "Need thorough cleaning including kitchen and bathrooms.",
+      budget: "$80 - $120",
+      location: "Kandy",
+      status: "active",
+      responses: 5,
+      createdAt: "2024-05-03T14:20:00Z",
+    },
+    {
+      id: 3,
+      category: "Gardening Services",
+      service: "Maintenance",
+      title: "Weekly garden maintenance",
+      description: "Need regular garden trimming and watering.",
+      budget: "$50 - $80",
+      location: "Colombo",
+      status: "closed",
+      responses: 2,
+      createdAt: "2024-04-28T09:15:00Z",
+    },
+  ]);
+
   const renderStars = (rating) => {
     let stars = [];
     const fullStars = Math.floor(rating);
@@ -176,6 +216,30 @@ export default function ProfileScreen() {
     Alert.alert("Responses", `${post.responses} provider(s) have responded to this post`);
   };
 
+ const handleViewBidResponses = (bid) => {
+  navigation.navigate("BidResponsesScreen", { bid });
+};
+  const handleEditBid = (bid) => {
+    Alert.alert("Edit Bid", `Edit "${bid.title}"?`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Edit", onPress: () => navigation.navigate("BiddingScreen", { bid }) }
+    ]);
+  };
+
+  const handleDeleteBid = (bid) => {
+    Alert.alert(
+      "Delete Bid",
+      `Are you sure you want to delete "${bid.title}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", onPress: () => {
+          setUserBids(userBids.filter(b => b.id !== bid.id));
+          Alert.alert("Deleted", "Bid has been deleted");
+        }}
+      ]
+    );
+  };
+
   const handleWriteReview = (service) => {
     navigation.navigate("FeedbackScreen", { service });
   };
@@ -198,10 +262,6 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleViewProvider = (provider) => {
-    navigation.navigate("ProvidersScreen", { provider });
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -218,7 +278,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Profile Info - Make it clickable to navigate to profile edit */}
+        {/* Profile Info */}
         <TouchableOpacity 
           style={styles.profileSection}
           onPress={() => setShowEditModal(true)}
@@ -249,7 +309,7 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Star Points - Clickable to view points history */}
+        {/* Star Points */}
         <TouchableOpacity 
           style={styles.starPointsContainer}
           onPress={() => navigation.navigate("StarPointsScreen")}
@@ -259,7 +319,7 @@ export default function ProfileScreen() {
           <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
         </TouchableOpacity>
 
-        {/* Weekly Spend Chart - Clickable to view detailed analytics */}
+        {/* Weekly Spend Chart */}
         <TouchableOpacity 
           style={styles.chartContainer}
           onPress={() => navigation.navigate("SpendAnalyticsScreen")}
@@ -289,13 +349,19 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation - Added My Bids */}
         <View style={styles.tabsContainer}>
           <TouchableOpacity 
             style={[styles.tab, activeTab === 'bookings' && styles.activeTab]}
             onPress={() => setActiveTab('bookings')}
           >
             <Text style={[styles.tabText, activeTab === 'bookings' && styles.activeTabText]}>Bookings</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'mybids' && styles.activeTab]}
+            onPress={() => setActiveTab('mybids')}
+          >
+            <Text style={[styles.tabText, activeTab === 'mybids' && styles.activeTabText]}>My Bids</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.tab, activeTab === 'myposts' && styles.activeTab]}
@@ -316,10 +382,7 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             {activeBookings.map((booking) => (
               <View key={booking.id} style={styles.bookingCardLarge}>
-                <TouchableOpacity 
-                  style={styles.bookingLargeHeader}
-                  onPress={() => handleViewProvider(booking.provider)}
-                >
+                <View style={styles.bookingLargeHeader}>
                   <Image source={{ uri: booking.image }} style={styles.providerImageLarge} />
                   <View style={styles.bookingLargeInfo}>
                     <Text style={styles.bookingTitleLarge}>{booking.title}</Text>
@@ -331,7 +394,7 @@ export default function ProfileScreen() {
                       <Text style={styles.bookingDetailText}>{booking.time}</Text>
                     </View>
                   </View>
-                </TouchableOpacity>
+                </View>
                 <View style={styles.bookingActions}>
                   <TouchableOpacity 
                     style={styles.messageButton}
@@ -350,6 +413,70 @@ export default function ProfileScreen() {
                 </View>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* My Bids Tab Content */}
+        {activeTab === 'mybids' && (
+          <View style={styles.section}>
+            {userBids.length > 0 ? (
+              userBids.map((bid) => (
+                <View key={bid.id} style={styles.bidCard}>
+                  <View style={styles.bidHeader}>
+                    <View>
+                      <Text style={styles.bidCategory}>{bid.category}</Text>
+                      <Text style={styles.bidService}>{bid.service}</Text>
+                    </View>
+                    <View style={[styles.bidStatus, bid.status === 'active' ? styles.statusActive : styles.statusClosed]}>
+                      <Text style={styles.bidStatusText}>{bid.status === 'active' ? 'Active' : 'Closed'}</Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.bidTitle}>{bid.title}</Text>
+                  <Text style={styles.bidDescription} numberOfLines={2}>{bid.description}</Text>
+                  
+                  <View style={styles.bidDetails}>
+                    <View style={styles.bidBudget}>
+                      <Ionicons name="cash-outline" size={16} color="#667eea" />
+                      <Text style={styles.bidBudgetText}>{bid.budget}</Text>
+                    </View>
+                    <View style={styles.bidLocation}>
+                      <Ionicons name="location-outline" size={16} color="#6B7280" />
+                      <Text style={styles.bidLocationText}>{bid.location || 'Anywhere'}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={styles.bidFooter}>
+                    <TouchableOpacity onPress={() => handleViewBidResponses(bid)}>
+                      <Text style={styles.bidResponses}>{bid.responses} responses</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.bidDate}>
+                      Posted: {new Date(bid.createdAt).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.bidActions}>
+                    <TouchableOpacity style={styles.editBidButton} onPress={() => handleEditBid(bid)}>
+                      <Ionicons name="create-outline" size={16} color="#667eea" />
+                      <Text style={styles.editBidText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deleteBidButton} onPress={() => handleDeleteBid(bid)}>
+                      <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                      <Text style={styles.deleteBidText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="gavel-outline" size={60} color="#D1D5DB" />
+                <Text style={styles.emptyText}>No bids yet</Text>
+                <Text style={styles.emptySubtext}>Create your first bid to get quotes</Text>
+                <TouchableOpacity style={styles.createBidButton} onPress={() => navigation.navigate("BiddingScreen")}>
+                  <Text style={styles.createBidButtonText}>Create Bid →</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
@@ -696,7 +823,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#667eea',
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#6B7280',
     fontWeight: '500',
   },
@@ -708,6 +835,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 20,
   },
+  // Booking Card Styles
   bookingCardLarge: {
     backgroundColor: '#fff',
     borderRadius: 14,
@@ -785,6 +913,136 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#fff',
   },
+  // Bid Card Styles
+  bidCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  bidHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  bidCategory: {
+    fontSize: 12,
+    color: '#667eea',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  bidService: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  bidStatus: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusActive: {
+    backgroundColor: '#D1FAE5',
+  },
+  statusClosed: {
+    backgroundColor: '#FEE2E2',
+  },
+  bidStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#10B981',
+  },
+  bidTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 6,
+  },
+  bidDescription: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  bidDetails: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 10,
+  },
+  bidBudget: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  bidBudgetText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#667eea',
+  },
+  bidLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  bidLocationText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  bidFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  bidResponses: {
+    fontSize: 12,
+    color: '#667eea',
+    fontWeight: '500',
+  },
+  bidDate: {
+    fontSize: 11,
+    color: '#9CA3AF',
+  },
+  bidActions: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  editBidButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#667eea',
+  },
+  editBidText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#667eea',
+  },
+  deleteBidButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  deleteBidText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#EF4444',
+  },
+  // Post Card Styles
   postCard: {
     backgroundColor: '#fff',
     borderRadius: 14,
@@ -829,6 +1087,7 @@ const styles = StyleSheet.create({
   postStatusText: {
     fontSize: 11,
     fontWeight: '600',
+    color: '#10B981',
   },
   postDescription: {
     fontSize: 13,
@@ -911,6 +1170,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
+  createBidButton: {
+    backgroundColor: '#667eea',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 16,
+  },
+  createBidButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  // History Card Styles
   historyCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -963,6 +1235,26 @@ const styles = StyleSheet.create({
     color: '#667eea',
     fontWeight: '500',
   },
+  // Empty State
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

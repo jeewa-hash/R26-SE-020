@@ -72,6 +72,19 @@ class QuestionEngine:
 
         return session_id, self._format_question(start_step, q)
 
+    def get_current_question(self, session_id):
+        session = self.sessions.get(session_id)
+        if not session:
+            return None
+
+        service = session["service"]
+        current_q = session["current_q"]
+        flow = self._normalize_flow(TEXT_QUESTION_FLOW.get(service))
+        q_data = flow.get(current_q)
+        if not q_data:
+            return None
+        return self._format_question(current_q, q_data)
+
     # -------------------------
     # FORMAT QUESTION (SAFE FIX)
     # -------------------------

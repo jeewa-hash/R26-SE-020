@@ -14,8 +14,10 @@ import {
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 
 export default function FeedbackScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const route = useRoute();
   const { service } = route.params || {
@@ -55,31 +57,31 @@ export default function FeedbackScreen() {
   };
 
   const getRatingText = () => {
-    if (rating === 5) return "Excellent! 🌟";
-    if (rating === 4) return "Very Good! 😊";
-    if (rating === 3) return "Good 👍";
-    if (rating === 2) return "Fair 😐";
-    if (rating === 1) return "Poor 😞";
-    return "Tap to rate";
+    if (rating === 5) return t("feedback_rating_5");
+    if (rating === 4) return t("feedback_rating_4");
+    if (rating === 3) return t("feedback_rating_3");
+    if (rating === 2) return t("feedback_rating_2");
+    if (rating === 1) return t("feedback_rating_1");
+    return t("feedback_tap_to_rate");
   };
 
   const handleSubmitReview = () => {
     if (rating === 0) {
-      Alert.alert("Error", "Please select a rating");
+      Alert.alert(t("common_error"), t("feedback_select_rating"));
       return;
     }
     
     if (reviewText.trim().length < 10) {
-      Alert.alert("Error", "Please write at least 10 characters");
+      Alert.alert(t("common_error"), t("feedback_min_chars"));
       return;
     }
     
     Alert.alert(
-      "Review Submitted",
-      "Thank you for your feedback! Your review has been posted.",
+      t("feedback_submitted_title"),
+      t("feedback_submitted_message"),
       [
         { 
-          text: "OK", 
+          text: t("common_ok"),
           onPress: () => navigation.goBack()
         }
       ]
@@ -95,7 +97,7 @@ export default function FeedbackScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Write a Review</Text>
+        <Text style={styles.headerTitle}>{t("feedback_write_review")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -106,14 +108,14 @@ export default function FeedbackScreen() {
           <View style={styles.serviceInfo}>
             <Text style={styles.serviceTitle}>{service.title}</Text>
             <Text style={styles.serviceProvider}>{service.provider}</Text>
-            <Text style={styles.serviceDate}>Completed on {service.date}</Text>
+            <Text style={styles.serviceDate}>{t("feedback_completed_on")} {service.date}</Text>
           </View>
         </View>
 
         {/* Rating Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Rating</Text>
-          <Text style={styles.sectionSubtitle}>How was your experience?</Text>
+          <Text style={styles.sectionTitle}>{t("feedback_your_rating")}</Text>
+          <Text style={styles.sectionSubtitle}>{t("feedback_experience_question")}</Text>
           
           <View style={styles.starsContainer}>
             {renderStars()}
@@ -124,14 +126,14 @@ export default function FeedbackScreen() {
 
         {/* Review Text Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Write Your Review</Text>
-          <Text style={styles.sectionSubtitle}>Share your experience with others</Text>
+          <Text style={styles.sectionTitle}>{t("feedback_write_your_review")}</Text>
+          <Text style={styles.sectionSubtitle}>{t("feedback_share_experience")}</Text>
           
           <TextInput
             style={styles.reviewInput}
             multiline
             numberOfLines={6}
-            placeholder="What did you like or dislike? Would you recommend this provider?"
+            placeholder={t("feedback_review_placeholder")}
             placeholderTextColor="#9CA3AF"
             value={reviewText}
             onChangeText={setReviewText}
@@ -139,44 +141,44 @@ export default function FeedbackScreen() {
           />
           
           <Text style={styles.charCount}>
-            {reviewText.length}/500 characters
+            {reviewText.length}/500 {t("feedback_characters")}
           </Text>
         </View>
 
         {/* Quick Suggestions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Suggestions</Text>
+          <Text style={styles.sectionTitle}>{t("feedback_quick_suggestions")}</Text>
           <View style={styles.suggestionsContainer}>
             <TouchableOpacity 
               style={styles.suggestionChip}
-              onPress={() => setReviewText(reviewText + " Professional and punctual service. ")}
+              onPress={() => setReviewText(reviewText + ` ${t("feedback_suggestion_1_sentence")} `)}
             >
-              <Text style={styles.suggestionText}>Professional & punctual</Text>
+              <Text style={styles.suggestionText}>{t("feedback_suggestion_1")}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.suggestionChip}
-              onPress={() => setReviewText(reviewText + " Great value for money. ")}
+              onPress={() => setReviewText(reviewText + ` ${t("feedback_suggestion_2_sentence")} `)}
             >
-              <Text style={styles.suggestionText}>Great value for money</Text>
+              <Text style={styles.suggestionText}>{t("feedback_suggestion_2")}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.suggestionChip}
-              onPress={() => setReviewText(reviewText + " Excellent communication. ")}
+              onPress={() => setReviewText(reviewText + ` ${t("feedback_suggestion_3_sentence")} `)}
             >
-              <Text style={styles.suggestionText}>Excellent communication</Text>
+              <Text style={styles.suggestionText}>{t("feedback_suggestion_3")}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.suggestionChip}
-              onPress={() => setReviewText(reviewText + " Would definitely hire again. ")}
+              onPress={() => setReviewText(reviewText + ` ${t("feedback_suggestion_4_sentence")} `)}
             >
-              <Text style={styles.suggestionText}>Would hire again</Text>
+              <Text style={styles.suggestionText}>{t("feedback_suggestion_4")}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Would You Recommend */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Would you recommend this provider?</Text>
+          <Text style={styles.sectionTitle}>{t("feedback_recommend_question")}</Text>
           
           <View style={styles.recommendContainer}>
             <TouchableOpacity 
@@ -194,7 +196,7 @@ export default function FeedbackScreen() {
               <Text style={[
                 styles.recommendText,
                 recommendation === true && styles.recommendTextActive
-              ]}>Yes</Text>
+              ]}>{t("feedback_yes")}</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -212,7 +214,7 @@ export default function FeedbackScreen() {
               <Text style={[
                 styles.recommendText,
                 recommendation === false && styles.recommendTextActive
-              ]}>No</Text>
+              ]}>{t("feedback_no")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -225,17 +227,17 @@ export default function FeedbackScreen() {
           <View style={styles.checkbox}>
             {isAnonymous && <Ionicons name="checkmark" size={16} color="#667eea" />}
           </View>
-          <Text style={styles.anonymousText}>Post anonymously</Text>
-          <Text style={styles.anonymousSubtext}>Your name won't be shown publicly</Text>
+          <Text style={styles.anonymousText}>{t("feedback_post_anonymous")}</Text>
+          <Text style={styles.anonymousSubtext}>{t("feedback_anonymous_subtext")}</Text>
         </TouchableOpacity>
 
         {/* Photo Upload Option */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Add Photos (Optional)</Text>
+          <Text style={styles.sectionTitle}>{t("feedback_add_photos_optional")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
             <TouchableOpacity style={styles.addPhotoButton}>
               <Ionicons name="camera" size={32} color="#667eea" />
-              <Text style={styles.addPhotoText}>Add Photo</Text>
+              <Text style={styles.addPhotoText}>{t("feedback_add_photo")}</Text>
             </TouchableOpacity>
             <View style={styles.photoExample}>
               <Image 
@@ -260,7 +262,7 @@ export default function FeedbackScreen() {
             end={{ x: 1, y: 0 }}
             style={styles.submitGradient}
           >
-            <Text style={styles.submitButtonText}>Submit Review</Text>
+            <Text style={styles.submitButtonText}>{t("feedback_submit_review")}</Text>
             <Ionicons name="send" size={20} color="#fff" />
           </LinearGradient>
         </TouchableOpacity>
@@ -268,13 +270,13 @@ export default function FeedbackScreen() {
         {/* Preview Section */}
         {reviewText.length > 0 && rating > 0 && (
           <View style={styles.previewSection}>
-            <Text style={styles.previewTitle}>Preview</Text>
+            <Text style={styles.previewTitle}>{t("feedback_preview")}</Text>
             <View style={styles.previewCard}>
               <View style={styles.previewHeader}>
                 <Image source={{ uri: "https://i.pravatar.cc/150?img=7" }} style={styles.previewAvatar} />
                 <View>
                   <Text style={styles.previewName}>
-                    {isAnonymous ? "Anonymous User" : "Tashmi Perera"}
+                    {isAnonymous ? t("feedback_anonymous_user") : "Tashmi Perera"}
                   </Text>
                   <View style={styles.previewStars}>
                     {[...Array(5)].map((_, i) => (
@@ -297,7 +299,7 @@ export default function FeedbackScreen() {
                     color={recommendation ? "#10B981" : "#EF4444"} 
                   />
                   <Text style={styles.previewRecommendText}>
-                    {recommendation ? "Recommends this provider" : "Does not recommend this provider"}
+                    {recommendation ? t("feedback_recommends_provider") : t("feedback_not_recommend_provider")}
                   </Text>
                 </View>
               )}

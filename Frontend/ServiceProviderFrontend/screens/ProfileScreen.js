@@ -87,6 +87,7 @@ export default function ProfileScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container}>
+        
         <View style={styles.header}>
           <View style={styles.profileImageContainer}>
             <View style={styles.profileImagePlaceholder}>
@@ -95,6 +96,46 @@ export default function ProfileScreen({ navigation }) {
           </View>
           <Text style={styles.userName}>Work Wave Provider</Text>
           <Text style={styles.userEmail}>provider@workwave.com</Text>
+        </View>
+
+        {/* Missed Services Context Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <MaterialIcons name="history" size={20} color="#6b7280" />
+            <Text style={styles.sectionTitle}>MISSED SERVICES CONTEXT</Text>
+          </View>
+          <View style={styles.verticalList}>
+            <View style={styles.serviceRow}>
+              <View style={styles.serviceDot} />
+              <View style={styles.serviceTextContainer}>
+                <Text style={styles.miniCardDate}>2024-04-28</Text>
+                <Text style={styles.miniCardInfo}>08:00 AM - Gampaha</Text>
+              </View>
+            </View>
+            <View style={styles.serviceRow}>
+              <View style={styles.serviceDot} />
+              <View style={styles.serviceTextContainer}>
+                <Text style={styles.miniCardDate}>2024-04-29</Text>
+                <Text style={styles.miniCardInfo}>11:00 AM - Kiribathgoda</Text>
+              </View>
+            </View>
+            <View style={styles.serviceRow}>
+              <View style={styles.serviceDot} />
+              <View style={styles.serviceTextContainer}>
+                <Text style={styles.miniCardDate}>2024-04-30</Text>
+                <Text style={styles.miniCardInfo}>04:00 PM - Kadawatha</Text>
+              </View>
+            </View>
+          </View>
+          <View style={styles.btnContainer}>
+            <TouchableOpacity 
+              style={styles.submitInquiryBtn}
+              onPress={() => navigation.navigate('SubmitInquiry')}
+            >
+              <MaterialIcons name="rate-review" size={18} color="#6366f1" />
+              <Text style={styles.submitInquiryBtnText}>Submit Inquiries</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -165,7 +206,17 @@ const styles = StyleSheet.create({
   userName: { fontSize: 24, fontWeight: 'bold', color: '#111827' },
   userEmail: { fontSize: 16, color: '#6b7280', marginTop: 4 },
   section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#9ca3af', marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, marginLeft: 4 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1 },
+  verticalList: { backgroundColor: '#fff', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#f3f4f6', marginBottom: 12 },
+  serviceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  serviceDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#6366f1', marginRight: 10 },
+  serviceTextContainer: { flex: 1 },
+  miniCardDate: { fontSize: 13, fontWeight: 'bold', color: '#1f2937' },
+  miniCardInfo: { fontSize: 11, color: '#6b7280', marginTop: 2 },
+  btnContainer: { alignItems: 'center', marginTop: 10 },
+  submitInquiryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#f3f4ff', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 },
+  submitInquiryBtnText: { fontSize: 13, fontWeight: '700', color: '#6366f1' },
   card: { backgroundColor: '#fff', borderRadius: 20, padding: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   iconContainer: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
