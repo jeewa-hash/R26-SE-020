@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,16 +12,22 @@ import {
   Modal,
   TextInput,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
+const API_BASE_URL = 'http://10.0.2.2:6000';
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState('bookings');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [userPosts, setUserPosts] = useState([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+  
   const [userData, setUserData] = useState({
     name: "Tashmi Perera",
     email: "tashmi.perera@example.com",
@@ -90,40 +96,6 @@ export default function ProfileScreen() {
     },
   ];
 
-  // User created posts
-  const userPosts = [
-    {
-      id: 1,
-      title: "Looking for experienced plumber",
-      description: "Need urgent plumbing service for bathroom renovation. Must have 5+ years experience.",
-      budget: "$200 - $300",
-      date: "Posted on Mar 20, 2024",
-      status: "open",
-      responses: 5,
-      image: "https://images.unsplash.com/photo-1585704032916-cf2ac0922b1b?w=100",
-    },
-    {
-      id: 2,
-      title: "House cleaning service needed",
-      description: "Need weekly house cleaning service for 3 bedroom apartment. Eco-friendly products preferred.",
-      budget: "$50 - $80 per visit",
-      date: "Posted on Mar 18, 2024",
-      status: "open",
-      responses: 8,
-      image: "https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?w=100",
-    },
-    {
-      id: 3,
-      title: "AC repair and maintenance",
-      description: "Split AC not cooling properly. Need immediate repair service.",
-      budget: "$100 - $150",
-      date: "Posted on Mar 15, 2024",
-      status: "closed",
-      responses: 3,
-      image: "https://images.unsplash.com/photo-1629131722305-f2f2b2c9ebf3?w=100",
-    },
-  ];
-
   // User created bids
   const [userBids, setUserBids] = useState([
     {
@@ -164,6 +136,64 @@ export default function ProfileScreen() {
     },
   ]);
 
+  // Fetch user posts from backend (ONLY REAL DATA)
+  const fetchUserPosts = async () => {
+    try {
+      setLoadingPosts(true);
+      const response = await fetch(`${API_BASE_URL}/`);
+      const data = await response.json();
+      
+      let postsArray = Array.isArray(data) ? data : (data.posts || []);
+      
+      // Format posts for display - removed status badge and budget
+      const formattedPosts = postsArray.map(post => ({
+        id: post._id,
+        title: post.title,
+        description: post.description,
+        image: post.image ? (post.image.startsWith('http') ? post.image : `${API_BASE_URL}/${post.image}`) : "https://images.unsplash.com/photo-1585704032916-cf2ac0922b1b?w=100",
+        date: `Posted on ${new Date(post.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+        responses: post.comments || 0,
+      }));
+      
+      setUserPosts(formattedPosts);
+    } catch (error) {
+      console.error('Fetch posts error:', error);
+      setUserPosts([]);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  // Delete post from backend
+  const deletePostFromBackend = async (postId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/delete/${postId}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        setUserPosts(userPosts.filter(post => post.id !== postId));
+        Alert.alert("Success", "Post has been deleted successfully");
+      } else {
+        Alert.alert("Error", "Failed to delete post");
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      Alert.alert("Error", "Network error. Please try again.");
+    }
+  };
+
+  // Handle pull to refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchUserPosts();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    fetchUserPosts();
+  }, []);
+
   const renderStars = (rating) => {
     let stars = [];
     const fullStars = Math.floor(rating);
@@ -195,10 +225,10 @@ export default function ProfileScreen() {
   };
 
   const handleEditPost = (post) => {
-    Alert.alert("Edit Post", `Edit "${post.title}"?`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Edit", onPress: () => navigation.navigate("CreatePostScreen", { post }) }
-    ]);
+    navigation.navigate("CreatePostScreen", { 
+      editMode: true,
+      postData: post 
+    });
   };
 
   const handleDeletePost = (post) => {
@@ -207,7 +237,7 @@ export default function ProfileScreen() {
       `Are you sure you want to delete "${post.title}"?`,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Delete", onPress: () => Alert.alert("Deleted", "Post has been deleted") }
+        { text: "Delete", onPress: () => deletePostFromBackend(post.id) }
       ]
     );
   };
@@ -216,9 +246,10 @@ export default function ProfileScreen() {
     Alert.alert("Responses", `${post.responses} provider(s) have responded to this post`);
   };
 
- const handleViewBidResponses = (bid) => {
-  navigation.navigate("BidResponsesScreen", { bid });
-};
+  const handleViewBidResponses = (bid) => {
+    navigation.navigate("BidResponsesScreen", { bid });
+  };
+
   const handleEditBid = (bid) => {
     Alert.alert("Edit Bid", `Edit "${bid.title}"?`, [
       { text: "Cancel", style: "cancel" },
@@ -266,7 +297,12 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#667eea']} />
+        }
+      >
         {/* Simple Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -349,7 +385,7 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Tab Navigation - Added My Bids */}
+        {/* Tab Navigation */}
         <View style={styles.tabsContainer}>
           <TouchableOpacity 
             style={[styles.tab, activeTab === 'bookings' && styles.activeTab]}
@@ -480,56 +516,59 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* My Posts Tab Content */}
+        {/* My Posts Tab Content - No status badge, no budget */}
         {activeTab === 'myposts' && (
           <View style={styles.section}>
-            {userPosts.map((post) => (
-              <View key={post.id} style={styles.postCard}>
-                <TouchableOpacity 
-                  style={styles.postHeader}
-                  onPress={() => navigation.navigate("PostDetailScreen", { post })}
-                >
-                  <Image source={{ uri: post.image }} style={styles.postImage} />
-                  <View style={styles.postInfo}>
-                    <Text style={styles.postTitle}>{post.title}</Text>
-                    <Text style={styles.postDate}>{post.date}</Text>
-                  </View>
-                  <View style={[styles.postStatus, post.status === 'open' ? styles.statusOpen : styles.statusClosed]}>
-                    <Text style={styles.postStatusText}>{post.status === 'open' ? 'Open' : 'Closed'}</Text>
-                  </View>
-                </TouchableOpacity>
-                
-                <Text style={styles.postDescription} numberOfLines={2}>
-                  {post.description}
-                </Text>
-                
-                <View style={styles.postDetails}>
-                  <View style={styles.postBudget}>
-                    <Ionicons name="cash-outline" size={16} color="#667eea" />
-                    <Text style={styles.postBudgetText}>{post.budget}</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => handleViewResponses(post)}>
-                    <Text style={styles.postResponses}>{post.responses} responses</Text>
-                  </TouchableOpacity>
-                </View>
-                
-                <View style={styles.postActions}>
-                  <TouchableOpacity style={styles.editPostButton} onPress={() => handleEditPost(post)}>
-                    <Ionicons name="create-outline" size={18} color="#667eea" />
-                    <Text style={styles.editPostText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.deletePostButton} onPress={() => handleDeletePost(post)}>
-                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                    <Text style={styles.deletePostText}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
+            {loadingPosts ? (
+              <View style={styles.loadingContainer}>
+                <Text>Loading posts...</Text>
               </View>
-            ))}
-            
-            <TouchableOpacity style={styles.createPostButton} onPress={() => navigation.navigate("CreatePostScreen")}>
-              <Ionicons name="add-circle-outline" size={24} color="#fff" />
-              <Text style={styles.createPostButtonText}>Create New Post</Text>
-            </TouchableOpacity>
+            ) : userPosts.length > 0 ? (
+              userPosts.map((post) => (
+                <View key={post.id} style={styles.postCard}>
+                  <TouchableOpacity 
+                    style={styles.postHeader}
+                    onPress={() => navigation.navigate("PostDetailScreen", { post })}
+                  >
+                    <Image source={{ uri: post.image }} style={styles.postImage} />
+                    <View style={styles.postInfo}>
+                      <Text style={styles.postTitle}>{post.title}</Text>
+                      <Text style={styles.postDate}>{post.date}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  
+                  <Text style={styles.postDescription} numberOfLines={2}>
+                    {post.description}
+                  </Text>
+                  
+                  <View style={styles.postFooter}>
+                    <TouchableOpacity onPress={() => handleViewResponses(post)}>
+                      <Text style={styles.postResponses}>{post.responses} responses</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.postActions}>
+                    <TouchableOpacity style={styles.editPostButton} onPress={() => handleEditPost(post)}>
+                      <Ionicons name="create-outline" size={18} color="#667eea" />
+                      <Text style={styles.editPostText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.deletePostButton} onPress={() => handleDeletePost(post)}>
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      <Text style={styles.deletePostText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="newspaper-outline" size={60} color="#D1D5DB" />
+                <Text style={styles.emptyText}>No posts yet</Text>
+                <Text style={styles.emptySubtext}>Create your first post to share</Text>
+                <TouchableOpacity style={styles.createPostButton} onPress={() => navigation.navigate("CreatePostScreen")}>
+                  <Text style={styles.createPostButtonText}>Create Post →</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
@@ -835,7 +874,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 20,
   },
-  // Booking Card Styles
   bookingCardLarge: {
     backgroundColor: '#fff',
     borderRadius: 14,
@@ -913,7 +951,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#fff',
   },
-  // Bid Card Styles
   bidCard: {
     backgroundColor: '#fff',
     borderRadius: 14,
@@ -950,7 +987,6 @@ const styles = StyleSheet.create({
   bidStatusText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#10B981',
   },
   bidTitle: {
     fontSize: 15,
@@ -1042,7 +1078,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#EF4444',
   },
-  // Post Card Styles
   postCard: {
     backgroundColor: '#fff',
     borderRadius: 14,
@@ -1072,47 +1107,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9CA3AF',
   },
-  postStatus: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-  },
-  statusOpen: {
-    backgroundColor: '#D1FAE5',
-  },
-  statusClosed: {
-    backgroundColor: '#FEE2E2',
-  },
-  postStatusText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#10B981',
-  },
   postDescription: {
     fontSize: 13,
     color: '#6B7280',
     lineHeight: 18,
     marginBottom: 12,
   },
-  postDetails: {
+  postFooter: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: 'flex-start',
     marginBottom: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  postBudget: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  postBudgetText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#667eea',
   },
   postResponses: {
     fontSize: 12,
@@ -1182,7 +1186,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  // History Card Styles
   historyCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -1235,7 +1238,6 @@ const styles = StyleSheet.create({
     color: '#667eea',
     fontWeight: '500',
   },
-  // Empty State
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1254,7 +1256,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
-  // Modal Styles
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
