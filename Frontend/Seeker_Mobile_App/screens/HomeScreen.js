@@ -1,4 +1,4 @@
-import React, { useContext, useState, useRef, useEffect } from 'react';
+import React, { useContext, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   ScrollView, Image, SafeAreaView, LayoutAnimation, Platform, 
@@ -9,8 +9,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LanguageContext } from '../context/LanguageContext';
 import { getSlideshowData } from '../data/seasonalData';
+import { IP_ADDRESS } from '../config';
+
+const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 
 // Enable smooth animations for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -120,6 +124,7 @@ export default function HomeScreen() {
   const [expandedId, setExpandedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigation = useNavigation();
 
   const toggleExpand = (id) => {
@@ -135,24 +140,28 @@ export default function HomeScreen() {
     navigation.navigate("ChatListScreen");
   };
 
+  const handleNotifications = () => {
+    navigation.navigate('NotificationsScreen');
+  };
+
   const handleSearch = async () => {
     if (searchQuery.trim().length > 0) {
       try {
         const appLanguage = language === 'si' ? 'si' : 'en';
-        const res = await fetch("http://10.0.2.2:5002/text-predict", {
+        const res = await fetch(`http://${IP_ADDRESS}:5002/text-predict`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: searchQuery, app_lan: appLanguage }),
         });
         const data = await res.json();
+        console.log("Search result:", data);
+      } catch (error) {
+        console.log("Search error:", error);
+      }
+    }
+  };
 
-  useEffect(() => {
-    fetchUnreadCount();
-    const intervalId = setInterval(fetchUnreadCount, 15000);
-    return () => clearInterval(intervalId);
-  }, []);
-
-  const handleImageUpload = async () => {
+  const fetchUnreadCount = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) return;
@@ -164,10 +173,34 @@ export default function HomeScreen() {
       const data = await response.json();
       if (response.ok) {
         const unread = data.filter(n => !n.isRead).length;
-        setUnreadCount(unread);
+        // Adding 2 for the mock unread notifications
+        setUnreadCount(unread + 2);
       }
     } catch (err) {
       console.log('Error fetching seeker notifications count:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const intervalId = setInterval(fetchUnreadCount, 15000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const handleImageUpload = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        console.log("Image picked:", result.assets[0].uri);
+        // Add actual upload logic here if needed
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to pick an image");
     }
   };
 
@@ -176,7 +209,7 @@ export default function HomeScreen() {
       headerRight: () => (
         <TouchableOpacity 
           style={styles.bellContainer} 
-          onPress={() => navigation.navigate('Notifications')}
+          onPress={handleNotifications}
         >
           <MaterialIcons name="notifications-none" size={28} color="#333" />
           {unreadCount > 0 && (
@@ -194,6 +227,10 @@ export default function HomeScreen() {
     await AsyncStorage.removeItem('userRole');
     navigation.replace('Login');
   };
+
+  const handleStartBidding = () => navigation.navigate("BiddingScreen");
+  const handleCreatePost = () => navigation.navigate("CreatePostScreen");
+  const handleGoToFeed = () => navigation.navigate("FeedScreen");
 
   return (
     <SafeAreaView style={styles.container}>
@@ -218,13 +255,6 @@ export default function HomeScreen() {
                   <Text style={styles.chatBadgeText}>2</Text>
                 </View>
                 <Ionicons name="chatbubbles-outline" size={24} color="#fff" />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.notificationBtn} onPress={handleNotifications}>
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationCount}>3</Text>
-                </View>
-                <Ionicons name="notifications-outline" size={24} color="#fff" />
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.profileBtn} onPress={handleProfilePress}>
@@ -536,4 +566,7 @@ const styles = StyleSheet.create({
   promoBtn: { backgroundColor: '#ffffff30', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start' },
   promoBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   promoIcon: { position: 'absolute', right: 10, bottom: 10 },
+  bellContainer: { marginRight: 15, position: 'relative', padding: 5 },
+  badge: { position: 'absolute', top: 0, right: 0, backgroundColor: '#FF6B6B', borderRadius: 10, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center', zIndex: 1, paddingHorizontal: 4, borderWidth: 1.5, borderColor: '#fff' },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
 });

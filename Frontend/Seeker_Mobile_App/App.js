@@ -4,6 +4,9 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import NotificationScreen from './screens/NotificationScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import VerifyOTPScreen from './screens/VerifyOTPScreen';
@@ -15,7 +18,6 @@ import ProfileScreen from './screens/ProfileScreen';
 import CreatePostScreen from './screens/CreatePostScreen';
 import LanguageScreen from './screens/LanguageScreen';
 import FeedbackScreen from './screens/FeedbackScreen';
-import NotificationsScreen from './screens/NotificationsScreen';
 import BiddingScreen from './screens/BiddingScreen';
 import BidResponsesScreen from './screens/BidResponsesScreen';
 import { ChatProvider } from './context/ChatContext';
@@ -29,7 +31,6 @@ import './i18n';
 import { LanguageProvider } from './context/LanguageContext';
 import { loadLanguage } from './i18n';
 const Stack = createStackNavigator();
-
 
 function AppNavigator({ initialRouteName }) {
   const { t } = useTranslation();
@@ -62,10 +63,15 @@ function AppNavigator({ initialRouteName }) {
       />
 
       {/* Main App */}
-      <Stack.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{ title: t('nav_dashboard'), headerLeft: null }}
+      <Stack.Screen 
+        name="Home" 
+        component={HomeScreen} 
+        options={{ 
+          headerShown: true,
+          title: 'Seeker Dashboard',
+          headerTitleStyle: { fontWeight: 'bold' },
+          headerShadowVisible: false,
+        }} 
       />
 
       <Stack.Screen
@@ -98,14 +104,14 @@ function AppNavigator({ initialRouteName }) {
         options={{ title: t('nav_providers') }}
       />
       <Stack.Screen 
+        name="NotificationsScreen" 
+        component={NotificationScreen} 
+        options={{ headerShown: false }} 
+    />
+    <Stack.Screen 
         name="FeedbackScreen" 
         component={FeedbackScreen} 
         options={{ headerShown: false }} 
-    />
-     <Stack.Screen 
-      name="NotificationsScreen" 
-      component={NotificationsScreen} 
-      options={{ headerShown: false }} 
     />
      <Stack.Screen
         name="BiddingScreen"
@@ -139,16 +145,22 @@ function AppNavigator({ initialRouteName }) {
 /* ✅ Root App */
 export default function App() {
   const [bootstrapped, setBootstrapped] = useState(false);
-  const [initialRouteName, setInitialRouteName] = useState('Language');
+  const [initialRouteName, setInitialRouteName] = useState('Login');
 
   useEffect(() => {
-    const bootstrapLanguage = async () => {
-      await loadLanguage();
-      setInitialRouteName('Language');
-      setBootstrapped(true);
+    const bootstrapApp = async () => {
+      try {
+        await loadLanguage();
+        setInitialRouteName('Login');
+      } catch (err) {
+        console.log('Bootstrap error:', err);
+        setInitialRouteName('Login');
+      } finally {
+        setBootstrapped(true);
+      }
     };
 
-    bootstrapLanguage();
+    bootstrapApp();
   }, []);
 
   if (!bootstrapped) {
