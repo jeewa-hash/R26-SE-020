@@ -1,8 +1,57 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { IP_ADDRESS } from '../config';
+
+const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 
 export default function HomeScreen({ navigation }) {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const intervalId = setInterval(fetchUnreadCount, 15000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+
+      const response = await fetch(`${API_URL}/notifications`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        const unread = data.filter(n => !n.isRead).length;
+        setUnreadCount(unread);
+      }
+    } catch (err) {
+      console.log('Error fetching seeker notifications count:', err);
+    }
+  };
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          style={styles.bellContainer} 
+          onPress={() => navigation.navigate('Notifications')}
+        >
+          <MaterialIcons name="notifications-none" size={28} color="#333" />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, unreadCount]);
+
   const handleLogout = async () => {
     await AsyncStorage.removeItem('userToken');
     await AsyncStorage.removeItem('userRole');
@@ -50,5 +99,29 @@ const styles = StyleSheet.create({
     color: '#fff', 
     fontSize: 16, 
     fontWeight: 'bold'
-  }
+  },
+  bellContainer: {
+    marginRight: 15,
+    position: 'relative',
+    padding: 5,
+  },
+  badge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
 });

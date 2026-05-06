@@ -5,6 +5,7 @@ import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import VerifyOTPScreen from './screens/VerifyOTPScreen';
 import HomeScreen from './screens/HomeScreen';
+import NotificationScreen from './screens/NotificationScreen';
 
 const Stack = createStackNavigator();
 
@@ -31,6 +32,11 @@ export default function App() {
           name="Home" 
           component={HomeScreen} 
           options={{ title: 'Seeker Dashboard', headerLeft: null }} 
+        />
+        <Stack.Screen 
+          name="Notifications" 
+          component={NotificationScreen} 
+          options={{ title: 'Notifications' }} 
         />
       </Stack.Navigator>
     </NavigationContainer>
