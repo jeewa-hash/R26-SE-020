@@ -146,91 +146,53 @@ export default function HomeScreen() {
         });
         const data = await res.json();
 
-        navigation.navigate("FollowUpScreen", {
-          initialMessage: searchQuery,
-          backendResponse: data,
-        });
-      } catch (err) {
-        console.error("Error calling backend:", err);
-      }
-    }
-  };
+  useEffect(() => {
+    fetchUnreadCount();
+    const intervalId = setInterval(fetchUnreadCount, 15000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleImageUpload = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
 
-      if (status !== 'granted') {
-        Alert.alert(t('common_error'), t('home_permission_gallery'));
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
+      const response = await fetch(`${API_URL}/notifications`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-
-      if (result.canceled) return;
-
-      const imageUri = result.assets[0].uri;
-      const formData = new FormData();
-
-      formData.append('image', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'photo.jpg',
-      });
-      formData.append('app_lan', language === 'si' ? 'si' : 'en');
-
-      const response = await fetch('http://10.0.2.2:5000/predict', {
-        method: 'POST',
-        body: formData,
-      });
-
+      
       const data = await response.json();
-
-      if (data.object) {
-        Alert.alert(
-          t('home_detection_result'),
-          `${t('home_detected')}: ${data.object}\n${t('home_confidence')}: ${data.confidence}`,
-          [
-            {
-              text: t('common_ok'),
-              onPress: () => {
-                navigation.navigate("FollowUpScreen", {
-                  initialMessage: `I need help with ${data.object}`,
-                  backendResponse: data,
-                  source: "image", 
-                });
-              }
-            }
-          ]
-        );
-      } else {
-        Alert.alert(t('common_error'), t('home_no_object_detected'));
+      if (response.ok) {
+        const unread = data.filter(n => !n.isRead).length;
+        setUnreadCount(unread);
       }
-
-    } catch (error) {
-      console.log("UPLOAD ERROR:", error);
-      Alert.alert(t('common_error'), error.message);
+    } catch (err) {
+      console.log('Error fetching seeker notifications count:', err);
     }
   };
 
-  const handleStartBidding = () => {
-    navigation.navigate("BiddingScreen");
-  };
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity 
+          style={styles.bellContainer} 
+          onPress={() => navigation.navigate('Notifications')}
+        >
+          <MaterialIcons name="notifications-none" size={28} color="#333" />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation, unreadCount]);
 
-  const handleCreatePost = () => {
-    navigation.navigate("CreatePostScreen");
-  };
-
-  const handleNotifications = () => {
-    navigation.navigate("NotificationsScreen");
-  };
-
-  const handleGoToFeed = () => {
-    navigation.navigate("FeedScreen");
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem('userToken');
+    await AsyncStorage.removeItem('userRole');
+    navigation.replace('Login');
   };
 
   return (

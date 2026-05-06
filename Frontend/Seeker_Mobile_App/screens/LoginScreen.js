@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -12,6 +12,25 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const role = await AsyncStorage.getItem('userRole');
+      if (token && role === 'Seeker') {
+        navigation.replace('Home');
+      }
+    } catch (err) {
+      console.log('Error checking auth status:', err);
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -50,6 +69,14 @@ export default function LoginScreen({ navigation }) {
       setLoading(false);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }}>
+        <ActivityIndicator size="large" color="#007bff" />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView 

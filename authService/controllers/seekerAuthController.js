@@ -1,4 +1,5 @@
 const Seeker = require('../models/Seeker');
+const SeekerNotification = require('../models/SeekerNotification');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
@@ -12,6 +13,22 @@ const transporter = nodemailer.createTransport({
     pass: "iehl zcwp pdmy anld",
   },
 });
+
+// Middleware to verify JWT token
+exports.verifyToken = (req, res, next) => {
+  const token = req.header('Authorization')?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ message: 'No token, authorization denied' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded.user;
+    next();
+  } catch (err) {
+    res.status(401).json({ message: 'Token is not valid' });
+  }
+};
 
 exports.register = async (req, res) => {
   try {
@@ -170,6 +187,60 @@ exports.logout = async (req, res) => {
     res.json({ message: 'Logged out successfully' });
   } catch (err) {
     console.error(err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Notification Controllers
+exports.getNotifications = async (req, res) => {
+  try {
+    const notifications = await SeekerNotification.find({ seekerId: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.json(notifications);
+  } catch (err) {
+    console.error('Error fetching seeker notifications:', err.message);
+    res.status(500).json({ message: 'Server error while fetching notifications' });
+  }
+};
+
+exports.markAsRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const notification = await SeekerNotification.findOneAndUpdate(
+      { _id: id, seekerId: req.user.id },
+      { isRead: true },
+      { new: true }
+    );
+    if (!notification) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+    res.json(notification);
+  } catch (err) {
+    console.error('Error marking seeker notification as read:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.markAllAsRead = async (req, res) => {
+  try {
+    await SeekerNotification.updateMany(
+      { seekerId: req.user.id, isRead: false },
+      { isRead: true }
+    );
+    res.json({ message: 'All notifications marked as read' });
+  } catch (err) {
+    console.error('Error marking all seeker notifications as read:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.clearNotifications = async (req, res) => {
+  try {
+    await SeekerNotification.deleteMany({ seekerId: req.user.id });
+    res.json({ message: 'All notifications cleared' });
+  } catch (err) {
+    console.error('Error clearing seeker notifications:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 };
