@@ -1,0 +1,162 @@
+text,service,sub_service
+i need house cleaning,cleaning,house cleaning
+clean full home please,cleaning,house cleaning
+home deep cleaning needed,cleaning,house cleaning
+my house is very dirty clean all,cleaning,house cleaning
+clean living room and bedrooms,cleaning,house cleaning
+need full apartment cleaning,cleaning,house cleaning
+kitchen cleaning needed,cleaning,kitchen cleaning
+clean my kitchen stove and sink,cleaning,kitchen cleaning
+kitchen full grease remove,cleaning,kitchen cleaning
+need kitchen deep clean,cleaning,kitchen cleaning
+bathroom cleaning needed,cleaning,bathroom cleaning
+toilet washroom cleaning,cleaning,bathroom cleaning
+clean bathroom tiles and toilet,cleaning,bathroom cleaning
+bath room bad smell clean,cleaning,bathroom cleaning
+office cleaning service,cleaning,office cleaning
+small office need cleaning,cleaning,office cleaning
+shop place clean required,cleaning,office cleaning
+workspace cleaning today,cleaning,office cleaning
+post construction cleaning needed,cleaning,post-construction cleaning
+after renovation cleaning help,cleaning,post-construction cleaning
+cement dust cleaning service,cleaning,post-construction cleaning
+new house construction clean,cleaning,post-construction cleaning
+move in cleaning needed,cleaning,move-in/move-out cleaning
+move out deep clean house,cleaning,move-in/move-out cleaning
+tenant leaving need clean,cleaning,move-in/move-out cleaning
+handover cleaning service,cleaning,move-in/move-out cleaning
+sofa cleaning needed,cleaning,sofa/carpet/curtain cleaning
+carpet cleaning service,cleaning,sofa/carpet/curtain cleaning
+curtain wash and clean,cleaning,sofa/carpet/curtain cleaning
+sofa carpet curtain clean all,cleaning,sofa/carpet/curtain cleaning
+garden maintenance needed,gardening,garden maintenance
+trim grass in garden,gardening,garden maintenance
+watering plants daily help,gardening,garden maintenance
+cut bushes and cleaning garden,gardening,garden maintenance
+landscaping service needed,gardening,landscaping
+need garden design idea,gardening,landscaping
+arrange front yard landscape,gardening,landscaping
+garden makeover help,gardening,landscaping
+plant flowers in garden,gardening,planting
+flower planting support,gardening,planting
+need plant new flowers,gardening,planting
+vegetable planting in backyard,gardening,planting
+kitchen garden setup help,gardening,planting
+need gardener for planting,gardening,planting
+need babysitter,care_support,child care
+child care at home needed,care_support,child care
+look after my baby,care_support,child care
+take care of kids after school,care_support,child care
+elderly care service needed,care_support,elderly care
+home nursing for old father,care_support,elderly care
+care for senior mother,care_support,elderly care
+old patient home support,care_support,elderly care
+pet care needed for dog,care_support,pet care
+dog walking and feeding,care_support,pet care
+cat grooming support,care_support,pet care
+pet sitter needed,care_support,pet care
+need disability support helper,care_support,disability support
+special needs support at home,care_support,disability support
+assist disabled person daily,care_support,disability support
+personal assistant for daily tasks,care_support,personal assistance
+need person for home daily help,care_support,personal assistance
+help with shopping and medicine,care_support,personal assistance
+fan not working,repairing,electrical
+fan not spinning,repairing,electrical
+fan stopped working suddenly,repairing,electrical
+ceiling fan making noise,repairing,electrical
+fan very slow,repairing,electrical
+fan burning smell,repairing,electrical
+fan not turning on,repairing,electrical
+need fan repair,repairing,electrical
+
+tv not turning on,repairing,electrical
+tv black screen,repairing,electrical
+tv no signal issue,repairing,electrical
+tv has sound but no picture,repairing,electrical
+tv cracked screen,repairing,electrical
+smart tv not working,repairing,electrical
+
+fridge not cooling,repairing,electrical
+fridge making noise,repairing,electrical
+refrigerator leaking water,repairing,electrical
+fridge door not closing properly,repairing,electrical
+freezer ice buildup problem,repairing,electrical
+
+washing machine not spinning,repairing,electrical
+washing machine leaking water,repairing,electrical
+washing machine not starting,repairing,electrical
+washing machine shaking a lot,repairing,electrical
+washing machine error code showing,repairing,electrical
+
+light not working,repairing,electrical
+light flickering,repairing,electrical
+bulb not turning on,repairing,electrical
+led light issue,repairing,electrical
+power issue in light,repairing,electrical
+
+rice cooker not heating,repairing,electrical
+rice cooker burning food,repairing,electrical
+rice cooker power problem,repairing,electrical
+pipe leaking,repairing,plumbing
+water leaking from pipe,repairing,plumbing
+water leak in bathroom,repairing,plumbing
+kitchen pipe leaking,repairing,plumbing
+tap leaking continuously,repairing,plumbing
+
+sink blocked,repairing,plumbing
+kitchen sink clogged,repairing,plumbing
+drain blocked,repairing,plumbing
+bathroom drain slow,repairing,plumbing
+water not draining,repairing,plumbing
+
+toilet overflow,repairing,plumbing
+toilet not flushing,repairing,plumbing
+toilet water keeps running,repairing,plumbing
+toilet blocked,repairing,plumbing
+
+low water pressure,repairing,plumbing
+water pressure very low,repairing,plumbing
+no water from tap sometimes,repairing,plumbing
+
+water tank overflow,repairing,plumbing
+tank leaking,repairing,plumbing
+pipe burst issue,repairing,plumbing
+broken pipe,repairing,plumbing
+broken chair,repairing,furniture
+chair leg broken,repairing,furniture
+chair unstable,repairing,furniture
+chair shaking problem,repairing,furniture
+chair screw loose,repairing,furniture
+
+table broken,repairing,furniture
+table leg damaged,repairing,furniture
+table shaking,repairing,furniture
+table surface cracked,repairing,furniture
+
+sofa damaged,repairing,furniture
+sofa torn fabric,repairing,furniture
+sofa cushion sagging,repairing,furniture
+sofa broken frame,repairing,furniture
+sofa need repair,repairing,furniture
+
+bed broken,repairing,furniture
+bed making noise,repairing,furniture
+bed frame damaged,repairing,furniture
+bed support broken,repairing,furniture
+
+wardrobe door not closing,repairing,furniture
+cabinet hinge broken,repairing,furniture
+drawer stuck,repairing,furniture
+cupboard door misaligned,repairing,furniture
+
+furniture assembly needed,repairing,furniture
+need help assembling furniture,repairing,furniture
+install new bed,repairing,furniture
+fan not wrking,repairing,electrical
+tv not wrking,repairing,electrical
+fridge nt cooling,repairing,electrical
+pipe leakng,repairing,plumbing
+sink blokd,repairing,plumbing
+chair brokn,repairing,furniture
+sofa dmg,repairing,furniture
