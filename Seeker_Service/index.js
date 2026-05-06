@@ -12,7 +12,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // routes
-app.use("/api/posts", postRoutes);
+app.use("/uploads", express.static("uploads")); // To serve images
+app.use("/", postRoutes);
 
 const PORT = process.env.PORT || 6000;
 

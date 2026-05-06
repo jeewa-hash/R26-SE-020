@@ -7,10 +7,7 @@ const postSchema = new mongoose.Schema({
   category: String,
   tags: [String],
   urgency: String,
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
+  createdAt: { type: Date, default: Date.now },
 });
 
 export default mongoose.model("Post", postSchema);
