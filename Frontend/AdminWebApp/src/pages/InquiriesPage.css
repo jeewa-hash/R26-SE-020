@@ -1,12 +1,14 @@
 .inquiries-page {
-  padding: 16px 24px 24px;
+  padding: 55px 24px 24px;
 }
 
 .page-header {
+  margin-top: 0;
   margin-bottom: 24px;
 }
 
 .header-left h1 {
+  margin: 0;
   font-size: 24px;
   font-weight: 700;
   color: var(--gray-900);
@@ -31,6 +33,7 @@
 }
 
 .header-left p {
+  margin: 4px 0 0;
   font-size: 14px;
   color: var(--gray-500);
 }
@@ -122,25 +125,42 @@
   border-color: var(--primary-200);
 }
 
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
 /* Review Modal */
 .review-modal {
   background: white;
-  margin: 72px auto 0;
-  width: min(100%, 680px);
-  max-width: 680px;
+  width: min(100%, 720px);
+  max-height: 90vh;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
 .modal-header {
   padding: 20px 24px;
-  background: var(--gray-50);
-  border-bottom: 1px solid var(--gray-200);
+  background: white;
+  border-bottom: 1px solid var(--gray-100);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -244,6 +264,8 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .review-section {

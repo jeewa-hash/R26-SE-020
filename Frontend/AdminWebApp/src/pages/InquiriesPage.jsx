@@ -1,10 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { FiCheck, FiX, FiEye, FiMessageSquare, FiCalendar, FiClock, FiUser, FiArrowLeft } from 'react-icons/fi';
 import './InquiriesPage.css';
 
 const InquiriesPage = () => {
-  const navigate = useNavigate();
   const [selectedInquiry, setSelectedInquiry] = useState(null);
   const [note, setNote] = useState('');
   const [inquiries, setInquiries] = useState([
@@ -85,9 +83,6 @@ const InquiriesPage = () => {
     <div className="inquiries-page animate-fade-in">
       <div className="page-header">
         <div className="header-left">
-          <button className="page-back-btn" onClick={() => navigate(-1)}>
-            <FiArrowLeft /> Back
-          </button>
           <h1>Inquiry Management</h1>
           <p>Review and manage provider inquiry submissions for service cancellations.</p>
         </div>
