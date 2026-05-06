@@ -13,6 +13,7 @@ const { sendApprovalEmail, sendRejectionEmail, sendHighDemandEmail } = require('
 const { createAuditLog } = require('../utils/auditLogger');
 const AuditLog = require('../models/AuditLog');
 
+
 // Email transporter (same config as seeker)
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
