@@ -6,6 +6,7 @@ import morgan from "morgan";
 import serviceRequestRoutes from "./routes/serviceRequestRoutes.js";
 import availabilityRoutes from "./routes/availabilityRoutes.js";
 import predictionRoutes from "./routes/predictionRoutes.js";
+import bookingRoutes from "./routes/bookingRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
 const app = express();
@@ -26,6 +27,7 @@ app.get("/health", (req, res) => {
 app.use("/api/coordination/service-requests", serviceRequestRoutes);
 app.use("/api/coordination/availability", availabilityRoutes);
 app.use("/api/coordination/predictions", predictionRoutes);
+app.use("/api/coordination/bookings", bookingRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
