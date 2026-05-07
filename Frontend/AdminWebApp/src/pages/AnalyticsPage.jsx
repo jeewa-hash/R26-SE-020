@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -8,6 +9,7 @@ import {
 } from 'recharts';
 import { FiFilter, FiMap, FiActivity, FiCalendar, FiSearch, FiChevronUp, FiChevronDown } from 'react-icons/fi';
 import { DISTRICT_METADATA, generateMockData, generatePerformanceMockData } from '../data/mockAnalyticsData';
+import { API_BASE_URL } from '../config';
 import './AnalyticsPage.css';
 
 const AnalyticsPage = () => {
@@ -25,7 +27,7 @@ const AnalyticsPage = () => {
   const [sortConfig, setSortConfig] = useState({ key: 'percentage', direction: 'asc' });
 
   // Memoize handleFilter to avoid infinite loops
-  const handleFilter = useCallback(() => {
+  const handleFilter = useCallback(async () => {
     // Filter District Data (Demand-Supply)
     const mockDistricts = generateMockData();
     setDistrictData(mockDistricts);
@@ -39,25 +41,58 @@ const AnalyticsPage = () => {
     ];
     setTotalOverview(overview);
 
-    // Filter Performance Data
-    let perfData = generatePerformanceMockData();
-    
-    if (startDate || endDate) {
-      const filterByDate = (data) => data.filter(item => {
-        const itemDate = new Date(item.date);
-        const start = startDate ? new Date(startDate) : new Date('2000-01-01');
-        const end = endDate ? new Date(endDate) : new Date('2100-01-01');
-        return itemDate >= start && itemDate <= end;
+    // Fetch Real User Growth Data from Backend
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await axios.get(`${API_BASE_URL}/user-growth`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-
-      perfData = {
-        userData: filterByDate(perfData.userData),
-        bookingData: filterByDate(perfData.bookingData),
-        revenueData: filterByDate(perfData.revenueData)
+      
+      const realUserData = response.data;
+      
+      // Filter Performance Data (Merge real user data with mock bookings/revenue)
+      const mockPerfData = generatePerformanceMockData();
+      let perfData = {
+        ...mockPerfData,
+        userData: realUserData
       };
+      
+      if (startDate || endDate) {
+        const filterByDate = (data) => data.filter(item => {
+          const itemDate = new Date(item.date);
+          const start = startDate ? new Date(startDate) : new Date('2000-01-01');
+          const end = endDate ? new Date(endDate) : new Date('2100-01-01');
+          return itemDate >= start && itemDate <= end;
+        });
+
+        perfData = {
+          userData: filterByDate(perfData.userData),
+          bookingData: filterByDate(perfData.bookingData),
+          revenueData: filterByDate(perfData.revenueData)
+        };
+      }
+      
+      setPerformanceData(perfData);
+    } catch (err) {
+      console.error('Failed to fetch real user growth data', err);
+      // Fallback to mock data if API fails
+      let perfData = generatePerformanceMockData();
+      if (startDate || endDate) {
+        const filterByDate = (data) => data.filter(item => {
+          const itemDate = new Date(item.date);
+          const start = startDate ? new Date(startDate) : new Date('2000-01-01');
+          const end = endDate ? new Date(endDate) : new Date('2100-01-01');
+          return itemDate >= start && itemDate <= end;
+        });
+
+        perfData = {
+          userData: filterByDate(perfData.userData),
+          bookingData: filterByDate(perfData.bookingData),
+          revenueData: filterByDate(perfData.revenueData)
+        };
+      }
+      setPerformanceData(perfData);
     }
-    
-    setPerformanceData(perfData);
   }, [startDate, endDate]);
 
   // Initial load

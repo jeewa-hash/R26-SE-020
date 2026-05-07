@@ -10,6 +10,7 @@ router.post('/logout', adminController.logout);
 router.post('/register', adminController.verifyAdmin, adminController.register);
 router.get('/profile', adminController.verifyAdmin, adminController.getProfile);
 router.get('/dashboard-stats', adminController.verifyAdmin, adminController.getDashboardStats);
+router.get('/user-growth', adminController.verifyAdmin, adminController.getUserGrowthData);
 router.get('/users', adminController.verifyAdmin, adminController.getAllUsers);
 router.put('/users/:type/:id', adminController.verifyAdmin, adminController.updateUser);
 router.delete('/users/:type/:id', adminController.verifyAdmin, adminController.deleteUser);
