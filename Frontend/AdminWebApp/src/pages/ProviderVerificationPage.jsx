@@ -2,7 +2,23 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
-import { FiArrowLeft, FiUser, FiMapPin, FiPhone, FiCreditCard, FiCheckCircle, FiXCircle, FiMessageSquare } from 'react-icons/fi';
+import { FiArrowLeft, FiUser, FiMapPin, FiPhone, FiCreditCard, FiCheckCircle, FiXCircle, FiMessageSquare, FiMap } from 'react-icons/fi';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default marker icons in Leaflet
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
 
 const AUTH_SERVICE_URL = 'http://localhost:4003';
 
@@ -213,6 +229,55 @@ function ProviderVerificationPage() {
                 <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0 }}>{provider.address || 'N/A'}</p>
               </div>
             </div>
+
+            {/* Map Integration */}
+            {provider.location?.latitude && provider.location?.longitude && (
+              <div style={{ marginTop: '20px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--gray-200)', height: '200px' }}>
+                <MapContainer 
+                  center={[provider.location.latitude, provider.location.longitude]} 
+                  zoom={13} 
+                  style={{ height: '100%', width: '100%' }}
+                  scrollWheelZoom={false}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  />
+                  <Marker position={[provider.location.latitude, provider.location.longitude]}>
+                    <Popup>
+                      <div style={{ fontSize: '12px' }}>
+                        <strong>{provider.email}</strong><br />
+                        {provider.address || provider.district}
+                      </div>
+                    </Popup>
+                  </Marker>
+                </MapContainer>
+                <a 
+                  href={`https://www.google.com/maps?q=${provider.location.latitude},${provider.location.longitude}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ 
+                    position: 'absolute', 
+                    bottom: '10px', 
+                    right: '10px', 
+                    zIndex: 1000, 
+                    background: '#fff', 
+                    padding: '4px 8px', 
+                    borderRadius: '4px', 
+                    fontSize: '11px', 
+                    fontWeight: 600, 
+                    color: 'var(--primary-600)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <FiMap size={12} /> Open Google Maps
+                </a>
+              </div>
+            )}
           </div>
 
           {/* NIC Comparison Section */}

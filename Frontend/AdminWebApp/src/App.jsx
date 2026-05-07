@@ -13,6 +13,7 @@ import InquiriesPage from './pages/InquiriesPage';
 import AuditLogPage from './pages/AuditLogPage';
 import DemandForecastingPage from './pages/DemandForecastingPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import UserLocationsPage from './pages/UserLocationsPage';
 import './App.css';
 
 function App() {
@@ -42,6 +43,7 @@ function App() {
           <Route path="audit-logs" element={<AuditLogPage />} />
           <Route path="demand-forecasting" element={<DemandForecastingPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="user-locations" element={<UserLocationsPage />} />
         </Route>
 
         {/* Catch-all redirect */}
