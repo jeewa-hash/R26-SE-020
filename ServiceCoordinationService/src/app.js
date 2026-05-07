@@ -2,7 +2,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./config/swagger.js";
 import serviceRequestRoutes from "./routes/serviceRequestRoutes.js";
 import availabilityRoutes from "./routes/availabilityRoutes.js";
 import predictionRoutes from "./routes/predictionRoutes.js";
@@ -19,11 +20,11 @@ app.get("/health", (req, res) => {
   res.status(200).json({
     success: true,
     service: "ServiceCoordinationService",
-    component: "AI-Driven Delay-Aware Service Scheduling and Rescheduling Engine",
+    component: "Service Scheduling and Rescheduling Engine",
     status: "healthy"
   });
 });
-
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/coordination/service-requests", serviceRequestRoutes);
 app.use("/api/coordination/availability", availabilityRoutes);
 app.use("/api/coordination/predictions", predictionRoutes);
