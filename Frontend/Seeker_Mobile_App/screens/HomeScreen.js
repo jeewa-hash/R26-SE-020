@@ -23,6 +23,53 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const { width } = Dimensions.get('window');
 
+const SUGGESTED_PROVIDERS = [
+  {
+    id: 's1',
+    name: 'Dilshan Perera',
+    category: 'Electrical',
+    rating: 4.9,
+    reviews: 124,
+    distance: '1.2 km',
+    image: 'https://randomuser.me/api/portraits/men/32.jpg',
+    isOnline: true,
+    reason: 'Top Rated in Electrical'
+  },
+  {
+    id: 's2',
+    name: 'Saman Kumara',
+    category: 'Plumbing',
+    rating: 4.8,
+    reviews: 89,
+    distance: '0.8 km',
+    image: 'https://randomuser.me/api/portraits/men/45.jpg',
+    isOnline: false,
+    reason: 'Recently Used Category'
+  },
+  {
+    id: 's3',
+    name: 'Priya Silva',
+    category: 'Cleaning',
+    rating: 4.7,
+    reviews: 156,
+    distance: '2.5 km',
+    image: 'https://randomuser.me/api/portraits/women/44.jpg',
+    isOnline: true,
+    reason: 'Nearby in Cleaning'
+  },
+  {
+    id: 's4',
+    name: 'Aruna Jayasuriya',
+    category: 'Gardening',
+    rating: 4.9,
+    reviews: 67,
+    distance: '3.1 km',
+    image: 'https://randomuser.me/api/portraits/men/62.jpg',
+    isOnline: true,
+    reason: 'Most Used Category'
+  }
+];
+
 const CATEGORIES = [
   {
     id: 1, title: 'Repairing Services', icon: 'build', color: '#FF6B6B',
@@ -353,6 +400,47 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Suggested Service Providers - Facebook Style */}
+        <View style={styles.suggestionsContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recommended for You</Text>
+            <TouchableOpacity>
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.suggestionsList}
+          >
+            {SUGGESTED_PROVIDERS.map((provider) => (
+              <TouchableOpacity key={provider.id} style={styles.suggestionCard} activeOpacity={0.9}>
+                <View style={styles.suggestionImageContainer}>
+                  <Image source={{ uri: provider.image }} style={styles.suggestionImage} />
+                  {provider.isOnline && <View style={styles.suggestionOnlineDot} />}
+                  <View style={styles.suggestionReasonBadge}>
+                    <Text style={styles.suggestionReasonText}>{provider.reason}</Text>
+                  </View>
+                </View>
+                <View style={styles.suggestionInfo}>
+                  <Text style={styles.suggestionName} numberOfLines={1}>{provider.name}</Text>
+                  <Text style={styles.suggestionCategory}>{provider.category}</Text>
+                  <View style={styles.suggestionStats}>
+                    <View style={styles.suggestionRating}>
+                      <MaterialIcons name="star" size={14} color="#FBBF24" />
+                      <Text style={styles.suggestionRatingText}>{provider.rating}</Text>
+                    </View>
+                    <Text style={styles.suggestionDistance}>{provider.distance}</Text>
+                  </View>
+                  <TouchableOpacity style={styles.suggestionConnectBtn}>
+                    <Text style={styles.suggestionConnectText}>Connect</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
         {/* Section Header */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t('all_services')}</Text>
@@ -578,7 +666,106 @@ const styles = StyleSheet.create({
   actionButton: { flex: 1, borderRadius: 10, overflow: 'hidden' },
   actionGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, gap: 6 },
   actionButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 30, marginBottom: 18 },
+
+  // Suggestions Styles
+  suggestionsContainer: { marginTop: 25 },
+  suggestionsList: { paddingLeft: 20, paddingRight: 10, paddingBottom: 10 },
+  suggestionCard: {
+    width: 160,
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    marginRight: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  suggestionImageContainer: {
+    width: '100%',
+    height: 120,
+    position: 'relative',
+  },
+  suggestionImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f0f0f0',
+  },
+  suggestionOnlineDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4CD964',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  suggestionReasonBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  suggestionReasonText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  suggestionInfo: {
+    padding: 12,
+  },
+  suggestionName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  suggestionCategory: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  suggestionStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  suggestionRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  suggestionRatingText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  suggestionDistance: {
+    fontSize: 10,
+    color: '#9CA3AF',
+  },
+  suggestionConnectBtn: {
+    backgroundColor: '#EEF2FF',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  suggestionConnectText: {
+    color: '#667eea',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 25, marginBottom: 15 },
   sectionTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a2e', letterSpacing: -0.3 },
   seeAllText: { color: '#667eea', fontSize: 14, fontWeight: '600' },
   accordionContainer: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 20, marginBottom: 12, padding: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
