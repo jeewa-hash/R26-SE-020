@@ -15,7 +15,8 @@ const providerSchema = new mongoose.Schema(
     role: {
       type: String,
       required: true,
-      enum: ['Admin', 'ServiceProvider', 'ServiceSeeker'],
+      enum: ['ServiceProvider'],
+      default: 'ServiceProvider',
     },
     nicNumber: {
       type: String,
@@ -24,11 +25,11 @@ const providerSchema = new mongoose.Schema(
     },
     telephone: {
       type: String,
-      required: false,
+      required: true,
     },
     category: {
       type: String,
-      required: false,
+      required: true,
     },
     bio: {
       type: String,
@@ -36,7 +37,7 @@ const providerSchema = new mongoose.Schema(
     },
     district: {
       type: String,
-      required: false,
+      required: true,
     },
     location: {
       latitude: { type: Number, required: false },
@@ -44,7 +45,7 @@ const providerSchema = new mongoose.Schema(
     },
     nicImage: {
       type: String,
-      required: false, // Make false because Admin might not have one, or handled later
+      required: true, // Make false because Admin might not have one, or handled later
     },
     profileImage: {
       type: String,
@@ -65,11 +66,11 @@ const providerSchema = new mongoose.Schema(
     gender: {
       type: String,
       enum: ['Male', 'Female'],
-      required: false,
+      required: true,
     },
     address: {
       type: String,
-      required: false,
+      required: true,
     },
     isRejected: {
       type: Boolean,
