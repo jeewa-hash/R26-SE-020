@@ -50,3 +50,53 @@ export const generateMockData = () => {
     };
   });
 };
+
+export const generatePerformanceMockData = () => {
+  const months = [
+    { name: 'Jan', date: '2024-01-01' },
+    { name: 'Feb', date: '2024-02-01' },
+    { name: 'Mar', date: '2024-03-01' },
+    { name: 'Apr', date: '2024-04-01' },
+    { name: 'May', date: '2024-05-01' },
+    { name: 'Jun', date: '2024-06-01' },
+    { name: 'Jul', date: '2024-07-01' },
+    { name: 'Aug', date: '2024-08-01' },
+    { name: 'Sep', date: '2024-09-01' },
+    { name: 'Oct', date: '2024-10-01' },
+    { name: 'Nov', date: '2024-11-01' },
+    { name: 'Dec', date: '2024-12-01' }
+  ];
+  
+  let cumulativeSeekers = 350;
+  let cumulativeProviders = 150;
+  
+  const userData = months.map(m => {
+    const seekerGrowth = Math.floor(Math.random() * 60) + 30;
+    const providerGrowth = Math.floor(Math.random() * 30) + 10;
+    
+    cumulativeSeekers += seekerGrowth;
+    cumulativeProviders += providerGrowth;
+    
+    return { 
+      name: m.name,
+      date: m.date,
+      seekers: cumulativeSeekers, 
+      providers: cumulativeProviders,
+      total: cumulativeSeekers + cumulativeProviders 
+    };
+  });
+
+  const bookingData = months.map(m => ({
+    name: m.name,
+    date: m.date,
+    bookings: Math.floor(Math.random() * 200) + 100
+  }));
+
+  const revenueData = months.map(m => ({
+    name: m.name,
+    date: m.date,
+    revenue: Math.floor(Math.random() * 50000) + 20000
+  }));
+
+  return { userData, bookingData, revenueData };
+};
