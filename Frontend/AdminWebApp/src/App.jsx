@@ -12,6 +12,7 @@ import PenaltyManagementPage from './pages/PenaltyManagementPage';
 import InquiriesPage from './pages/InquiriesPage';
 import AuditLogPage from './pages/AuditLogPage';
 import DemandForecastingPage from './pages/DemandForecastingPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 import './App.css';
 
 function App() {
@@ -40,6 +41,7 @@ function App() {
           <Route path="inquiries" element={<InquiriesPage />} />
           <Route path="audit-logs" element={<AuditLogPage />} />
           <Route path="demand-forecasting" element={<DemandForecastingPage />} />
+          <Route path="analytics" element={<AnalyticsPage />} />
         </Route>
 
         {/* Catch-all redirect */}
