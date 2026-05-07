@@ -36,6 +36,18 @@ const swaggerOptions = {
         name: "Bookings",
         description: "Lightweight booking/scheduling records",
       },
+      {
+        name: "Delays",
+        description: "Start delay and execution delay analysis"
+      },
+      {
+        name: "Rescheduling",
+        description: "Dynamic rescheduling suggestion and response endpoints",
+      },
+      {
+        name: "Calendar",
+        description: "Calendar/timeline endpoints for seekers and providers",
+      },
     ],
   },
   apis: ["./src/routes/*.js"],

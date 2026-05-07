@@ -7,3 +7,19 @@ export const hasTimeOverlap = (startA, endA, startB, endB) => {
   const bEnd = new Date(endB).getTime();
   return aStart < bEnd && aEnd > bStart;
 };
+export const addMinutes = (date, minutes) => {
+  return new Date(new Date(date).getTime() + minutes * 60 * 1000);
+};
+
+export const formatSlotLabel = (startTime, endTime) => {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+
+  return `${start.toLocaleDateString()} ${start.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  })} - ${end.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  })}`;
+};
