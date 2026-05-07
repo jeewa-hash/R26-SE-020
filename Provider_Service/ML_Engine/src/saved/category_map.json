@@ -1,0 +1,42 @@
+{
+  "electrical_repair": {
+    "category": "repairing",
+    "label": "Electrical Repair"
+  },
+  "plumbing_repair": {
+    "category": "repairing",
+    "label": "Plumbing Repair"
+  },
+  "furniture_repair": {
+    "category": "repairing",
+    "label": "Furniture Repair"
+  },
+  "roofing_repair": {
+    "category": "repairing",
+    "label": "Roofing Repair"
+  },
+  "painting_renovation": {
+    "category": "repairing",
+    "label": "Painting & Renovation"
+  },
+  "house_cleaning": {
+    "category": "cleaning",
+    "label": "House Cleaning"
+  },
+  "post_construction_cleaning": {
+    "category": "cleaning",
+    "label": "Post-Construction Cleaning"
+  },
+  "move_in_out_cleaning": {
+    "category": "cleaning",
+    "label": "Move In/Out Cleaning"
+  },
+  "sofa_carpet_curtain_cleaning": {
+    "category": "cleaning",
+    "label": "Sofa/Carpet/Curtain Cleaning"
+  },
+  "garden_cleaning": {
+    "category": "cleaning",
+    "label": "Garden Cleaning"
+  }
+}
