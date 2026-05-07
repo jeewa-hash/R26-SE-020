@@ -4,9 +4,23 @@ import uuid
 import numpy as np
 import tensorflow as tf
 from PIL import Image
-from fastapi import FastAPI, UploadFile, File, Body
+from fastapi import FastAPI, UploadFile, File, Body, Query
 from fastapi.middleware.cors import CORSMiddleware
 from db_manager import db_manager
+
+# --- Translator ---
+from translator import (
+    translate_payload,
+    translate_answer_to_english,
+    get_sinhala_translation
+)
+
+# --- MobileNet ---
+from tensorflow.keras.applications.mobilenet_v2 import (
+    MobileNetV2,
+    preprocess_input,
+    decode_predictions
+)
 
 app = FastAPI()
 
@@ -17,7 +31,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- DATA MAPPINGS ---
+# ---------------------------------------------------
+# DATA MAPPINGS (Keep in English for Logic)
+# ---------------------------------------------------
+
 ISSUE_MAPPING = {
     "electrical": {
         "object": "Electrical device",
@@ -86,123 +103,181 @@ ISSUE_MAPPING = {
 }
 
 SUB_CATEGORY_MAPPING = {
-    "lighting": "Light", "fan": "Fan", "tv": "TV", "fridge": "Fridge", "kitchen": "Rice Cooker", "washing": "Washing Machine",
-    "chair": "Chair", "table": "Table", "sofa": "Sofa", "bed": "Bed"
+    "lighting": "Light", "fan": "Fan", "tv": "TV", "fridge": "Fridge",
+    "oven": "Rice Cooker", "washer": "Washing Machine", "chair": "Chair",
+    "table": "Table", "sofa": "Sofa", "bed": "Bed", "desk": "Table", "couch": "Sofa"
 }
 
 # --- AI MODEL SETUP ---
 MODEL_PATH = "models/repair_model_v1.h5"
 model = tf.keras.models.load_model(MODEL_PATH)
 CLASSES = ["electrical", "furniture", "plumbing"]
+visual_identifier = MobileNetV2(weights='imagenet')
 
-def preprocess_image(image_bytes):
+# IMPROVEMENT: Shared preprocessing function to avoid redundant Image.open calls
+def get_shared_tensor(image_bytes):
     img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
     img = img.resize((224, 224))
-    return np.expand_dims(np.array(img) / 255.0, axis=0)
+    return np.expand_dims(np.array(img), axis=0)
 
-# --- ENDPOINTS ---
+# ---------------------------------------------------
+# ENDPOINTS
+# ---------------------------------------------------
 
 @app.post("/predict")
-async def start_service_flow(file: UploadFile = File(...)):
+async def start_service_flow(file: UploadFile = File(...), language: str = Query("en")):
     contents = await file.read()
-    img_array = preprocess_image(contents)
-    preds = model.predict(img_array)
     
-    idx = np.argmax(preds[0])
-    category = CLASSES[idx]
-    confidence = f"{round(float(preds[0][idx]) * 100, 2)}%"
+    # IMPROVEMENT: Use shared tensor for both models
+    base_tensor = get_shared_tensor(contents)
     
-    session_id = f"REPAIR-{uuid.uuid4().hex[:4].upper()}"
-    
-    identified_item = None
-    for key, formal_name in SUB_CATEGORY_MAPPING.items():
-        if key in file.filename.lower():
-            identified_item = formal_name
-            break
+    # 1. Prediction Logic (Domain Model)
+    domain_input = base_tensor / 255.0
+    preds = model.predict(domain_input)
+    best_idx = np.argmax(preds[0])
+    conf_score = float(preds[0][best_idx])
+    category = CLASSES[best_idx]
+    confidence_str = f"{round(conf_score * 100, 2)}%"
 
-    # Save to MongoDB
+    # 2. Object Identification (MobileNetV2)
+    # Use copy() to prevent MobileNet preprocessing from affecting subsequent logic
+    mobile_x = preprocess_input(base_tensor.copy())
+    mobile_preds = visual_identifier.predict(mobile_x)
+    top_5 = decode_predictions(mobile_preds, top=5)[0]
+
+    identified_item = None
+    for _, label, _ in top_5:
+        label = label.lower().replace('_', ' ')
+        for key, formal_name in SUB_CATEGORY_MAPPING.items():
+            if key in label:
+                identified_item = formal_name
+                break
+        if identified_item: break
+
+    session_id = f"REPAIR-{uuid.uuid4().hex[:4].upper()}"
+
+    # IMPROVEMENT: Confidence Gate Logic
+    # If confidence is too low, we set step to 0 to ask the user to manually verify the category
+    is_low_confidence = conf_score < 0.65
+    current_step = 0 if is_low_confidence else (2 if identified_item else 1)
+
+    # 3. Save Session with Language
     session_data = {
         "id": session_id,
-        "category": category,
-        "confidence": confidence,
+        "category": category if not is_low_confidence else category,
+        "confidence": confidence_str,
         "object": identified_item,
+        "language": language,
         "answers": {},
-        "current_step": 2 if identified_item else 1
+        "current_step": current_step
     }
     db_manager.save_session(session_data)
 
-    flow = ISSUE_MAPPING[category]
-    step = session_data["current_step"]
-    
-    if step == 2 and identified_item:
-        next_q = flow["steps"][2].get(identified_item, flow["steps"][1])
+    # Determine Question
+    if is_low_confidence:
+        next_q = {
+            "question": "I'm not completely sure. Please select the correct service category:",
+            "options": ["Electrical", "Plumbing", "Furniture"]
+        }
     else:
-        next_q = flow["steps"][1]
+        flow = ISSUE_MAPPING[category]
+        if current_step == 2 and identified_item:
+            next_q = flow["steps"][2].get(identified_item, flow["steps"][1])
+        else:
+            next_q = flow["steps"][1]
+
+    # Translate Initial Response
+    agent_text = "I've analyzed the photo." if is_low_confidence else f"I've identified a {category} issue."
+    if language == "si":
+        agent_text = get_sinhala_translation(agent_text)
 
     return {
         "session_id": session_id,
-        "agent_speech": f"I've identified a {category} issue.",
-        "next_question": next_q
+        "confidence": confidence_str, # Added confidence here
+        "agent_speech": agent_text,
+        "next_question": translate_payload(next_q, language)
     }
 
 @app.post("/flow/next")
 async def get_next_step(body: dict = Body(...)):
     session_id = body.get("session_id")
-    answer = body.get("answer")
-    
+    raw_answer = body.get("answer") 
+
     session = db_manager.get_session(session_id)
     if not session:
         return {"success": False, "message": "Invalid session"}
+
+    language = getattr(session, "language", "en")
+    answer = translate_answer_to_english(raw_answer) if language == "si" else raw_answer
     
+    # IMPROVEMENT: Handle Low Confidence Step 0
+    if session.current_step == 0:
+        session.category = answer.lower()
+        session.current_step = 1
+        next_q = ISSUE_MAPPING[session.category]["steps"][1]
+        db_manager.save_session(session)
+        return {
+            "session_id": session_id,
+            "next_question": translate_payload(next_q, language)
+        }
+
     cat = session.category
     step = session.current_step
-    
+
     if step == 1:
         session.object = answer
 
-    # Update session answers
-    key_map = {1: "object", 2: "specific_issue", 3: "prep", 4: "urgency", 5: "usability", 6: "room"}
+    # Update Answers
+    key_map = {1: "object", 2: "specific_issue", 3: "usability", 4: "repair_history", 5: "urgency", 6: "room"}
     ans_dict = session.data.get("answers", {})
     ans_dict[key_map.get(step, f"step_{step}")] = answer
     session.answers = ans_dict
 
     next_idx = step + 1
     flow_steps = ISSUE_MAPPING[cat]["steps"]
-    
+
+    # Check for Next Step
     if next_idx in flow_steps:
         session.current_step = next_idx
         next_q = flow_steps[next_idx]
         current_obj = session.object
-        
-        # Drill down logic
+
         if isinstance(next_q, dict) and current_obj and current_obj in next_q:
             next_q = next_q[current_obj]
         elif isinstance(next_q, dict) and "question" not in next_q:
             session.current_step = next_idx + 1
-            next_q = flow_steps.get(session.current_step, {"question": "Please provide more details."})
-            
-        db_manager.save_session(session)
-        return {"session_id": session_id, "next_question": next_q}
+            next_q = flow_steps.get(session.current_step, {"question": "Provide more details."})
 
-    # Final Payload logic
+        db_manager.save_session(session)
+        return {
+            "session_id": session_id,
+            "next_question": translate_payload(next_q, language)
+        }
+
+    # Final Summary Construction
     db_manager.save_session(session)
     obj = session.object or "Appliance"
     issue = session.answers.get("specific_issue", "")
-    prep = session.answers.get("prep", "")
-    
+    usability = session.answers.get("usability", "")
+    urgency = session.answers.get("urgency", "")
+    room = session.answers.get("room", "")
+
+    summary_en = f"{obj} | {issue} | {usability} | {urgency} in {room}".strip(" | ")
+    final_summary = get_sinhala_translation(summary_en) if language == "si" else summary_en
+
     return {
         "details": {
-            "category": cat,
-            "confidence": session.confidence,
-            "object": obj,
-            "room": session.answers.get("room", ""),
+            "category": get_sinhala_translation(cat) if language == "si" else cat,
+            "object": get_sinhala_translation(obj) if language == "si" else obj,
+            "specific_issue": get_sinhala_translation(issue) if language == "si" else issue,
+            "urgency": get_sinhala_translation(urgency) if language == "si" else urgency,
+            "confidence": session.confidence, # IMPROVEMENT: Added confidence to final details
             "session_id": session_id,
-            "specific_issue": prep if prep else issue,
-            "urgency": session.answers.get("urgency", ""),
         },
         "final_decision": {
-            "issue_summary": f"{obj} | {issue} | {prep}".strip(" | "),
-            "service_category": cat,
+            "issue_summary": final_summary,
+            "service_category": get_sinhala_translation(cat) if language == "si" else cat,
+            "confidence_level": session.confidence, # IMPROVEMENT: Added confidence to summary
             "provider_search_ready": True
         },
         "success": True
