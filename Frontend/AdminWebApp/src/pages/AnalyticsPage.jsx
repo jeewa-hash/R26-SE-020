@@ -15,6 +15,7 @@ import './AnalyticsPage.css';
 const AnalyticsPage = () => {
   const [activeTab, setActiveTab] = useState('demand-supply');
   const [performanceTab, setPerformanceTab] = useState('user-growth'); // 'user-growth', 'booking-growth', 'revenue-growth'
+  const [userTypeFilter, setUserTypeFilter] = useState('All'); // 'All', 'Seekers', 'Providers'
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [districtData, setDistrictData] = useState([]);
@@ -383,13 +384,43 @@ const AnalyticsPage = () => {
             {performanceTab === 'user-growth' && (
               <div className="performance-card">
                 <div className="card-header">
-                  <h3>User Growth</h3>
+                  <div className="flex flex-col gap-4">
+                    <h3>User Growth</h3>
+                    <div className="user-type-filters">
+                      <button 
+                        className={`filter-chip ${userTypeFilter === 'All' ? 'active' : ''}`}
+                        onClick={() => setUserTypeFilter('All')}
+                      >
+                        Show All
+                      </button>
+                      <button 
+                        className={`filter-chip ${userTypeFilter === 'Seekers' ? 'active' : ''}`}
+                        onClick={() => setUserTypeFilter('Seekers')}
+                      >
+                        Seekers Only
+                      </button>
+                      <button 
+                        className={`filter-chip ${userTypeFilter === 'Providers' ? 'active' : ''}`}
+                        onClick={() => setUserTypeFilter('Providers')}
+                      >
+                        Providers Only
+                      </button>
+                    </div>
+                  </div>
                   <div className="summary-stat">
-                    <span className="label">Total Users:</span>
+                    <span className="label">
+                      {userTypeFilter === 'All' ? 'Total Users' : userTypeFilter === 'Seekers' ? 'Total Seekers' : 'Total Providers'}:
+                    </span>
                     <span className="value">
                       {performanceData.userData.length > 0 
-                        ? (performanceData.userData[performanceData.userData.length - 1].seekers + 
-                           performanceData.userData[performanceData.userData.length - 1].providers).toLocaleString() 
+                        ? (
+                            userTypeFilter === 'All' 
+                            ? (performanceData.userData[performanceData.userData.length - 1].seekers + 
+                               performanceData.userData[performanceData.userData.length - 1].providers)
+                            : userTypeFilter === 'Seekers'
+                            ? performanceData.userData[performanceData.userData.length - 1].seekers
+                            : performanceData.userData[performanceData.userData.length - 1].providers
+                          ).toLocaleString() 
                         : 0}
                     </span>
                   </div>
@@ -402,24 +433,28 @@ const AnalyticsPage = () => {
                       <YAxis />
                       <RechartsTooltip />
                       <Legend verticalAlign="top" height={36} iconType="circle" />
-                      <Line 
-                        type="monotone" 
-                        dataKey="seekers" 
-                        stroke="#8b5cf6" 
-                        strokeWidth={3} 
-                        dot={{ r: 6 }} 
-                        activeDot={{ r: 8 }} 
-                        name="Service Seekers" 
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="providers" 
-                        stroke="#10b981" 
-                        strokeWidth={3} 
-                        dot={{ r: 6 }} 
-                        activeDot={{ r: 8 }} 
-                        name="Service Providers" 
-                      />
+                      {(userTypeFilter === 'All' || userTypeFilter === 'Seekers') && (
+                        <Line 
+                          type="monotone" 
+                          dataKey="seekers" 
+                          stroke="#8b5cf6" 
+                          strokeWidth={3} 
+                          dot={{ r: 6 }} 
+                          activeDot={{ r: 8 }} 
+                          name="Service Seekers" 
+                        />
+                      )}
+                      {(userTypeFilter === 'All' || userTypeFilter === 'Providers') && (
+                        <Line 
+                          type="monotone" 
+                          dataKey="providers" 
+                          stroke="#10b981" 
+                          strokeWidth={3} 
+                          dot={{ r: 6 }} 
+                          activeDot={{ r: 8 }} 
+                          name="Service Providers" 
+                        />
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
