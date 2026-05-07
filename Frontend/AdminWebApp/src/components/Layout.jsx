@@ -156,11 +156,11 @@ function Layout() {
             Manage Categories
           </NavLink>
           <NavLink
-            to="/rejected-verifications"
+            to="/nic-verifications"
             className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
           >
-            <span className="sidebar-link-icon"><FiXCircle /></span>
-            Rejected Verifications
+            <span className="sidebar-link-icon"><HiOutlineShieldCheck /></span>
+            NIC Verifications
           </NavLink>
           <NavLink
             to="/penalty-management"

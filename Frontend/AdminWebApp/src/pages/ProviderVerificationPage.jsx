@@ -52,7 +52,7 @@ function ProviderVerificationPage() {
         { action },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      navigate('/');
+      navigate('/nic-verifications');
     } catch (err) {
       console.error(`Failed to ${action} provider`, err);
       alert(err.response?.data?.message || `Failed to ${action} provider`);
@@ -75,7 +75,7 @@ function ProviderVerificationPage() {
         { action: 'reject', adminNote: rejectNote.trim() },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      navigate('/');
+      navigate('/nic-verifications');
     } catch (err) {
       console.error('Failed to reject provider', err);
       alert(err.response?.data?.message || 'Failed to reject provider');
@@ -122,7 +122,7 @@ function ProviderVerificationPage() {
     <div className="page-content">
       {/* Back Button */}
       <button
-        onClick={() => navigate('/')}
+        onClick={() => navigate('/nic-verifications')}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -138,7 +138,7 @@ function ProviderVerificationPage() {
           color: 'var(--gray-700)',
         }}
       >
-        <FiArrowLeft /> Back to Dashboard
+        <FiArrowLeft /> Back
       </button>
 
       {/* Page Title */}
@@ -265,7 +265,7 @@ function ProviderVerificationPage() {
       </div>
 
       {/* Action Buttons */}
-      {!provider.isRejected && (
+      {provider.verificationStatus === 'Pending' && (
         <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', paddingTop: '16px', borderTop: '1px solid var(--gray-100)' }}>
           <button
             onClick={() => handleVerify('reject')}

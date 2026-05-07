@@ -372,6 +372,32 @@ exports.toggleUserStatus = async (req, res) => {
   }
 };
 
+// Get all providers for NIC verification management
+exports.getAllProvidersVerifications = async (req, res) => {
+  try {
+    const providers = await Provider.find({})
+      .select('-password')
+      .sort({ createdAt: -1 });
+    
+    // Map status for easier frontend consumption
+    const verifications = providers.map(p => {
+      let status = 'Pending';
+      if (p.isVerified) status = 'Approved';
+      else if (p.isRejected) status = 'Rejected';
+      
+      return {
+        ...p.toObject(),
+        verificationStatus: status
+      };
+    });
+
+    res.json(verifications);
+  } catch (err) {
+    console.error('Error fetching all provider verifications:', err.message);
+    res.status(500).json({ message: 'Server error while fetching verifications' });
+  }
+};
+
 // Get all unverified service providers (pending verification)
 exports.getUnverifiedProviders = async (req, res) => {
   try {
@@ -420,7 +446,17 @@ exports.getProviderVerificationDetails = async (req, res) => {
       }
     }
 
-    res.json(provider);
+    // Add verification status for frontend consistency
+    let status = 'Pending';
+    if (provider.isVerified) status = 'Approved';
+    else if (provider.isRejected) status = 'Rejected';
+
+    const providerWithStatus = {
+      ...provider.toObject(),
+      verificationStatus: status
+    };
+
+    res.json(providerWithStatus);
   } catch (err) {
     console.error('Error fetching verification details:', err.message);
     res.status(500).json({ message: 'Server error while fetching verification details' });
