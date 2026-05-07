@@ -4,90 +4,107 @@ const bookingSchema = new mongoose.Schema(
   {
     serviceRequestId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "ServiceRequest"
+      ref: "ServiceRequest",
     },
 
+    // External Seeker ID from Auth Service
     customerId: {
       type: String,
-      required: true
+      required: true,
     },
 
+    // External Provider ID from Auth/Admin Service
     providerId: {
       type: String,
-      required: true
+      required: true,
+    },
+
+    customerSnapshot: {
+      name: String,
+      email: String,
+      district: String,
+      telephone: String,
+    },
+
+    providerSnapshot: {
+      name: String,
+      email: String,
+      category: String,
+      district: String,
+      telephone: String,
     },
 
     serviceCategory: {
       type: String,
-      required: true
+      required: true,
     },
 
     serviceSubCategory: {
       type: String,
-      required: true
+      required: true,
     },
 
     taskComplexity: {
       type: String,
       enum: ["Low", "Medium", "High"],
-      default: "Medium"
+      default: "Medium",
     },
 
     scheduledStartTime: {
       type: Date,
-      required: true
+      required: true,
     },
 
     scheduledEndTime: {
       type: Date,
-      required: true
-    },
-
-    predictedActualDurationHours: {
-      type: Number,
-      required: true
+      required: true,
     },
 
     estimatedDurationHours: {
       type: Number,
-      required: true
+      required: true,
+    },
+
+    predictedActualDurationHours: {
+      type: Number,
+      required: true,
     },
 
     predictedDelayRiskLevel: {
       type: String,
       enum: ["Low", "Medium", "High"],
-      default: "Medium"
+      default: "Medium",
     },
 
     delayRiskProbability: {
       High: Number,
       Medium: Number,
-      Low: Number
+      Low: Number,
     },
 
     actualStartTime: {
-      type: Date
+      type: Date,
     },
 
     actualEndTime: {
-      type: Date
+      type: Date,
     },
 
     delayStatus: {
       type: String,
       enum: ["not_delayed", "delayed"],
-      default: "not_delayed"
+      default: "not_delayed",
     },
 
     conflictStatus: {
       type: String,
       enum: ["none", "conflict_detected", "affected"],
-      default: "none"
+      default: "none",
     },
 
     reschedulingRequired: {
       type: Boolean,
-      default: false
+      default: false,
     },
 
     bookingStatus: {
@@ -100,26 +117,26 @@ const bookingSchema = new mongoose.Schema(
         "rescheduling_required",
         "rescheduled",
         "completed",
-        "cancelled"
+        "cancelled",
       ],
-      default: "pending"
+      default: "pending",
     },
 
     agreedPrice: {
-      type: Number
+      type: Number,
     },
 
     address: {
-      type: String
+      type: String,
     },
 
     district: {
-      type: String
+      type: String,
     },
 
     notes: {
-      type: String
-    }
+      type: String,
+    },
   },
   { timestamps: true }
 );
