@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Text } from 'react-native-paper';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../theme';
@@ -9,34 +10,20 @@ import NewsFeedScreen from '../pages/NewsFeedScreen';
 // import BookingsScreen from '../pages/BookingsScreen';
 import EarningsScreen from '../pages/EarningsScreen';
 import ProfileScreen from '../pages/ProfileScreen';
-import ProviderCalendarScreen from '../pages/coordination/ProviderCalendarScreen';
+import AppliedJobsScreen from '../pages/AppliedJobsScreen';
 
 const Tab = createBottomTabNavigator();
 
-const TabIcon = ({ iconSet = 'Ionicons', iconName, focused }) => {
-  const IconComponent = iconSet === 'MaterialIcons' ? MaterialIcons : Ionicons;
-
-  return (
-    <View style={[styles.iconWrapper, focused && styles.iconWrapperFocused]}>
-      <IconComponent
-        name={iconName}
-        size={21}
-        color={focused ? Colors.primary : Colors.textLight}
-      />
-    </View>
-  );
-};
-
-const TabLabel = ({ label, focused }) => (
-  <Text style={[styles.tabLabel, focused && styles.tabLabelFocused]}>
-    {label}
-  </Text>
-);
-
-const CustomTab = ({ focused, label, iconName, iconSet }) => (
+const TabIcon = ({ iconName, label, focused }) => (
   <View style={styles.tabItem}>
-    <TabIcon focused={focused} iconName={iconName} iconSet={iconSet} />
-    <TabLabel label={label} focused={focused} />
+    <Icon 
+      name={iconName} 
+      size={24} 
+      color={focused ? Colors.primary : Colors.textLight} 
+    />
+    <Text style={[styles.tabLabel, focused && styles.tabLabelFocused]}>
+      {label}
+    </Text>
   </View>
 );
 
@@ -55,11 +42,7 @@ export default function BottomTabNavigator() {
         component={NewsFeedScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <CustomTab
-              iconName={focused ? 'home' : 'home-outline'}
-              label="Feed"
-              focused={focused}
-            />
+            <TabIcon iconName="home" label="Feed" focused={focused} />
           ),
         }}
       />
@@ -87,11 +70,7 @@ export default function BottomTabNavigator() {
         component={BookingsScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <CustomTab
-              iconName={focused ? 'clipboard' : 'clipboard-outline'}
-              label="Bookings"
-              focused={focused}
-            />
+            <TabIcon iconName="event" label="Bookings" focused={focused} />
           ),
         }}
       />
@@ -102,12 +81,7 @@ export default function BottomTabNavigator() {
         component={EarningsScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <CustomTab
-              iconName="attach-money"
-              iconSet="MaterialIcons"
-              label="Earnings"
-              focused={focused}
-            />
+            <TabIcon iconName="attach-money" label="Earnings" focused={focused} />
           ),
         }}
       />
@@ -117,11 +91,16 @@ export default function BottomTabNavigator() {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <CustomTab
-              iconName={focused ? 'person' : 'person-outline'}
-              label="Profile"
-              focused={focused}
-            />
+            <TabIcon iconName="person" label="Profile" focused={focused} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Applied"
+        component={AppliedJobsScreen}
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon iconName="assignment" label="Applied" focused={focused} />
           ),
         }}
       />
@@ -156,20 +135,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  iconWrapper: {
-    width: 36,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
-  },
-
-  iconWrapperFocused: {
-    backgroundColor: '#EEF2FF',
-  },
-
   tabLabel: {
     fontSize: 10,
     color: Colors.textLight,

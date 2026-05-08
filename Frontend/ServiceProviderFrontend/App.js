@@ -11,6 +11,7 @@ import './locales';
 
 import LanguageSelectScreen from './onbordingPages/LanguageSelectScreen';
 import BottomTabNavigator from './navigation/BottomTabNavigator';
+import { AppliedJobsProvider } from './context/AppliedJobsContext';
 
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -70,6 +71,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+      <AppliedJobsProvider> 
       <PaperProvider theme={theme}>
         <NavigationContainer>
           <Stack.Navigator
@@ -135,6 +137,7 @@ export default function App() {
           </Stack.Navigator>
         </NavigationContainer>
       </PaperProvider>
+      </AppliedJobsProvider>
     </SafeAreaProvider>
   );
 }
