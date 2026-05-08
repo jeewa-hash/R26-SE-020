@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, AUTH_SERVICE_URL } from '../config';
 import { FiUsers, FiEdit2, FiTrash2, FiX, FiAlertTriangle, FiFilter, FiSearch, FiMapPin, FiMap } from 'react-icons/fi';
 
 function ViewUsersPage () {
@@ -31,6 +31,8 @@ function ViewUsersPage () {
   // Delete Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteData, setDeleteData] = useState(null);
+  const [confirmEmail, setConfirmEmail] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   // View Details Modal State
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -76,8 +78,6 @@ function ViewUsersPage () {
     if (type === 'provider') return user.email || 'Unknown';
     return 'Unknown';
   };
-
-  const AUTH_SERVICE_URL = 'http://localhost:4003';
 
   const providerCategories = ['All', ...Array.from(new Set(users.providers.map((provider) => provider.category).filter(Boolean)))];
   const genderOptions = ['All', 'Male', 'Female'];
@@ -154,18 +154,28 @@ function ViewUsersPage () {
   };
 
   // Delete Handlers
-  const openDeleteModal = (id, type) => {
-    setDeleteData({ id, type });
+  const openDeleteModal = (user, type) => {
+    setDeleteData({ id: user._id, type, email: user.email });
     setIsDeleteModalOpen(true);
+    setConfirmEmail('');
+    setDeleteError('');
   };
 
   const closeDeleteModal = () => {
     setIsDeleteModalOpen(false);
     setDeleteData(null);
+    setConfirmEmail('');
+    setDeleteError('');
   };
 
   const confirmDelete = async () => {
     if (!deleteData) return;
+
+    if (confirmEmail.trim().toLowerCase() !== deleteData.email.toLowerCase()) {
+      setDeleteError('Email does not match. Please try again.');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('adminToken');
       await axios.delete(`${API_BASE_URL}/users/${deleteData.type}/${deleteData.id}`, {
@@ -251,7 +261,7 @@ function ViewUsersPage () {
         <button className="btn-icon edit" onClick={(e) => { e.stopPropagation(); openEditModal(user, type); }} title="Edit">
           <FiEdit2 />
         </button>
-        <button className="btn-icon delete" onClick={(e) => { e.stopPropagation(); openDeleteModal(user._id, type); }} title="Delete">
+        <button className="btn-icon delete" onClick={(e) => { e.stopPropagation(); openDeleteModal(user, type); }} title="Delete">
           <FiTrash2 />
         </button>
       </div>
@@ -696,13 +706,45 @@ function ViewUsersPage () {
                 <FiAlertTriangle />
               </div>
               <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: '700', color: 'var(--gray-900)' }}>Delete {deleteData.type}?</h3>
-              <p style={{ color: 'var(--gray-500)', margin: '0 0 4px', lineHeight: '1.6', fontSize: '14px' }}>
-                This action cannot be undone. The account and all associated data will be permanently removed.
+              <p style={{ color: 'var(--gray-500)', margin: '0 0 16px', lineHeight: '1.6', fontSize: '14px' }}>
+                This action cannot be undone. To confirm, please type the user's email: <strong>{deleteData.email}</strong>
               </p>
+              <div style={{ marginBottom: '16px' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Enter email to confirm"
+                  value={confirmEmail}
+                  onChange={(e) => {
+                    setConfirmEmail(e.target.value);
+                    if (deleteError) setDeleteError('');
+                  }}
+                  style={{ 
+                    textAlign: 'center', 
+                    borderColor: deleteError ? '#ef4444' : 'var(--gray-200)',
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--gray-200)'
+                  }}
+                />
+                {deleteError && (
+                  <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: '500' }}>
+                    {deleteError}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="modal-footer" style={{ justifyContent: 'center' }}>
+            <div className="modal-footer" style={{ justifyContent: 'center', paddingBottom: '24px' }}>
               <button className="modal-btn cancel" onClick={closeDeleteModal}>Cancel</button>
-              <button className="modal-btn danger" onClick={confirmDelete}>Yes, Delete</button>
+              <button 
+                className="modal-btn danger" 
+                onClick={confirmDelete}
+                disabled={!confirmEmail.trim()}
+                style={{ opacity: !confirmEmail.trim() ? 0.6 : 1, cursor: !confirmEmail.trim() ? 'not-allowed' : 'pointer' }}
+              >
+                Yes, Delete
+              </button>
             </div>
           </div>
         </div>
