@@ -91,8 +91,15 @@ export default function App() {
               component={RegisterScreen}
             />
 
+            {/* New main route */}
             <Stack.Screen
               name="MainApp"
+              component={BottomTabNavigator}
+            />
+
+            {/* Compatibility route for old code using navigation.replace("Main") */}
+            <Stack.Screen
+              name="Main"
               component={BottomTabNavigator}
             />
 
