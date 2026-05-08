@@ -217,9 +217,14 @@ export default function CreatePostScreen() {
 
         {/* Form Container */}
         <View style={styles.formContainer}>
-          {/* Title Field */}
+          {/* Title Field - Enhanced Box */}
           <View style={[styles.inputContainer, activeField === 'title' && styles.inputContainerActive]}>
-            <Text style={styles.inputLabel}>{t('create_post_what_need')} ✨</Text>
+            <View style={styles.titleHeader}>
+              <View style={styles.titleIconContainer}>
+                <Ionicons name="create-outline" size={20} color="#667eea" />
+              </View>
+              <Text style={styles.inputLabel}>{t('create_post_what_need')}</Text>
+            </View>
             <TextInput
               style={styles.titleInput}
               placeholder={t('create_post_title_placeholder')}
@@ -380,11 +385,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
   },
+  titleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  titleIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#667eea15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   inputLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginBottom: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
   },
   titleInput: {
     fontSize: 16,

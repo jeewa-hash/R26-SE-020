@@ -1,10 +1,11 @@
+// Updated HomeScreen.js
 import React, { useContext, useState, useRef, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   ScrollView, Image, SafeAreaView, LayoutAnimation, Platform, 
-  UIManager, Dimensions, Alert, FlatList 
+  UIManager, Dimensions, Alert, FlatList, StatusBar 
 } from 'react-native';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { LanguageContext } from '../context/LanguageContext';
 import { getSlideshowData } from '../data/seasonalData';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import BottomNav from '../components/BottomNav';
 
 // Enable smooth animations for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -39,7 +41,7 @@ const CATEGORIES = [
   }
 ];
 
-// Slideshow Component using shared data
+// Slideshow Component
 const Slideshow = () => {
   const navigation = useNavigation();
   const flatListRef = useRef();
@@ -65,14 +67,14 @@ const Slideshow = () => {
     >
       <Image source={{ uri: item.image }} style={styles.slideImage} />
       <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.7)']}
+        colors={['transparent', 'rgba(0,0,0,0.8)']}
         style={styles.slideOverlay}
       >
         <View style={styles.slideContent}>
           <Text style={styles.slideTitle}>{item.title}</Text>
           <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
           <View style={styles.slideButton}>
-            <Text style={styles.slideButtonText}>Shop Now →</Text>
+            <Text style={styles.slideButtonText}>Explore Now →</Text>
           </View>
         </View>
       </LinearGradient>
@@ -115,6 +117,70 @@ const Slideshow = () => {
   );
 };
 
+// Service Card Component
+const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload }) => {
+  return (
+    <View style={styles.accordionContainer}>
+      <TouchableOpacity 
+        style={styles.mainCategory} 
+        onPress={onPress}
+        activeOpacity={0.7}
+      >
+        <View style={styles.mainCategoryLeft}>
+          <LinearGradient
+            colors={[category.color, `${category.color}CC`]}
+            style={styles.iconBoxGradient}
+          >
+            <MaterialIcons name={category.icon} size={22} color="#fff" />
+          </LinearGradient>
+          <View>
+            <Text style={styles.mainTitle}>{category.title}</Text>
+            <Text style={styles.subtitleCount}>{category.subcategories.length} services available</Text>
+          </View>
+        </View>
+        <View style={[styles.expandIcon, expanded && styles.expandIconActive]}>
+          <MaterialIcons 
+            name={expanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
+            size={24} 
+            color="#667eea" 
+          />
+        </View>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={styles.subGrid}>
+          {category.subcategories.map((sub, index) => (
+            <TouchableOpacity 
+              key={index} 
+              style={styles.subThumbnail}
+              onPress={() => onSubPress(sub)}
+            >
+              <View style={[styles.subIconCircle, { backgroundColor: `${category.color}15` }]}>
+                <MaterialIcons name="check-circle" size={14} color={category.color} />
+              </View>
+              <Text style={styles.subText}>{sub}</Text>
+            </TouchableOpacity>
+          ))}
+
+          {category.id === 1 && (
+            <TouchableOpacity style={styles.specialUploadBtn} activeOpacity={0.8} onPress={onImageUpload}>
+              <LinearGradient
+                colors={['#667eea', '#764ba2']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientButton}
+              >
+                <Feather name="camera" size={18} color="#fff" />
+                <Text style={styles.uploadText}>Upload Photo for Repair</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  );
+};
+
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { language } = useContext(LanguageContext);
@@ -122,6 +188,7 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const navigation = useNavigation();
 
   const toggleExpand = (id) => {
@@ -141,16 +208,12 @@ export default function HomeScreen() {
     navigation.navigate("NotificationsScreen");
   };
 
+  const handleSubCategoryPress = (subcategory) => {
+    Alert.alert('Service Selected', `${subcategory} service will be available soon`);
+  };
+
   const handleStartBidding = () => {
     navigation.navigate("BiddingScreen");
-  };
-
-  const handleCreatePost = () => {
-    navigation.navigate("CreatePostScreen");
-  };
-
-  const handleGoToFeed = () => {
-    navigation.navigate("FeedScreen");
   };
 
   const handleSearch = async () => {
@@ -194,31 +257,37 @@ export default function HomeScreen() {
       const imageUri = result.assets[0].uri;
       const formData = new FormData();
 
-      formData.append('image', {
+      formData.append('file', {
         uri: imageUri,
         type: 'image/jpeg',
         name: 'photo.jpg',
       });
+      
       formData.append('app_lan', language === 'si' ? 'si' : 'en');
 
-      const response = await fetch('http://10.0.2.2:5000/predict', {
+      const response = await fetch('http://10.0.2.2:8000/predict', {
         method: 'POST',
         body: formData,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
       const data = await response.json();
 
-      if (data.object) {
+      if (data.session_id) {
         Alert.alert(
           t('home_detection_result'),
-          `${t('home_detected')}: ${data.object}\n${t('home_confidence')}: ${data.confidence}`,
+          `${data.agent_speech}`,
           [
             {
               text: t('common_ok'),
               onPress: () => {
                 navigation.navigate("FollowUpScreen", {
-                  initialMessage: `I need help with ${data.object}`,
-                  backendResponse: data,
+                  session_id: data.session_id,
+                  initialQuestion: data.next_question,
+                  category: data.category,
                   source: "image", 
                 });
               }
@@ -231,17 +300,14 @@ export default function HomeScreen() {
 
     } catch (error) {
       console.log("UPLOAD ERROR:", error);
-      Alert.alert(t('common_error'), error.message);
+      Alert.alert(t('common_error'), "Server connection failed. Please check if the backend is running.");
     }
   };
 
-  // Fetch unread notifications count
   const fetchUnreadCount = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) return;
-      
-      // This is a placeholder - replace with your actual API call
       setUnreadCount(3);
     } catch (err) {
       console.log('Error fetching notifications count:', err);
@@ -256,34 +322,40 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-        
+      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+      
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Header with Gradient */}
         <LinearGradient
-          colors={['#667eea', '#764ba2']}
+          colors={['#667eea', '#764ba2', '#f093fb']}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
           <View style={styles.header}>
-            <View>
+            <View style={styles.headerLeft}>
               <Text style={styles.greeting}>{t('good_morning')}</Text>
               <Text style={styles.userName}>Tashmi 👋</Text>
               <Text style={styles.subGreeting}>{t('what_help_today')}</Text>
             </View>
             <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.chatBtn} onPress={handleChatPress}>
-                <View style={styles.chatBadge}>
-                  <Text style={styles.chatBadgeText}>2</Text>
+              <TouchableOpacity style={styles.iconBtn} onPress={handleChatPress}>
+                <Ionicons name="chatbubbles-outline" size={22} color="#fff" />
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>2</Text>
                 </View>
-                <Ionicons name="chatbubbles-outline" size={24} color="#fff" />
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.notificationBtn} onPress={handleNotifications}>
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationCount}>{unreadCount}</Text>
-                </View>
-                <Ionicons name="notifications-outline" size={24} color="#fff" />
+              <TouchableOpacity style={styles.iconBtn} onPress={handleNotifications}>
+                <Ionicons name="notifications-outline" size={22} color="#fff" />
+                {unreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unreadCount}</Text>
+                  </View>
+                )}
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.profileBtn} onPress={handleProfilePress}>
@@ -294,12 +366,10 @@ export default function HomeScreen() {
           </View>
         </LinearGradient>
 
-        {/* Search Bar with Filters */}
+        {/* Search Bar */}
         <View style={styles.searchWrapper}>
-          <View style={styles.searchContainer}>
-            <TouchableOpacity onPress={handleSearch}>
-              <MaterialIcons name="search" size={22} color="#667eea" />
-            </TouchableOpacity>
+          <View style={[styles.searchContainer, isSearchFocused && styles.searchContainerFocused]}>
+            <Feather name="search" size={20} color="#667eea" />
             <TextInput 
               placeholder={t('search_placeholder')}
               placeholderTextColor="#999"
@@ -308,227 +378,526 @@ export default function HomeScreen() {
               onChangeText={setSearchQuery}
               returnKeyType="search"
               onSubmitEditing={handleSearch}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <MaterialIcons name="close" size={20} color="#999" />
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
+                <Feather name="x" size={18} color="#999" />
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => setShowFilters(!showFilters)} style={styles.filterIcon}>
-              <MaterialIcons name="tune" size={22} color="#667eea" />
+              <Feather name="sliders" size={20} color="#667eea" />
             </TouchableOpacity>
           </View>
           
           {showFilters && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChips}>
-              <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>{t('home_nearby')}</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              style={styles.filterChips}
+              contentContainerStyle={styles.filterChipsContent}
+            >
+              <TouchableOpacity style={styles.filterChipActive}>
+                <Text style={styles.filterChipTextActive}>Nearby</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>{t('home_top_rated')}</Text>
+                <Text style={styles.filterChipText}>Top Rated</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>{t('home_lowest_price')}</Text>
+                <Text style={styles.filterChipText}>Lowest Price</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>{t('home_available_now')}</Text>
+                <Text style={styles.filterChipText}>Available Now</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>{t('home_support_24_7')}</Text>
+                <Text style={styles.filterChipText}>24/7 Support</Text>
               </TouchableOpacity>
             </ScrollView>
           )}
         </View>
 
-        {/* Slideshow - Using shared data */}
+        {/* Bidding Banner */}
+        <TouchableOpacity onPress={handleStartBidding} activeOpacity={0.9}>
+          <LinearGradient
+            colors={['#FF6B6B', '#FF8E53']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.biddingBanner}
+          >
+            <View style={styles.biddingContent}>
+              <View style={styles.biddingIconContainer}>
+                <MaterialIcons name="gavel" size={32} color="#fff" />
+              </View>
+              <View style={styles.biddingTextContainer}>
+                <Text style={styles.biddingTitle}>Start Bidding Now</Text>
+                <Text style={styles.biddingSubtitle}>Get the best price for your service</Text>
+              </View>
+              <View style={styles.biddingArrow}>
+                <Feather name="arrow-right" size={24} color="#fff" />
+              </View>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Slideshow */}
         <Slideshow />
-
-        {/* Action Buttons Row */}
-        <View style={styles.actionButtonsRow}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleStartBidding}>
-            <LinearGradient
-              colors={['#FF6B6B', '#FF8E53']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.actionGradient}
-            >
-              <MaterialIcons name="gavel" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>{t('bidding')}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton} onPress={handleCreatePost}>
-            <LinearGradient
-              colors={['#4ECDC4', '#44B3A5']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.actionGradient}
-            >
-              <MaterialIcons name="post-add" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>{t('create_post')}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton} onPress={handleGoToFeed}>
-            <LinearGradient
-              colors={['#96CEB4', '#45B7D1']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.actionGradient}
-            >
-              <MaterialIcons name="feed" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>{t('feed')}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
 
         {/* Section Header */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t('all_services')}</Text>
-          <TouchableOpacity>
+          <View>
+            <Text style={styles.sectionTitle}>{t('all_services')}</Text>
+            <Text style={styles.sectionSubtitle}>Browse by category</Text>
+          </View>
+          <TouchableOpacity style={styles.seeAllBtn}>
             <Text style={styles.seeAllText}>{t('home_see_all')}</Text>
+            <Feather name="arrow-right" size={14} color="#667eea" />
           </TouchableOpacity>
         </View>
         
         {/* Expandable Service List */}
         {CATEGORIES.map((cat) => (
-          <View key={cat.id} style={styles.accordionContainer}>
-            <TouchableOpacity 
-              style={styles.mainCategory} 
-              onPress={() => toggleExpand(cat.id)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.mainCategoryLeft}>
-                <View style={[styles.iconBox, { backgroundColor: `${cat.color}15` }]}>
-                  <MaterialIcons name={cat.icon} size={24} color={cat.color} />
-                </View>
-                <Text style={styles.mainTitle}>{cat.title}</Text>
-              </View>
-              <View style={[styles.expandIcon, expandedId === cat.id && styles.expandIconActive]}>
-                <MaterialIcons 
-                  name={expandedId === cat.id ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
-                  size={24} 
-                  color="#667eea" 
-                />
-              </View>
-            </TouchableOpacity>
-
-            {expandedId === cat.id && (
-              <View style={styles.subGrid}>
-                {cat.subcategories.map((sub, index) => (
-                  <TouchableOpacity key={index} style={styles.subThumbnail}>
-                    <View style={styles.subIcon}>
-                      <MaterialIcons name="check-circle" size={16} color={cat.color} />
-                    </View>
-                    <Text style={styles.subText}>{sub}</Text>
-                  </TouchableOpacity>
-                ))}
-
-                {cat.id === 1 && (
-                  <TouchableOpacity style={styles.specialUploadBtn} activeOpacity={0.8} onPress={handleImageUpload}>
-                    <LinearGradient
-                      colors={['#667eea', '#764ba2']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.gradientButton}
-                    >
-                      <MaterialIcons name="camera-alt" size={20} color="#fff" />
-                      <Text style={styles.uploadText}>{t('home_upload_repair_photo')}</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          </View>
+          <ServiceCard
+            key={cat.id}
+            category={cat}
+            expanded={expandedId === cat.id}
+            onPress={() => toggleExpand(cat.id)}
+            onSubPress={handleSubCategoryPress}
+            onImageUpload={handleImageUpload}
+          />
         ))}
 
-        {/* Promotional Banner */}
-        <View style={styles.promoBanner}>
-          <LinearGradient
-            colors={['#FF6B6B', '#FF8E53']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.promoGradient}
-          >
-            <View style={styles.promoContent}>
-              <Text style={styles.promoTitle}>{t('home_special_offer')}</Text>
-              <Text style={styles.promoText}>{t('home_first_service_discount')}</Text>
-              <TouchableOpacity style={styles.promoBtn}>
-                <Text style={styles.promoBtnText}>{t('home_book_now')}</Text>
-              </TouchableOpacity>
-            </View>
-            <MaterialIcons name="local-offer" size={60} color="#ffffff30" style={styles.promoIcon} />
-          </LinearGradient>
-        </View>
-
+        {/* Extra padding for bottom nav */}
+        <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* Bottom Navigation */}
+      <BottomNav />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  headerGradient: { borderBottomLeftRadius: 30, borderBottomRightRadius: 30, paddingBottom: 30 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20 },
-  greeting: { fontSize: 14, color: '#ffffffCC', letterSpacing: 0.5 },
-  userName: { fontSize: 28, fontWeight: '700', color: '#fff', marginTop: 4, marginBottom: 8 },
-  subGreeting: { color: '#ffffffCC', fontSize: 14 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  chatBtn: { position: 'relative', padding: 4 },
-  chatBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#FF6B6B', borderRadius: 10, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center', zIndex: 1, paddingHorizontal: 4 },
-  chatBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  notificationBtn: { position: 'relative', padding: 4 },
-  notificationBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#FF6B6B', borderRadius: 10, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center', zIndex: 1, paddingHorizontal: 4 },
-  notificationCount: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  profileBtn: { position: 'relative' },
-  profilePic: { width: 50, height: 50, borderRadius: 25, borderWidth: 3, borderColor: '#fff' },
-  onlineDot: { position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#4CD964', borderWidth: 2, borderColor: '#fff' },
-  searchWrapper: { paddingHorizontal: 20, marginTop: -20 },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 15, paddingHorizontal: 18, paddingVertical: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 5, gap: 12 },
-  searchInput: { flex: 1, fontSize: 15, color: '#333' },
-  filterIcon: { paddingLeft: 8, borderLeftWidth: 1, borderLeftColor: '#E5E7EB' },
-  filterChips: { flexDirection: 'row', marginTop: 12, gap: 8 },
-  filterChip: { backgroundColor: '#F3F4F6', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
-  filterChipText: { fontSize: 13, color: '#6B7280' },
-  slideshowContainer: { marginTop: 20, marginBottom: 10 },
-  slideCard: { width: width - 32, height: 180, marginHorizontal: 16, borderRadius: 20, overflow: 'hidden', backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
-  slideImage: { width: '100%', height: '100%' },
-  slideOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '100%', justifyContent: 'flex-end', padding: 16 },
-  slideContent: { marginBottom: 16 },
-  slideTitle: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  slideSubtitle: { fontSize: 14, color: '#ffffffCC', marginBottom: 12 },
-  slideButton: { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
-  slideButtonText: { fontSize: 12, fontWeight: '500', color: '#fff' },
-  dotContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#D1D5DB', marginHorizontal: 4 },
-  activeDot: { width: 24, backgroundColor: '#667eea' },
-  actionButtonsRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginTop: 20 },
-  actionButton: { flex: 1, borderRadius: 10, overflow: 'hidden' },
-  actionGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, gap: 6 },
-  actionButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 30, marginBottom: 18 },
-  sectionTitle: { fontSize: 20, fontWeight: '700', color: '#1a1a2e', letterSpacing: -0.3 },
-  seeAllText: { color: '#667eea', fontSize: 14, fontWeight: '600' },
-  accordionContainer: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 20, marginBottom: 12, padding: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 3 },
-  mainCategory: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  mainCategoryLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  iconBox: { padding: 10, borderRadius: 12 },
-  mainTitle: { fontSize: 16, fontWeight: '600', marginLeft: 14, color: '#1a1a2e' },
-  expandIcon: { padding: 4, borderRadius: 12, backgroundColor: '#f0f0f0' },
-  expandIconActive: { backgroundColor: '#667eea15' },
-  subGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 18, borderTopWidth: 1, borderColor: '#E8ECF0', paddingTop: 18, justifyContent: 'space-between' },
-  subThumbnail: { width: (width - 104) / 2, backgroundColor: '#F8F9FA', paddingVertical: 14, paddingHorizontal: 8, borderRadius: 12, marginBottom: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', borderWidth: 1, borderColor: '#E8ECF0' },
-  subIcon: { marginRight: 8 },
-  subText: { fontSize: 13, color: '#555', fontWeight: '500' },
-  specialUploadBtn: { width: '100%', marginTop: 8, borderRadius: 12, overflow: 'hidden' },
-  gradientButton: { flexDirection: 'row', paddingVertical: 14, justifyContent: 'center', alignItems: 'center' },
-  uploadText: { color: '#fff', fontWeight: '600', marginLeft: 10, fontSize: 14 },
-  promoBanner: { paddingHorizontal: 20, marginTop: 20 },
-  promoGradient: { borderRadius: 16, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', overflow: 'hidden' },
-  promoContent: { flex: 1 },
-  promoTitle: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 6 },
-  promoText: { color: '#fff', fontSize: 13, opacity: 0.9, marginBottom: 12 },
-  promoBtn: { backgroundColor: '#ffffff30', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start' },
-  promoBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  promoIcon: { position: 'absolute', right: 10, bottom: 10 },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#F8F9FA',
+  },
+  scrollContent: {
+    paddingBottom: 80,
+  },
+  
+  // Header Styles
+  headerGradient: { 
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    paddingBottom: 40,
+    paddingTop: 10,
+  },
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20, 
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  greeting: { 
+    fontSize: 12, 
+    color: '#ffffffCC', 
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    fontWeight: '500',
+  },
+  userName: { 
+    fontSize: 26, 
+    fontWeight: '700', 
+    color: '#fff', 
+    marginTop: 4, 
+    marginBottom: 4,
+  },
+  subGreeting: { 
+    color: '#ffffffCC', 
+    fontSize: 13,
+  },
+  headerActions: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 12,
+  },
+  iconBtn: {
+    position: 'relative',
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#ffffff20',
+  },
+  badge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: '#FF6B6B',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  profileBtn: { 
+    position: 'relative',
+  },
+  profilePic: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 24, 
+    borderWidth: 3, 
+    borderColor: '#fff',
+  },
+  onlineDot: { 
+    position: 'absolute', 
+    bottom: 2, 
+    right: 2, 
+    width: 12, 
+    height: 12, 
+    borderRadius: 6, 
+    backgroundColor: '#4CD964', 
+    borderWidth: 2, 
+    borderColor: '#fff',
+  },
+  
+  // Search Styles
+  searchWrapper: { 
+    paddingHorizontal: 20, 
+    marginTop: -20,
+  },
+  searchContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: '#fff', 
+    borderRadius: 16, 
+    paddingHorizontal: 16, 
+    paddingVertical: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 5,
+    gap: 10,
+  },
+  searchContainerFocused: {
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+    borderWidth: 1,
+    borderColor: '#667eea20',
+  },
+  searchInput: { 
+    flex: 1, 
+    fontSize: 15, 
+    color: '#333',
+    paddingVertical: 0,
+  },
+  clearBtn: {
+    padding: 2,
+  },
+  filterIcon: { 
+    paddingLeft: 8, 
+    borderLeftWidth: 1, 
+    borderLeftColor: '#E5E7EB',
+  },
+  filterChips: { 
+    marginTop: 12,
+  },
+  filterChipsContent: {
+    paddingRight: 20,
+  },
+  filterChip: { 
+    backgroundColor: '#F3F4F6', 
+    paddingHorizontal: 16, 
+    paddingVertical: 8, 
+    borderRadius: 20, 
+    marginRight: 8,
+  },
+  filterChipActive: { 
+    backgroundColor: '#667eea', 
+    paddingHorizontal: 16, 
+    paddingVertical: 8, 
+    borderRadius: 20, 
+    marginRight: 8,
+  },
+  filterChipText: { 
+    fontSize: 13, 
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  filterChipTextActive: { 
+    fontSize: 13, 
+    color: '#fff',
+    fontWeight: '500',
+  },
+  
+  // Bidding Banner Styles
+  biddingBanner: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#FF6B6B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  biddingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  biddingIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#ffffff30',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  biddingTextContainer: {
+    flex: 1,
+  },
+  biddingTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  biddingSubtitle: {
+    fontSize: 12,
+    color: '#ffffffCC',
+  },
+  biddingArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ffffff20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // Slideshow Styles
+  slideshowContainer: { 
+    marginTop: 20, 
+    marginBottom: 10,
+  },
+  slideCard: { 
+    width: width - 32, 
+    height: 180, 
+    marginHorizontal: 16, 
+    borderRadius: 20, 
+    overflow: 'hidden', 
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  slideImage: { 
+    width: '100%', 
+    height: '100%',
+  },
+  slideOverlay: { 
+    position: 'absolute', 
+    bottom: 0, 
+    left: 0, 
+    right: 0, 
+    height: '100%', 
+    justifyContent: 'flex-end', 
+    padding: 16,
+  },
+  slideContent: { 
+    marginBottom: 16,
+  },
+  slideTitle: { 
+    fontSize: 20, 
+    fontWeight: '700', 
+    color: '#fff', 
+    marginBottom: 4,
+  },
+  slideSubtitle: { 
+    fontSize: 12, 
+    color: '#ffffffCC', 
+    marginBottom: 12,
+  },
+  slideButton: { 
+    alignSelf: 'flex-start', 
+    backgroundColor: 'rgba(255,255,255,0.2)', 
+    paddingHorizontal: 16, 
+    paddingVertical: 8, 
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  slideButtonText: { 
+    fontSize: 12, 
+    fontWeight: '500', 
+    color: '#fff',
+  },
+  dotContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginTop: 12,
+  },
+  dot: { 
+    width: 6, 
+    height: 6, 
+    borderRadius: 3, 
+    backgroundColor: '#D1D5DB', 
+    marginHorizontal: 4,
+  },
+  activeDot: { 
+    width: 20, 
+    backgroundColor: '#667eea',
+  },
+  
+  // Section Header Styles
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+    marginTop: 30,
+    marginBottom: 18,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#999',
+  },
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  seeAllText: {
+    color: '#667eea',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  
+  // Accordion Styles
+  accordionContainer: { 
+    backgroundColor: '#fff', 
+    borderRadius: 16, 
+    marginHorizontal: 20, 
+    marginBottom: 12, 
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  mainCategory: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+  },
+  mainCategoryLeft: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    flex: 1,
+    gap: 14,
+  },
+  iconBoxGradient: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mainTitle: { 
+    fontSize: 16, 
+    fontWeight: '600', 
+    color: '#1a1a2e',
+    marginBottom: 2,
+  },
+  subtitleCount: {
+    fontSize: 11,
+    color: '#999',
+  },
+  expandIcon: { 
+    padding: 4, 
+    borderRadius: 12, 
+    backgroundColor: '#f0f0f0',
+  },
+  expandIconActive: { 
+    backgroundColor: '#667eea15',
+  },
+  subGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    marginTop: 16, 
+    borderTopWidth: 1, 
+    borderColor: '#E8ECF0', 
+    paddingTop: 16, 
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  subThumbnail: { 
+    width: (width - 104) / 2,
+    backgroundColor: '#F8F9FA', 
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E8ECF0',
+    gap: 8,
+  },
+  subIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  subText: { 
+    fontSize: 12, 
+    color: '#555', 
+    fontWeight: '500',
+  },
+  specialUploadBtn: { 
+    width: '100%', 
+    marginTop: 8, 
+    borderRadius: 12, 
+    overflow: 'hidden',
+  },
+  gradientButton: { 
+    flexDirection: 'row', 
+    paddingVertical: 12, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    gap: 8,
+  },
+  uploadText: { 
+    color: '#fff', 
+    fontWeight: '600', 
+    fontSize: 13,
+  },
 });

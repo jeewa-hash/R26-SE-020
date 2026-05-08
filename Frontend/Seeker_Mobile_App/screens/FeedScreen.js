@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import BottomNav from '../components/BottomNav';
 
 const API_BASE_URL = 'http://10.0.2.2:6000';
 
@@ -21,8 +22,7 @@ export default function FeedScreen({ navigation }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [interestedPosts, setInterestedPosts] = useState({});
 
   const fetchPosts = async () => {
     try {
@@ -42,10 +42,7 @@ export default function FeedScreen({ navigation }) {
         category: post.category,
         urgency: post.urgency,
         tags: post.tags || [],
-        likes: post.likes || 0,
-        comments: post.comments || 0,
-        shares: post.shares || 0,
-        isLiked: false,
+        interestedCount: post.interestedCount || 0,
       }));
       
       setPosts(formattedPosts);
@@ -81,33 +78,25 @@ export default function FeedScreen({ navigation }) {
     return unsubscribe;
   }, [navigation]);
 
-  const handleLike = (postId) => {
+  const handleInterested = (postId) => {
+    setInterestedPosts(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
+    }));
+    
     setPosts(posts.map(post => 
       post.id === postId 
-        ? { ...post, likes: post.isLiked ? post.likes - 1 : post.likes + 1, isLiked: !post.isLiked }
+        ? { ...post, interestedCount: post.interestedCount + (interestedPosts[postId] ? -1 : 1) }
         : post
     ));
-  };
-
-  const handleComment = async (postId) => {
-    if (!commentText.trim()) {
-      Alert.alert("Error", "Please enter a comment");
-      return;
-    }
     
-    Alert.alert("Comment Added", "Your comment has been posted");
-    setCommentText('');
-    setSelectedPostId(null);
-    setPosts(posts.map(post => 
-      post.id === postId ? { ...post, comments: post.comments + 1 } : post
-    ));
-  };
-
-  const handleShare = (postId) => {
-    Alert.alert("Share", "Share this post with others?");
-    setPosts(posts.map(post => 
-      post.id === postId ? { ...post, shares: post.shares + 1 } : post
-    ));
+    Alert.alert(
+      interestedPosts[postId] ? "Not Interested" : "Interested!",
+      interestedPosts[postId] 
+        ? "You have removed your interest from this post"
+        : "You have shown interest in this service. The service seeker will contact you soon.",
+      [{ text: "OK" }]
+    );
   };
 
   const handleCreatePost = () => {
@@ -125,6 +114,7 @@ export default function FeedScreen({ navigation }) {
 
   const renderPost = (post) => {
     const urgency = getUrgencyStyle(post.urgency);
+    const isInterested = interestedPosts[post.id];
     
     return (
       <View key={post.id} style={styles.postCard}>
@@ -156,7 +146,7 @@ export default function FeedScreen({ navigation }) {
 
         {/* Content */}
         <Text style={styles.postTitle}>{post.title}</Text>
-        <Text style={styles.postDescription} numberOfLines={3}>{post.description}</Text>
+        <Text style={styles.postDescription}>{post.description}</Text>
 
         {/* Image */}
         {post.image && (
@@ -177,40 +167,32 @@ export default function FeedScreen({ navigation }) {
           </ScrollView>
         )}
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => handleLike(post.id)}>
-            <Ionicons name={post.isLiked ? "heart" : "heart-outline"} size={22} color={post.isLiked ? "#FF6B6B" : "#6B7280"} />
-            <Text style={[styles.actionText, post.isLiked && styles.likedText]}>{post.likes}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionBtn} onPress={() => setSelectedPostId(post.id)}>
-            <Ionicons name="chatbubble-outline" size={20} color="#6B7280" />
-            <Text style={styles.actionText}>{post.comments}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(post.id)}>
-            <Ionicons name="share-social-outline" size={20} color="#6B7280" />
-            <Text style={styles.actionText}>{post.shares}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Comment Input */}
-        {selectedPostId === post.id && (
-          <View style={styles.commentContainer}>
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Write a comment..."
-              placeholderTextColor="#9CA3AF"
-              value={commentText}
-              onChangeText={setCommentText}
-              multiline
+        {/* Interested Button */}
+        <TouchableOpacity 
+          style={[styles.interestedButton, isInterested && styles.interestedButtonActive]}
+          onPress={() => handleInterested(post.id)}
+        >
+          <LinearGradient
+            colors={isInterested ? ['#10B981', '#059669'] : ['#667eea', '#764ba2']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.interestedGradient}
+          >
+            <Ionicons 
+              name={isInterested ? "checkmark-circle" : "hand-right-outline"} 
+              size={22} 
+              color="#fff" 
             />
-            <TouchableOpacity style={styles.sendCommentBtn} onPress={() => handleComment(post.id)}>
-              <Ionicons name="send" size={20} color="#6366F1" />
-            </TouchableOpacity>
-          </View>
-        )}
+            <Text style={styles.interestedButtonText}>
+              {isInterested ? "Interested ✓" : "I'm Interested"}
+            </Text>
+            {post.interestedCount > 0 && (
+              <View style={styles.interestedCount}>
+                <Text style={styles.interestedCountText}>{post.interestedCount}</Text>
+              </View>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -222,6 +204,7 @@ export default function FeedScreen({ navigation }) {
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading posts...</Text>
         </View>
+        <BottomNav />
       </SafeAreaView>
     );
   }
@@ -241,7 +224,7 @@ export default function FeedScreen({ navigation }) {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Feed</Text>
+          <Text style={styles.headerTitle}>Service Feed</Text>
           <TouchableOpacity style={styles.createPostBtn} onPress={handleCreatePost}>
             <Ionicons name="create-outline" size={24} color="#fff" />
           </TouchableOpacity>
@@ -252,6 +235,7 @@ export default function FeedScreen({ navigation }) {
       <ScrollView 
         style={styles.feedContainer} 
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.feedContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#667eea']} />}
       >
         {posts.length === 0 ? (
@@ -267,6 +251,9 @@ export default function FeedScreen({ navigation }) {
           posts.map(renderPost)
         )}
       </ScrollView>
+
+      {/* Bottom Navigation */}
+      <BottomNav />
     </SafeAreaView>
   );
 }
@@ -299,7 +286,10 @@ const styles = StyleSheet.create({
   },
   feedContainer: {
     flex: 1,
+  },
+  feedContent: {
     padding: 16,
+    paddingBottom: 80,
   },
   postCard: {
     backgroundColor: "#fff",
@@ -362,10 +352,10 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   postTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     color: "#1F2937",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   postDescription: {
     fontSize: 14,
@@ -381,7 +371,7 @@ const styles = StyleSheet.create({
   },
   tagsContainer: {
     flexDirection: "row",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   tagChip: {
     backgroundColor: '#F3F4F6',
@@ -394,46 +384,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#6B7280',
   },
-  actionButtons: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-    gap: 24,
+  interestedButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 8,
   },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  actionText: {
-    fontSize: 13,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  likedText: {
-    color: "#FF6B6B",
-  },
-  commentContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 12,
+  interestedGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
     gap: 8,
   },
-  commentInput: {
-    flex: 1,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: "#1F2937",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+  interestedButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
-  sendCommentBtn: {
-    padding: 8,
+  interestedCount: {
+    position: 'absolute',
+    right: 16,
+    backgroundColor: '#ffffff30',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  interestedCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  interestedButtonActive: {
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   emptyContainer: {
     alignItems: 'center',
