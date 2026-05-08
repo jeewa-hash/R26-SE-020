@@ -13,6 +13,7 @@ import './locales';
 import LanguageSelectScreen from './onbordingPages/LanguageSelectScreen';
 import BottomTabNavigator from './navigation/BottomTabNavigator';
 import { AppliedJobsProvider } from './context/AppliedJobsContext';
+import PortfolioGalleryScreen from './pages/PortfolioGalleryScreen';
 
 const Stack = createStackNavigator();
 
@@ -49,6 +50,7 @@ export default function App() {
           >
             <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} />
             <Stack.Screen name="MainApp" component={BottomTabNavigator} />
+            <Stack.Screen name="PortfolioGallery" component={PortfolioGalleryScreen} options={{headerShown: false}} />
           </Stack.Navigator>
         </NavigationContainer>
       </PaperProvider>

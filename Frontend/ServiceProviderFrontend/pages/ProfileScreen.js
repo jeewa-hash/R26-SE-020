@@ -10,6 +10,9 @@ import { Text } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Colors } from '../theme';
+import { usePortfolioUpload } from '../hooks/usePortfolioUpload';
+import AIProcessingModal from '../components/portfolio/AIProcessingModal';
+import PortfolioTagScreen from '../components/portfolio/PortfolioTagScreen';
 
 const RECENT_ACTIVITY = [
   { id: '1', icon: 'check-circle', iconColor: '#4CAF50', titleKey: 'newBidAccepted', timeKey: 'minsAgo' },
@@ -17,8 +20,18 @@ const RECENT_ACTIVITY = [
   { id: '3', icon: 'account-balance-wallet', iconColor: '#4CAF50', titleKey: 'paymentReceived', timeKey: 'hoursAgo' },
 ];
 
-export default function HomeScreen() {
+export default function ProfileScreen({navigation}) {
   const { t } = useTranslation();
+
+  const {
+    images,
+    processing,
+    progress,
+    showTagScreen,
+    openGallery,
+    cancelProcessing,
+    resetAll,
+  } = usePortfolioUpload();
 
   return (
     <View style={styles.container}>
@@ -36,7 +49,11 @@ export default function HomeScreen() {
             <MaterialIcons name="auto-awesome" size={26} color={Colors.text} />
           </TouchableOpacity>
         </View>
-
+        <TouchableOpacity    
+          style={styles.profileRow}
+          onPress={() => navigation.navigate('PortfolioGallery')}  
+          activeOpacity={0.7}
+        ></TouchableOpacity>
         {/* ── Profile ── */}
         <View style={styles.profileRow}>
           <View style={styles.avatarWrapper}>
@@ -58,8 +75,6 @@ export default function HomeScreen() {
         {/* ── Performance ── */}
         <Text style={styles.sectionLabel}>{t('yourPerformance')}</Text>
         <View style={styles.statsGrid}>
-
-          {/* Total Jobs */}
           <View style={styles.statCard}>
             <View style={styles.statTop}>
               <MaterialIcons name="work-outline" size={20} color={Colors.textLight} />
@@ -69,7 +84,6 @@ export default function HomeScreen() {
             <Text style={styles.statValue}>124</Text>
           </View>
 
-          {/* Earnings */}
           <View style={[styles.statCard, styles.statCardGreen]}>
             <View style={styles.statTop}>
               <MaterialIcons name="account-balance-wallet" size={20} color="#2E7D32" />
@@ -78,7 +92,6 @@ export default function HomeScreen() {
             <Text style={[styles.statValue, { color: '#1B5E20' }]}>45,200</Text>
           </View>
 
-          {/* User Rating */}
           <View style={styles.statCard}>
             <View style={styles.statTop}>
               <MaterialIcons name="star-outline" size={20} color={Colors.textLight} />
@@ -87,7 +100,6 @@ export default function HomeScreen() {
             <Text style={styles.statValue}>4.9</Text>
           </View>
 
-          {/* Completion */}
           <View style={styles.statCard}>
             <View style={styles.statTop}>
               <MaterialIcons name="schedule" size={20} color={Colors.textLight} />
@@ -95,14 +107,17 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>{t('completion')}</Text>
             <Text style={styles.statValue}>98%</Text>
           </View>
-
         </View>
 
         {/* ── Quick Actions ── */}
         <Text style={styles.sectionLabel}>{t('quickActions')}</Text>
         <View style={styles.actionsRow}>
 
-          <TouchableOpacity style={styles.actionItem}>
+          {/* Upload Portfolio — connected to gallery */}
+          <TouchableOpacity
+            style={styles.actionItem}
+            onPress={openGallery}
+          >
             <View style={styles.actionIcon}>
               <MaterialIcons name="photo-library" size={26} color={Colors.white} />
             </View>
@@ -175,6 +190,23 @@ export default function HomeScreen() {
       <TouchableOpacity style={styles.fab}>
         <MaterialIcons name="add" size={28} color={Colors.white} />
       </TouchableOpacity>
+
+      {/* ── AI Processing Modal ── */}
+      <AIProcessingModal
+        visible={processing}
+        progress={progress}
+        imageCount={images.length}
+        onCancel={cancelProcessing}
+      />
+
+      {/* ── Portfolio Tag Screen ── */}
+      {showTagScreen && images.length > 0 && (
+        <PortfolioTagScreen
+          images={images}
+          onClose={resetAll}
+        />
+      )}
+
     </View>
   );
 }
@@ -188,8 +220,6 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 52,
   },
-
-  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -208,8 +238,6 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 20,
   },
-
-  // Profile
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -257,8 +285,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Section Label
   sectionLabel: {
     fontSize: 12,
     fontWeight: '700',
@@ -266,8 +292,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 12,
   },
-
-  // Stats Grid
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -305,8 +329,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.text,
   },
-
-  // Quick Actions
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -332,8 +354,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
-
-  // AI Card
   aiCard: {
     backgroundColor: '#F0F4FF',
     borderRadius: 16,
@@ -392,8 +412,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 15,
   },
-
-  // Recent Activity
   activityHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -440,8 +458,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.border,
   },
-
-  // FAB
   fab: {
     position: 'absolute',
     bottom: 90,
