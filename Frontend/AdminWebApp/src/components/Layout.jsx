@@ -2,7 +2,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
-import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare, FiActivity, FiTrendingUp } from 'react-icons/fi';
+import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare, FiActivity, FiTrendingUp, FiBarChart2 } from 'react-icons/fi';
 import { HiOutlineShieldCheck } from 'react-icons/hi';
 
 function Layout() {
@@ -156,11 +156,11 @@ function Layout() {
             Manage Categories
           </NavLink>
           <NavLink
-            to="/rejected-verifications"
+            to="/nic-verifications"
             className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
           >
-            <span className="sidebar-link-icon"><FiXCircle /></span>
-            Rejected Verifications
+            <span className="sidebar-link-icon"><HiOutlineShieldCheck /></span>
+            NIC Verifications
           </NavLink>
           <NavLink
             to="/penalty-management"
@@ -189,6 +189,13 @@ function Layout() {
           >
             <span className="sidebar-link-icon"><FiTrendingUp /></span>
             Demand Forecasting
+          </NavLink>
+          <NavLink
+            to="/analytics"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiBarChart2 /></span>
+            Analytics
           </NavLink>
 
           <div className="sidebar-section-label">System</div>

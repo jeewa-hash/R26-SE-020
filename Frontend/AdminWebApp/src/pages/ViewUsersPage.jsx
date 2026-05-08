@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
-import { FiUsers, FiEdit2, FiTrash2, FiX, FiAlertTriangle, FiFilter, FiSearch } from 'react-icons/fi';
+import { FiUsers, FiEdit2, FiTrash2, FiX, FiAlertTriangle, FiFilter, FiSearch, FiMapPin, FiMap } from 'react-icons/fi';
 
 function ViewUsersPage () {
   const [users, setUsers] = useState({ admins: [], providers: [], seekers: [] });
@@ -13,7 +13,15 @@ function ViewUsersPage () {
   const [providerCategoryFilter, setProviderCategoryFilter] = useState('All');
   const [genderFilter, setGenderFilter] = useState('All');
 
-  const DISTRICT_OPTIONS = ['All', 'Gampaha', 'Colombo'];
+  const SRI_LANKA_DISTRICTS = [
+    'Ampara', 'Anuradhapura', 'Badulla', 'Batticaloa', 'Colombo',
+    'Galle', 'Gampaha', 'Hambantota', 'Jaffna', 'Kalutara',
+    'Kandy', 'Kegalle', 'Kilinochchi', 'Kurunegala', 'Mannar',
+    'Matale', 'Matara', 'Monaragala', 'Mullaitivu', 'Nuwara Eliya',
+    'Polonnaruwa', 'Puttalam', 'Ratnapura', 'Trincomalee', 'Vavuniya',
+  ];
+
+  const DISTRICT_OPTIONS = ['All', ...SRI_LANKA_DISTRICTS];
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -503,6 +511,21 @@ function ViewUsersPage () {
                   <div className="detail-row"><div className="detail-label">NIC Number</div><div className="detail-value">{viewData.nicNumber || 'N/A'}</div></div>
                   <div className="detail-row"><div className="detail-label">District</div><div className="detail-value">{viewData.district || 'N/A'}</div></div>
                   <div className="detail-row">
+                    <div className="detail-label">Location</div>
+                    <div className="detail-value">
+                      {viewData.location?.latitude && viewData.location?.longitude ? (
+                        <a 
+                          href={`https://www.google.com/maps?q=${viewData.location.latitude},${viewData.location.longitude}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ color: 'var(--primary-500)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }}
+                        >
+                          <FiMap size={14} /> View on Map
+                        </a>
+                      ) : 'N/A'}
+                    </div>
+                  </div>
+                  <div className="detail-row">
                     <div className="detail-label">Email Verified</div>
                     <div className="detail-value">
                       <span className={`status-badge ${viewData.isEmailVerified ? 'verified' : 'pending'}`}>
@@ -521,6 +544,21 @@ function ViewUsersPage () {
                   <div className="detail-row"><div className="detail-label">District</div><div className="detail-value">{viewData.district || 'N/A'}</div></div>
                   <div className="detail-row"><div className="detail-label">Gender</div><div className="detail-value">{viewData.gender || 'N/A'}</div></div>
                   <div className="detail-row"><div className="detail-label">Address</div><div className="detail-value">{viewData.address || 'N/A'}</div></div>
+                  <div className="detail-row">
+                    <div className="detail-label">Location</div>
+                    <div className="detail-value">
+                      {viewData.location?.latitude && viewData.location?.longitude ? (
+                        <a 
+                          href={`https://www.google.com/maps?q=${viewData.location.latitude},${viewData.location.longitude}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ color: 'var(--primary-500)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: '600' }}
+                        >
+                          <FiMap size={14} /> View on Map
+                        </a>
+                      ) : 'N/A'}
+                    </div>
+                  </div>
                   <div className="detail-row"><div className="detail-label">Bio</div><div className="detail-value">{viewData.bio || 'N/A'}</div></div>
                   <div className="detail-row">
                     <div className="detail-label">Profile Verified</div>
@@ -553,9 +591,7 @@ function ViewUsersPage () {
               </div>
             </div>
 
-            <div className="detail-footer">
-              <button className="modal-btn cancel" onClick={closeViewModal}>Close</button>
-            </div>
+            <div style={{ paddingBottom: '24px' }}></div>
           </div>
         </div>
       )}
@@ -582,7 +618,12 @@ function ViewUsersPage () {
                     </div>
                     <div className="form-group">
                       <label>District</label>
-                      <input type="text" className="form-input" name="district" value={editData.district || ''} onChange={handleEditChange} required />
+                      <select className="form-input" name="district" value={editData.district || ''} onChange={handleEditChange} required>
+                        <option value="" disabled>Select District</option>
+                        {SRI_LANKA_DISTRICTS.map(district => (
+                          <option key={district} value={district}>{district}</option>
+                        ))}
+                      </select>
                     </div>
                   </>
                 )}
@@ -598,7 +639,12 @@ function ViewUsersPage () {
                     </div>
                     <div className="form-group">
                       <label>District</label>
-                      <input type="text" className="form-input" name="district" value={editData.district || ''} onChange={handleEditChange} />
+                      <select className="form-input" name="district" value={editData.district || ''} onChange={handleEditChange} required>
+                        <option value="" disabled>Select District</option>
+                        {SRI_LANKA_DISTRICTS.map(district => (
+                          <option key={district} value={district}>{district}</option>
+                        ))}
+                      </select>
                     </div>
                   </>
                 )}
@@ -614,7 +660,12 @@ function ViewUsersPage () {
                     </div>
                     <div className="form-group">
                       <label>District</label>
-                      <input type="text" className="form-input" name="district" value={editData.district || ''} onChange={handleEditChange} required />
+                      <select className="form-input" name="district" value={editData.district || ''} onChange={handleEditChange} required>
+                        <option value="" disabled>Select District</option>
+                        {SRI_LANKA_DISTRICTS.map(district => (
+                          <option key={district} value={district}>{district}</option>
+                        ))}
+                      </select>
                     </div>
                   </>
                 )}

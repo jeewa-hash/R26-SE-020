@@ -32,12 +32,10 @@ exports.generateBio = async (req, res) => {
 // Registration Logic
 exports.register = async (req, res) => {
   try {
-    const { email, password, role, nicNumber, category, district, latitude, longitude, telephone, rawBio, gender, address } = req.body;
+    const { email, password, nicNumber, category, district, latitude, longitude, telephone, rawBio, gender, address } = req.body;
 
-    // Security Check: Prevent users from registering as Admin
-    if (role === 'Admin') {
-      return res.status(403).json({ message: 'Unauthorized role assignment' });
-    }
+    // Force provider role to ServiceProvider
+    const forcedRole = 'ServiceProvider';
 
     // Check if user already exists with email
     let user = await Provider.findOne({ email });
@@ -71,7 +69,7 @@ exports.register = async (req, res) => {
     user = new Provider({
       email,
       password: hashedPassword,
-      role,
+      role: forcedRole,
       nicNumber,
       nicImage,
       profileImage,
