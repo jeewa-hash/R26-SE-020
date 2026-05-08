@@ -12,6 +12,7 @@ import './locales';
 
 import LanguageSelectScreen from './onbordingPages/LanguageSelectScreen';
 import BottomTabNavigator from './navigation/BottomTabNavigator';
+import { AppliedJobsProvider } from './context/AppliedJobsContext';
 
 const Stack = createStackNavigator();
 
@@ -39,6 +40,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
+      <AppliedJobsProvider> 
       <PaperProvider theme={theme}>
         <NavigationContainer>
           <Stack.Navigator
@@ -50,6 +52,7 @@ export default function App() {
           </Stack.Navigator>
         </NavigationContainer>
       </PaperProvider>
+      </AppliedJobsProvider>
     </SafeAreaProvider>
   );
 }

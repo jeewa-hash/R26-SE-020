@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Text } from 'react-native-paper';
 import { Colors } from '../theme';
 
@@ -8,14 +9,17 @@ import NewsFeedScreen from '../pages/NewsFeedScreen';
 import BookingsScreen from '../pages/BookingsScreen';
 import EarningsScreen from '../pages/EarningsScreen';
 import ProfileScreen from '../pages/ProfileScreen';
+import AppliedJobsScreen from '../pages/AppliedJobsScreen';
 
 const Tab = createBottomTabNavigator();
 
-const TabIcon = ({ icon, label, focused }) => (
+const TabIcon = ({ iconName, label, focused }) => (
   <View style={styles.tabItem}>
-    <Text style={[styles.tabIcon, focused && styles.tabIconFocused]}>
-      {icon}
-    </Text>
+    <Icon 
+      name={iconName} 
+      size={24} 
+      color={focused ? Colors.primary : Colors.textLight} 
+    />
     <Text style={[styles.tabLabel, focused && styles.tabLabelFocused]}>
       {label}
     </Text>
@@ -36,7 +40,7 @@ export default function BottomTabNavigator() {
         component={NewsFeedScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="🏠" label="Feed" focused={focused} />
+            <TabIcon iconName="home" label="Feed" focused={focused} />
           ),
         }}
       />
@@ -45,7 +49,7 @@ export default function BottomTabNavigator() {
         component={BookingsScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="📋" label="Bookings" focused={focused} />
+            <TabIcon iconName="event" label="Bookings" focused={focused} />
           ),
         }}
       />
@@ -54,7 +58,7 @@ export default function BottomTabNavigator() {
         component={EarningsScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="💰" label="Earnings" focused={focused} />
+            <TabIcon iconName="attach-money" label="Earnings" focused={focused} />
           ),
         }}
       />
@@ -63,7 +67,16 @@ export default function BottomTabNavigator() {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="👤" label="Profile" focused={focused} />
+            <TabIcon iconName="person" label="Profile" focused={focused} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Applied"
+        component={AppliedJobsScreen}
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon iconName="assignment" label="Applied" focused={focused} />
           ),
         }}
       />
@@ -91,14 +104,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 6,
-  },
-  tabIcon: {
-    fontSize: 22,
-    marginBottom: 2,
-    opacity: 0.4,
-  },
-  tabIconFocused: {
-    opacity: 1,
   },
   tabLabel: {
     fontSize: 11,

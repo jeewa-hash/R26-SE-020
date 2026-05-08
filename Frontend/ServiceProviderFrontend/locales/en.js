@@ -34,4 +34,25 @@ hourAgo: '1 hour ago',
 hoursAgo: '4 hours ago',
 aiMessage: 'Demand for "Garden Care" is up!',
 aiSubMessage: 'Users in Colombo 07 are searching for lawn mowing 3x more this week. Update your garden service to get more bookings.',
+
+//newsfeed
+serviceRequests: 'Service Requests',
+searchPlaceholder: 'Search services, skills...',
+recentOpportunities: 'Recent Opportunities',
+new: 'New',
+urgent: 'URGENT',
+aiMatch: 'AI Match',
+estBudget: 'EST. BUDGET',
+applied: 'Applied',
+views: 'Views',
+applyNow: 'Apply Now',
+translate: 'Translate',
+showOriginal: 'Show Original',
+translating: 'Translating...',
+trendingNow: 'Trending Now',
+adminAnnouncement: 'Platform Update',
+viewMore: 'View More',
+translateTo: 'Translate',
+
+
 };
