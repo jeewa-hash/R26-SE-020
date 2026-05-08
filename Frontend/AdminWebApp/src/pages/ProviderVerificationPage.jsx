@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, AUTH_SERVICE_URL } from '../config';
 import { FiArrowLeft, FiUser, FiMapPin, FiPhone, FiCreditCard, FiCheckCircle, FiXCircle, FiMessageSquare, FiMap } from 'react-icons/fi';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -19,8 +19,6 @@ let DefaultIcon = L.icon({
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
-
-const AUTH_SERVICE_URL = 'http://localhost:4003';
 
 function ProviderVerificationPage() {
   const { id } = useParams();

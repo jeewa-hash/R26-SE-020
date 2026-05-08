@@ -1,5 +1,6 @@
 const Provider = require('../models/Provider');
 const Notification = require('../models/Notification');
+const socket = require('../utils/socket');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -104,6 +105,10 @@ exports.register = async (req, res) => {
       });
       await notification.save();
       console.log('[Notification] Created for new provider:', email);
+
+      // Emit real-time notification to admin room
+      const io = socket.getIO();
+      io.to('admin_room').emit('new_notification', notification);
     } catch (notifErr) {
       console.error('[Notification] Failed to create notification:', notifErr.message);
     }
