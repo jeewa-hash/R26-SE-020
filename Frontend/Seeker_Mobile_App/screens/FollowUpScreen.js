@@ -32,15 +32,15 @@ const { initialMessage, backendResponse, source } = route.params;
   const startPredict = async () => {
     try {
       // ⭐ IMAGE FLOW (ONLY ADD THIS BLOCK)
-      if (source === "image" && backendResponse) {
-        console.log("Using image response");
+      if (source === "image" && route.params.session_id) {
+  console.log("IMAGE FLOW ACTIVE");
 
-        setQuestionData(backendResponse.next_question);
-        setSessionId(backendResponse.session_id);
-        setSelectedOption(null);
-        setProgress(20);
-        return; // 🚨 VERY IMPORTANT
-      }
+  setQuestionData(route.params.initialQuestion);
+  setSessionId(route.params.session_id);
+  setProgress(20);
+  setLoading(false);
+  return;
+}
 
       // ✅ KEEP YOUR TEXT FLOW EXACTLY SAME
       const res = await fetch(`http://${IP_ADDRESS}:5002/text-predict`, {
@@ -94,9 +94,9 @@ const { initialMessage, backendResponse, source } = route.params;
     };
 
     const endpoint =
-      source === "image"
-        ? `http://${IP_ADDRESS}:5000/chat`
-        : `http://${IP_ADDRESS}:5002/text-chat`;
+  source === "image"
+    ? "http://10.0.2.2:8000/flow/next"
+    : "http://10.0.2.2:5002/text-chat";
 
     const res = await fetch(endpoint, {
       method: "POST",
