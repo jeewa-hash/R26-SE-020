@@ -125,6 +125,28 @@ export default function BidResponsesScreen() {
     });
   };
 
+  const handleAIScheduleCheck = (response) => {
+    navigation.navigate("BidCoordinationResult", {
+      response: {
+        providerId: response.providerId || "69fb3a89132f89ae69f1eaf0",
+        providerName: response.providerName || "Provider",
+        quotedPrice: response.quotedPrice || 5500,
+        estimatedDuration: Number.parseFloat(response.estimatedDuration) || 4,
+        proposedStartTime: response.proposedStartTime || "2026-05-10T10:00:00.000Z",
+        availability: response.availability,
+        rating: response.rating,
+        message: response.message,
+      },
+      serviceRequestId: bid?.serviceRequestId || "665f0c1a2b3c4d5e6f708192",
+      externalPostId: "POST-TEST-001",
+      serviceCategory: "Repairing Services",
+      serviceSubCategory: "Plumbing",
+      description: "Water tank pipe leaking and needs urgent repair.",
+      distanceKm: 8.5,
+      estimatedTravelTimeMins: 25,
+    });
+  };
+
   const toggleExpand = (id) => {
     setExpandedResponse(expandedResponse === id ? null : id);
   };
@@ -259,6 +281,13 @@ export default function BidResponsesScreen() {
                 <Text style={styles.responseTimeText}>🕐 Responded {response.responseTime}</Text>
 
                 {/* Action Buttons */}
+                <TouchableOpacity
+                  style={styles.aiCheckAction}
+                  onPress={() => handleAIScheduleCheck(response)}
+                >
+                  <Ionicons name="sparkles-outline" size={17} color="#6366F1" />
+                  <Text style={styles.aiCheckActionText}>AI Schedule Check</Text>
+                </TouchableOpacity>
                 <View style={styles.actionRow}>
                   <TouchableOpacity 
                     style={styles.chatAction}
@@ -587,6 +616,23 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  aiCheckAction: {
+    marginBottom: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    backgroundColor: '#EEF2FF',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  aiCheckActionText: {
+    color: '#6366F1',
+    fontSize: 13,
+    fontWeight: '600',
   },
   chatAction: {
     flex: 1,

@@ -11,6 +11,7 @@ import bookingRoutes from "./routes/bookingRoutes.js";
 import delayRoutes from "./routes/delayRoutes.js";
 import rescheduleRoutes from "./routes/rescheduleRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
+import bidCoordinationRoutes from "./routes/bidCoordinationRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 
 const app = express();
@@ -35,6 +36,7 @@ app.use("/api/coordination/bookings", bookingRoutes);
 app.use("/api/coordination/delays", delayRoutes);
 app.use("/api/coordination/reschedule", rescheduleRoutes);
 app.use("/api/coordination/calendar", calendarRoutes);
+app.use("/api/coordination", bidCoordinationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

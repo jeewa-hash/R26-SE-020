@@ -38,7 +38,7 @@ const formatCalendarBooking = (booking, viewerType) => {
 };
 
 export const getProviderCalendar = asyncHandler(async (req, res) => {
-  const { providerId } = req.params;
+  const providerId = req.params.providerId || req.user?.id;
   const { from, to } = req.query;
 
   const query = { providerId };
@@ -69,7 +69,7 @@ export const getProviderCalendar = asyncHandler(async (req, res) => {
 });
 
 export const getSeekerCalendar = asyncHandler(async (req, res) => {
-  const { customerId } = req.params;
+  const customerId = req.params.customerId || req.user?.id;
   const { from, to } = req.query;
 
   const query = { customerId };

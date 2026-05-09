@@ -8,4 +8,4 @@ export const COORDINATION_SERVICE_URL = `http://${IP_ADDRESS}:5005/api/coordinat
 
 // Temporary provider ID for demo.
 // Later replace with logged-in provider ID.
-export const DEMO_PROVIDER_ID = 'chaveenProvider@gmail.com';
+export const DEMO_PROVIDER_ID = '69fb3a89132f89ae69f1eaf0';

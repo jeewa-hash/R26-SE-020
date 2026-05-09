@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Text } from 'react-native-paper';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../theme';
 
 import NewsFeedScreen from '../pages/NewsFeedScreen';
@@ -11,6 +11,7 @@ import NewsFeedScreen from '../pages/NewsFeedScreen';
 import EarningsScreen from '../pages/EarningsScreen';
 import ProfileScreen from '../pages/ProfileScreen';
 import AppliedJobsScreen from '../pages/AppliedJobsScreen';
+import ProviderCalendarScreen from '../pages/coordination/ProviderCalendarScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -20,6 +21,19 @@ const TabIcon = ({ iconName, label, focused }) => (
       name={iconName} 
       size={24} 
       color={focused ? Colors.primary : Colors.textLight} 
+    />
+    <Text style={[styles.tabLabel, focused && styles.tabLabelFocused]}>
+      {label}
+    </Text>
+  </View>
+);
+
+const CustomTab = ({ iconName, label, focused }) => (
+  <View style={styles.tabItem}>
+    <Ionicons
+      name={iconName}
+      size={24}
+      color={focused ? Colors.primary : Colors.textLight}
     />
     <Text style={[styles.tabLabel, focused && styles.tabLabelFocused]}>
       {label}

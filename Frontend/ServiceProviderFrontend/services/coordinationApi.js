@@ -1,4 +1,5 @@
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COORDINATION_SERVICE_URL } from '../config';
 
 const coordinationApi = axios.create({
@@ -6,8 +7,26 @@ const coordinationApi = axios.create({
   timeout: 10000,
 });
 
-export const getProviderCalendar = async (providerId) => {
-  const response = await coordinationApi.get(`/calendar/provider/${providerId}`);
+coordinationApi.interceptors.request.use(async (requestConfig) => {
+  const token =
+    (await AsyncStorage.getItem('userToken')) ||
+    (await AsyncStorage.getItem('providerToken')) ||
+    (await AsyncStorage.getItem('authToken')) ||
+    (await AsyncStorage.getItem('token'));
+
+  if (token) {
+    requestConfig.headers = requestConfig.headers || {};
+    requestConfig.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return requestConfig;
+});
+
+export const getProviderCalendar = async (providerId = null) => {
+  const endpoint = providerId
+    ? `/calendar/provider/${providerId}`
+    : '/calendar/provider/me';
+  const response = await coordinationApi.get(endpoint);
   return response.data;
 };
 

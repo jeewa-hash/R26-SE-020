@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -31,6 +32,7 @@ import PaymentScreen from './screens/PaymentScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import HelpScreen from './screens/HelpScreen';
 import SpendAnalyticsScreen from './screens/SpendAnalyticsScreen';
+import NotificationScreen from './screens/NotificationScreen';
 
 // Chat Screens
 import { ChatProvider } from './context/ChatContext';
@@ -40,6 +42,8 @@ import ChatScreen from './screens/ChatScreen';
 // Other Screens
 import SeasonalDemandsScreen from './screens/SeasonalDemandsScreen';
 import RescheduleScreen from './screens/RescheduleScreen';
+import BidCoordinationResultScreen from './screens/coordination/BidCoordinationResultScreen';
+import SeekerScheduleScreen from './screens/coordination/SeekerScheduleScreen';
 
 import './i18n';
 import { LanguageProvider } from './context/LanguageContext';
@@ -159,6 +163,16 @@ function AppNavigator({ initialRouteName }) {
        component={BidResponsesScreen} 
        options={{ headerShown: false }} 
        />
+      <Stack.Screen
+        name="BidCoordinationResult"
+        component={BidCoordinationResultScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SeekerSchedule"
+        component={SeekerScheduleScreen}
+        options={{ headerShown: false }}
+      />
        <Stack.Screen 
         name="BookingsScreen" 
         component={BookingsScreen} 

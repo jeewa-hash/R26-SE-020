@@ -12,7 +12,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
-import { DEMO_PROVIDER_ID } from '../../config';
 import { getProviderCalendar } from '../../services/coordinationApi';
 import { styles, COLORS, getRiskStyle, getStatusStyle } from './styles';
 
@@ -40,7 +39,7 @@ export default function ProviderCalendarScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const providerId = DEMO_PROVIDER_ID;
+  const providerId = null;
 
   const loadCalendar = async () => {
     try {
@@ -103,7 +102,7 @@ export default function ProviderCalendarScreen({ navigation }) {
           <View style={styles.rowBetween}>
             <View>
               <Text style={styles.sectionTitle}>Today’s Overview</Text>
-              <Text style={styles.mutedText}>Provider: {providerId}</Text>
+              <Text style={styles.mutedText}>Provider: Authenticated account</Text>
             </View>
 
             <View style={{ alignItems: 'flex-end' }}>

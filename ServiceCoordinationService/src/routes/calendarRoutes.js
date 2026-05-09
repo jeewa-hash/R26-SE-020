@@ -3,6 +3,7 @@ import {
   getProviderCalendar,
   getSeekerCalendar
 } from "../controllers/calendarController.js";
+import { requireAuth, requireRole } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -37,6 +38,12 @@ const router = express.Router();
  *       200:
  *         description: Provider calendar retrieved successfully
  */
+router.get(
+  "/provider/me",
+  requireAuth,
+  requireRole(["ServiceProvider"]),
+  getProviderCalendar
+);
 router.get("/provider/:providerId", getProviderCalendar);
 
 /**
@@ -70,6 +77,12 @@ router.get("/provider/:providerId", getProviderCalendar);
  *       200:
  *         description: Seeker calendar retrieved successfully
  */
+router.get(
+  "/seeker/me",
+  requireAuth,
+  requireRole(["Seeker"]),
+  getSeekerCalendar
+);
 router.get("/seeker/:customerId", getSeekerCalendar);
 
 export default router;
