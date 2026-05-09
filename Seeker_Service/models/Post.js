@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 const postSchema = new mongoose.Schema({
+  seekerId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
   title: String,
   description: String,
   image: String,
