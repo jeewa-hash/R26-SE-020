@@ -8,7 +8,7 @@ POST http://localhost:5005/api/coordination/service-requests
 
 ```json
 {
-  "customerId": "CUS001",
+  "seekerId": "CUS001",
   "serviceCategory": "Repairing Services",
   "serviceSubCategory": "Plumbing",
   "description": "Water tank pipe leaking",
