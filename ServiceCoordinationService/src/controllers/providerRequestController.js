@@ -2,6 +2,7 @@ import ProviderRequest from "../models/ProviderRequest.js";
 import Booking from "../models/Booking.js";
 import { addHoursToTime } from "../utils/timeUtils.js";
 import { validateProviderSchedule } from "../services/scheduleValidationService.js";
+import { estimateServiceDuration } from "../services/durationEstimationService.js";
 
 export const createProviderRequest = async (req, res) => {
   try {
@@ -11,7 +12,13 @@ export const createProviderRequest = async (req, res) => {
       providerId,
       requestedDate,
       requestedStartTime,
-      estimatedDurationHours = 2,
+      estimatedDurationHours,
+      serviceCategory = "",
+      serviceSubcategory = "",
+      taskName = "",
+      complexityLevel = "Medium",
+      propertySize = "Medium",
+      urgency = "medium",
     } = req.body;
 
     if (!postId || !seekerId || !providerId || !requestedDate || !requestedStartTime) {
@@ -35,9 +42,25 @@ export const createProviderRequest = async (req, res) => {
       });
     }
 
+    let finalEstimatedDurationHours = estimatedDurationHours;
+    let durationResult = null;
+
+    if (!finalEstimatedDurationHours) {
+      durationResult = estimateServiceDuration({
+        serviceCategory,
+        serviceSubcategory,
+        taskName,
+        complexityLevel,
+        propertySize,
+        urgency,
+      });
+
+      finalEstimatedDurationHours = durationResult.averageDurationHours;
+    }
+
     const requestedEndTime = addHoursToTime(
       requestedStartTime,
-      estimatedDurationHours
+      finalEstimatedDurationHours
     );
 
     const scheduleValidation = await validateProviderSchedule({
@@ -51,10 +74,21 @@ export const createProviderRequest = async (req, res) => {
       postId,
       seekerId,
       providerId,
+
+      serviceCategory,
+      serviceSubcategory,
+      taskName,
+      complexityLevel,
+      propertySize,
+
       requestedDate,
       requestedStartTime,
       requestedEndTime,
-      estimatedDurationHours,
+
+      estimatedDurationHours: finalEstimatedDurationHours,
+      durationConfidence: durationResult?.confidence || "UNKNOWN",
+      requiresMultipleDays: durationResult?.requiresMultipleDays || false,
+
       validationStatus: scheduleValidation.validationStatus,
       requestStatus: "PENDING",
       riskLevel: "UNKNOWN",

@@ -7,6 +7,8 @@ import logger from "./utils/logger.js";
 import providerRequestRoutes from "./routes/providerRequestRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
 import providerAvailabilityRoutes from "./routes/providerAvailabilityRoutes.js";
+import durationRoutes from "./routes/durationRoutes.js";
+
 dotenv.config();
 
 const app = express();
@@ -26,6 +28,7 @@ app.get("/health", (req, res) => {
 app.use("/api/coordination/requests", providerRequestRoutes);
 app.use("/api/coordination/bookings", bookingRoutes);
 app.use("/api/coordination/availability", providerAvailabilityRoutes);
+app.use("/api/coordination/duration", durationRoutes);
 
 const PORT = process.env.PORT || 5010;
 

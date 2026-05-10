@@ -20,6 +20,44 @@ const providerRequestSchema = new mongoose.Schema(
       index: true,
     },
 
+    serviceCategory: {
+      type: String,
+      default: "",
+    },
+    
+    serviceSubcategory: {
+      type: String,
+      default: "",
+    },
+    
+    taskName: {
+      type: String,
+      default: "",
+    },
+    
+    complexityLevel: {
+      type: String,
+      enum: ["Low", "Medium", "High", ""],
+      default: "Medium",
+    },
+    
+    propertySize: {
+      type: String,
+      enum: ["Small", "Medium", "Large", ""],
+      default: "Medium",
+    },
+    
+    durationConfidence: {
+      type: String,
+      enum: ["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
+      default: "UNKNOWN",
+    },
+    
+    requiresMultipleDays: {
+      type: Boolean,
+      default: false,
+    },
+
     requestedDate: {
       type: String,
       required: true,
