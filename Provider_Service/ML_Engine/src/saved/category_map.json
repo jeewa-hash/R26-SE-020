@@ -36,7 +36,23 @@
     "label": "Sofa/Carpet/Curtain Cleaning"
   },
   "garden_cleaning": {
-    "category": "cleaning",
+    "category": "gardening",
     "label": "Garden Cleaning"
+  },
+  "garden_maintenance": {
+    "category": "gardening",
+    "label": "Garden Maintenance"
+  },
+  "landscaping_design": {
+    "category": "gardening",
+    "label": "Landscaping & Design"
+  },
+  "planting": {
+    "category": "gardening",
+    "label": "Planting Services"
+  },
+  "other": {
+    "category": "unknown",
+    "label": "Irrelevant Image"
   }
 }
