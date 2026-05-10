@@ -95,6 +95,26 @@ const bookingSchema = new mongoose.Schema(
       default: 0,
     },
 
+    delayInfo: {
+      delayReason: {
+        type: String,
+        default: "",
+      },
+      additionalDelayMins: {
+        type: Number,
+        default: 0,
+      },
+      reportedBy: {
+        type: String,
+        enum: ["PROVIDER", "SEEKER", "SYSTEM", ""],
+        default: "",
+      },
+      reportedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+
     bookingStatus: {
       type: String,
       enum: [
