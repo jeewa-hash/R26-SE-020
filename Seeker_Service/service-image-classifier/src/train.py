@@ -13,22 +13,19 @@ def main():
     print("--- Loading Data ---")
     train_gen, val_gen = get_data_generators(DATA_DIR)
 
-    # 3. Build Model
+    # 3. Build Model - UPDATED TO 4 CLASSES
     print("--- Building Model ---")
-    model = build_repair_model(num_classes=3)
+    model = build_repair_model(num_classes=4) 
 
     # 4. Define Callbacks
-    # Stop training if validation loss doesn't improve for 3 epochs
     early_stop = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
-    
-    # Save the best version of the model
     checkpoint = ModelCheckpoint(MODEL_SAVE_PATH, monitor='val_accuracy', save_best_only=True, mode='max')
 
     # 5. Start Training
     print("--- Starting Training ---")
     history = model.fit(
         train_gen,
-        epochs=15,  # You can increase this if you have a lot of data
+        epochs=15,
         validation_data=val_gen,
         callbacks=[early_stop, checkpoint]
     )

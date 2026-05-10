@@ -29,55 +29,58 @@ TEXT_QUESTION_FLOW = {
         },
 
         # ─── FULL HOUSE ───────────────────────
-        # ─── FULL HOUSE ───────────────────────
-"full_house_q1": {
-    "question": "Do you need a deep clean or a regular maintenance clean?",
-    "answer_key": "clean_type",
-    "options": [
-        "deep clean - not cleaned in a long time",
-        "regular maintenance clean",
-        "not sure"
-    ],
-    "next": "full_house_q2"
-},
+        "full_house_q1": {
+            "question": "Do you need a deep clean or a regular maintenance clean?",
+            "answer_key": "clean_type",
+            "options": [
+                "deep clean - not cleaned in a long time",
+                "regular maintenance clean",
+                "not sure"
+            ],
+            "skip_if_in_input": ["deep clean", "deep cleaning", "regular maintenance", "maintenance clean"],
+            "next": "full_house_q2"
+        },
 
-"full_house_q2": {
-    "question": "How many bedrooms does the house have?",
-    "answer_key": "house_size",
-    "options": [
-        "1 bedroom",
-        "2 bedrooms",
-        "3 bedrooms",
-        "4+ bedrooms"
-    ],
-    "next": "full_house_q2b"   # 👈 CHANGED (important)
-},
+        "full_house_q2": {
+            "question": "How many bedrooms does the house have?",
+            "answer_key": "house_size",
+            "options": [
+                "1 bedroom",
+                "2 bedrooms",
+                "3 bedrooms",
+                "4+ bedrooms"
+            ],
+            "skip_if_in_input": ["bedroom", "bed rooms", "bedroom(s)"],
+            "next": "full_house_q2b"
+        },
 
-# ⭐ NEW QUESTION ADDED
-"full_house_q2b": {
-    "question": "How many bathrooms need cleaning?",
-    "answer_key": "bathroom_count",
-    "options": [
-        "1 bathroom",
-        "2 bathrooms",
-        "3 bathrooms",
-        "4+ bathrooms"
-    ],
-    "next": "full_house_q3"
-},
+        "full_house_q2b": {
+            "question": "How many bathrooms need cleaning?",
+            "answer_key": "bathroom_count",
+            "options": [
+                "1 bathroom",
+                "2 bathrooms",
+                "3 bathrooms",
+                "4+ bathrooms"
+            ],
+            "skip_if_in_input": ["bathroom", "bath rooms", "washroom"],
+            "next": "full_house_q3"
+        },
 
-"full_house_q3": {
-    "question": "Which areas need special attention?",
-    "answer_key": "focus_areas",
-    "options": [
-        "kitchen and appliances",
-        "bathrooms",
-        "windows and glass",
-        "floors and carpets",
-        "all areas equally"
-    ],
-    "next": "common_schedule"
-},
+        "full_house_q3": {
+            "question": "Which areas need special attention?",
+            "answer_key": "focus_areas",
+            "options": [
+                "kitchen and appliances",
+                "bathrooms",
+                "windows and glass",
+                "floors and carpets",
+                "all areas equally"
+            ],
+            "skip_if_in_input": ["focus", "special attention", "concentrate on", "priority"],
+            "next": "common_schedule"
+        },
+
         # ─── KITCHEN ──────────────────────────
         "kitchen_q1": {
             "question": "What is the main issue in your kitchen?",
@@ -90,6 +93,7 @@ TEXT_QUESTION_FLOW = {
                 "bad smell/odour",
                 "all of the above"
             ],
+            "skip_if_in_input": ["grease", "oil", "burnt", "smell", "odor", "dirt", "appliance"],
             "next": "kitchen_q2"
         },
         "kitchen_q2": {
@@ -102,6 +106,7 @@ TEXT_QUESTION_FLOW = {
                 "sink and tiles",
                 "full kitchen - everything"
             ],
+            "skip_if_in_input": ["stove", "oven", "counter", "cabinet", "sink"],
             "next": "kitchen_q3"
         },
         "kitchen_q3": {
@@ -112,6 +117,7 @@ TEXT_QUESTION_FLOW = {
                 "medium - standard kitchen",
                 "large - open plan or commercial kitchen"
             ],
+            "skip_if_in_input": ["sq ft", "square feet", "small kitchen", "medium kitchen", "large kitchen"],
             "next": "common_schedule"
         },
 
@@ -127,6 +133,7 @@ TEXT_QUESTION_FLOW = {
                 "bad smell/odour",
                 "general cleaning"
             ],
+            "skip_if_in_input": ["mold", "mildew", "limescale", "stain", "blocked", "smell"],
             "next": "bathroom_q2"
         },
         "bathroom_q2": {
@@ -138,6 +145,7 @@ TEXT_QUESTION_FLOW = {
                 "3 bathrooms",
                 "4+ bathrooms"
             ],
+            "skip_if_in_input": ["bathroom", "bath rooms"],
             "next": "bathroom_q3"
         },
         "bathroom_q3": {
@@ -149,6 +157,7 @@ TEXT_QUESTION_FLOW = {
                 "both shower and bathtub",
                 "shower over bath"
             ],
+            "skip_if_in_input": ["shower", "bathtub", "walk-in", "shower over bath"],
             "next": "common_schedule"
         },
 
@@ -162,6 +171,7 @@ TEXT_QUESTION_FLOW = {
                 "large - 21 to 50 desks",
                 "very large - 50+ desks"
             ],
+            "skip_if_in_input": ["desk", "employee", "person", "people", "seats", "sq ft"],
             "next": "office_q2"
         },
         "office_q2": {
@@ -173,6 +183,7 @@ TEXT_QUESTION_FLOW = {
                 "workstations + kitchen/pantry",
                 "full office - all areas"
             ],
+            "skip_if_in_input": ["workstation", "restroom", "pantry", "kitchen", "bathroom", "washroom"],
             "next": "office_q3"
         },
         "office_q3": {
@@ -184,6 +195,7 @@ TEXT_QUESTION_FLOW = {
                 "weekly cleaning",
                 "bi-weekly cleaning"
             ],
+            "skip_if_in_input": ["once", "daily", "every day", "weekly", "bi-weekly", "fortnightly", "monthly"],
             "next": "common_schedule"
         },
 
@@ -198,6 +210,7 @@ TEXT_QUESTION_FLOW = {
                 "tiling or flooring work",
                 "mixed works"
             ],
+            "skip_if_in_input": ["new build", "renovation", "painting", "tiling", "flooring", "construction"],
             "next": "postconstruction_q2"
         },
         "postconstruction_q2": {
@@ -209,6 +222,7 @@ TEXT_QUESTION_FLOW = {
                 "paint/grout residue on surfaces only",
                 "light dust - mostly fine clean needed"
             ],
+            "skip_if_in_input": ["dust", "debris", "paint residue", "grout", "heavy dust", "light dust"],
             "next": "postconstruction_q3"
         },
         "postconstruction_q3": {
@@ -220,6 +234,7 @@ TEXT_QUESTION_FLOW = {
                 "large - 1000 to 2000 sq ft",
                 "very large - 2000+ sq ft"
             ],
+            "skip_if_in_input": ["sq ft", "square feet", "sqft", "small area", "large area"],
             "next": "common_schedule"
         },
 
@@ -232,6 +247,7 @@ TEXT_QUESTION_FLOW = {
                 "move-out clean",
                 "full handover - both move-out and move-in"
             ],
+            "skip_if_in_input": ["move-in", "move-out", "handover", "moving in", "moving out"],
             "next": "moveinout_q2"
         },
         "moveinout_q2": {
@@ -242,6 +258,7 @@ TEXT_QUESTION_FLOW = {
                 "partially empty",
                 "still has furniture"
             ],
+            "skip_if_in_input": ["empty", "furniture", "partially empty", "fully empty", "still has"],
             "next": "moveinout_q3"
         },
         "moveinout_q3": {
@@ -253,6 +270,7 @@ TEXT_QUESTION_FLOW = {
                 "landlord checklist clean",
                 "not sure - need full assessment"
             ],
+            "skip_if_in_input": ["appliance", "wardrobe", "landlord", "checklist", "inventory"],
             "next": "common_schedule"
         },
 
@@ -267,6 +285,7 @@ TEXT_QUESTION_FLOW = {
                 "sofa + carpet",
                 "all - sofa, carpet and curtains"
             ],
+            "skip_if_in_input": ["sofa", "carpet", "rug", "curtain", "drapes"],
             "next": "sofa_q2"
         },
         "sofa_q2": {
@@ -279,6 +298,7 @@ TEXT_QUESTION_FLOW = {
                 "wool / synthetic",
                 "not sure"
             ],
+            "skip_if_in_input": ["fabric", "cotton", "leather", "velvet", "wool", "synthetic", "polyester", "material"],
             "next": "sofa_q3"
         },
         "sofa_q3": {
@@ -290,6 +310,7 @@ TEXT_QUESTION_FLOW = {
                 "heavy stains or pet odour",
                 "very bad - not cleaned in a long time"
             ],
+            "skip_if_in_input": ["dirt", "stain", "odor", "pet", "dirty", "condition"],
             "next": "common_schedule"
         },
 
@@ -304,12 +325,14 @@ TEXT_QUESTION_FLOW = {
                 "this weekend",
                 "flexible - anytime this week"
             ],
+            "skip_if_in_input": ["today", "tomorrow", "weekend", "asap", "urgent", "soon", "flexible"],
             "next": "common_location"
         },
         "common_location": {
             "question": "Where is the service needed? Please enter your address or area.",
             "answer_key": "location",
             "type": "text_input",
+            "skip_if_in_input": ["colombo", "kandy", "galle", "negombo", "kurunegala", "address", "area", "city", "town", "road", "street", "lane", "avenue"],
             "next": None
         }
     },
@@ -327,6 +350,7 @@ TEXT_QUESTION_FLOW = {
                 "landscaping / garden design",
                 "planting (flowers, vegetables, trees)"
             ],
+            "skip_if_in_input": ["maintenance", "mowing", "landscaping", "planting", "design", "garden"],
             "next": {
                 "garden maintenance (mowing, trimming, weeding)": "maintenance_q1",
                 "landscaping / garden design":                    "landscaping_q1",
@@ -347,6 +371,7 @@ TEXT_QUESTION_FLOW = {
                 "leaf and waste removal",
                 "all of the above"
             ],
+            "skip_if_in_input": ["grass", "lawn", "hedge", "weed", "watering", "leaf", "waste"],
             "next": "maintenance_q2"
         },
         "maintenance_q2": {
@@ -359,6 +384,7 @@ TEXT_QUESTION_FLOW = {
                 "monthly",
                 "flexible / as needed"
             ],
+            "skip_if_in_input": ["once", "weekly", "bi-weekly", "fortnightly", "monthly", "flexible"],
             "next": "common_garden_size"
         },
 
@@ -374,6 +400,7 @@ TEXT_QUESTION_FLOW = {
                 "fencing or garden structure",
                 "not sure - need a consultation"
             ],
+            "skip_if_in_input": ["redesign", "lawn laying", "turf", "pathway", "paving", "border", "fencing"],
             "next": "landscaping_q2"
         },
         "landscaping_q2": {
@@ -385,6 +412,7 @@ TEXT_QUESTION_FLOW = {
                 "partially done - needs finishing touches",
                 "well maintained - small changes only"
             ],
+            "skip_if_in_input": ["bare", "overgrown", "partially", "well maintained"],
             "next": "common_garden_size"
         },
 
@@ -400,6 +428,7 @@ TEXT_QUESTION_FLOW = {
                 "mixed - flowers and vegetables",
                 "not sure - need suggestions"
             ],
+            "skip_if_in_input": ["flower", "vegetable", "herb", "tree", "shrub", "fruit"],
             "next": "planting_q2"
         },
         "planting_q2": {
@@ -412,6 +441,7 @@ TEXT_QUESTION_FLOW = {
                 "completely bare - no preparation done",
                 "raised bed or pots - no ground work needed"
             ],
+            "skip_if_in_input": ["ready", "soil prepared", "weeding", "compacted", "bare", "raised bed", "pots"],
             "next": "common_garden_size"
         },
 
@@ -426,6 +456,7 @@ TEXT_QUESTION_FLOW = {
                 "very large - estate or commercial (150+ sq m)",
                 "not sure - need a site visit"
             ],
+            "skip_if_in_input": ["sq m", "square meter", "balcony", "yard", "garden size", "acres"],
             "next": "common_garden_schedule"
         },
         "common_garden_schedule": {
@@ -439,12 +470,14 @@ TEXT_QUESTION_FLOW = {
                 "flexible - anytime this week",
                 "regular / ongoing schedule"
             ],
+            "skip_if_in_input": ["today", "tomorrow", "weekend", "flexible", "regular", "ongoing"],
             "next": "common_garden_location"
         },
         "common_garden_location": {
             "question": "Where is the service needed? Please enter your address or area.",
             "answer_key": "location",
             "type": "text_input",
+            "skip_if_in_input": ["colombo", "kandy", "galle", "negombo", "address", "area", "city", "town", "road", "street"],
             "next": None
         }
     },
@@ -464,6 +497,7 @@ TEXT_QUESTION_FLOW = {
                 "someone recovering from surgery or illness",
                 "a pet"
             ],
+            "skip_if_in_input": ["elderly", "old", "aged", "child", "baby", "infant", "disability", "surgery", "illness", "pet", "dog", "cat"],
             "next": {
                 "an elderly person":                            "elderly_q1",
                 "a child or baby":                             "child_q1",
@@ -483,6 +517,7 @@ TEXT_QUESTION_FLOW = {
                 "needs help with most daily tasks",
                 "bedridden - fully dependent on care"
             ],
+            "skip_if_in_input": ["independent", "supervision", "help with", "bedridden", "dependent"],
             "next": "elderly_q2"
         },
         "elderly_q2": {
@@ -496,6 +531,7 @@ TEXT_QUESTION_FLOW = {
                 "mobility assistance and fall prevention",
                 "all of the above"
             ],
+            "skip_if_in_input": ["companionship", "daily tasks", "hygiene", "medication", "mobility"],
             "next": "elderly_q3"
         },
         "elderly_q3": {
@@ -509,6 +545,7 @@ TEXT_QUESTION_FLOW = {
                 "no known conditions",
                 "prefer to discuss with caregiver"
             ],
+            "skip_if_in_input": ["diabetes", "heart", "dementia", "memory", "mobility", "joint", "medical"],
             "next": "common_care_schedule"
         },
 
@@ -522,6 +559,7 @@ TEXT_QUESTION_FLOW = {
                 "preschool (3-5 years)",
                 "school-age (6+ years)"
             ],
+            "skip_if_in_input": ["newborn", "infant", "toddler", "preschool", "school", "years old", "months old"],
             "next": "child_q2"
         },
         "child_q2": {
@@ -535,6 +573,7 @@ TEXT_QUESTION_FLOW = {
                 "newborn / infant care",
                 "help with homework and activities"
             ],
+            "skip_if_in_input": ["babysitting", "nanny", "after-school", "overnight", "homework"],
             "next": "child_q3"
         },
         "child_q3": {
@@ -547,6 +586,7 @@ TEXT_QUESTION_FLOW = {
                 "no special needs",
                 "prefer to discuss with caregiver"
             ],
+            "skip_if_in_input": ["allergy", "medical", "learning", "special needs"],
             "next": "common_care_schedule"
         },
 
@@ -561,6 +601,7 @@ TEXT_QUESTION_FLOW = {
                 "multiple disabilities",
                 "not sure - need assessment"
             ],
+            "skip_if_in_input": ["physical", "intellectual", "cognitive", "visual", "hearing", "impairment", "wheelchair"],
             "next": "disability_q2"
         },
         "disability_q2": {
@@ -574,6 +615,7 @@ TEXT_QUESTION_FLOW = {
                 "emotional and social support",
                 "all of the above"
             ],
+            "skip_if_in_input": ["mobility", "hygiene", "communication", "errands", "emotional"],
             "next": "disability_q3"
         },
         "disability_q3": {
@@ -587,6 +629,7 @@ TEXT_QUESTION_FLOW = {
                 "no assistive equipment",
                 "prefer to discuss with caregiver"
             ],
+            "skip_if_in_input": ["wheelchair", "walker", "crutch", "hearing aid", "glasses", "cane"],
             "next": "common_care_schedule"
         },
 
@@ -602,6 +645,7 @@ TEXT_QUESTION_FLOW = {
                 "companionship during recovery",
                 "all of the above"
             ],
+            "skip_if_in_input": ["wound", "medication", "physiotherapy", "meal", "companionship"],
             "next": "recovery_q2"
         },
         "recovery_q2": {
@@ -613,6 +657,7 @@ TEXT_QUESTION_FLOW = {
                 "1 month or more",
                 "ongoing / not sure yet"
             ],
+            "skip_if_in_input": ["days", "weeks", "month", "ongoing"],
             "next": "recovery_q3"
         },
         "recovery_q3": {
@@ -626,6 +671,7 @@ TEXT_QUESTION_FLOW = {
                 "general illness / infection",
                 "prefer not to say"
             ],
+            "skip_if_in_input": ["orthopaedic", "hip", "knee", "cardiac", "abdominal", "stroke", "infection"],
             "next": "common_care_schedule"
         },
 
@@ -639,6 +685,7 @@ TEXT_QUESTION_FLOW = {
                 "bird",
                 "other"
             ],
+            "skip_if_in_input": ["dog", "cat", "bird", "puppy", "kitten"],
             "next": "pet_q2"
         },
         "pet_q2": {
@@ -651,6 +698,7 @@ TEXT_QUESTION_FLOW = {
                 "overnight / full-time pet sitting",
                 "vet visit accompaniment"
             ],
+            "skip_if_in_input": ["feeding", "walking", "grooming", "pet sitting", "vet"],
             "next": "pet_q3"
         },
         "pet_q3": {
@@ -663,6 +711,7 @@ TEXT_QUESTION_FLOW = {
                 "elderly or mobility issues",
                 "no special needs"
             ],
+            "skip_if_in_input": ["medication", "diet", "anxious", "aggressive", "elderly", "mobility"],
             "next": "common_care_schedule"
         },
 
@@ -678,6 +727,7 @@ TEXT_QUESTION_FLOW = {
                 "a few days per week",
                 "weekends only"
             ],
+            "skip_if_in_input": ["one-time", "daily", "part time", "full day", "live-in", "weekend"],
             "next": "common_care_pref"
         },
         "common_care_pref": {
@@ -692,6 +742,7 @@ TEXT_QUESTION_FLOW = {
                 "english speaking",
                 "no preference"
             ],
+            "skip_if_in_input": ["experienced", "certified", "female", "male", "sinhala", "tamil", "english"],
             "next": "common_care_urgency"
         },
         "common_care_urgency": {
@@ -704,121 +755,132 @@ TEXT_QUESTION_FLOW = {
                 "next month",
                 "flexible - still planning"
             ],
+            "skip_if_in_input": ["asap", "today", "tomorrow", "week", "month", "flexible"],
             "next": "common_care_location"
         },
         "common_care_location": {
             "question": "Where will the care be provided? Please enter your address or area.",
             "answer_key": "location",
             "type": "text_input",
+            "skip_if_in_input": ["colombo", "kandy", "galle", "negombo", "address", "area", "city", "town", "road", "street", "home", "house"],
             "next": "common_care_notes"
         }
     },
+
     # ═══════════════════════════════════════════
-# 4. REPAIRING
-# ═══════════════════════════════════════════
-"repairing": {
+    # 4. REPAIRING
+    # ═══════════════════════════════════════════
+    "repairing": {
 
-    # ✅ SMART ENTRY POINT (NO CATEGORY QUESTION ANYMORE)
-    1: {
-        "question": "What do you want to repair?",
-        "answer_key": "item",
-        "options": [
-            "Fan",
-            "TV",
-            "Fridge",
-            "Washing Machine",
-            "Light",
-            "Rice Cooker",
-            "Pipe",
-            "Tap",
-            "Chair",
-            "Other"
-        ],
-        "next": "auto_route"
-    },
+        # SMART ENTRY POINT
+        1: {
+            "question": "What do you want to repair?",
+            "answer_key": "item",
+            "options": [
+                "Fan",
+                "TV",
+                "Fridge",
+                "Washing Machine",
+                "Light",
+                "Rice Cooker",
+                "Pipe",
+                "Tap",
+                "Chair",
+                "Other"
+            ],
+            "skip_if_in_input": ["fan", "tv", "television", "fridge", "refrigerator", "washing machine", "light", "rice cooker", "pipe", "tap", "chair", "sofa", "table", "furniture"],
+            "next": "auto_route"
+        },
 
-    # 🔥 SMART ROUTER (KEY FIX)
-    "auto_route": {
-        "next": {
-            "fan": "electrical_q2",
-            "tv": "electrical_q2",
-            "fridge": "electrical_q2",
-            "washing machine": "electrical_q2",
-            "light": "electrical_q2",
-            "rice cooker": "electrical_q2",
+        # SMART ROUTER
+        "auto_route": {
+            "next": {
+                "fan": "electrical_q2",
+                "tv": "electrical_q2",
+                "fridge": "electrical_q2",
+                "washing machine": "electrical_q2",
+                "light": "electrical_q2",
+                "rice cooker": "electrical_q2",
 
-            "pipe": "plumbing_q1",
-            "tap": "plumbing_q1",
+                "pipe": "plumbing_q1",
+                "tap": "plumbing_q1",
 
-            "chair": "furniture_q2",
-            "sofa": "furniture_q2",
+                "chair": "furniture_q2",
+                "sofa": "furniture_q2",
 
-            "default": "electrical_q2"
+                "default": "electrical_q2"
+            }
+        },
+
+        # ───────── ELECTRICAL ─────────
+        "electrical_q2": {
+            "question": "What issue are you facing with the item?",
+            "answer_key": "issue",
+            "options": [
+                "Not working at all",
+                "No power",
+                "Loud noise",
+                "Slow spinning",
+                "Burning smell",
+                "Other fault"
+            ],
+            "skip_if_in_input": ["not working", "no power", "noise", "spinning", "burning smell", "fault", "broken", "damaged"],
+            "next": "electrical_q3"
+        },
+
+        "electrical_q3": {
+            "question": "How urgent is this issue?",
+            "answer_key": "urgency",
+            "options": [
+                "Low",
+                "Medium",
+                "High (urgent)"
+            ],
+            "skip_if_in_input": ["low", "medium", "high", "urgent", "emergency"],
+            "next": "common_repair_location"
+        },
+
+        # ───────── PLUMBING ─────────
+        "plumbing_q1": {
+            "question": "What plumbing issue do you have?",
+            "answer_key": "issue",
+            "options": ["Leakage", "Blockage", "Low pressure", "Other"],
+            "skip_if_in_input": ["leak", "blockage", "clogged", "low pressure", "dripping"],
+            "next": "plumbing_q2"
+        },
+
+        "plumbing_q2": {
+            "question": "How urgent is it?",
+            "answer_key": "urgency",
+            "options": ["Low", "Medium", "High"],
+            "skip_if_in_input": ["low", "medium", "high", "urgent"],
+            "next": "common_repair_location"
+        },
+
+        # ───────── FURNITURE ─────────
+        "furniture_q2": {
+            "question": "What is the problem?",
+            "answer_key": "issue",
+            "options": ["Broken", "Loose", "Damage", "Other"],
+            "skip_if_in_input": ["broken", "loose", "damage", "cracked", "wobbly"],
+            "next": "furniture_q3"
+        },
+
+        "furniture_q3": {
+            "question": "How urgent is repair?",
+            "answer_key": "urgency",
+            "options": ["Low", "Medium", "High"],
+            "skip_if_in_input": ["low", "medium", "high", "urgent"],
+            "next": "common_repair_location"
+        },
+
+        # ───────── COMMON ─────────
+        "common_repair_location": {
+            "question": "Where is the service needed? Enter your address or area.",
+            "answer_key": "location",
+            "type": "text_input",
+            "skip_if_in_input": ["colombo", "kandy", "galle", "negombo", "address", "area", "city", "town", "road", "street", "home", "house", "flat", "apartment"],
+            "next": None
         }
-    },
-
-    # ───────── ELECTRICAL ─────────
-    "electrical_q2": {
-        "question": "What issue are you facing with the item?",
-        "answer_key": "issue",
-        "options": [
-            "Not working at all",
-            "No power",
-            "Loud noise",
-            "Slow spinning",
-            "Burning smell",
-            "Other fault"
-        ],
-        "next": "electrical_q3"
-    },
-
-    "electrical_q3": {
-        "question": "How urgent is this issue?",
-        "answer_key": "urgency",
-        "options": [
-            "Low",
-            "Medium",
-            "High (urgent)"
-        ],
-        "next": "common_repair_location"
-    },
-
-    # ───────── PLUMBING ─────────
-    "plumbing_q1": {
-        "question": "What plumbing issue do you have?",
-        "answer_key": "issue",
-        "options": ["Leakage", "Blockage", "Low pressure", "Other"],
-        "next": "plumbing_q2"
-    },
-
-    "plumbing_q2": {
-        "question": "How urgent is it?",
-        "answer_key": "urgency",
-        "options": ["Low", "Medium", "High"],
-        "next": "common_repair_location"
-    },
-
-    # ───────── FURNITURE ─────────
-    "furniture_q2": {
-        "question": "What is the problem?",
-        "answer_key": "issue",
-        "options": ["Broken", "Loose", "Damage", "Other"],
-        "next": "furniture_q3"
-    },
-
-    "furniture_q3": {
-        "question": "How urgent is repair?",
-        "answer_key": "urgency",
-        "options": ["Low", "Medium", "High"],
-        "next": "common_repair_location"
-    },
-
-    # ───────── COMMON ─────────
-    "common_repair_location": {
-        "question": "Where is the service needed? Enter your address or area.",
-        "answer_key": "location",
-        "type": "text_input",
-        "next": None
     }
-}
 }
