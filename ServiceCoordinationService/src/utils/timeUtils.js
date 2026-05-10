@@ -27,3 +27,10 @@ export function timeToMinutes(time) {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", { weekday: "long" });
   }
+
+  export function calculateGapMinutes(previousEndTime, nextStartTime) {
+    const previousEnd = timeToMinutes(previousEndTime);
+    const nextStart = timeToMinutes(nextStartTime);
+  
+    return nextStart - previousEnd;
+  }

@@ -1,8 +1,10 @@
 import ProviderRequest from "../models/ProviderRequest.js";
 import Booking from "../models/Booking.js";
-import { addHoursToTime } from "../utils/timeUtils.js";
+import { addHoursToTime,calculateGapMinutes } from "../utils/timeUtils.js";
 import { validateProviderSchedule } from "../services/scheduleValidationService.js";
 import { estimateServiceDuration } from "../services/durationEstimationService.js";
+import { getRoadDistanceAndTime } from "../services/osrmService.js";
+import { findPreviousProviderBooking } from "../services/bookingContextService.js";
 
 export const createProviderRequest = async (req, res) => {
   try {
@@ -19,6 +21,7 @@ export const createProviderRequest = async (req, res) => {
       complexityLevel = "Medium",
       propertySize = "Medium",
       urgency = "medium",
+      location = {},
     } = req.body;
 
     if (!postId || !seekerId || !providerId || !requestedDate || !requestedStartTime) {
@@ -70,6 +73,85 @@ export const createProviderRequest = async (req, res) => {
       requestedEndTime,
     });
 
+    let distanceFromPreviousBookingKm = 0;
+    let estimatedTravelTimeMins = 0;
+    let gapFromPreviousBookingMins = null;
+
+    const previousBooking = await findPreviousProviderBooking({
+      providerId,
+      requestedDate,
+      requestedStartTime,
+    });
+
+    if (
+      previousBooking &&
+      previousBooking.location?.lat != null &&
+      previousBooking.location?.lng != null &&
+      location?.lat != null &&
+      location?.lng != null
+    ) {
+      const osrmResult = await getRoadDistanceAndTime(
+        previousBooking.location.lat,
+        previousBooking.location.lng,
+        location.lat,
+        location.lng
+      );
+
+      distanceFromPreviousBookingKm = osrmResult.distanceKm;
+      estimatedTravelTimeMins = osrmResult.estimatedTravelTimeMins;
+
+      gapFromPreviousBookingMins = calculateGapMinutes(
+        previousBooking.endTime,
+        requestedStartTime
+      );
+    }
+
+    // Calculate delay risk using OSRM travel time and available booking gap
+    let riskLevel = "LOW";
+    let riskScore = 10;
+    let riskMessage = scheduleValidation.message;
+
+    if (scheduleValidation.validationStatus === "CONFLICT") {
+      // Hard blocker because the requested time overlaps or violates availability
+      riskLevel = "HIGH";
+      riskScore = 100;
+      riskMessage = scheduleValidation.message;
+    } else if (gapFromPreviousBookingMins !== null) {
+      // Compare travel time from previous booking with the available gap
+      const travelGapDifference =
+        estimatedTravelTimeMins - gapFromPreviousBookingMins;
+
+      if (travelGapDifference <= 0) {
+        // Provider has enough time to travel
+        riskLevel = "LOW";
+        riskScore = 20;
+        riskMessage =
+          "Low delay risk: provider has enough travel time from previous booking.";
+      } else if (travelGapDifference <= 15) {
+        // Small shortage, so show warning instead of high risk
+        riskLevel = "MEDIUM";
+        riskScore = 55;
+        riskMessage = `Warning: estimated travel time exceeds available gap by ${travelGapDifference} minutes.`;
+      } else {
+        // Large shortage, so mark as high risk
+        riskLevel = "HIGH";
+        riskScore = 85;
+        riskMessage = `High delay risk: estimated travel time exceeds available gap by ${travelGapDifference} minutes.`;
+      }
+    }
+
+    // Convert risk level into request validation status
+    const finalValidationStatus =
+      scheduleValidation.validationStatus === "CONFLICT"
+        ? "CONFLICT"
+        : riskLevel === "HIGH"
+        ? "HIGH_RISK"
+        : riskLevel === "MEDIUM"
+        ? "WARNING"
+        : "VALIDATED";
+
+
+
     const providerRequest = await ProviderRequest.create({
       postId,
       seekerId,
@@ -81,6 +163,8 @@ export const createProviderRequest = async (req, res) => {
       complexityLevel,
       propertySize,
 
+      location,
+
       requestedDate,
       requestedStartTime,
       requestedEndTime,
@@ -89,11 +173,15 @@ export const createProviderRequest = async (req, res) => {
       durationConfidence: durationResult?.confidence || "UNKNOWN",
       requiresMultipleDays: durationResult?.requiresMultipleDays || false,
 
-      validationStatus: scheduleValidation.validationStatus,
+      distanceFromPreviousBookingKm,
+      estimatedTravelTimeMins,
+      gapFromPreviousBookingMins,
+
+      validationStatus: finalValidationStatus,
       requestStatus: "PENDING",
-      riskLevel: "UNKNOWN",
-      riskScore: 0,
-      validationMessage: scheduleValidation.message,
+      riskLevel,
+      riskScore,
+      validationMessage: riskMessage,
     });
 
     return res.status(201).json({
@@ -157,6 +245,7 @@ export const getRequestsByProvider = async (req, res) => {
 export const acceptProviderRequest = async (req, res) => {
   try {
     const { requestId } = req.params;
+    const { finalLocation } = req.body;
 
     const providerRequest = await ProviderRequest.findById(requestId);
 
@@ -206,20 +295,39 @@ export const acceptProviderRequest = async (req, res) => {
         validation: scheduleValidation,
       });
     }
+    const hasFinalLocation =
+    finalLocation &&
+    finalLocation.lat != null &&
+    finalLocation.lng != null;
 
-    const booking = await Booking.create({
-      postId: providerRequest.postId,
-      seekerId: providerRequest.seekerId,
-      providerId: providerRequest.providerId,
-      providerRequestId: providerRequest._id,
-      scheduledDate: providerRequest.requestedDate,
-      startTime: providerRequest.requestedStartTime,
-      endTime: providerRequest.requestedEndTime,
-      estimatedDurationHours: providerRequest.estimatedDurationHours || 2,
-      delayRiskLevel: providerRequest.riskLevel,
-      delayRiskScore: providerRequest.riskScore,
-      bookingStatus: "CONFIRMED",
-    });
+    const bookingLocation = hasFinalLocation
+      ? finalLocation
+      : providerRequest.location;
+
+      const booking = await Booking.create({
+        postId: providerRequest.postId,
+        seekerId: providerRequest.seekerId,
+        providerId: providerRequest.providerId,
+        providerRequestId: providerRequest._id,
+      
+        scheduledDate: providerRequest.requestedDate,
+        startTime: providerRequest.requestedStartTime,
+        endTime: providerRequest.requestedEndTime,
+        estimatedDurationHours: providerRequest.estimatedDurationHours || 2,
+      
+        location: bookingLocation,
+      
+        distanceFromPreviousBookingKm:
+          providerRequest.distanceFromPreviousBookingKm || 0,
+        estimatedTravelTimeMins:
+          providerRequest.estimatedTravelTimeMins || 0,
+        gapFromPreviousBookingMins:
+          providerRequest.gapFromPreviousBookingMins ?? null,
+      
+        delayRiskLevel: providerRequest.riskLevel,
+        delayRiskScore: providerRequest.riskScore,
+        bookingStatus: "CONFIRMED",
+      });
 
     providerRequest.requestStatus = "ACCEPTED";
     await providerRequest.save();

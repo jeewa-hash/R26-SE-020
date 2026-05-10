@@ -46,6 +46,29 @@ const bookingSchema = new mongoose.Schema(
       required: true,
     },
 
+    location: {
+      address: {
+        type: String,
+        default: "",
+      },
+      district: {
+        type: String,
+        default: "",
+      },
+      city: {
+        type: String,
+        default: "",
+      },
+      lat: {
+        type: Number,
+        default: null,
+      },
+      lng: {
+        type: Number,
+        default: null,
+      },
+    },
+
     distanceFromPreviousBookingKm: {
       type: Number,
       default: 0,
@@ -54,6 +77,11 @@ const bookingSchema = new mongoose.Schema(
     estimatedTravelTimeMins: {
       type: Number,
       default: 0,
+    },
+
+    gapFromPreviousBookingMins: {
+      type: Number,
+      default: null,
     },
 
     delayRiskLevel: {
