@@ -245,6 +245,8 @@ export const getRequestsByProvider = async (req, res) => {
 export const acceptProviderRequest = async (req, res) => {
   try {
     const { requestId } = req.params;
+
+    // Allows seeker to provide exact final service location during booking confirmation
     const { finalLocation } = req.body;
 
     const providerRequest = await ProviderRequest.findById(requestId);
@@ -277,57 +279,60 @@ export const acceptProviderRequest = async (req, res) => {
       });
     }
 
+    // Re-check provider schedule before creating booking because provider schedule may have changed
     const scheduleValidation = await validateProviderSchedule({
       providerId: providerRequest.providerId,
       requestedDate: providerRequest.requestedDate,
       requestedStartTime: providerRequest.requestedStartTime,
       requestedEndTime: providerRequest.requestedEndTime,
     });
-    
+
     if (!scheduleValidation.isValid) {
       providerRequest.validationStatus = scheduleValidation.validationStatus;
       providerRequest.validationMessage = scheduleValidation.message;
       await providerRequest.save();
-    
+
       return res.status(409).json({
         success: false,
         message: "Provider schedule is no longer valid",
         validation: scheduleValidation,
       });
     }
+
+    // Use final location from seeker if provided, otherwise use original request/post location
     const hasFinalLocation =
-    finalLocation &&
-    finalLocation.lat != null &&
-    finalLocation.lng != null;
+      finalLocation &&
+      finalLocation.lat != null &&
+      finalLocation.lng != null;
 
     const bookingLocation = hasFinalLocation
       ? finalLocation
       : providerRequest.location;
 
-      const booking = await Booking.create({
-        postId: providerRequest.postId,
-        seekerId: providerRequest.seekerId,
-        providerId: providerRequest.providerId,
-        providerRequestId: providerRequest._id,
-      
-        scheduledDate: providerRequest.requestedDate,
-        startTime: providerRequest.requestedStartTime,
-        endTime: providerRequest.requestedEndTime,
-        estimatedDurationHours: providerRequest.estimatedDurationHours || 2,
-      
-        location: bookingLocation,
-      
-        distanceFromPreviousBookingKm:
-          providerRequest.distanceFromPreviousBookingKm || 0,
-        estimatedTravelTimeMins:
-          providerRequest.estimatedTravelTimeMins || 0,
-        gapFromPreviousBookingMins:
-          providerRequest.gapFromPreviousBookingMins ?? null,
-      
-        delayRiskLevel: providerRequest.riskLevel,
-        delayRiskScore: providerRequest.riskScore,
-        bookingStatus: "CONFIRMED",
-      });
+    const booking = await Booking.create({
+      postId: providerRequest.postId,
+      seekerId: providerRequest.seekerId,
+      providerId: providerRequest.providerId,
+      providerRequestId: providerRequest._id,
+
+      scheduledDate: providerRequest.requestedDate,
+      startTime: providerRequest.requestedStartTime,
+      endTime: providerRequest.requestedEndTime,
+      estimatedDurationHours: providerRequest.estimatedDurationHours || 2,
+
+      location: bookingLocation,
+
+      distanceFromPreviousBookingKm:
+        providerRequest.distanceFromPreviousBookingKm || 0,
+      estimatedTravelTimeMins:
+        providerRequest.estimatedTravelTimeMins || 0,
+      gapFromPreviousBookingMins:
+        providerRequest.gapFromPreviousBookingMins ?? null,
+
+      delayRiskLevel: providerRequest.riskLevel,
+      delayRiskScore: providerRequest.riskScore,
+      bookingStatus: "CONFIRMED",
+    });
 
     providerRequest.requestStatus = "ACCEPTED";
     await providerRequest.save();
