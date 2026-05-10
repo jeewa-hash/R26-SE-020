@@ -23,7 +23,8 @@ export const createRescheduleRequest = async (req, res) => {
     if (requestedByType !== "SYSTEM" && !requestedById) {
       return res.status(400).json({
         success: false,
-        message: "requestedById is required for PROVIDER or SEEKER reschedule requests",
+        message:
+          "requestedById is required for PROVIDER or SEEKER reschedule requests",
       });
     }
 
@@ -83,6 +84,7 @@ export const createRescheduleRequest = async (req, res) => {
       requestedById,
       reason,
 
+      // Store the schedule before any change happens
       currentSchedule: {
         date: booking.scheduledDate,
         startTime: booking.startTime,
@@ -169,10 +171,15 @@ export const acceptRescheduleSlot = async (req, res) => {
       });
     }
 
+    // Keep reference to accepted reschedule request for history tracking
+    booking.acceptedRescheduleRequests.push(rescheduleRequest._id);
+
+    // Update only the current active schedule. initialSchedule remains unchanged
     booking.scheduledDate = selectedSlot.date;
     booking.startTime = selectedSlot.startTime;
     booking.endTime = selectedSlot.endTime;
     booking.bookingStatus = "RESCHEDULED";
+
     await booking.save();
 
     rescheduleRequest.selectedSlot = selectedSlot;

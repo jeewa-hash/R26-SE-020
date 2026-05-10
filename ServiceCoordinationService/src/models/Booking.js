@@ -26,6 +26,21 @@ const bookingSchema = new mongoose.Schema(
       required: true,
     },
 
+    initialSchedule: {
+      date: {
+        type: String,
+        required: true,
+      },
+      startTime: {
+        type: String,
+        required: true,
+      },
+      endTime: {
+        type: String,
+        required: true,
+      },
+    },
+
     scheduledDate: {
       type: String,
       required: true,
@@ -114,6 +129,14 @@ const bookingSchema = new mongoose.Schema(
         default: null,
       },
     },
+
+    // Accepted reschedule request references for booking history/admin review
+    acceptedRescheduleRequests: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "RescheduleRequest",
+      },
+    ],
 
     bookingStatus: {
       type: String,

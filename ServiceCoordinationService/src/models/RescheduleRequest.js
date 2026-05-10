@@ -6,23 +6,28 @@ const suggestedSlotSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+
     startTime: {
       type: String,
       required: true,
     },
+
     endTime: {
       type: String,
       required: true,
     },
+
     score: {
       type: Number,
       default: 0,
     },
+
     riskLevel: {
       type: String,
       enum: ["LOW", "MEDIUM", "HIGH", "UNKNOWN"],
       default: "UNKNOWN",
     },
+
     reason: {
       type: String,
       default: "",
@@ -58,15 +63,17 @@ const rescheduleRequestSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Stores whether provider, seeker, or system requested the reschedule
     requestedByType: {
-        type: String,
-        enum: ["PROVIDER", "SEEKER", "SYSTEM"],
-        required: true,
+      type: String,
+      enum: ["PROVIDER", "SEEKER", "SYSTEM"],
+      required: true,
     },
-    
+
+    // Stores the actual providerId or seekerId who requested the reschedule
     requestedById: {
-        type: mongoose.Schema.Types.ObjectId,
-        default: null,
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
     },
 
     reason: {
@@ -74,14 +81,25 @@ const rescheduleRequestSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Schedule before the reschedule request was accepted
     currentSchedule: {
-      date: String,
-      startTime: String,
-      endTime: String,
+      date: {
+        type: String,
+        required: true,
+      },
+      startTime: {
+        type: String,
+        required: true,
+      },
+      endTime: {
+        type: String,
+        required: true,
+      },
     },
 
     suggestedSlots: [suggestedSlotSchema],
 
+    // Slot selected by seeker/provider after accepting the reschedule
     selectedSlot: {
       date: {
         type: String,

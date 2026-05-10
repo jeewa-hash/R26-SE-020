@@ -309,30 +309,39 @@ export const acceptProviderRequest = async (req, res) => {
       ? finalLocation
       : providerRequest.location;
 
-    const booking = await Booking.create({
-      postId: providerRequest.postId,
-      seekerId: providerRequest.seekerId,
-      providerId: providerRequest.providerId,
-      providerRequestId: providerRequest._id,
-
-      scheduledDate: providerRequest.requestedDate,
-      startTime: providerRequest.requestedStartTime,
-      endTime: providerRequest.requestedEndTime,
-      estimatedDurationHours: providerRequest.estimatedDurationHours || 2,
-
-      location: bookingLocation,
-
-      distanceFromPreviousBookingKm:
-        providerRequest.distanceFromPreviousBookingKm || 0,
-      estimatedTravelTimeMins:
-        providerRequest.estimatedTravelTimeMins || 0,
-      gapFromPreviousBookingMins:
-        providerRequest.gapFromPreviousBookingMins ?? null,
-
-      delayRiskLevel: providerRequest.riskLevel,
-      delayRiskScore: providerRequest.riskScore,
-      bookingStatus: "CONFIRMED",
-    });
+      const booking = await Booking.create({
+        postId: providerRequest.postId,
+        seekerId: providerRequest.seekerId,
+        providerId: providerRequest.providerId,
+        providerRequestId: providerRequest._id,
+      
+        // Store the first confirmed schedule permanently
+        initialSchedule: {
+          date: providerRequest.requestedDate,
+          startTime: providerRequest.requestedStartTime,
+          endTime: providerRequest.requestedEndTime,
+        },
+      
+        // Current active schedule
+        scheduledDate: providerRequest.requestedDate,
+        startTime: providerRequest.requestedStartTime,
+        endTime: providerRequest.requestedEndTime,
+      
+        estimatedDurationHours: providerRequest.estimatedDurationHours || 2,
+      
+        location: bookingLocation,
+      
+        distanceFromPreviousBookingKm:
+          providerRequest.distanceFromPreviousBookingKm || 0,
+        estimatedTravelTimeMins:
+          providerRequest.estimatedTravelTimeMins || 0,
+        gapFromPreviousBookingMins:
+          providerRequest.gapFromPreviousBookingMins ?? null,
+      
+        delayRiskLevel: providerRequest.riskLevel,
+        delayRiskScore: providerRequest.riskScore,
+        bookingStatus: "CONFIRMED",
+      });
 
     providerRequest.requestStatus = "ACCEPTED";
     await providerRequest.save();
