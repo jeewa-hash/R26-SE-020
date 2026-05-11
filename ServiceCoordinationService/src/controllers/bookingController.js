@@ -104,6 +104,15 @@ export const startBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
 
+    const providerId = req.user?.id;
+
+    if (!providerId) {
+      return res.status(401).json({
+        success: false,
+        message: "Provider authentication required",
+      });
+    }
+
     const booking = await Booking.findById(bookingId);
 
     if (!booking) {
@@ -113,7 +122,7 @@ export const startBooking = async (req, res) => {
       });
     }
 
-    if (booking.providerId.toString() !== req.user.id) {
+    if (booking.providerId.toString() !== providerId.toString()) {
       return res.status(403).json({
         success: false,
         message: "Only the assigned provider can start this booking",
@@ -129,6 +138,7 @@ export const startBooking = async (req, res) => {
     }
 
     booking.bookingStatus = "IN_PROGRESS";
+
     await booking.save();
 
     return res.status(200).json({
@@ -144,7 +154,6 @@ export const startBooking = async (req, res) => {
     });
   }
 };
-
 export const completeBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;

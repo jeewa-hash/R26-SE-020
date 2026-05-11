@@ -3,33 +3,12 @@ import ProviderAvailability from "../models/ProviderAvailability.js";
 
 export const getProviderCalendar = async (req, res) => {
   try {
-    const { providerId } = req.params;
+    // Logged-in provider from JWT
+    const providerId = req.user.id;
+
     const { startDate, endDate } = req.query;
 
-    if (!providerId) {
-      return res.status(400).json({
-        success: false,
-        message: "providerId is required",
-      });
-    }
-
-    if (req.user.role === "ServiceProvider" && req.user.id !== providerId) {
-      return res.status(403).json({
-        success: false,
-        message: "You can only view your own calendar",
-      });
-    }
-
-    const availability = await ProviderAvailability.findOne({ providerId });
-
-    if (!availability) {
-      return res.status(404).json({
-        success: false,
-        message: "Provider availability not found",
-      });
-    }
-
-    const bookingFilter = {
+    const query = {
       providerId,
       bookingStatus: {
         $in: [
@@ -38,78 +17,104 @@ export const getProviderCalendar = async (req, res) => {
           "DELAY_REPORTED",
           "RESCHEDULING_REQUIRED",
           "RESCHEDULED",
-          "COMPLETED",
         ],
       },
     };
 
-    if (startDate && endDate) {
-      bookingFilter.scheduledDate = {
-        $gte: startDate,
-        $lte: endDate,
-      };
+    if (startDate || endDate) {
+      query.scheduledDate = {};
+
+      if (startDate) {
+        query.scheduledDate.$gte = startDate;
+      }
+
+      if (endDate) {
+        query.scheduledDate.$lte = endDate;
+      }
     }
 
-    const bookings = await Booking.find(bookingFilter).sort({
+    const bookings = await Booking.find(query).sort({
       scheduledDate: 1,
       startTime: 1,
     });
 
-    const bookingEvents = bookings.map((booking) => ({
-      type: "BOOKING",
-      title: "Service Booking",
+    const calendarEvents = bookings.map((booking) => ({
       bookingId: booking._id,
-      postId: booking.postId,
-      seekerId: booking.seekerId,
-      providerId: booking.providerId,
+      title: "Service Booking",
       date: booking.scheduledDate,
       startTime: booking.startTime,
       endTime: booking.endTime,
       status: booking.bookingStatus,
-      estimatedDurationHours: booking.estimatedDurationHours,
       riskLevel: booking.delayRiskLevel,
-      riskScore: booking.delayRiskScore,
       location: booking.location,
-      distanceFromPreviousBookingKm: booking.distanceFromPreviousBookingKm,
-      estimatedTravelTimeMins: booking.estimatedTravelTimeMins,
-      gapFromPreviousBookingMins: booking.gapFromPreviousBookingMins,
     }));
-
-    const unavailableEvents = availability.unavailableSlots
-      .filter((slot) => {
-        if (!startDate || !endDate) return true;
-        return slot.date >= startDate && slot.date <= endDate;
-      })
-      .map((slot) => ({
-        type: "UNAVAILABLE",
-        title: slot.reason || "Unavailable",
-        providerId,
-        date: slot.date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        reason: slot.reason,
-      }));
-
-    const events = [...bookingEvents, ...unavailableEvents].sort((a, b) => {
-      if (a.date === b.date) return a.startTime.localeCompare(b.startTime);
-      return a.date.localeCompare(b.date);
-    });
 
     return res.status(200).json({
       success: true,
-      data: {
-        providerId,
-        availableDays: availability.availableDays,
-        workingHours: availability.workingHours,
-        maxBookingsPerDay: availability.maxBookingsPerDay,
-        isActive: availability.isActive,
-        events,
-      },
+      count: calendarEvents.length,
+      data: calendarEvents,
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: "Failed to get provider calendar",
+      message: "Failed to fetch provider calendar",
+      error: error.message,
+    });
+  }
+};
+
+export const getSeekerCalendar = async (req, res) => {
+  try {
+    const seekerId = req.user.id;
+    const { startDate, endDate } = req.query;
+
+    const query = {
+      seekerId,
+      bookingStatus: {
+        $in: [
+          "CONFIRMED",
+          "IN_PROGRESS",
+          "DELAY_REPORTED",
+          "RESCHEDULING_REQUIRED",
+          "RESCHEDULED",
+        ],
+      },
+    };
+
+    if (startDate || endDate) {
+      query.scheduledDate = {};
+
+      if (startDate) query.scheduledDate.$gte = startDate;
+      if (endDate) query.scheduledDate.$lte = endDate;
+    }
+
+    const bookings = await Booking.find(query).sort({
+      scheduledDate: 1,
+      startTime: 1,
+    });
+
+    const calendarEvents = bookings.map((booking) => ({
+      bookingId: booking._id,
+      title: "Service Booking",
+      date: booking.scheduledDate,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      status: booking.bookingStatus,
+      riskLevel: booking.delayRiskLevel,
+      providerId: booking.providerId,
+      postId: booking.postId,
+      location: booking.location,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: calendarEvents.length,
+      data: calendarEvents,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch seeker calendar",
       error: error.message,
     });
   }
