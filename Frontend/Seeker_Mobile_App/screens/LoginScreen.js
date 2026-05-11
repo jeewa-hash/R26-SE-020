@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { decodeJwt } from '../utils/jwtUtils';
 import { IP_ADDRESS } from '../config';
 
 const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
@@ -30,9 +31,14 @@ export default function LoginScreen({ navigation }) {
         }
       });
 
-      // On Success, save JWT and Role
+      // On Success, save JWT, role, and decoded user identity
       await AsyncStorage.setItem('userToken', response.data.token);
       await AsyncStorage.setItem('userRole', response.data.role);
+      const authPayload = decodeJwt(response.data.token);
+      const userId = authPayload?.user?.id || authPayload?.id;
+      if (userId) {
+        await AsyncStorage.setItem('userId', String(userId));
+      }
 
       Alert.alert('Success', 'Logged in successfully!');
       navigation.replace('Home');

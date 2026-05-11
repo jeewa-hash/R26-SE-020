@@ -42,7 +42,10 @@ export default function SettingsScreen({ navigation }) {
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Logout', 
-          onPress: () => {
+          onPress: async () => {
+            await AsyncStorage.removeItem('userToken');
+            await AsyncStorage.removeItem('userRole');
+            await AsyncStorage.removeItem('userId');
             navigation.replace('Login');
           },
           style: 'destructive' 

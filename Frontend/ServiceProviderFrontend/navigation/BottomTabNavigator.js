@@ -7,10 +7,11 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../theme';
 
 import NewsFeedScreen from '../pages/NewsFeedScreen';
-// import BookingsScreen from '../pages/BookingsScreen';
+import BookingsScreen from '../pages/BookingsScreen';
 import EarningsScreen from '../pages/EarningsScreen';
 import ProfileScreen from '../pages/ProfileScreen';
 import AppliedJobsScreen from '../pages/AppliedJobsScreen';
+import ProviderCalendarScreen from '../pages/coordination/ProviderCalendarScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -52,19 +53,12 @@ export default function BottomTabNavigator() {
         component={ProviderCalendarScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <CustomTab
-              iconName={focused ? 'calendar' : 'calendar-outline'}
-              label="Schedule"
-              focused={focused}
-            />
+            <TabIcon iconName="calendar" label="Schedule" focused={focused} />
           ),
         }}
       />
 
-      {/* 
-      Booking tab is temporarily disabled for now.
-      Enable this later when the booking member's flow is ready.
-
+      
       <Tab.Screen
         name="Bookings"
         component={BookingsScreen}
@@ -74,7 +68,7 @@ export default function BottomTabNavigator() {
           ),
         }}
       />
-      */}
+    
 
       <Tab.Screen
         name="Earnings"

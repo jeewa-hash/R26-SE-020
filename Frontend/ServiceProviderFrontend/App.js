@@ -22,6 +22,7 @@ import ProviderCalendarScreen from './pages/coordination/ProviderCalendarScreen'
 import ProviderBookingDetailScreen from './pages/coordination/ProviderBookingDetailScreen';
 import ProviderDelayReportScreen from './pages/coordination/ProviderDelayReportScreen';
 import ScheduleImpactResultScreen from './pages/coordination/ScheduleImpactResultScreen';
+import RequestServiceScreen from './pages/RequestServiceScreen';
 
 const Stack = createStackNavigator();
 
@@ -42,7 +43,8 @@ export default function App() {
       const token =
         (await AsyncStorage.getItem('token')) ||
         (await AsyncStorage.getItem('providerToken')) ||
-        (await AsyncStorage.getItem('authToken'));
+        (await AsyncStorage.getItem('authToken')) ||
+        (await AsyncStorage.getItem('userToken'));
 
       if (!selectedLanguage) {
         setInitialRoute('LanguageSelect');
@@ -133,6 +135,11 @@ export default function App() {
             <Stack.Screen
               name="ScheduleImpactResult"
               component={ScheduleImpactResultScreen}
+            />
+
+            <Stack.Screen
+              name="RequestService"
+              component={RequestServiceScreen}
             />
           </Stack.Navigator>
         </NavigationContainer>

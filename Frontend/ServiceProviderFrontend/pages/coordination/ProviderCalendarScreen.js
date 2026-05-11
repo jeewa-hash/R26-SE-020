@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-
-import { DEMO_PROVIDER_ID } from '../../config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUserIdFromJwt } from '../../utils/jwtHelpers';
 import { getProviderCalendar } from '../../services/coordinationApi';
 import { styles, COLORS, getRiskStyle, getStatusStyle } from './styles';
 
@@ -37,14 +37,13 @@ const formatDate = (dateValue) => {
 
 export default function ProviderCalendarScreen({ navigation }) {
   const [bookings, setBookings] = useState([]);
+  const [providerId, setProviderId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const providerId = DEMO_PROVIDER_ID;
-
-  const loadCalendar = async () => {
+  const loadCalendar = async (id) => {
     try {
-      const response = await getProviderCalendar(providerId);
+      const response = await getProviderCalendar(id);
       setBookings(response.data || []);
     } catch (error) {
       console.log(error?.response?.data || error.message);
@@ -58,16 +57,44 @@ export default function ProviderCalendarScreen({ navigation }) {
     }
   };
 
+  const initializeProviderCalendar = async () => {
+    let id = await AsyncStorage.getItem('userId');
+    if (!id) {
+      const token = await AsyncStorage.getItem('userToken');
+      id = getUserIdFromJwt(token);
+      if (id) {
+        await AsyncStorage.setItem('userId', String(id));
+      }
+    }
+
+    setProviderId(id);
+    if (!id) {
+      setLoading(false);
+      setRefreshing(false);
+      Alert.alert(
+        'Authentication Error',
+        'Provider identity was not found. Please log in again.'
+      );
+      return;
+    }
+
+    await loadCalendar(id);
+  };
+
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      loadCalendar();
+      initializeProviderCalendar();
     }, [])
   );
 
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    loadCalendar();
+    if (!providerId) {
+      await initializeProviderCalendar();
+      return;
+    }
+    await loadCalendar(providerId);
   };
 
   const totalBookings = bookings.length;
@@ -103,7 +130,7 @@ export default function ProviderCalendarScreen({ navigation }) {
           <View style={styles.rowBetween}>
             <View>
               <Text style={styles.sectionTitle}>Today’s Overview</Text>
-              <Text style={styles.mutedText}>Provider: {providerId}</Text>
+              <Text style={styles.mutedText}>Provider: {providerId || 'Loading...'}</Text>
             </View>
 
             <View style={{ alignItems: 'flex-end' }}>
