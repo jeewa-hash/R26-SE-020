@@ -1,5 +1,6 @@
 import Booking from "../models/Booking.js";
 import ProviderAvailability from "../models/ProviderAvailability.js";
+import { predictDelayRisk } from "../services/mlService.js";
 import {
   timeToMinutes,
   hasTimeOverlap,
@@ -11,6 +12,9 @@ export async function validateProviderSchedule({
   requestedDate,
   requestedStartTime,
   requestedEndTime,
+  distanceFromPreviousBookingKm = 0, // distance from last booking
+  estimatedTravelTimeMins = 0,       // travel time
+  urgency = "medium",                // needed for ML mapping
 }) {
   const availability = await ProviderAvailability.findOne({ providerId });
 
@@ -112,10 +116,79 @@ export async function validateProviderSchedule({
     };
   }
 
+  // =========================
+  // GAP CALCULATION
+  // =========================
+
+  let gapBetweenBookingsMins = 999; // default (no previous booking)
+
+  if (providerBookingsToday.length > 0) {
+    // get latest booking before requested slot
+    const previousBooking = providerBookingsToday
+      .filter(
+        (b) => timeToMinutes(b.endTime) <= requestStart
+      )
+      .sort(
+        (a, b) => timeToMinutes(b.endTime) - timeToMinutes(a.endTime)
+      )[0];
+
+    if (previousBooking) {
+      gapBetweenBookingsMins =
+        requestStart - timeToMinutes(previousBooking.endTime);
+    }
+  }
+
+  // =========================
+  // ML PAYLOAD
+  // =========================
+
+  const mlPayload = {
+    expertiseMatch: 1, // improve later
+    taskPriority:
+      urgency === "high" ? 3 :
+      urgency === "medium" ? 2 : 1,
+    taskDuration:
+      (requestEnd - requestStart) / 60,
+    distanceBetweenBookingsKm,
+    estimatedTravelTimeMins,
+    gapBetweenBookingsMins,
+    providerBookingsToday: providerBookingsToday.length,
+    taskCompleted: 1,
+  };
+
+  // =========================
+  // ML CALL
+  // =========================
+
+  const mlResult = await predictDelayRisk(mlPayload);
+
+  let riskLevel = "UNKNOWN";
+  let riskScore = 0;
+  let validationStatus = "VALIDATED";
+  let message = "Provider schedule is available";
+
+  if (mlResult) {
+    riskLevel = mlResult.riskLevel;
+    riskScore = mlResult.riskScore;
+
+    if (riskLevel === "HIGH") {
+      validationStatus = "HIGH_RISK";
+      message = mlResult.recommendation;
+    } else if (riskLevel === "MEDIUM") {
+      validationStatus = "WARNING";
+      message = mlResult.recommendation;
+    }
+  }
+
   return {
     isValid: true,
-    validationStatus: "VALIDATED",
-    message: "Provider schedule is available",
+    validationStatus,
+    riskLevel,
+    riskScore,
+    message,
     providerBookingsToday: providerBookingsToday.length,
+    gapFromPreviousBookingMins: gapBetweenBookingsMins,
+    distanceFromPreviousBookingKm,
+    estimatedTravelTimeMins,
   };
 }
