@@ -10,7 +10,7 @@ import providerAvailabilityRoutes from "./routes/providerAvailabilityRoutes.js";
 import durationRoutes from "./routes/durationRoutes.js";
 import providerCalendarRoutes from "./routes/providerCalendarRoutes.js";
 import rescheduleRoutes from "./routes/rescheduleRoutes.js";
-
+import postRoutes from "./routes/postRoutes.js";
 dotenv.config();
 
 const app = express();
@@ -33,6 +33,7 @@ app.use("/api/coordination/availability", providerAvailabilityRoutes);
 app.use("/api/coordination/duration", durationRoutes);
 app.use("/api/coordination/calendar", providerCalendarRoutes);
 app.use("/api/coordination/reschedules", rescheduleRoutes);
+app.use("/api/coordination/posts", postRoutes);
 
 const PORT = process.env.PORT || 5010;
 
