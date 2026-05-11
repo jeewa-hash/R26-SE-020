@@ -3,7 +3,6 @@ import ProviderAvailability from "../models/ProviderAvailability.js";
 export const upsertProviderAvailability = async (req, res) => {
   try {
     const {
-      providerId,
       availableDays,
       workingHours,
       unavailableSlots = [],
@@ -11,10 +10,13 @@ export const upsertProviderAvailability = async (req, res) => {
       isActive = true,
     } = req.body;
 
-    if (!providerId || !availableDays || !workingHours) {
+    // Logged-in provider owns this availability record
+    const providerId = req.user.id;
+
+    if (!availableDays || !workingHours) {
       return res.status(400).json({
         success: false,
-        message: "providerId, availableDays and workingHours are required",
+        message: "availableDays and workingHours are required",
       });
     }
 
@@ -48,6 +50,13 @@ export const upsertProviderAvailability = async (req, res) => {
 export const getProviderAvailability = async (req, res) => {
   try {
     const { providerId } = req.params;
+
+    if (req.user.role === "ServiceProvider" && req.user.id !== providerId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only view your own availability",
+      });
+    }
 
     const availability = await ProviderAvailability.findOne({ providerId });
 

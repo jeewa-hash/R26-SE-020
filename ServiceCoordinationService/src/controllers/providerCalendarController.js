@@ -13,7 +13,13 @@ export const getProviderCalendar = async (req, res) => {
       });
     }
 
-    // Get provider general availability
+    if (req.user.role === "ServiceProvider" && req.user.id !== providerId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only view your own calendar",
+      });
+    }
+
     const availability = await ProviderAvailability.findOne({ providerId });
 
     if (!availability) {
@@ -37,7 +43,6 @@ export const getProviderCalendar = async (req, res) => {
       },
     };
 
-    // Filter bookings by date range if provided
     if (startDate && endDate) {
       bookingFilter.scheduledDate = {
         $gte: startDate,
@@ -50,7 +55,6 @@ export const getProviderCalendar = async (req, res) => {
       startTime: 1,
     });
 
-    // Convert bookings into calendar events
     const bookingEvents = bookings.map((booking) => ({
       type: "BOOKING",
       title: "Service Booking",
@@ -71,11 +75,9 @@ export const getProviderCalendar = async (req, res) => {
       gapFromPreviousBookingMins: booking.gapFromPreviousBookingMins,
     }));
 
-    // Convert manual unavailable slots into calendar events
     const unavailableEvents = availability.unavailableSlots
       .filter((slot) => {
         if (!startDate || !endDate) return true;
-
         return slot.date >= startDate && slot.date <= endDate;
       })
       .map((slot) => ({
@@ -89,10 +91,7 @@ export const getProviderCalendar = async (req, res) => {
       }));
 
     const events = [...bookingEvents, ...unavailableEvents].sort((a, b) => {
-      if (a.date === b.date) {
-        return a.startTime.localeCompare(b.startTime);
-      }
-
+      if (a.date === b.date) return a.startTime.localeCompare(b.startTime);
       return a.date.localeCompare(b.date);
     });
 

@@ -3,30 +3,23 @@ import RescheduleRequest from "../models/RescheduleRequest.js";
 import { suggestRescheduleSlots } from "../services/rescheduleSlotService.js";
 import { validateProviderSchedule } from "../services/scheduleValidationService.js";
 
+const getRequesterType = (role) => {
+  if (role === "ServiceProvider") return "PROVIDER";
+  if (role === "Seeker") return "SEEKER";
+  return "SYSTEM";
+};
+
+const canAccessBooking = (req, booking) => {
+  if (req.user.role === "Admin") return true;
+  if (req.user.role === "ServiceProvider") return booking.providerId.toString() === req.user.id;
+  if (req.user.role === "Seeker") return booking.seekerId.toString() === req.user.id;
+  return false;
+};
+
 export const createRescheduleRequest = async (req, res) => {
   try {
     const { bookingId } = req.params;
-
-    const {
-      requestedByType,
-      requestedById = null,
-      reason = "Schedule change required",
-    } = req.body;
-
-    if (!["PROVIDER", "SEEKER", "SYSTEM"].includes(requestedByType)) {
-      return res.status(400).json({
-        success: false,
-        message: "requestedByType must be PROVIDER, SEEKER, or SYSTEM",
-      });
-    }
-
-    if (requestedByType !== "SYSTEM" && !requestedById) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "requestedById is required for PROVIDER or SEEKER reschedule requests",
-      });
-    }
+    const { reason = "Schedule change required" } = req.body;
 
     const booking = await Booking.findById(bookingId);
 
@@ -34,6 +27,13 @@ export const createRescheduleRequest = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Booking not found",
+      });
+    }
+
+    if (!canAccessBooking(req, booking)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied for this booking",
       });
     }
 
@@ -53,7 +53,6 @@ export const createRescheduleRequest = async (req, res) => {
       });
     }
 
-    // Prevent duplicate pending reschedule requests for the same booking
     const existingPending = await RescheduleRequest.findOne({
       bookingId,
       status: "PENDING",
@@ -67,7 +66,6 @@ export const createRescheduleRequest = async (req, res) => {
       });
     }
 
-    // Generate alternative slots using provider availability and existing bookings
     const suggestedSlots = await suggestRescheduleSlots({
       providerId: booking.providerId,
       currentDate: booking.scheduledDate,
@@ -80,11 +78,10 @@ export const createRescheduleRequest = async (req, res) => {
       seekerId: booking.seekerId,
       providerId: booking.providerId,
 
-      requestedByType,
-      requestedById,
+      requestedByType: getRequesterType(req.user.role),
+      requestedById: req.user.id,
       reason,
 
-      // Store the schedule before any change happens
       currentSchedule: {
         date: booking.scheduledDate,
         startTime: booking.startTime,
@@ -155,7 +152,13 @@ export const acceptRescheduleSlot = async (req, res) => {
       });
     }
 
-    // Re-check selected slot before updating the booking
+    if (!canAccessBooking(req, booking)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied for this booking",
+      });
+    }
+
     const validation = await validateProviderSchedule({
       providerId: booking.providerId,
       requestedDate: selectedSlot.date,
@@ -171,10 +174,8 @@ export const acceptRescheduleSlot = async (req, res) => {
       });
     }
 
-    // Keep reference to accepted reschedule request for history tracking
     booking.acceptedRescheduleRequests.push(rescheduleRequest._id);
 
-    // Update only the current active schedule. initialSchedule remains unchanged
     booking.scheduledDate = selectedSlot.date;
     booking.startTime = selectedSlot.startTime;
     booking.endTime = selectedSlot.endTime;
@@ -206,6 +207,22 @@ export const acceptRescheduleSlot = async (req, res) => {
 export const getReschedulesByBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
+
+    const booking = await Booking.findById(bookingId);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (!canAccessBooking(req, booking)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied for this booking",
+      });
+    }
 
     const reschedules = await RescheduleRequest.find({ bookingId }).sort({
       createdAt: -1,

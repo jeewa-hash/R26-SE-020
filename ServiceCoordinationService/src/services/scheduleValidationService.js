@@ -1,6 +1,5 @@
 import Booking from "../models/Booking.js";
 import ProviderAvailability from "../models/ProviderAvailability.js";
-import { predictDelayRisk } from "../services/mlService.js";
 import {
   timeToMinutes,
   hasTimeOverlap,
@@ -12,9 +11,6 @@ export async function validateProviderSchedule({
   requestedDate,
   requestedStartTime,
   requestedEndTime,
-  distanceFromPreviousBookingKm = 0, // distance from last booking
-  estimatedTravelTimeMins = 0,       // travel time
-  urgency = "medium",                // needed for ML mapping
 }) {
   const availability = await ProviderAvailability.findOne({ providerId });
 
@@ -23,6 +19,7 @@ export async function validateProviderSchedule({
       isValid: false,
       validationStatus: "CONFLICT",
       message: "Provider availability is not configured",
+      providerBookingsToday: 0,
     };
   }
 
@@ -31,6 +28,7 @@ export async function validateProviderSchedule({
       isValid: false,
       validationStatus: "CONFLICT",
       message: "Provider is not active",
+      providerBookingsToday: 0,
     };
   }
 
@@ -41,6 +39,7 @@ export async function validateProviderSchedule({
       isValid: false,
       validationStatus: "CONFLICT",
       message: `Provider is not available on ${requestedDay}`,
+      providerBookingsToday: 0,
     };
   }
 
@@ -54,6 +53,7 @@ export async function validateProviderSchedule({
       isValid: false,
       validationStatus: "CONFLICT",
       message: "Requested time is outside provider working hours",
+      providerBookingsToday: 0,
     };
   }
 
@@ -74,6 +74,7 @@ export async function validateProviderSchedule({
       isValid: false,
       validationStatus: "CONFLICT",
       message: "Requested time overlaps with provider unavailable slot",
+      providerBookingsToday: 0,
     };
   }
 
@@ -96,6 +97,7 @@ export async function validateProviderSchedule({
       isValid: false,
       validationStatus: "CONFLICT",
       message: "Provider has reached maximum bookings for this day",
+      providerBookingsToday: providerBookingsToday.length,
     };
   }
 
@@ -113,82 +115,14 @@ export async function validateProviderSchedule({
       isValid: false,
       validationStatus: "CONFLICT",
       message: "Requested time overlaps with an existing booking",
+      providerBookingsToday: providerBookingsToday.length,
     };
-  }
-
-  // =========================
-  // GAP CALCULATION
-  // =========================
-
-  let gapBetweenBookingsMins = 999; // default (no previous booking)
-
-  if (providerBookingsToday.length > 0) {
-    // get latest booking before requested slot
-    const previousBooking = providerBookingsToday
-      .filter(
-        (b) => timeToMinutes(b.endTime) <= requestStart
-      )
-      .sort(
-        (a, b) => timeToMinutes(b.endTime) - timeToMinutes(a.endTime)
-      )[0];
-
-    if (previousBooking) {
-      gapBetweenBookingsMins =
-        requestStart - timeToMinutes(previousBooking.endTime);
-    }
-  }
-
-  // =========================
-  // ML PAYLOAD
-  // =========================
-
-  const mlPayload = {
-    expertiseMatch: 1, // improve later
-    taskPriority:
-      urgency === "high" ? 3 :
-      urgency === "medium" ? 2 : 1,
-    taskDuration:
-      (requestEnd - requestStart) / 60,
-    distanceBetweenBookingsKm,
-    estimatedTravelTimeMins,
-    gapBetweenBookingsMins,
-    providerBookingsToday: providerBookingsToday.length,
-    taskCompleted: 1,
-  };
-
-  // =========================
-  // ML CALL
-  // =========================
-
-  const mlResult = await predictDelayRisk(mlPayload);
-
-  let riskLevel = "UNKNOWN";
-  let riskScore = 0;
-  let validationStatus = "VALIDATED";
-  let message = "Provider schedule is available";
-
-  if (mlResult) {
-    riskLevel = mlResult.riskLevel;
-    riskScore = mlResult.riskScore;
-
-    if (riskLevel === "HIGH") {
-      validationStatus = "HIGH_RISK";
-      message = mlResult.recommendation;
-    } else if (riskLevel === "MEDIUM") {
-      validationStatus = "WARNING";
-      message = mlResult.recommendation;
-    }
   }
 
   return {
     isValid: true,
-    validationStatus,
-    riskLevel,
-    riskScore,
-    message,
+    validationStatus: "VALIDATED",
+    message: "Provider schedule is available",
     providerBookingsToday: providerBookingsToday.length,
-    gapFromPreviousBookingMins: gapBetweenBookingsMins,
-    distanceFromPreviousBookingKm,
-    estimatedTravelTimeMins,
   };
 }

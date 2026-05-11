@@ -1,17 +1,30 @@
 import ProviderRequest from "../models/ProviderRequest.js";
 import Booking from "../models/Booking.js";
-import { addHoursToTime,calculateGapMinutes } from "../utils/timeUtils.js";
-import { validateProviderSchedule } from "../services/scheduleValidationService.js";
+import Post from "../models/Post.js";
+
 import { estimateServiceDuration } from "../services/durationEstimationService.js";
+import { validateProviderSchedule } from "../services/scheduleValidationService.js";
 import { getRoadDistanceAndTime } from "../services/osrmService.js";
 import { findPreviousProviderBooking } from "../services/bookingContextService.js";
+import { predictCoordinationRisk } from "../services/mlRiskService.js";
+
+import {
+  addHoursToTime,
+  calculateGapMinutes,
+} from "../utils/timeUtils.js";
+
+const mapUrgencyToPriority = (urgency = "medium") => {
+  const normalizedUrgency = urgency.toLowerCase();
+
+  if (normalizedUrgency === "high") return 3;
+  if (normalizedUrgency === "medium") return 2;
+  return 1;
+};
 
 export const createProviderRequest = async (req, res) => {
   try {
     const {
       postId,
-      seekerId,
-      providerId,
       requestedDate,
       requestedStartTime,
       estimatedDurationHours,
@@ -22,15 +35,54 @@ export const createProviderRequest = async (req, res) => {
       propertySize = "Medium",
       urgency = "medium",
       location = {},
+      expertiseMatch = 1,
+      taskCompleted = 1,
     } = req.body;
 
-    if (!postId || !seekerId || !providerId || !requestedDate || !requestedStartTime) {
-      return res.status(400).json({
+    // Logged-in service provider becomes the requester
+    const providerId = req.user?.id;
+
+    if (!providerId) {
+      return res.status(401).json({
         success: false,
-        message:
-          "postId, seekerId, providerId, requestedDate and requestedStartTime are required",
+        message: "Provider authentication required",
       });
     }
+
+    if (!postId || !requestedDate || !requestedStartTime) {
+      return res.status(400).json({
+        success: false,
+        message: "postId, requestedDate and requestedStartTime are required",
+      });
+    }
+
+    const post = await Post.findById(postId);
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Post not found",
+      });
+    }
+
+    const seekerId = post.seekerId;
+
+    if (!seekerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Post does not have a seekerId",
+      });
+    }
+
+    const finalServiceCategory = serviceCategory || post.category || "";
+    const finalTaskName = taskName || post.title || "";
+    const finalUrgency = urgency || post.urgency || "medium";
+
+    // Use request location if provided, otherwise use post location
+    const finalLocation =
+      location && location.lat != null && location.lng != null
+        ? location
+        : post.location || {};
 
     const existingRequest = await ProviderRequest.findOne({
       postId,
@@ -50,12 +102,12 @@ export const createProviderRequest = async (req, res) => {
 
     if (!finalEstimatedDurationHours) {
       durationResult = estimateServiceDuration({
-        serviceCategory,
+        serviceCategory: finalServiceCategory,
         serviceSubcategory,
-        taskName,
+        taskName: finalTaskName,
         complexityLevel,
         propertySize,
-        urgency,
+        urgency: finalUrgency,
       });
 
       finalEstimatedDurationHours = durationResult.averageDurationHours;
@@ -73,6 +125,14 @@ export const createProviderRequest = async (req, res) => {
       requestedEndTime,
     });
 
+    if (scheduleValidation.validationStatus === "CONFLICT") {
+      return res.status(409).json({
+        success: false,
+        message: scheduleValidation.message,
+        validationStatus: "CONFLICT",
+      });
+    }
+
     let distanceFromPreviousBookingKm = 0;
     let estimatedTravelTimeMins = 0;
     let gapFromPreviousBookingMins = null;
@@ -87,14 +147,14 @@ export const createProviderRequest = async (req, res) => {
       previousBooking &&
       previousBooking.location?.lat != null &&
       previousBooking.location?.lng != null &&
-      location?.lat != null &&
-      location?.lng != null
+      finalLocation?.lat != null &&
+      finalLocation?.lng != null
     ) {
       const osrmResult = await getRoadDistanceAndTime(
         previousBooking.location.lat,
         previousBooking.location.lng,
-        location.lat,
-        location.lng
+        finalLocation.lat,
+        finalLocation.lng
       );
 
       distanceFromPreviousBookingKm = osrmResult.distanceKm;
@@ -106,41 +166,62 @@ export const createProviderRequest = async (req, res) => {
       );
     }
 
-    // Calculate delay risk using OSRM travel time and available booking gap
+    // Rule-based fallback risk calculation
     let riskLevel = "LOW";
     let riskScore = 10;
     let riskMessage = scheduleValidation.message;
 
     if (scheduleValidation.validationStatus === "CONFLICT") {
-      // Hard blocker because the requested time overlaps or violates availability
+      // Hard schedule conflicts should not be overridden by ML
       riskLevel = "HIGH";
       riskScore = 100;
       riskMessage = scheduleValidation.message;
     } else if (gapFromPreviousBookingMins !== null) {
-      // Compare travel time from previous booking with the available gap
       const travelGapDifference =
         estimatedTravelTimeMins - gapFromPreviousBookingMins;
 
       if (travelGapDifference <= 0) {
-        // Provider has enough time to travel
         riskLevel = "LOW";
         riskScore = 20;
         riskMessage =
           "Low delay risk: provider has enough travel time from previous booking.";
       } else if (travelGapDifference <= 15) {
-        // Small shortage, so show warning instead of high risk
         riskLevel = "MEDIUM";
         riskScore = 55;
         riskMessage = `Warning: estimated travel time exceeds available gap by ${travelGapDifference} minutes.`;
       } else {
-        // Large shortage, so mark as high risk
         riskLevel = "HIGH";
         riskScore = 85;
         riskMessage = `High delay risk: estimated travel time exceeds available gap by ${travelGapDifference} minutes.`;
       }
     }
 
-    // Convert risk level into request validation status
+    const mlInput = {
+      expertiseMatch,
+      taskPriority: mapUrgencyToPriority(finalUrgency),
+      taskDuration: finalEstimatedDurationHours,
+      distanceBetweenBookingsKm: distanceFromPreviousBookingKm,
+      estimatedTravelTimeMins,
+      gapBetweenBookingsMins: gapFromPreviousBookingMins ?? 999,
+      providerBookingsToday: scheduleValidation.providerBookingsToday || 0,
+      taskCompleted,
+    };
+
+    let mlRisk = {
+      source: "SKIPPED_DUE_TO_CONFLICT",
+    };
+
+    // Use trained ML model only when there is no hard schedule conflict
+    if (scheduleValidation.validationStatus !== "CONFLICT") {
+      mlRisk = await predictCoordinationRisk(mlInput);
+
+      if (mlRisk.source !== "ML_FAILED") {
+        riskLevel = mlRisk.riskLevel;
+        riskScore = mlRisk.riskScore;
+        riskMessage = mlRisk.recommendation;
+      }
+    }
+
     const finalValidationStatus =
       scheduleValidation.validationStatus === "CONFLICT"
         ? "CONFLICT"
@@ -150,20 +231,18 @@ export const createProviderRequest = async (req, res) => {
         ? "WARNING"
         : "VALIDATED";
 
-
-
     const providerRequest = await ProviderRequest.create({
       postId,
       seekerId,
       providerId,
 
-      serviceCategory,
+      serviceCategory: finalServiceCategory,
       serviceSubcategory,
-      taskName,
+      taskName: finalTaskName,
       complexityLevel,
       propertySize,
 
-      location,
+      location: finalLocation,
 
       requestedDate,
       requestedStartTime,
@@ -187,6 +266,8 @@ export const createProviderRequest = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Provider request created successfully",
+      mlSource: mlRisk.source,
+      mlInput,
       data: providerRequest,
     });
   } catch (error) {
@@ -222,7 +303,14 @@ export const getRequestsByPost = async (req, res) => {
 
 export const getRequestsByProvider = async (req, res) => {
   try {
-    const { providerId } = req.params;
+    const providerId = req.user?.id || req.params.providerId;
+
+    if (!providerId) {
+      return res.status(400).json({
+        success: false,
+        message: "providerId is required",
+      });
+    }
 
     const requests = await ProviderRequest.find({ providerId }).sort({
       createdAt: -1,
@@ -245,9 +333,16 @@ export const getRequestsByProvider = async (req, res) => {
 export const acceptProviderRequest = async (req, res) => {
   try {
     const { requestId } = req.params;
-
-    // Allows seeker to provide exact final service location during booking confirmation
     const { finalLocation } = req.body;
+
+    const loggedInSeekerId = req.user?.id;
+
+    if (!loggedInSeekerId) {
+      return res.status(401).json({
+        success: false,
+        message: "Seeker authentication required",
+      });
+    }
 
     const providerRequest = await ProviderRequest.findById(requestId);
 
@@ -255,6 +350,13 @@ export const acceptProviderRequest = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Provider request not found",
+      });
+    }
+
+    if (providerRequest.seekerId.toString() !== loggedInSeekerId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the seeker who owns this post can accept this request",
       });
     }
 
@@ -279,7 +381,7 @@ export const acceptProviderRequest = async (req, res) => {
       });
     }
 
-    // Re-check provider schedule before creating booking because provider schedule may have changed
+    // Re-check schedule before accepting because provider schedule may have changed
     const scheduleValidation = await validateProviderSchedule({
       providerId: providerRequest.providerId,
       requestedDate: providerRequest.requestedDate,
@@ -299,7 +401,7 @@ export const acceptProviderRequest = async (req, res) => {
       });
     }
 
-    // Use final location from seeker if provided, otherwise use original request/post location
+    // Use final location from seeker if provided, otherwise use request/post location
     const hasFinalLocation =
       finalLocation &&
       finalLocation.lat != null &&
@@ -309,39 +411,39 @@ export const acceptProviderRequest = async (req, res) => {
       ? finalLocation
       : providerRequest.location;
 
-      const booking = await Booking.create({
-        postId: providerRequest.postId,
-        seekerId: providerRequest.seekerId,
-        providerId: providerRequest.providerId,
-        providerRequestId: providerRequest._id,
-      
-        // Store the first confirmed schedule permanently
-        initialSchedule: {
-          date: providerRequest.requestedDate,
-          startTime: providerRequest.requestedStartTime,
-          endTime: providerRequest.requestedEndTime,
-        },
-      
-        // Current active schedule
-        scheduledDate: providerRequest.requestedDate,
+    const booking = await Booking.create({
+      postId: providerRequest.postId,
+      seekerId: providerRequest.seekerId,
+      providerId: providerRequest.providerId,
+      providerRequestId: providerRequest._id,
+
+      // First confirmed schedule for admin/history tracking
+      initialSchedule: {
+        date: providerRequest.requestedDate,
         startTime: providerRequest.requestedStartTime,
         endTime: providerRequest.requestedEndTime,
-      
-        estimatedDurationHours: providerRequest.estimatedDurationHours || 2,
-      
-        location: bookingLocation,
-      
-        distanceFromPreviousBookingKm:
-          providerRequest.distanceFromPreviousBookingKm || 0,
-        estimatedTravelTimeMins:
-          providerRequest.estimatedTravelTimeMins || 0,
-        gapFromPreviousBookingMins:
-          providerRequest.gapFromPreviousBookingMins ?? null,
-      
-        delayRiskLevel: providerRequest.riskLevel,
-        delayRiskScore: providerRequest.riskScore,
-        bookingStatus: "CONFIRMED",
-      });
+      },
+
+      // Current active schedule
+      scheduledDate: providerRequest.requestedDate,
+      startTime: providerRequest.requestedStartTime,
+      endTime: providerRequest.requestedEndTime,
+
+      estimatedDurationHours: providerRequest.estimatedDurationHours || 2,
+
+      location: bookingLocation,
+
+      distanceFromPreviousBookingKm:
+        providerRequest.distanceFromPreviousBookingKm || 0,
+      estimatedTravelTimeMins:
+        providerRequest.estimatedTravelTimeMins || 0,
+      gapFromPreviousBookingMins:
+        providerRequest.gapFromPreviousBookingMins ?? null,
+
+      delayRiskLevel: providerRequest.riskLevel,
+      delayRiskScore: providerRequest.riskScore,
+      bookingStatus: "CONFIRMED",
+    });
 
     providerRequest.requestStatus = "ACCEPTED";
     await providerRequest.save();

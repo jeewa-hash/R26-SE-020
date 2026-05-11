@@ -5,12 +5,20 @@ import {
   getRequestsByProvider,
   acceptProviderRequest,
 } from "../controllers/providerRequestController.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/", createProviderRequest);
+router.post("/", protect(["ServiceProvider"]), createProviderRequest);
+
 router.get("/post/:postId", getRequestsByPost);
-router.get("/provider/:providerId", getRequestsByProvider);
-router.post("/:requestId/accept", acceptProviderRequest);
+
+router.get(
+  "/provider/me",
+  protect(["ServiceProvider"]),
+  getRequestsByProvider
+);
+
+router.post("/:requestId/accept", protect(["Seeker"]), acceptProviderRequest);
 
 export default router;

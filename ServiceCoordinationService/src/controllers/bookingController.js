@@ -1,8 +1,22 @@
 import Booking from "../models/Booking.js";
 
+const canAccessBooking = (req, booking) => {
+  if (req.user.role === "Admin") return true;
+  if (req.user.role === "ServiceProvider") return booking.providerId.toString() === req.user.id;
+  if (req.user.role === "Seeker") return booking.seekerId.toString() === req.user.id;
+  return false;
+};
+
 export const getBookingsByProvider = async (req, res) => {
   try {
     const { providerId } = req.params;
+
+    if (req.user.role === "ServiceProvider" && req.user.id !== providerId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only view your own provider bookings",
+      });
+    }
 
     const bookings = await Booking.find({ providerId }).sort({
       scheduledDate: 1,
@@ -26,6 +40,13 @@ export const getBookingsByProvider = async (req, res) => {
 export const getBookingsBySeeker = async (req, res) => {
   try {
     const { seekerId } = req.params;
+
+    if (req.user.role === "Seeker" && req.user.id !== seekerId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only view your own seeker bookings",
+      });
+    }
 
     const bookings = await Booking.find({ seekerId }).sort({
       scheduledDate: 1,
@@ -59,6 +80,13 @@ export const getBookingByPost = async (req, res) => {
       });
     }
 
+    if (!canAccessBooking(req, booking)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied for this booking",
+      });
+    }
+
     return res.status(200).json({
       success: true,
       data: booking,
@@ -72,7 +100,6 @@ export const getBookingByPost = async (req, res) => {
   }
 };
 
-// Start a confirmed booking
 export const startBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -83,6 +110,13 @@ export const startBooking = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Booking not found",
+      });
+    }
+
+    if (booking.providerId.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the assigned provider can start this booking",
       });
     }
 
@@ -111,7 +145,6 @@ export const startBooking = async (req, res) => {
   }
 };
 
-// Complete an in-progress booking
 export const completeBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -125,11 +158,17 @@ export const completeBooking = async (req, res) => {
       });
     }
 
+    if (!canAccessBooking(req, booking)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied for this booking",
+      });
+    }
+
     if (!["IN_PROGRESS", "DELAY_REPORTED", "RESCHEDULED"].includes(booking.bookingStatus)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Only in-progress, delayed, or rescheduled bookings can be completed",
+        message: "Only in-progress, delayed, or rescheduled bookings can be completed",
         currentStatus: booking.bookingStatus,
       });
     }
@@ -151,16 +190,11 @@ export const completeBooking = async (req, res) => {
   }
 };
 
-// Report a delay for a booking
 export const reportBookingDelay = async (req, res) => {
   try {
     const { bookingId } = req.params;
 
-    const {
-      delayReason = "",
-      additionalDelayMins = 0,
-      reportedBy = "PROVIDER",
-    } = req.body;
+    const { delayReason = "", additionalDelayMins = 0 } = req.body;
 
     const booking = await Booking.findById(bookingId);
 
@@ -171,28 +205,27 @@ export const reportBookingDelay = async (req, res) => {
       });
     }
 
-    if (
-      ![
-        "CONFIRMED",
-        "IN_PROGRESS",
-        "RESCHEDULED",
-      ].includes(booking.bookingStatus)
-    ) {
+    if (!canAccessBooking(req, booking)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied for this booking",
+      });
+    }
+
+    if (!["CONFIRMED", "IN_PROGRESS", "RESCHEDULED"].includes(booking.bookingStatus)) {
       return res.status(400).json({
         success: false,
-        message:
-          "Delay can only be reported for confirmed, in-progress, or rescheduled bookings",
+        message: "Delay can only be reported for confirmed, in-progress, or rescheduled bookings",
         currentStatus: booking.bookingStatus,
       });
     }
 
     booking.bookingStatus = "DELAY_REPORTED";
 
-    // Store delay info directly for now. Later, this can be moved to a separate DelayReport model if needed.
     booking.delayInfo = {
       delayReason,
       additionalDelayMins,
-      reportedBy,
+      reportedBy: req.user.role === "ServiceProvider" ? "PROVIDER" : "SEEKER",
       reportedAt: new Date(),
     };
 
