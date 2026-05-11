@@ -253,3 +253,38 @@ export const reportBookingDelay = async (req, res) => {
     });
   }
 };
+
+export const getBookingById = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    const booking = await Booking.findById(bookingId)
+      .populate("acceptedRescheduleRequests")
+      .lean();
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (!canAccessBooking(req, booking)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied for this booking",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: booking,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to get booking details",
+      error: error.message,
+    });
+  }
+};

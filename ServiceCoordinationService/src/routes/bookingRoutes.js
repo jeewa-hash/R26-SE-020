@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  getBookingById,
   getBookingsByProvider,
   getBookingsBySeeker,
   getBookingByPost,
@@ -23,5 +24,10 @@ router.put(
   reportBookingDelay
 );
 router.put("/:bookingId/complete", protect(["ServiceProvider", "Seeker"]), completeBooking);
+router.get(
+  "/:bookingId",
+  protect(["ServiceProvider", "Seeker", "Admin"]),
+  getBookingById
+);
 
 export default router;
