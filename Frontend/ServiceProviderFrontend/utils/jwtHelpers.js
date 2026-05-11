@@ -58,17 +58,82 @@ export const decodeJwt = (token) => {
 
 export const getUserIdFromJwt = (token) => {
   const decoded = decodeJwt(token);
-  return decoded?.user?.id || decoded?.id || null;
+  
+  // Handle different possible ID structures
+  if (decoded) {
+    // Check for user._id (MongoDB ObjectId format)
+    if (decoded.user?._id) {
+      // If it's an object with $oid, extract the string value
+      return decoded.user._id.$oid || decoded.user._id;
+    }
+    // Check for user.id
+    if (decoded.user?.id) return decoded.user.id;
+    // Check for direct _id
+    if (decoded._id) {
+      return decoded._id.$oid || decoded._id;
+    }
+    // Check for direct id
+    if (decoded.id) return decoded.id;
+    // Check for userId
+    if (decoded.userId) return decoded.userId;
+  }
+  
+  return null;
 };
 
 export const getStoredUserId = async () => {
-  const storedId = await AsyncStorage.getItem('userId');
-  if (storedId) return storedId;
+  try {
+    // First try to get stored userId
+    const storedId = await AsyncStorage.getItem('userId');
+    if (storedId) return storedId;
 
-  const token = await AsyncStorage.getItem('userToken');
-  const idFromToken = getUserIdFromJwt(token);
-  if (idFromToken) {
-    await AsyncStorage.setItem('userId', String(idFromToken));
+    // If not stored, get from token
+    const token = await AsyncStorage.getItem('userToken');
+    if (!token) return null;
+    
+    const idFromToken = getUserIdFromJwt(token);
+    if (idFromToken) {
+      // Store the ID for future use
+      await AsyncStorage.setItem('userId', String(idFromToken));
+    }
+    
+    return idFromToken;
+  } catch (error) {
+    console.error('Error getting stored user ID:', error);
+    return null;
   }
-  return idFromToken;
+};
+
+// Get full user data from token
+export const getUserFromToken = async () => {
+  try {
+    const token = await AsyncStorage.getItem('userToken');
+    if (!token) return null;
+    
+    const decoded = decodeJwt(token);
+    return decoded?.user || decoded || null;
+  } catch (error) {
+    console.error('Error getting user from token:', error);
+    return null;
+  }
+};
+
+// Get specific user fields
+export const getUserRole = async () => {
+  try {
+    const user = await getUserFromToken();
+    return user?.role || null;
+  } catch (error) {
+    console.error('Error getting user role:', error);
+    return null;
+  }
+};
+
+// Clear user data on logout
+export const clearUserData = async () => {
+  try {
+    await AsyncStorage.multiRemove(['userId', 'userToken']);
+  } catch (error) {
+    console.error('Error clearing user data:', error);
+  }
 };
