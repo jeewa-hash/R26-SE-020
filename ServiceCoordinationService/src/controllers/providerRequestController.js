@@ -49,10 +49,10 @@ export const createProviderRequest = async (req, res) => {
       });
     }
 
-    if (!postId || !requestedDate || !requestedStartTime) {
+    if (!postId) {
       return res.status(400).json({
         success: false,
-        message: "postId, requestedDate and requestedStartTime are required",
+        message: "postId is required",
       });
     }
 
@@ -62,6 +62,21 @@ export const createProviderRequest = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Post not found",
+      });
+    }
+
+    // Use provider-selected schedule first. If not provided, use seeker's preferred post schedule.
+    const finalRequestedDate =
+      requestedDate || post.preferredSchedule?.date || "";
+
+    const finalRequestedStartTime =
+      requestedStartTime || post.preferredSchedule?.startTime || "";
+
+    if (!finalRequestedDate || !finalRequestedStartTime) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Schedule is required. Provide requestedDate/requestedStartTime or set post preferredSchedule.",
       });
     }
 
@@ -114,17 +129,18 @@ export const createProviderRequest = async (req, res) => {
     }
 
     const requestedEndTime = addHoursToTime(
-      requestedStartTime,
+      finalRequestedStartTime,
       finalEstimatedDurationHours
     );
 
     const scheduleValidation = await validateProviderSchedule({
       providerId,
-      requestedDate,
-      requestedStartTime,
+      requestedDate: finalRequestedDate,
+      requestedStartTime: finalRequestedStartTime,
       requestedEndTime,
     });
 
+    // Hard conflict should be blocked. Do not create ProviderRequest.
     if (scheduleValidation.validationStatus === "CONFLICT") {
       return res.status(409).json({
         success: false,
@@ -139,8 +155,8 @@ export const createProviderRequest = async (req, res) => {
 
     const previousBooking = await findPreviousProviderBooking({
       providerId,
-      requestedDate,
-      requestedStartTime,
+      requestedDate: finalRequestedDate,
+      requestedStartTime: finalRequestedStartTime,
     });
 
     if (
@@ -162,21 +178,16 @@ export const createProviderRequest = async (req, res) => {
 
       gapFromPreviousBookingMins = calculateGapMinutes(
         previousBooking.endTime,
-        requestedStartTime
+        finalRequestedStartTime
       );
     }
 
-    // Rule-based fallback risk calculation
+    // Rule-based fallback risk calculation if ML service fails
     let riskLevel = "LOW";
     let riskScore = 10;
     let riskMessage = scheduleValidation.message;
 
-    if (scheduleValidation.validationStatus === "CONFLICT") {
-      // Hard schedule conflicts should not be overridden by ML
-      riskLevel = "HIGH";
-      riskScore = 100;
-      riskMessage = scheduleValidation.message;
-    } else if (gapFromPreviousBookingMins !== null) {
+    if (gapFromPreviousBookingMins !== null) {
       const travelGapDifference =
         estimatedTravelTimeMins - gapFromPreviousBookingMins;
 
@@ -208,24 +219,20 @@ export const createProviderRequest = async (req, res) => {
     };
 
     let mlRisk = {
-      source: "SKIPPED_DUE_TO_CONFLICT",
+      source: "ML_FAILED",
     };
 
-    // Use trained ML model only when there is no hard schedule conflict
-    if (scheduleValidation.validationStatus !== "CONFLICT") {
-      mlRisk = await predictCoordinationRisk(mlInput);
+    // Use trained ML model when available
+    mlRisk = await predictCoordinationRisk(mlInput);
 
-      if (mlRisk.source !== "ML_FAILED") {
-        riskLevel = mlRisk.riskLevel;
-        riskScore = mlRisk.riskScore;
-        riskMessage = mlRisk.recommendation;
-      }
+    if (mlRisk.source !== "ML_FAILED") {
+      riskLevel = mlRisk.riskLevel;
+      riskScore = mlRisk.riskScore;
+      riskMessage = mlRisk.recommendation;
     }
 
     const finalValidationStatus =
-      scheduleValidation.validationStatus === "CONFLICT"
-        ? "CONFLICT"
-        : riskLevel === "HIGH"
+      riskLevel === "HIGH"
         ? "HIGH_RISK"
         : riskLevel === "MEDIUM"
         ? "WARNING"
@@ -244,8 +251,8 @@ export const createProviderRequest = async (req, res) => {
 
       location: finalLocation,
 
-      requestedDate,
-      requestedStartTime,
+      requestedDate: finalRequestedDate,
+      requestedStartTime: finalRequestedStartTime,
       requestedEndTime,
 
       estimatedDurationHours: finalEstimatedDurationHours,
@@ -435,8 +442,7 @@ export const acceptProviderRequest = async (req, res) => {
 
       distanceFromPreviousBookingKm:
         providerRequest.distanceFromPreviousBookingKm || 0,
-      estimatedTravelTimeMins:
-        providerRequest.estimatedTravelTimeMins || 0,
+      estimatedTravelTimeMins: providerRequest.estimatedTravelTimeMins || 0,
       gapFromPreviousBookingMins:
         providerRequest.gapFromPreviousBookingMins ?? null,
 

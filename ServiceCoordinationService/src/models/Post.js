@@ -37,7 +37,29 @@ const postSchema = new mongoose.Schema({
     },
   },
 
-  createdAt: { type: Date, default: Date.now },
+  preferredSchedule: {
+    date: {
+      type: String,
+      default: "",
+    },
+    startTime: {
+      type: String,
+      default: "",
+    },
+    endTime: {
+      type: String,
+      default: "",
+    },
+    flexible: {
+      type: Boolean,
+      default: true,
+    },
+  },
+
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 export default mongoose.model("Post", postSchema);
