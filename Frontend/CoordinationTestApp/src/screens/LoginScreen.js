@@ -13,8 +13,9 @@ import {
   PROVIDER_LOGIN_API,
   SEEKER_LOGIN_API,
 } from "../api/client";
+import { setSession } from "../auth/session";
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen() {
   const [email, setEmail] = useState("chaveenProvider@gmail.com");
   const [password, setPassword] = useState("Chawwa@2002");
 
@@ -28,8 +29,6 @@ export default function LoginScreen({ navigation }) {
         password,
       });
 
-      //console.log("LOGIN RESPONSE:", response.data);
-
       const token = response.data.token;
 
       const user = {
@@ -42,24 +41,16 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
-      // Mobile-safe token storage fallback
-      global.authToken = token;
-      global.loggedUser = user;
+      setSession(token, user);
 
       try {
         await AsyncStorage.setItem("token", token);
         await AsyncStorage.setItem("user", JSON.stringify(user));
       } catch (storageError) {
-        console.log("AsyncStorage unavailable, using global memory fallback");
+        console.log("AsyncStorage unavailable, using memory fallback");
       }
 
-      if (user.role === "ServiceProvider") {
-        navigation.replace("ProviderHome");
-      } else if (user.role === "Seeker") {
-        navigation.replace("SeekerHome");
-      } else {
-        Alert.alert("Unsupported role", user.role);
-      }
+      Alert.alert("Login success", `Logged in as ${user.role}`);
     } catch (error) {
       Alert.alert(
         "Login failed",
@@ -120,9 +111,9 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
-    marginBottom: 24,
+    marginBottom: 28,
     textAlign: "center",
   },
   input: {
@@ -133,6 +124,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   gap: {
-    height: 12,
+    height: 14,
   },
 });
