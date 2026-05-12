@@ -11,11 +11,13 @@ import LoginScreen from "./LoginScreen";
 import api from "../api/client";
 import { useSession } from "../auth/session";
 
+
 export default function BookingsTabScreen() {
   const { user } = useSession();
 
   const [bookings, setBookings] = useState([]);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [reschedules, setReschedules] = useState([]);
 
   if (!user) {
     return <LoginScreen />;
@@ -32,6 +34,7 @@ export default function BookingsTabScreen() {
 
       setBookings(response.data.data || []);
       setSelectedBooking(null);
+      setReschedules([]);
     } catch (error) {
       Alert.alert(
         "Failed to load bookings",
@@ -44,6 +47,7 @@ export default function BookingsTabScreen() {
     try {
       const response = await api.get(`/bookings/${bookingId}`);
       setSelectedBooking(response.data.data);
+      await loadReschedules(bookingId);
     } catch (error) {
       Alert.alert(
         "Failed to load details",
@@ -52,12 +56,22 @@ export default function BookingsTabScreen() {
     }
   };
 
+  const loadReschedules = async (bookingId) => {
+    try {
+      const response = await api.get(`/reschedules/booking/${bookingId}`);
+      setReschedules(response.data.data || []);
+    } catch (error) {
+      console.log("Failed to load reschedules:", error.response?.data || error.message);
+      setReschedules([]);
+    }
+  };
+
   const startBooking = async (bookingId) => {
     try {
       await api.put(`/bookings/${bookingId}/start`, {});
       Alert.alert("Success", "Booking started");
-      loadBookingDetails(bookingId);
-      loadBookings();
+      await loadBookingDetails(bookingId);
+      await loadBookings();
     } catch (error) {
       Alert.alert(
         "Failed to start",
@@ -74,8 +88,8 @@ export default function BookingsTabScreen() {
       });
 
       Alert.alert("Success", "Delay reported");
-      loadBookingDetails(bookingId);
-      loadBookings();
+      await loadBookingDetails(bookingId);
+      await loadBookings();
     } catch (error) {
       Alert.alert(
         "Failed to report delay",
@@ -88,8 +102,8 @@ export default function BookingsTabScreen() {
     try {
       await api.put(`/bookings/${bookingId}/complete`, {});
       Alert.alert("Success", "Booking completed");
-      loadBookingDetails(bookingId);
-      loadBookings();
+      await loadBookingDetails(bookingId);
+      await loadBookings();
     } catch (error) {
       Alert.alert(
         "Failed to complete",
@@ -109,8 +123,9 @@ export default function BookingsTabScreen() {
 
       Alert.alert("Success", "Reschedule request created");
       console.log("RESCHEDULE:", response.data);
-      loadBookingDetails(bookingId);
-      loadBookings();
+
+      await loadBookingDetails(bookingId);
+      await loadBookings();
     } catch (error) {
       Alert.alert(
         "Failed to create reschedule",
@@ -118,6 +133,36 @@ export default function BookingsTabScreen() {
       );
     }
   };
+
+  const acceptSuggestedSlot = async (rescheduleId, selectedSlot) => {
+    try {
+      const response = await api.put(`/reschedules/${rescheduleId}/accept`, {
+        selectedSlot: {
+          date: selectedSlot.date,
+          startTime: selectedSlot.startTime,
+          endTime: selectedSlot.endTime,
+        },
+      });
+
+      Alert.alert("Success", "Suggested slot accepted");
+      console.log("ACCEPT RESCHEDULE:", response.data);
+
+      if (selectedBooking?._id) {
+        await loadBookingDetails(selectedBooking._id);
+      }
+
+      await loadBookings();
+    } catch (error) {
+      Alert.alert(
+        "Failed to accept slot",
+        error.response?.data?.message || error.message
+      );
+    }
+  };
+
+  const pendingReschedules = reschedules.filter(
+    (item) => item.status === "PENDING"
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -169,7 +214,7 @@ export default function BookingsTabScreen() {
           <Text>Risk: {selectedBooking.delayRiskLevel}</Text>
           <Text>Delay: {selectedBooking.delayInfo?.delayReason || "-"}</Text>
           <Text>
-            Reschedules:{" "}
+            Accepted Reschedules:{" "}
             {selectedBooking.acceptedRescheduleRequests?.length || 0}
           </Text>
 
@@ -204,6 +249,92 @@ export default function BookingsTabScreen() {
             title="Complete Booking"
             onPress={() => completeBooking(selectedBooking._id)}
           />
+
+          <View style={styles.smallGap} />
+
+          <Button
+            title="Reload Reschedules"
+            onPress={() => loadReschedules(selectedBooking._id)}
+          />
+        </View>
+      )}
+
+      {selectedBooking && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Pending Reschedule Requests</Text>
+
+          {pendingReschedules.length === 0 && (
+            <Text>No pending reschedule requests for this booking.</Text>
+          )}
+
+          {pendingReschedules.map((reschedule) => (
+            <View key={reschedule._id} style={styles.historyCard}>
+              <Text style={styles.cardTitle}>Reschedule Request</Text>
+              <Text>Requested By: {reschedule.requestedByType}</Text>
+              <Text>Reason: {reschedule.reason}</Text>
+              <Text>
+                Current: {reschedule.currentSchedule?.date}{" "}
+                {reschedule.currentSchedule?.startTime} -{" "}
+                {reschedule.currentSchedule?.endTime}
+              </Text>
+              <Text>Status: {reschedule.status}</Text>
+
+              <View style={styles.smallGap} />
+
+              <Text style={styles.sectionTitle}>Suggested Slots</Text>
+
+              {reschedule.suggestedSlots?.map((slot, index) => (
+                <View key={`${reschedule._id}-${index}`} style={styles.slotCard}>
+                  <Text>
+                    {slot.date} {slot.startTime} - {slot.endTime}
+                  </Text>
+                  <Text>Risk: {slot.riskLevel}</Text>
+                  <Text>Score: {slot.score}</Text>
+                  <Text>{slot.reason}</Text>
+
+                  <View style={styles.smallGap} />
+
+                  <Button
+                    title="Accept This Slot"
+                    onPress={() => acceptSuggestedSlot(reschedule._id, slot)}
+                  />
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      )}
+
+      {selectedBooking && (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Accepted Reschedule History</Text>
+
+          {selectedBooking.acceptedRescheduleRequests?.length === 0 && (
+            <Text>No accepted reschedules yet.</Text>
+          )}
+
+          {selectedBooking.acceptedRescheduleRequests?.map((item) => (
+            <View key={item._id || item} style={styles.historyCard}>
+              {typeof item === "string" ? (
+                <Text>{item}</Text>
+              ) : (
+                <>
+                  <Text>Requested By: {item.requestedByType}</Text>
+                  <Text>Reason: {item.reason}</Text>
+                  <Text>
+                    Old: {item.currentSchedule?.date}{" "}
+                    {item.currentSchedule?.startTime} -{" "}
+                    {item.currentSchedule?.endTime}
+                  </Text>
+                  <Text>
+                    New: {item.selectedSlot?.date} {item.selectedSlot?.startTime} -{" "}
+                    {item.selectedSlot?.endTime}
+                  </Text>
+                  <Text>Status: {item.status}</Text>
+                </>
+              )}
+            </View>
+          ))}
         </View>
       )}
     </ScrollView>
@@ -236,6 +367,22 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     backgroundColor: "#fff",
   },
+  historyCard: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 8,
+    marginTop: 10,
+    backgroundColor: "#fafafa",
+  },
+  slotCard: {
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    borderRadius: 8,
+    marginTop: 10,
+    backgroundColor: "#fff",
+  },
   cardTitle: {
     fontSize: 16,
     fontWeight: "bold",
@@ -245,5 +392,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 10,
+    marginTop: 6,
   },
 });
