@@ -37,6 +37,6 @@ app.use("/api/coordination/posts", postRoutes);
 
 const PORT = process.env.PORT || 5010;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0",() => {
   logger.info(`Service Coordination Service running on port ${PORT}`);
 });
