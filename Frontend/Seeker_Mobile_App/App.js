@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 import LoginScreen from './screens/LoginScreen';
@@ -22,6 +23,7 @@ import FeedbackScreen from './screens/FeedbackScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
 import BiddingScreen from './screens/BiddingScreen';
 import BidResponsesScreen from './screens/BidResponsesScreen';
+import UserQuotesScreen from './screens/UserQuotesScreen';
 
 // Profile Sub Screens
 import BookingsScreen from './screens/BookingsScreen';
@@ -115,6 +117,11 @@ function AppNavigator({ initialRouteName }) {
       <Stack.Screen
         name="CreatePostScreen"
         component={CreatePostScreen}
+        options={{ headerShown: false }}
+      />
+       <Stack.Screen
+        name="UserQuotesScreen"
+        component={UserQuotesScreen}
         options={{ headerShown: false }}
       />
 
@@ -230,7 +237,22 @@ export default function App() {
   useEffect(() => {
     const bootstrapLanguage = async () => {
       await loadLanguage();
-      setInitialRouteName('Language');
+      try {
+        const savedLang = await AsyncStorage.getItem('seeker_lang');
+        const token = await AsyncStorage.getItem('userToken');
+        const role = await AsyncStorage.getItem('userRole');
+
+        if (!savedLang) {
+          setInitialRouteName('Language');
+        } else if (token && role === 'Seeker') {
+          setInitialRouteName('Home');
+        } else {
+          setInitialRouteName('Home');
+        }
+      } catch (err) {
+        console.log('Error bootstrapping language and auth:', err);
+        setInitialRouteName('Language');
+      }
       setBootstrapped(true);
     };
 

@@ -15,6 +15,7 @@ import { setLanguage } from "../i18n";
 import { LanguageContext } from "../context/LanguageContext";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get("window");
 
@@ -42,8 +43,19 @@ export default function LanguageScreen({ navigation }) {
       toValue: 0,
       duration: 300,
       useNativeDriver: true,
-    }).start(() => {
-      navigation.replace("Home");
+    }).start(async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        const role = await AsyncStorage.getItem('userRole');
+        if (token && role === 'Seeker') {
+          navigation.replace("Home");
+        } else {
+          navigation.replace("Login");
+        }
+      } catch (err) {
+        console.log('Error determining next screen after language selection:', err);
+        navigation.replace("Login");
+      }
     });
   };
 

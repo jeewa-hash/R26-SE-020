@@ -14,38 +14,44 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Modal,
 } from 'react-native';
+
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { LanguageContext } from '../context/LanguageContext';
 
 const { width } = Dimensions.get('window');
 
-const API_BASE_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:6000'
-  : 'http://localhost:6000';
+const API_BASE_URL =
+  Platform.OS === 'android'
+    ? 'http://10.0.2.2:6000'
+    : 'http://localhost:6000';
 
 export default function CreatePostScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { t } = useTranslation();
   const { language } = useContext(LanguageContext);
-  
-  // Check if we're in edit mode
-  const isEditMode = route.params?.editMode || false;
-  const editPostData = route.params?.postData || null;
-  
+
+  // ---------- EDIT MODE STATE ----------
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editPostId, setEditPostId] = useState(null);
+  const [originalImagePath, setOriginalImagePath] = useState(null);
+
+  // ---------- FORM STATE ----------
   const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
-  const [originalImagePath, setOriginalImagePath] = useState(null);
+  const [previewData, setPreviewData] = useState(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
   const [activeField, setActiveField] = useState(null);
-  
+
   const scrollY = useRef(new Animated.Value(0)).current;
   const titleScale = scrollY.interpolate({
     inputRange: [0, 100],
@@ -53,22 +59,41 @@ export default function CreatePostScreen() {
     extrapolate: 'clamp',
   });
 
-  // Auto-fill form when in edit mode
+  // ---------- CHECK FOR EDIT MODE ON MOUNT ----------
   useEffect(() => {
-    if (isEditMode && editPostData) {
-      setTitle(editPostData.title || '');
-      setDescription(editPostData.description || '');
-      if (editPostData.image) {
-        setSelectedImage(editPostData.image);
-        setOriginalImagePath(editPostData.image);
+    const { editMode, postData } = route.params || {};
+    if (editMode && postData) {
+      setIsEditMode(true);
+      setEditPostId(postData.id);
+      setTitle(postData.title || '');
+      setDescription(postData.description || '');
+      if (postData.image) {
+        // Build full image URL for preview
+        const imageUrl = postData.image.startsWith('http')
+          ? postData.image
+          : `${API_BASE_URL}/${postData.image.replace(/\\/g, '/')}`;
+        setSelectedImage(imageUrl);
+        setOriginalImagePath(postData.image); // store server path for later
+      }
+      // If you also want to restore AI preview data (category, urgency, tags) from the post, you can:
+      if (postData.category || postData.urgency || postData.tags) {
+        setPreviewData({
+          image: postData.image,
+          title: postData.title,
+          description: postData.description,
+          category: postData.category,
+          urgency: postData.urgency,
+          tags: postData.tags || []
+        });
       }
     }
-  }, [isEditMode, editPostData]);
+  }, []);
 
+  // ---------- IMAGE PICKER ----------
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('common_error'), t('home_permission_gallery'));
+      Alert.alert('Permission Required', 'Gallery access is required.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -79,111 +104,148 @@ export default function CreatePostScreen() {
     });
     if (!result.canceled) {
       setSelectedImage(result.assets[0].uri);
+      // If user picks a new image, we consider the old preview invalid (we'll need to regenerate)
+      setPreviewData(null);
     }
   };
 
   const removeImage = () => {
     setSelectedImage(null);
     setOriginalImagePath(null);
+    setPreviewData(null);
   };
 
-  const handleSubmit = async () => {
+  // ---------- AI PREVIEW (only for new posts or when image changes) ----------
+  const generatePreview = async () => {
+    if (!selectedImage) {
+      Alert.alert('Missing Image', 'Please upload an image first.');
+      return;
+    }
+    if (isEditMode && selectedImage === originalImagePath) {
+      // In edit mode, if the image hasn't changed, we can reuse existing preview?
+      // But better to allow regeneration if user wants.
+      Alert.alert('Info', 'Image unchanged. To regenerate AI preview, please select a different image.');
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', {
+        uri: selectedImage,
+        type: 'image/jpeg',
+        name: 'post.jpg',
+      });
+      const response = await fetch(`${API_BASE_URL}/posts/preview`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      if (data.success && data.preview) {
+        setPreviewData(data.preview);
+        setTitle(data.preview.title || '');
+        setDescription(data.preview.description || '');
+        setPreviewVisible(true);
+      } else {
+        Alert.alert('Preview Failed', data.message || 'Could not generate preview.');
+      }
+    } catch (error) {
+      console.error('Preview error:', error);
+      Alert.alert('Network Error', error.message);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // ---------- SAVE / UPDATE POST ----------
+  const savePost = async () => {
     if (!title.trim()) {
-      Alert.alert(t('common_error'), t('create_post_title_required'));
+      Alert.alert('Missing Title', 'Please enter a title.');
       return;
     }
     if (!description.trim()) {
-      Alert.alert(t('common_error'), t('create_post_desc_required'));
+      Alert.alert('Missing Description', 'Please enter a description.');
       return;
     }
-    if (!selectedImage && !isEditMode) {
-      Alert.alert(t('common_error'), t('create_post_image_required'));
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      // If it's a new image (not from edit mode), upload it
-      if (selectedImage && selectedImage !== originalImagePath && !selectedImage.startsWith('http')) {
-        const formData = new FormData();
-        formData.append('image', {
-          uri: selectedImage,
-          type: 'image/jpeg',
-          name: 'post_image.jpg',
-        });
-        formData.append('title', title.trim());
-        formData.append('description', description.trim());
 
-        const response = await fetch(`${API_BASE_URL}/create`, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-          Alert.alert(
-            t('common_success'), 
-            t('create_post_success'),
-            [{ text: t('common_ok'), onPress: () => navigation.goBack() }]
-          );
-        } else {
-          Alert.alert(t('common_error'), data.error || t('create_post_failed'));
-        }
-      } 
-      // If in edit mode, update the existing post
-      else if (isEditMode && editPostData) {
-        const formData = new FormData();
-        formData.append('title', title.trim());
-        formData.append('description', description.trim());
-        
-        // If image changed, upload new one
-        if (selectedImage !== originalImagePath && selectedImage && !selectedImage.startsWith('http')) {
-          formData.append('image', {
-            uri: selectedImage,
-            type: 'image/jpeg',
-            name: 'post_image.jpg',
-          });
-        }
-        
-        const response = await fetch(`${API_BASE_URL}/update/${editPostData.id}`, {
-          method: 'PUT',
-          body: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-          Alert.alert(
-            t('common_success'), 
-            t('create_post_update_success'),
-            [{ text: t('common_ok'), onPress: () => navigation.goBack() }]
-          );
-        } else {
-          Alert.alert(t('common_error'), data.error || t('create_post_update_failed'));
-        }
+    // For NEW post: we must have generated a preview (which provides the server image path)
+    // For EDIT post: we may have original image path, or a new preview (if user uploaded new image)
+    let finalImagePath = null;
+    if (isEditMode) {
+      // If the user selected a new image and generated preview, use previewData.image
+      if (previewData?.image) {
+        finalImagePath = previewData.image;
+      } else if (originalImagePath) {
+        finalImagePath = originalImagePath;
+      } else {
+        Alert.alert('Missing Image', 'No image associated with this post.');
+        return;
       }
-      
+    } else {
+      // New post: must have preview data with image path
+      if (!previewData?.image) {
+        Alert.alert('Preview Required', 'Please generate AI preview first.');
+        return;
+      }
+      finalImagePath = previewData.image;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        title: title.trim(),
+        description: description.trim(),
+        image: finalImagePath,
+        category: previewData?.category || 'General',
+        urgency: previewData?.urgency || 'medium',
+        tags: previewData?.tags || [],
+      };
+
+      let url = `${API_BASE_URL}/posts/publish`;
+      let method = 'POST';
+      if (isEditMode) {
+        url = `${API_BASE_URL}/update/${editPostId}`;
+        method = 'PUT';
+      }
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const rawText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        console.log('RAW RESPONSE:', rawText);
+        Alert.alert('Server Error', 'Backend did not return valid JSON');
+        return;
+      }
+
+      if (response.ok && data.success) {
+        Alert.alert(
+          'Success',
+          isEditMode ? 'Post updated successfully!' : 'Post published successfully!',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } else {
+        Alert.alert('Save Failed', data.error || 'Something went wrong');
+      }
     } catch (error) {
-      console.error('Submit error:', error);
-      Alert.alert(t('common_error'), `${t('create_post_network_error')}: ${error.message}`);
+      console.log('Save Error:', error);
+      Alert.alert('Network Error', error.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // ---------- RENDER ----------
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a1a2e" />
-      
-      <Animated.ScrollView 
+
+      <Animated.ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
@@ -195,327 +257,259 @@ export default function CreatePostScreen() {
         {/* Hero Section */}
         <LinearGradient
           colors={['#667eea', '#764ba2', '#f093fb']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
           style={styles.heroSection}
         >
           <Animated.View style={[styles.heroContent, { transform: [{ scale: titleScale }] }]}>
-            <View style={styles.heroIconContainer}>
-              <LinearGradient
-                colors={['#ffffff', '#ffffffcc']}
-                style={styles.heroIconBg}
-              >
-                <Ionicons name={isEditMode ? "create-outline" : "add-circle-outline"} size={32} color="#667eea" />
-              </LinearGradient>
+            <View style={styles.heroIconBg}>
+              <Ionicons name="sparkles-outline" size={32} color="#667eea" />
             </View>
-            <Text style={styles.heroTitle}>{isEditMode ? t('create_post_edit_title') : t('create_post_title')}</Text>
+            <Text style={styles.heroTitle}>
+              {isEditMode ? 'Edit Your Post' : 'AI Smart Post Creator'}
+            </Text>
             <Text style={styles.heroSubtitle}>
-              {isEditMode ? t('create_post_edit_subtitle') : t('create_post_subtitle')}
+              {isEditMode
+                ? 'Modify your existing post'
+                : 'Upload an image and let AI generate the perfect post'}
             </Text>
           </Animated.View>
         </LinearGradient>
 
-        {/* Form Container */}
+        {/* Form */}
         <View style={styles.formContainer}>
-          {/* Title Field - Enhanced Box */}
+          {/* Title */}
           <View style={[styles.inputContainer, activeField === 'title' && styles.inputContainerActive]}>
-            <View style={styles.titleHeader}>
-              <View style={styles.titleIconContainer}>
-                <Ionicons name="create-outline" size={20} color="#667eea" />
-              </View>
-              <Text style={styles.inputLabel}>{t('create_post_what_need')}</Text>
-            </View>
+            <Text style={styles.inputLabel}>Post Title</Text>
             <TextInput
               style={styles.titleInput}
-              placeholder={t('create_post_title_placeholder')}
-              placeholderTextColor="#9CA3AF"
+              placeholder="What's your post about?"
               value={title}
               onChangeText={setTitle}
               onFocus={() => setActiveField('title')}
               onBlur={() => setActiveField(null)}
             />
-            <View style={styles.inputChar}>
-              <Text style={styles.charText}>{title.length}/100</Text>
-            </View>
           </View>
 
-          {/* Description Field */}
+          {/* Description */}
           <View style={[styles.inputContainer, activeField === 'desc' && styles.inputContainerActive]}>
-            <Text style={styles.inputLabel}>{t('create_post_describe')} 📝</Text>
+            <Text style={styles.inputLabel}>Description</Text>
             <TextInput
               style={styles.descriptionInput}
-              placeholder={t('create_post_desc_placeholder')}
-              placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={5}
+              placeholder="Describe the issue, request, or service needed..."
               value={description}
               onChangeText={setDescription}
               onFocus={() => setActiveField('desc')}
               onBlur={() => setActiveField(null)}
             />
-            <Text style={styles.charCount}>{description.length}/500</Text>
           </View>
 
-          {/* Image Upload Section */}
+          {/* Image Upload */}
           <View style={styles.uploadSection}>
-            <Text style={styles.sectionTitle}>📸 {t('create_post_add_photo')}</Text>
-            <Text style={styles.sectionSubtitle}>
-              {isEditMode ? t('create_post_update_image_optional') : t('create_post_show_what_need')}
-            </Text>
-            
+            <Text style={styles.sectionTitle}>Upload Image</Text>
             {selectedImage ? (
               <View style={styles.imagePreviewWrapper}>
-                <Image 
-                  source={{ uri: selectedImage.startsWith('http') ? selectedImage : selectedImage }} 
-                  style={styles.previewImage} 
-                />
+                <Image source={{ uri: selectedImage }} style={styles.previewImage} />
                 <TouchableOpacity style={styles.removeImageBtn} onPress={removeImage}>
-                  <LinearGradient
-                    colors={['#EF4444', '#DC2626']}
-                    style={styles.removeGradient}
-                  >
-                    <Ionicons name="close" size={20} color="#fff" />
-                  </LinearGradient>
+                  <Ionicons name="close" size={20} color="#fff" />
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
-                <LinearGradient
-                  colors={['#F3F4F6', '#E5E7EB']}
-                  style={styles.uploadGradient}
-                >
-                  <Ionicons name="camera-outline" size={40} color="#667eea" />
-                  <Text style={styles.uploadText}>{t('create_post_tap_to_upload')}</Text>
-                  <Text style={styles.uploadSubtext}>JPG, PNG {t('create_post_up_to_5mb')}</Text>
-                </LinearGradient>
+                <Ionicons name="camera-outline" size={40} color="#667eea" />
+                <Text style={styles.uploadText}>Tap to Upload Image</Text>
+                <Text style={styles.uploadSubtext}>JPG, PNG up to 5MB</Text>
               </TouchableOpacity>
             )}
           </View>
+
+          {/* AI Preview Button (only show for new posts or when image changes, but keep for edit too) */}
+          {(!isEditMode || (isEditMode && selectedImage !== originalImagePath)) && (
+            <TouchableOpacity
+              style={styles.previewButton}
+              onPress={generatePreview}
+              disabled={previewLoading}
+            >
+              <LinearGradient colors={['#8B5CF6', '#6366F1']} style={styles.previewGradient}>
+                {previewLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="sparkles" size={20} color="#fff" />
+                    <Text style={styles.previewButtonText}>Generate AI Preview</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
         </View>
       </Animated.ScrollView>
 
-      {/* Floating Submit Button */}
-      <TouchableOpacity 
+      {/* Floating Save Button */}
+      <TouchableOpacity
         style={styles.floatingButton}
-        onPress={handleSubmit}
+        onPress={savePost}
         disabled={loading}
-        activeOpacity={0.9}
       >
-        <LinearGradient
-          colors={['#667eea', '#764ba2']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.floatingGradient}
-        >
+        <LinearGradient colors={['#667eea', '#764ba2']} style={styles.floatingGradient}>
           {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator color="#fff" />
           ) : (
             <>
               <Ionicons name={isEditMode ? "save" : "send"} size={20} color="#fff" />
               <Text style={styles.floatingButtonText}>
-                {isEditMode ? t('create_post_update') : t('create_post_submit')}
+                {isEditMode ? 'Update Post' : 'Publish Post'}
               </Text>
             </>
           )}
         </LinearGradient>
       </TouchableOpacity>
+
+      {/* Preview Modal (only shown after AI generation) */}
+      <Modal visible={previewVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.previewModal}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.previewTitle}>✨ AI Generated Preview</Text>
+              {previewData?.image && (
+                <Image
+                  source={{ uri: `${API_BASE_URL}/${previewData.image.replace(/\\/g, '/')}` }}
+                  style={styles.modalImage}
+                />
+              )}
+              <Text style={styles.previewHeading}>Title</Text>
+              <Text style={styles.previewText}>{previewData?.title}</Text>
+              <Text style={styles.previewHeading}>Description</Text>
+              <Text style={styles.previewText}>{previewData?.description}</Text>
+              <Text style={styles.previewHeading}>Category</Text>
+              <Text style={styles.previewText}>{previewData?.category}</Text>
+              <Text style={styles.previewHeading}>Urgency</Text>
+              <Text style={styles.previewText}>{previewData?.urgency}</Text>
+              <Text style={styles.previewHeading}>Suggested Tags</Text>
+              <View style={styles.tagsContainer}>
+                {previewData?.tags?.map((tag, idx) => (
+                  <View key={idx} style={styles.tag}>
+                    <Text style={styles.tagText}>#{tag}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.editButton]}
+                  onPress={() => setPreviewVisible(false)}
+                >
+                  <Text style={styles.editButtonText}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.publishButton]}
+                  onPress={() => {
+                    setPreviewVisible(false);
+                    savePost(); // Use same save logic
+                  }}
+                >
+                  <LinearGradient colors={['#667eea', '#764ba2']} style={styles.publishGradient}>
+                    <Text style={styles.publishButtonText}>Publish Now</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
+// ================================
+// STYLES (unchanged, but ensure they exist)
+// ================================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  scrollView: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  scrollView: { flex: 1 },
   heroSection: {
     paddingTop: 60,
     paddingBottom: 40,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
-  heroContent: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  heroIconContainer: {
-    marginBottom: 16,
-  },
+  heroContent: { alignItems: 'center', paddingHorizontal: 20 },
   heroIconBg: {
     width: 70,
     height: 70,
     borderRadius: 35,
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  heroTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 8,
-  },
-  heroSubtitle: {
-    fontSize: 14,
-    color: '#ffffffcc',
-    textAlign: 'center',
-  },
-  formContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 100,
-  },
+  heroTitle: { fontSize: 28, fontWeight: '700', color: '#fff', marginBottom: 8 },
+  heroSubtitle: { fontSize: 14, color: '#ffffffcc', textAlign: 'center' },
+  formContainer: { padding: 20, paddingBottom: 120 },
   inputContainer: {
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: '#eee',
   },
-  inputContainerActive: {
-    borderColor: '#667eea',
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-  },
-  titleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  titleIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#667eea15',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  titleInput: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1F2937',
-    padding: 0,
-  },
-  inputChar: {
-    alignItems: 'flex-end',
-    marginTop: 8,
-  },
-  charText: {
-    fontSize: 10,
-    color: '#9CA3AF',
-  },
-  descriptionInput: {
-    fontSize: 15,
-    color: '#1F2937',
-    padding: 0,
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  charCount: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginTop: 8,
-    textAlign: 'right',
-  },
-  uploadSection: {
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 16,
-  },
+  inputContainerActive: { borderColor: '#667eea' },
+  inputLabel: { fontSize: 14, fontWeight: '600', marginBottom: 10, color: '#1F2937' },
+  titleInput: { fontSize: 16, color: '#111827' },
+  descriptionInput: { minHeight: 100, textAlignVertical: 'top', fontSize: 15, color: '#111827' },
+  uploadSection: { marginTop: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 14 },
   uploadButton: {
-    overflow: 'hidden',
+    backgroundColor: '#fff',
     borderRadius: 20,
-  },
-  uploadGradient: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
     padding: 30,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-    borderRadius: 20,
   },
-  uploadText: {
-    fontSize: 14,
-    color: '#667eea',
-    marginTop: 12,
-    fontWeight: '500',
-  },
-  uploadSubtext: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginTop: 4,
-  },
-  imagePreviewWrapper: {
-    position: 'relative',
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  previewImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 16,
-  },
+  uploadText: { marginTop: 10, color: '#667eea', fontWeight: '600' },
+  uploadSubtext: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+  imagePreviewWrapper: { position: 'relative' },
+  previewImage: { width: '100%', height: 220, borderRadius: 20 },
   removeImageBtn: {
     position: 'absolute',
     top: 10,
     right: 10,
-    overflow: 'hidden',
-    borderRadius: 20,
-  },
-  removeGradient: {
-    width: 36,
-    height: 36,
+    width: 35,
+    height: 35,
     borderRadius: 18,
+    backgroundColor: '#EF4444',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  previewButton: { marginTop: 24, borderRadius: 16, overflow: 'hidden' },
+  previewGradient: { paddingVertical: 16, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 10 },
+  previewButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   floatingButton: {
     position: 'absolute',
     bottom: 30,
     left: 20,
     right: 20,
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
   },
-  floatingGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 10,
-  },
-  floatingButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
+  floatingGradient: { paddingVertical: 18, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 10 },
+  floatingButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  previewModal: { backgroundColor: '#fff', borderRadius: 20, padding: 20, maxHeight: '90%' },
+  previewTitle: { fontSize: 22, fontWeight: '700', marginBottom: 20, textAlign: 'center' },
+  modalImage: { width: '100%', height: 200, borderRadius: 16, marginBottom: 20 },
+  previewHeading: { fontSize: 16, fontWeight: '700', marginTop: 12, marginBottom: 6 },
+  previewText: { fontSize: 14, color: '#374151', lineHeight: 22 },
+  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 10 },
+  tag: { backgroundColor: '#EEF2FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginRight: 8, marginBottom: 8 },
+  tagText: { color: '#4F46E5', fontWeight: '600' },
+  modalButtons: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  modalButton: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  editButton: { backgroundColor: '#F3F4F6', paddingVertical: 14, alignItems: 'center' },
+  editButtonText: { fontSize: 16, fontWeight: '600', color: '#6B7280' },
+  publishButton: { overflow: 'hidden' },
+  publishGradient: { paddingVertical: 14, alignItems: 'center' },
+  publishButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
 });

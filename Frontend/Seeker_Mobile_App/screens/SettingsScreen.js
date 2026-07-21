@@ -42,8 +42,15 @@ export default function SettingsScreen({ navigation }) {
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Logout', 
-          onPress: () => {
-            navigation.replace('Login');
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('userToken');
+              await AsyncStorage.removeItem('userRole');
+              navigation.replace('Login');
+            } catch (err) {
+              console.log('Error clearing credentials on logout:', err);
+              navigation.replace('Login');
+            }
           },
           style: 'destructive' 
         }
