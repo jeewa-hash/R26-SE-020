@@ -879,222 +879,7 @@ ISSUE_MAPPING = {
         }
     },
 
-    # =================================================
-    # OTHER  ✅ FIXED — was missing, caused KeyError
-    # =================================================
-    "other": {
-
-        "steps": {
-
-            # STEP 1
-            1: {
-                "question": "What type of service do you need?",
-                "options": [
-                    "Cleaning",
-                    "Painting",
-                    "General Maintenance",
-                    "Other"
-                ]
-            },
-
-            # STEP 2 — Branches based on service type
-            2: {
-                "Cleaning": {
-                    "question": "What area needs cleaning?",
-                    "options": [
-                        "Entire house",
-                        "Kitchen only",
-                        "Bathroom only",
-                        "Specific room"
-                    ]
-                },
-                "Painting": {
-                    "question": "What needs to be painted?",
-                    "options": [
-                        "Interior walls",
-                        "Exterior walls",
-                        "Ceiling",
-                        "Furniture or fixtures"
-                    ]
-                },
-                "General Maintenance": {
-                    "question": "What type of maintenance is needed?",
-                    "options": [
-                        "Routine checkup",
-                        "Minor repairs",
-                        "Inspection only",
-                        "Not sure"
-                    ]
-                },
-                "Other": {
-                    "question": "Can you describe the type of work needed?",
-                    "options": [
-                        "Installation",
-                        "Removal or disposal",
-                        "Repair",
-                        "Not sure"
-                    ]
-                }
-            },
-
-            # STEP 3 — Branches based on Step 2 answer
-            3: {
-
-                # --- Cleaning branches ---
-                "Entire house": {
-                    "question": "How many rooms does the house have?",
-                    "options": [
-                        "1 to 2 rooms",
-                        "3 to 4 rooms",
-                        "5 or more rooms"
-                    ]
-                },
-                "Kitchen only": {
-                    "question": "What level of cleaning is needed?",
-                    "options": [
-                        "Light cleaning",
-                        "Deep cleaning",
-                        "Appliance cleaning included"
-                    ]
-                },
-                "Bathroom only": {
-                    "question": "How many bathrooms need cleaning?",
-                    "options": [
-                        "One bathroom",
-                        "Two bathrooms",
-                        "Three or more"
-                    ]
-                },
-                "Specific room": {
-                    "question": "Which room needs cleaning?",
-                    "options": [
-                        "Bedroom",
-                        "Living room",
-                        "Dining room",
-                        "Other"
-                    ]
-                },
-
-                # --- Painting branches ---
-                "Interior walls": {
-                    "question": "How many rooms need painting?",
-                    "options": [
-                        "One room",
-                        "Multiple rooms",
-                        "Entire house interior"
-                    ]
-                },
-                "Exterior walls": {
-                    "question": "What is the size of the exterior area?",
-                    "options": [
-                        "Small — single wall",
-                        "Medium — two to three walls",
-                        "Large — entire exterior"
-                    ]
-                },
-                "Ceiling": {
-                    "question": "Is it just the ceiling or walls included too?",
-                    "options": [
-                        "Ceiling only",
-                        "Ceiling and walls",
-                        "Not sure"
-                    ]
-                },
-                "Furniture or fixtures": {
-                    "question": "What item needs painting?",
-                    "options": [
-                        "Door or window frame",
-                        "Cabinet or wardrobe",
-                        "Garden gate or fence",
-                        "Other"
-                    ]
-                },
-
-                # --- General Maintenance branches ---
-                "Routine checkup": {
-                    "question": "Which systems need checking?",
-                    "options": [
-                        "Electrical",
-                        "Plumbing",
-                        "Structural",
-                        "All systems"
-                    ]
-                },
-                "Minor repairs": {
-                    "question": "What type of minor repair is needed?",
-                    "options": [
-                        "Wall cracks or holes",
-                        "Broken fixtures",
-                        "Loose fittings",
-                        "Not sure"
-                    ]
-                },
-                "Inspection only": {
-                    "question": "What do you want inspected?",
-                    "options": [
-                        "Roof",
-                        "Foundation",
-                        "General property",
-                        "Not sure"
-                    ]
-                },
-
-                # --- Other branches ---
-                "Installation": {
-                    "question": "What needs to be installed?",
-                    "options": [
-                        "Fixtures or fittings",
-                        "Appliances",
-                        "Shelving or storage",
-                        "Not sure"
-                    ]
-                },
-                "Removal or disposal": {
-                    "question": "What needs to be removed?",
-                    "options": [
-                        "Old furniture",
-                        "Debris or waste",
-                        "Old appliances",
-                        "Not sure"
-                    ]
-                },
-                "Repair": {
-                    "question": "What is the item that needs repair?",
-                    "options": [
-                        "Structural element",
-                        "Fixture or fitting",
-                        "Not sure"
-                    ]
-                },
-
-                # --- Fallback ---
-                "default": {
-                    "question": "How urgent is this service?",
-                    "options": [
-                        "Not urgent",
-                        "Needed soon",
-                        "Urgent"
-                    ]
-                }
-            },
-
-            # STEP 4
-            4: {
-                "question": "When do you need this service?",
-                "options": [
-                    "Flexible",
-                    "Within 24 hours",
-                    "Urgent"
-                ]
-            },
-
-            # STEP 5
-            5: {
-                "question": "What is your address?",
-                "options": []
-            }
-        }
-    }
+    
 }
 
 # ---------------------------------------------------
@@ -1128,8 +913,8 @@ OBJECT_FLOW_MAP = {
 # MODEL SETUP
 # ---------------------------------------------------
 
-MODEL_PATH = "models/repair_model_v1.h5"
-#MODEL_PATH = "models/efficientnet_repair_v1.h5"
+MODEL_PATH = "../models/repair_model_v1.h5"
+#MODEL_PATH = "../models/efficientnet_repair_v1.h5"
 
 model = tf.keras.models.load_model(MODEL_PATH)
 
@@ -1260,62 +1045,41 @@ async def start_service_flow(
 ):
 
     contents = await file.read()
-
     base_tensor = get_shared_tensor(contents)
 
     # CATEGORY PREDICTION
     domain_input = base_tensor / 255.0
-
     preds = model.predict(domain_input)
 
     best_idx = np.argmax(preds[0])
-
     conf_score = float(preds[0][best_idx])
 
     category = CLASSES[best_idx]
-
     confidence_str = f"{round(conf_score * 100, 2)}%"
 
-    # ✅ FIXED: "other" category — skip object detection branching,
-    # go straight to step 1 of the "other" flow
+    # ❌ HANDLE "OTHER" CATEGORY IMMEDIATELY
     if category == "other":
-        identified_item = None
-        matched_group   = None
-        session_id      = f"REPAIR-{uuid.uuid4().hex[:4].upper()}"
-        current_step    = 1
 
-        session_data = {
-            "id":           session_id,
-            "category":     category,
-            "object":       None,
-            "flow_group":   None,
-            "confidence":   confidence_str,
-            "language":     language,
-            "answers":      {},
-            "step2_answer": None,
-            "current_step": current_step
-        }
+        session_id = f"REPAIR-{uuid.uuid4().hex[:4].upper()}"
 
-        db_manager.save_session(session_data)
-
-        flow  = ISSUE_MAPPING[category]
-        next_q = flow["steps"][1]
-
-        agent_text = "I couldn't clearly identify a specific category. Let me ask you a few questions to understand what you need."
+        agent_text = "Sorry, we can't identify a valid repair category for this issue."
 
         if language == "si":
             agent_text = get_sinhala_translation(agent_text)
 
         return {
-            "session_id":      session_id,
-            "confidence":      confidence_str,
+            "session_id": session_id,
+            "confidence": confidence_str,
             "detected_object": None,
-            "detected_group":  None,
-            "agent_speech":    agent_text,
-            "next_question":   translate_payload(next_q, language)
+            "detected_group": None,
+            "agent_speech": agent_text,
+            "next_question": {
+                "question": agent_text,
+                "options": []
+            }
         }
 
-    # OBJECT DETECTION (only for non-"other" categories)
+    # OBJECT DETECTION (only for valid categories)
     identified_item = detect_object(base_tensor)
 
     # FLOW GROUP
@@ -1325,17 +1089,16 @@ async def start_service_flow(
     )
 
     session_id = f"REPAIR-{uuid.uuid4().hex[:4].upper()}"
-
     current_step = 2 if matched_group else 1
 
     session_data = {
-        "id":           session_id,
-        "category":     category,
-        "object":       identified_item,
-        "flow_group":   matched_group,
-        "confidence":   confidence_str,
-        "language":     language,
-        "answers":      {},
+        "id": session_id,
+        "category": category,
+        "object": identified_item,
+        "flow_group": matched_group,
+        "confidence": confidence_str,
+        "language": language,
+        "answers": {},
         "step2_answer": None,
         "current_step": current_step
     }
@@ -1346,16 +1109,12 @@ async def start_service_flow(
 
     # SMART QUESTION
     if matched_group:
-
         raw_q = flow["steps"][2][matched_group]
-
         next_q = {
             "question": raw_q["question"],
-            "options":  raw_q["options"]
+            "options": raw_q["options"]
         }
-
     else:
-
         next_q = flow["steps"][1]
 
     # AGENT SPEECH
@@ -1365,14 +1124,13 @@ async def start_service_flow(
         agent_text = get_sinhala_translation(agent_text)
 
     return {
-        "session_id":      session_id,
-        "confidence":      confidence_str,
+        "session_id": session_id,
+        "confidence": confidence_str,
         "detected_object": identified_item,
-        "detected_group":  matched_group,
-        "agent_speech":    agent_text,
-        "next_question":   translate_payload(next_q, language)
+        "detected_group": matched_group,
+        "agent_speech": agent_text,
+        "next_question": translate_payload(next_q, language)
     }
-
 # ---------------------------------------------------
 # NEXT FLOW STEP — FULLY DYNAMIC BRANCHING
 # ---------------------------------------------------
@@ -1524,13 +1282,7 @@ STEP_LABELS = {
         7: "Address"
     },
 
-    "other": {
-        1: "Service Type",
-        2: "Sub-Type",
-        3: "Detail",
-        4: "Urgency",
-        5: "Address"
-    }
+    
 }
 
 # ---------------------------------------------------
@@ -1627,19 +1379,7 @@ def generate_brief_description(category: str, answers: dict, detected_object: st
             f"Service urgency is {urgency} and the address is {address}."
         )
 
-    elif category == "other":
-        stype   = answers.get("step_1", "a general service")
-        subtype = answers.get("step_2", "")
-        detail  = answers.get("step_3", "")
-        urgency = answers.get("step_4", "flexible")
-        address = answers.get("step_5", "address not provided")
-
-        desc = (
-            f"The customer has requested {stype} services"
-            f"{f', specifically {subtype}' if subtype else ''}. "
-            f"{f'Additional detail: {detail}. ' if detail else ''}"
-            f"Service is needed with {urgency} scheduling at {address}."
-        )
+    
 
     else:
         desc = (

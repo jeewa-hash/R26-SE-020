@@ -46,11 +46,7 @@ router.post(
 // =======================================================
 // UPDATE POST
 // =======================================================
-router.put(
-  "/update/:id",
-  upload.single("image"),
-  updatePost
-);
+router.put("/update/:id", updatePost);
 
 // =======================================================
 // DELETE POST

@@ -144,47 +144,17 @@ export const publishPost = async (req, res) => {
 export const updatePost = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
-
     if (!post) {
-      return res.status(404).json({
-        success: false,
-        error: "Post not found",
-      });
+      return res.status(404).json({ success: false, error: "Post not found" });
     }
 
-    // Replace image if new image uploaded
-    if (req.file) {
-      // Delete old image
-      if (
-        post.image &&
-        fs.existsSync(post.image)
-      ) {
-        fs.unlinkSync(post.image);
-      }
-
-      post.image = req.file.path;
-    }
-
-    // Update fields
-    post.title =
-      req.body.title || post.title;
-
-    post.description =
-      req.body.description ||
-      post.description;
-
-    post.category =
-      req.body.category ||
-      post.category;
-
-    post.urgency =
-      req.body.urgency ||
-      post.urgency;
-
-    // Update tags
-    if (req.body.tags) {
-      post.tags = req.body.tags;
-    }
+    // Update fields from JSON body (no file)
+    if (req.body.title) post.title = req.body.title;
+    if (req.body.description) post.description = req.body.description;
+    if (req.body.category) post.category = req.body.category;
+    if (req.body.urgency) post.urgency = req.body.urgency;
+    if (req.body.tags) post.tags = req.body.tags;
+    if (req.body.image) post.image = req.body.image;  // keep existing image path
 
     await post.save();
 
@@ -194,10 +164,7 @@ export const updatePost = async (req, res) => {
       post,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
