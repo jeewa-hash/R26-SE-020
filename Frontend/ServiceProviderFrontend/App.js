@@ -7,13 +7,23 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColorScheme } from 'react-native';
 
+// Themes & Locales
 import { LightTheme, DarkTheme } from './theme';
 import './locales';
 
+// Context Providers
+import { ThemeProvider } from './context/ThemeContext';
+import { LanguageProvider } from './context/LanguageContext';
+import { PortfolioProvider } from './context/PortfolioContext';
+import { AppliedJobsProvider } from './context/AppliedJobsContext';
+import { NotificationsProvider } from './context/NotificationsContext';
+
+// Screens
 import LanguageSelectScreen from './onbordingPages/LanguageSelectScreen';
 import BottomTabNavigator from './navigation/BottomTabNavigator';
-import { AppliedJobsProvider } from './context/AppliedJobsContext';
 import PortfolioGalleryScreen from './pages/PortfolioGalleryScreen';
+import PostFeedScreen from './pages/PostFeedScreen';
+import CreatePostScreen from './pages/CreatePostScreen';
 
 const Stack = createStackNavigator();
 
@@ -27,8 +37,13 @@ export default function App() {
   }, []);
 
   const checkLanguage = async () => {
-    const languageSelected = await AsyncStorage.getItem('selectedLanguage');
-    setInitialRoute(languageSelected ? 'MainApp' : 'LanguageSelect');
+    try {
+      const languageSelected = await AsyncStorage.getItem('selectedLanguage');
+      // If language exists, go to MainApp (Tabs), otherwise show Language Selection
+      setInitialRoute(languageSelected ? 'MainApp' : 'LanguageSelect');
+    } catch (e) {
+      setInitialRoute('LanguageSelect');
+    }
   };
 
   if (initialRoute === null) {
@@ -41,20 +56,55 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <AppliedJobsProvider> 
-      <PaperProvider theme={theme}>
-        <NavigationContainer>
-          <Stack.Navigator
-            initialRouteName={initialRoute}
-            screenOptions={{ headerShown: false }}
-          >
-            <Stack.Screen name="LanguageSelect" component={LanguageSelectScreen} />
-            <Stack.Screen name="MainApp" component={BottomTabNavigator} />
-            <Stack.Screen name="PortfolioGallery" component={PortfolioGalleryScreen} options={{headerShown: false}} />
-          </Stack.Navigator>
-        </NavigationContainer>
-      </PaperProvider>
-      </AppliedJobsProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <PortfolioProvider>
+            <AppliedJobsProvider>
+              <NotificationsProvider>
+                <PaperProvider theme={theme}>
+                  <NavigationContainer>
+                    <Stack.Navigator
+                      initialRouteName={initialRoute}
+                      screenOptions={{ headerShown: false }}
+                    >
+                      {/* 1. ONBOARDING: No Bottom Bar here */}
+                      <Stack.Screen 
+                        name="LanguageSelect" 
+                        component={LanguageSelectScreen} 
+                      />
+
+                      {/* 2. MAIN APP: This component contains the Bottom Bar 
+                          and all screens that should show the bar (Chat, Quotes, etc.) */}
+                      <Stack.Screen 
+                        name="MainApp" 
+                        component={BottomTabNavigator} 
+                      />
+
+                      {/* 3. FULL SCREEN MODALS: Put screens here ONLY if you 
+                          want them to HIDE the bottom bar (e.g., a full gallery) */}
+                      <Stack.Screen 
+                        name="PortfolioGallery" 
+                        component={PortfolioGalleryScreen} 
+                      />
+                      <Stack.Screen 
+        name="PostGeneration" 
+        component={CreatePostScreen} 
+        options={{ title: 'Generate AI Post' }} 
+      />
+
+      <Stack.Screen 
+        name="PostFeed" 
+        component={PostFeedScreen} 
+        options={{ title: 'My Generated Posts' }} 
+      />
+                    </Stack.Navigator>
+                  </NavigationContainer>
+                </PaperProvider>
+              </NotificationsProvider>
+            </AppliedJobsProvider>
+          </PortfolioProvider>
+        </LanguageProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
@@ -64,5 +114,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#fff',
   },
 });

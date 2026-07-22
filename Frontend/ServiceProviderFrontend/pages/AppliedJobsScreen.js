@@ -1,217 +1,463 @@
-import React from 'react';
-import { View, ScrollView, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  TextInput,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAppliedJobs } from '../context/AppliedJobsContext';
 import { JOB_STATUS } from '../constants/jobStatus';
 import { CATEGORY_COLORS } from '../constants/feedData';
-import { Colors } from '../theme';
-import i18n from '../locales';
+
+const { width } = Dimensions.get('window');
+
+const STATUS_FILTERS = [
+  { key: 'all', label: 'All', icon: 'apps' },
+  { key: 'pending', label: 'Pending', icon: 'schedule', color: '#F59E0B' },
+  { key: 'selected', label: 'Selected', icon: 'check-circle', color: '#10B981' },
+  { key: 'rejected', label: 'Rejected', icon: 'cancel', color: '#EF4444' },
+  { key: 'taken', label: 'Taken', icon: 'work', color: '#3B82F6' },
+  { key: 'expired', label: 'Expired', icon: 'timer-off', color: '#6B7280' },
+];
 
 export default function AppliedJobsScreen() {
   const { t } = useTranslation();
-  const { appliedJobs, updateJobStatus } = useAppliedJobs();
-  const isSi = i18n.language === 'si';
+  const { appliedJobs, getJobsByStatus, updateJobStatus, getStatusCounts } = useAppliedJobs();
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // For testing — simulate status changes
-  const cycleStatus = (job) => {
-    const statuses = Object.values(JOB_STATUS).map((s) => s.key);
-    const currentIndex = statuses.indexOf(job.status);
-    const nextStatus = statuses[(currentIndex + 1) % statuses.length];
-    updateJobStatus(job.id, nextStatus);
-  };
+  const isSi = require('../locales').default.language === 'si';
+  const statusCounts = getStatusCounts();
+  
+  const filteredJobs = getJobsByStatus(selectedStatus).filter(job =>
+    job.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    job.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    job.location.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (appliedJobs.length === 0) {
+    return (
+      <View style={styles.emptyState}>
+        <View style={styles.emptyStateIcon}>
+          <MaterialIcons name="assignment" size={48} color="#C4B5FD" />
+        </View>
+        <Text style={styles.emptyStateTitle}>No applications yet</Text>
+        <Text style={styles.emptyStateText}>
+          Browse available jobs and apply to get started
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {isSi ? 'යොදන ලද රැකියා' : 'Applied Jobs'}
-        </Text>
-        <View style={styles.countBadge}>
-          <Text style={styles.countText}>{appliedJobs.length}</Text>
+      {/* Search Bar */}
+      <View style={styles.searchWrapper}>
+        <View style={styles.searchContainer}>
+          <MaterialIcons name="search" size={20} color="#9CA3AF" />
+          <TextInput
+            placeholder="Search applications..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            style={styles.searchInput}
+            placeholderTextColor="#9CA3AF"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <MaterialIcons name="close" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {appliedJobs.length === 0 ? (
-        // Empty State
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>📋</Text>
-          <Text style={styles.emptyTitle}>
-            {isSi ? 'තවම අයදුම් කර නැත' : 'No Applications Yet'}
-          </Text>
-          <Text style={styles.emptySubtitle}>
-            {isSi
-              ? 'සේවා ඉල්ලීම් පිටුවෙන් රැකියා සොයා අයදුම් කරන්න'
-              : 'Browse service requests and apply to jobs'}
-          </Text>
-        </View>
-      ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContent}
-        >
-          {appliedJobs.map((job) => {
-            const status = Object.values(JOB_STATUS).find((s) => s.key === job.status);
-            const categoryColor = CATEGORY_COLORS[job.category] || Colors.primary;
-            const appliedDate = new Date(job.appliedAt).toLocaleDateString();
-
-            return (
-              <View key={job.id} style={styles.jobCard}>
-
-                {/* Status Banner */}
-                <View style={[styles.statusBanner, { backgroundColor: status.bg }]}>
-                  <MaterialIcons name={status.icon} size={16} color={status.color} />
-                  <Text style={[styles.statusLabel, { color: status.color }]}>
-                    {isSi ? status.labelSi : status.label}
+      {/* Status Filters */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filtersContainer}
+      >
+        {STATUS_FILTERS.map((filter) => {
+          const count = statusCounts[filter.key];
+          const isActive = selectedStatus === filter.key;
+          
+          return (
+            <TouchableOpacity
+              key={filter.key}
+              style={[
+                styles.filterChip,
+                isActive && styles.filterChipActive,
+                filter.key !== 'all' && isActive && { backgroundColor: filter.color }
+              ]}
+              onPress={() => setSelectedStatus(filter.key)}
+            >
+              <MaterialIcons
+                name={filter.icon}
+                size={16}
+                color={isActive ? '#FFFFFF' : filter.key !== 'all' ? filter.color : '#6B7280'}
+              />
+              <Text style={[
+                styles.filterChipText,
+                isActive && styles.filterChipTextActive
+              ]}>
+                {filter.label}
+              </Text>
+              {count > 0 && (
+                <View style={[
+                  styles.filterCount,
+                  isActive && styles.filterCountActive
+                ]}>
+                  <Text style={[
+                    styles.filterCountText,
+                    isActive && styles.filterCountTextActive
+                  ]}>
+                    {count}
                   </Text>
-                  <Text style={styles.statusDate}>• {appliedDate}</Text>
                 </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
-                {/* Job Info */}
-                <View style={styles.jobHeader}>
-                  <Image source={{ uri: job.avatar }} style={styles.avatar} />
-                  <View style={styles.jobMeta}>
-                    <Text style={styles.customerName}>{job.customer}</Text>
-                    <View style={styles.metaRow}>
-                      <MaterialIcons name="location-on" size={12} color={Colors.textLight} />
-                      <Text style={styles.metaText}>{job.location}</Text>
-                    </View>
-                  </View>
-                  <View style={[styles.categoryPill, { backgroundColor: categoryColor + '20' }]}>
-                    <Text style={[styles.categoryText, { color: categoryColor }]}>
-                      {job.category}
+      {/* Results Count */}
+      <View style={styles.resultsHeader}>
+        <Text style={styles.resultsText}>
+          {filteredJobs.length} {filteredJobs.length === 1 ? 'application' : 'applications'}
+        </Text>
+      </View>
+
+      {/* Applied Jobs List */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.appliedList}
+      >
+        {filteredJobs.map((job) => {
+          const status = Object.values(JOB_STATUS).find((s) => s.key === job.status);
+          const categoryColor = CATEGORY_COLORS[job.category] || '#7C3AED';
+          const initials = job.customer.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+          
+          return (
+            <View key={job.id} style={styles.appliedCard}>
+              <View style={[styles.appliedCardStatus, { backgroundColor: status.color }]} />
+              
+              <View style={styles.appliedCardContent}>
+                <View style={styles.appliedCardHeader}>
+                  <View style={[styles.appliedAvatar, { backgroundColor: categoryColor + '15' }]}>
+                    <Text style={[styles.appliedAvatarText, { color: categoryColor }]}>
+                      {initials}
                     </Text>
                   </View>
+                  
+                  <View style={styles.appliedInfo}>
+                    <Text style={styles.appliedName}>{job.customer}</Text>
+                    <View style={styles.appliedMeta}>
+                      <MaterialIcons name="location-on" size={12} color="#9CA3AF" />
+                      <Text style={styles.appliedMetaText}>{job.location}</Text>
+                      <View style={styles.appliedMetaDot} />
+                      <View style={[styles.appliedCategory, { backgroundColor: categoryColor + '10' }]}>
+                        <Text style={[styles.appliedCategoryText, { color: categoryColor }]}>
+                          {job.category}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.appliedBudget}>{job.budget}</Text>
                 </View>
 
-                {/* Description */}
-                <Text style={styles.description} numberOfLines={2}>
+                <Text style={styles.appliedDescription} numberOfLines={2}>
                   {job.description}
                 </Text>
 
-                {/* Budget + Action Row */}
-                <View style={styles.bottomRow}>
-                  <View>
-                    <Text style={styles.budgetLabel}>
-                      {isSi ? 'ඇස්තමේන්තු අයවැය' : 'EST. BUDGET'}
+                <View style={styles.appliedFooter}>
+                  <View style={styles.appliedDate}>
+                    <MaterialIcons name="access-time" size={12} color="#9CA3AF" />
+                    <Text style={styles.appliedDateText}>
+                      Applied {new Date(job.appliedAt).toLocaleDateString('en-US', {
+                        day: 'numeric', month: 'short', year: 'numeric'
+                      })}
                     </Text>
-                    <Text style={styles.budgetValue}>{job.budget}</Text>
                   </View>
 
-                  {/* Status-based action */}
-                  {job.status === JOB_STATUS.SELECTED.key && (
-                    <TouchableOpacity style={styles.actionBtn}>
-                      <MaterialIcons name="chat" size={16} color={Colors.white} />
-                      <Text style={styles.actionBtnText}>
-                        {isSi ? 'සම්බන්ධ වන්න' : 'Connect'}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  {job.status === JOB_STATUS.PENDING.key && (
-                    <View style={[styles.actionBtn, { backgroundColor: '#F59E0B' }]}>
-                      <MaterialIcons name="schedule" size={16} color={Colors.white} />
-                      <Text style={styles.actionBtnText}>
-                        {isSi ? 'බලා සිටිමින්' : 'Waiting'}
-                      </Text>
-                    </View>
-                  )}
-                  {job.status === JOB_STATUS.TAKEN.key && (
-                    <View style={[styles.actionBtn, { backgroundColor: '#DC2626' }]}>
-                      <MaterialIcons name="cancel" size={16} color={Colors.white} />
-                      <Text style={styles.actionBtnText}>
-                        {isSi ? 'ගෙන ඇත' : 'Taken'}
-                      </Text>
-                    </View>
-                  )}
-                  {job.status === JOB_STATUS.EXPIRED.key && (
-                    <View style={[styles.actionBtn, { backgroundColor: '#6B7280' }]}>
-                      <MaterialIcons name="hourglass-empty" size={16} color={Colors.white} />
-                      <Text style={styles.actionBtnText}>
-                        {isSi ? 'කල් ඉකුත්' : 'Expired'}
-                      </Text>
-                    </View>
-                  )}
+                  <View style={[styles.appliedStatusBadge, { backgroundColor: status.bg }]}>
+                    <MaterialIcons name={status.icon} size={12} color={status.color} />
+                    <Text style={[styles.appliedStatusText, { color: status.color }]}>
+                      {isSi ? status.labelSi : status.label}
+                    </Text>
+                  </View>
                 </View>
 
-                {/* DEV ONLY: Simulate status change */}
-                <TouchableOpacity
-                  style={styles.devBtn}
-                  onPress={() => cycleStatus(job)}
-                >
-                  <Text style={styles.devBtnText}>🔄 Simulate Status Change (Dev)</Text>
-                </TouchableOpacity>
+                {/* Action Buttons based on status */}
+                {job.status === 'selected' && (
+                  <TouchableOpacity style={styles.connectButton}>
+                    <MaterialIcons name="chat" size={16} color="#FFFFFF" />
+                    <Text style={styles.connectButtonText}>Message Client</Text>
+                  </TouchableOpacity>
+                )}
 
+                {job.status === 'rejected' && (
+                  <TouchableOpacity style={styles.similarJobsButton}>
+                    <MaterialIcons name="search" size={16} color="#FFFFFF" />
+                    <Text style={styles.similarJobsButtonText}>Find Similar Jobs</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            );
-          })}
-          <View style={{ height: 90 }} />
-        </ScrollView>
-      )}
+            </View>
+          );
+        })}
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 16, paddingTop: 52, paddingBottom: 16,
-    backgroundColor: Colors.white,
+  container: {
+    flex: 1,
   },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: Colors.text },
-  countBadge: {
-    backgroundColor: Colors.primary, borderRadius: 12,
-    paddingHorizontal: 10, paddingVertical: 3,
+  searchWrapper: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
-  countText: { fontSize: 13, color: Colors.white, fontWeight: '700' },
-
-  // Empty State
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  emptyIcon: { fontSize: 56, marginBottom: 16 },
-  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.text, marginBottom: 8 },
-  emptySubtitle: { fontSize: 14, color: Colors.textLight, textAlign: 'center', lineHeight: 21 },
-
-  // List
-  listContent: { padding: 16, gap: 12 },
-
-  // Job Card
-  jobCard: {
-    backgroundColor: Colors.white, borderRadius: 16, padding: 16,
-    elevation: 1, shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4,
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  statusBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderRadius: 10, padding: 10, marginBottom: 12,
+  searchInput: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    fontSize: 14,
+    color: '#1F2937',
   },
-  statusLabel: { fontSize: 13, fontWeight: '700', flex: 1 },
-  statusDate: { fontSize: 11, color: Colors.textLight },
-  jobHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  avatar: { width: 42, height: 42, borderRadius: 21 },
-  jobMeta: { flex: 1 },
-  customerName: { fontSize: 14, fontWeight: 'bold', color: Colors.text },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
-  metaText: { fontSize: 12, color: Colors.textLight },
-  categoryPill: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  categoryText: { fontSize: 11, fontWeight: '700' },
-  description: { fontSize: 13, color: Colors.textLight, lineHeight: 20, marginBottom: 12 },
-  bottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  budgetLabel: { fontSize: 10, color: Colors.textLight, fontWeight: '600', letterSpacing: 0.5 },
-  budgetValue: { fontSize: 16, fontWeight: 'bold', color: Colors.text },
-  actionBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.primary, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 10,
+  filtersContainer: {
+    paddingHorizontal: 20,
+    gap: 10,
+    marginBottom: 16,
   },
-  actionBtnText: { color: Colors.white, fontSize: 13, fontWeight: '700' },
-
-  // Dev button - remove in production
-  devBtn: {
-    marginTop: 10, padding: 8, borderRadius: 8,
-    backgroundColor: '#F1F5F9', alignItems: 'center',
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  devBtnText: { fontSize: 12, color: '#64748B' },
+  filterChipActive: {
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  filterCount: {
+    backgroundColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  filterCountActive: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  filterCountText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  filterCountTextActive: {
+    color: '#FFFFFF',
+  },
+  resultsHeader: {
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  resultsText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  appliedList: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  appliedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    flexDirection: 'row',
+  },
+  appliedCardStatus: {
+    width: 4,
+  },
+  appliedCardContent: {
+    flex: 1,
+    padding: 16,
+  },
+  appliedCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  appliedAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  appliedAvatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  appliedInfo: {
+    flex: 1,
+  },
+  appliedName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  appliedMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  appliedMetaText: {
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  appliedMetaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#D1D5DB',
+  },
+  appliedCategory: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  appliedCategoryText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  appliedBudget: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  appliedDescription: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  appliedFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  appliedDate: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  appliedDateText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+  },
+  appliedStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  appliedStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  connectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+  connectButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  similarJobsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#6B7280',
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+  similarJobsButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+    paddingHorizontal: 40,
+  },
+  emptyStateIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#F3E8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
 });

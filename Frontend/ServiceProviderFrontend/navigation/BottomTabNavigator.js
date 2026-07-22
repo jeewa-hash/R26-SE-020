@@ -1,117 +1,192 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useContext } from 'react';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { Text } from 'react-native-paper';
-import { Colors } from '../theme';
+import { createStackNavigator } from '@react-navigation/stack'; // Added Stack
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+import { ThemeContext } from '../context/ThemeContext';
+
+// Import Screens
 import NewsFeedScreen from '../pages/NewsFeedScreen';
 import BookingsScreen from '../pages/BookingsScreen';
 import EarningsScreen from '../pages/EarningsScreen';
 import ProfileScreen from '../pages/ProfileScreen';
-import AppliedJobsScreen from '../pages/AppliedJobsScreen';
+import ChatScreen from '../pages/ChatScreen'; // Added
+import QuotationTemplate from '../pages/QuotationTemplate'; // Added
+import NotificationsScreen from '../pages/NotificationsScreen'; // Added
+import InboxScreen from '../pages/InboxScreen';
 
 const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
 
-const TabIcon = ({ iconName, label, focused }) => (
-  <View style={styles.tabItem}>
-    <Icon 
-      name={iconName} 
-      size={24} 
-      color={focused ? Colors.primary : Colors.textLight} 
-    />
-    <Text style={[styles.tabLabel, focused && styles.tabLabelFocused]}>
-      {label}
-    </Text>
-  </View>
-);
+// ─── Sub-Stack for News/Notifications ────────────────────────────────────────
+// This ensures that when you navigate to Chat or Quotation, the Footer stays!
+function HomeStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="NewsFeedMain" component={NewsFeedScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="ChatScreen" component={ChatScreen} />
+      <Stack.Screen name="QuotationTemplate" component={QuotationTemplate} />
+      <Stack.Screen name="InboxScreen" component={InboxScreen} />
+    </Stack.Navigator>
+  );
+}
 
+// ─── Tab config ───────────────────────────────────────────────────────────────
+const TABS = [
+  { name: 'HomeTab', label: 'Home', icon: 'home-outline', iconActive: 'home' },
+  { name: 'Bookings', label: 'Bookings', icon: 'calendar-outline', iconActive: 'calendar' },
+  { name: 'Earnings', label: 'Earnings', icon: 'wallet-outline', iconActive: 'wallet' },
+  { name: 'Profile', label: 'Profile', icon: 'account-outline', iconActive: 'account' },
+];
+
+// Note: HomeTab now points to the HomeStack component
+const SCREENS = {
+  HomeTab: HomeStack, 
+  Bookings: BookingsScreen,
+  Earnings: EarningsScreen,
+  Profile: ProfileScreen,
+};
+
+// ─── Palettes ─────────────────────────────────────────────────────────────────
+const LIGHT = {
+  bar: '#FFFFFF',
+  border: '#EBEBEB',
+  activeIcon: '#534AB7',
+  activeBg: '#EEF0FF',
+  activeLabel: '#534AB7',
+  inactiveIcon: '#AAAAAA',
+  inactiveLabel: '#AAAAAA',
+};
+
+const DARK = {
+  bar: '#1C1C1E',
+  border: '#2C2C2E',
+  activeIcon: '#AFA9EC',
+  activeBg: '#26215C',
+  activeLabel: '#AFA9EC',
+  inactiveIcon: '#48484A',
+  inactiveLabel: '#48484A',
+};
+
+// ─── Tab icon component ───────────────────────────────────────────────────────
+function TabItem({ label, icon, iconActive, focused, C, hasNotif }) {
+  const iconName = focused ? iconActive : icon;
+
+  return (
+    <View style={styles.tabItem}>
+      <View style={[styles.iconWrap, focused && { backgroundColor: C.activeBg }]}>
+        <MaterialCommunityIcons
+          name={iconName}
+          size={24}
+          color={focused ? C.activeIcon : C.inactiveIcon}
+        />
+        {hasNotif && !focused && <View style={styles.notifDot} />}
+      </View>
+      <Text
+        style={[
+          styles.tabLabel,
+          { color: focused ? C.activeLabel : C.inactiveLabel },
+          focused && styles.tabLabelActive,
+        ]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+// ─── Navigator ────────────────────────────────────────────────────────────────
 export default function BottomTabNavigator() {
+  const { isDark } = useContext(ThemeContext);
+  const C = isDark ? DARK : LIGHT;
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            backgroundColor: C.bar,
+            borderTopColor: C.border,
+          },
+        ],
       }}
     >
-      <Tab.Screen
-        name="NewsFeed"
-        component={NewsFeedScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon iconName="home" label="Feed" focused={focused} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Bookings"
-        component={BookingsScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon iconName="event" label="Bookings" focused={focused} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Earnings"
-        component={EarningsScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon iconName="attach-money" label="Earnings" focused={focused} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon iconName="person" label="Profile" focused={focused} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Applied"
-        component={AppliedJobsScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon iconName="assignment" label="Applied" focused={focused} />
-          ),
-        }}
-      />
+      {TABS.map((tab) => (
+        <Tab.Screen
+          key={tab.name}
+          name={tab.name}
+          component={SCREENS[tab.name]}
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <TabItem
+                label={tab.label}
+                icon={tab.icon}
+                iconActive={tab.iconActive}
+                focused={focused}
+                C={C}
+                hasNotif={tab.name === 'Earnings'}
+              />
+            ),
+          }}
+        />
+      ))}
     </Tab.Navigator>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 70,
-    backgroundColor: Colors.white,
+    height: Platform.OS === 'ios' ? 88 : 70, // Slightly increased for safe area
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
     elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    paddingTop: 10,
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 6,
+    gap: 4,
+    minWidth: 60,
+  },
+  iconWrap: {
+    width: 48,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notifDot: {
+    position: 'absolute',
+    top: 2,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF4B4B', // Made red for visibility
+    borderWidth: 1.5,
+    borderColor: '#FFF',
   },
   tabLabel: {
-    fontSize: 11,
-    color: Colors.textLight,
+    fontSize: 10,
     fontWeight: '500',
+    letterSpacing: 0.2,
+    marginTop: 2,
   },
-  tabLabelFocused: {
-    color: Colors.primary,
+  tabLabelActive: {
     fontWeight: '700',
   },
 });
