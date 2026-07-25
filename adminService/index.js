@@ -1,6 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const dns = require('dns');
+dns.setServers(['8.8.8.8', '8.8.4.4']); // <-- fixes SRV lookup without touching MONGO_URI
 require('dotenv').config();
 
 const app = express();
