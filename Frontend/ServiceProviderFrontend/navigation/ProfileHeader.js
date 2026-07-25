@@ -15,6 +15,9 @@ import { useTranslation } from 'react-i18next';
 import { ThemeContext } from '../context/ThemeContext';
 import { LanguageContext } from '../context/LanguageContext';
 import SettingsScreen from '../screens/SettingsScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearCredentials } from '../utils/biometricAuth';
+import { CommonActions } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.72;
@@ -67,6 +70,19 @@ export default function ProfileHeader({ navigation, onLogout }) {
     setLanguage(code);
     i18n.changeLanguage(code);
   };
+
+  const handleLogout = async () => {
+  await clearCredentials();
+  await AsyncStorage.removeItem('userToken');
+  await AsyncStorage.removeItem('userRole');
+
+  navigation.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    })
+  );
+};
 
   return (
     <>
@@ -242,8 +258,8 @@ export default function ProfileHeader({ navigation, onLogout }) {
 
           {/* Logout */}
           <TouchableOpacity
-            style={[styles.logoutBtn, { backgroundColor: isDark ? '#2d0f0f' : '#FEF2F2', borderColor: isDark ? '#501313' : '#FECACA' }]}
-            onPress={onLogout}
+           style={[styles.logoutBtn, { backgroundColor: isDark ? '#2d0f0f' : '#FEF2F2', borderColor: isDark ? '#501313' : '#FECACA' }]}
+           onPress={handleLogout}
           >
             <MaterialIcons name="logout" size={18} color="#DC2626" />
             <Text style={styles.logoutText}>Log Out</Text>
