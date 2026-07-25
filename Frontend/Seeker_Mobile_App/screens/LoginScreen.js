@@ -12,25 +12,6 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const role = await AsyncStorage.getItem('userRole');
-      if (token && role === 'Seeker') {
-        navigation.replace('Home');
-      }
-    } catch (err) {
-      console.log('Error checking auth status:', err);
-    } finally {
-      setCheckingAuth(false);
-    }
-  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -40,7 +21,14 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API_URL}/login`, { email, password });
+      console.log(`Attempting login at: ${API_URL}/login`);
+      const response = await axios.post(`${API_URL}/login`, { email, password }, {
+        timeout: 5000,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
 
       // On Success, save JWT and Role
       await AsyncStorage.setItem('userToken', response.data.token);
@@ -50,7 +38,14 @@ export default function LoginScreen({ navigation }) {
       navigation.replace('Home');
       
     } catch (error) {
-      const msg = error.response?.data?.message || 'Something went wrong';
+      console.error('Login error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        config: error.config?.url
+      });
+
+      const msg = error.response?.data?.message || 'Network error or server is down. Please check your connection.';
       const requiresOTP = error.response?.data?.requiresOTP;
 
       if (requiresOTP) {
@@ -69,14 +64,6 @@ export default function LoginScreen({ navigation }) {
       setLoading(false);
     }
   };
-
-  if (checkingAuth) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' }}>
-        <ActivityIndicator size="large" color="#007bff" />
-      </View>
-    );
-  }
 
   return (
     <KeyboardAvoidingView 

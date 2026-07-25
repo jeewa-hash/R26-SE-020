@@ -6,6 +6,9 @@ import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import NotificationScreen from './screens/NotificationScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import VerifyOTPScreen from './screens/VerifyOTPScreen';
@@ -20,7 +23,6 @@ import LanguageScreen from './screens/LanguageScreen';
 import OnboardingScreen from './screens/OnboardingScreen'; 
 
 import FeedbackScreen from './screens/FeedbackScreen';
-import NotificationsScreen from './screens/NotificationsScreen';
 import BiddingScreen from './screens/BiddingScreen';
 import BidResponsesScreen from './screens/BidResponsesScreen';
 import UserQuotesScreen from './screens/UserQuotesScreen';
@@ -49,8 +51,6 @@ import './i18n';
 import { LanguageProvider } from './context/LanguageContext';
 import { loadLanguage } from './i18n';
 import { ThemeProvider } from './context/ThemeContext';
-
-const Stack = createStackNavigator();
 
 function AppNavigator({ initialRouteName }) {
   const { t } = useTranslation();
@@ -131,6 +131,11 @@ function AppNavigator({ initialRouteName }) {
       />
       
       <Stack.Screen 
+        name="NotificationsScreen" 
+        component={NotificationScreen} 
+        options={{ headerShown: false }} 
+    />
+    <Stack.Screen 
         name="FeedbackScreen" 
         component={FeedbackScreen} 
         options={{ headerShown: false }} 
@@ -261,7 +266,7 @@ export default function App() {
       setBootstrapped(true);
     };
 
-    bootstrapLanguage();
+    bootstrapApp();
   }, []);
 
   if (!bootstrapped) {
