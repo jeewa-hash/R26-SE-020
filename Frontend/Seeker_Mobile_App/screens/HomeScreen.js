@@ -1,5 +1,4 @@
-// Updated HomeScreen.js
-import React, { useContext, useState, useRef, useEffect } from 'react';
+import React, { useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   ScrollView, Image, SafeAreaView, LayoutAnimation, Platform, 
@@ -15,8 +14,12 @@ import { getSlideshowData } from '../data/seasonalData';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/BottomNav';
 
-// Enable smooth animations for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+// Safe check for Legacy Architecture on Android to avoid New Architecture warnings
+if (
+  Platform.OS === 'android' && 
+  UIManager.setLayoutAnimationEnabledExperimental &&
+  !global.nativeFabricUIManager // Prevents running in New Architecture
+) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
@@ -184,12 +187,44 @@ const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload })
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { language } = useContext(LanguageContext);
+
+  const [user, setUser] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const navigation = useNavigation();
+
+  // Defined loadUserDetails with useCallback to prevent reference errors & unnecessary re-renders
+  const loadUserDetails = useCallback(async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        setUser(JSON.parse(userData));
+      }
+    } catch (error) {
+      console.log("Error loading user:", error);
+    }
+  }, []);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+      setUnreadCount(3);
+    } catch (err) {
+      console.log('Error fetching notifications count:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUserDetails();
+    fetchUnreadCount();
+
+    const intervalId = setInterval(fetchUnreadCount, 15000);
+    return () => clearInterval(intervalId);
+  }, [loadUserDetails, fetchUnreadCount]);
 
   const toggleExpand = (id) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -304,22 +339,6 @@ export default function HomeScreen() {
     }
   };
 
-  const fetchUnreadCount = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) return;
-      setUnreadCount(3);
-    } catch (err) {
-      console.log('Error fetching notifications count:', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchUnreadCount();
-    const intervalId = setInterval(fetchUnreadCount, 15000);
-    return () => clearInterval(intervalId);
-  }, []);
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#667eea" />
@@ -338,7 +357,9 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Text style={styles.greeting}>{t('good_morning')}</Text>
-              <Text style={styles.userName}>Tashmi 👋</Text>
+              <Text style={styles.userName}>
+                {user?.name ? `${user.name} 👋` : "User 👋"}
+              </Text>
               <Text style={styles.subGreeting}>{t('what_help_today')}</Text>
             </View>
             <View style={styles.headerActions}>
@@ -359,7 +380,14 @@ export default function HomeScreen() {
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.profileBtn} onPress={handleProfilePress}>
-                <Image source={{ uri: 'https://i.pravatar.cc/150?img=7' }} style={styles.profilePic} />
+                <Image
+                  source={{
+                    uri: user?.profileImage 
+                      ? user.profileImage 
+                      : 'https://i.pravatar.cc/150?img=7'
+                  }}
+                  style={styles.profilePic}
+                />
                 <View style={styles.onlineDot} />
               </TouchableOpacity>
             </View>

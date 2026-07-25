@@ -17,7 +17,7 @@ import FeedScreen from './screens/FeedScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import CreatePostScreen from './screens/CreatePostScreen';
 import LanguageScreen from './screens/LanguageScreen';
-import OnboardingScreen from './screens/OnboardingScreen';  
+import OnboardingScreen from './screens/OnboardingScreen'; 
 
 import FeedbackScreen from './screens/FeedbackScreen';
 import NotificationsScreen from './screens/NotificationsScreen';
@@ -47,30 +47,21 @@ import RescheduleScreen from './screens/RescheduleScreen';
 
 import './i18n';
 import { LanguageProvider } from './context/LanguageContext';
-import { loadLanguage } from './i18n'
-import { ThemeProvider, ThemeContext } from './context/ThemeContext';
+import { loadLanguage } from './i18n';
+import { ThemeProvider } from './context/ThemeContext';
 
 const Stack = createStackNavigator();
-
 
 function AppNavigator({ initialRouteName }) {
   const { t } = useTranslation();
 
   return (
     <Stack.Navigator initialRouteName={initialRouteName}>
-
-      {/* Language selection first */}
-      <Stack.Screen
-        name="Language"
-        component={LanguageScreen}
-        options={{ headerShown: false }}
-      />
-
-      
+      {/* 1. Authentication Screens First */}
       <Stack.Screen
         name="Login"
         component={LoginScreen}
-        options={{ title: 'Seeker Login' }}
+        options={{ title: 'Seeker Login', headerShown: false }}
       />
       <Stack.Screen
         name="Register"
@@ -83,7 +74,14 @@ function AppNavigator({ initialRouteName }) {
         options={{ title: 'Verify Email' }}
       />
 
-      {/* Main App */}
+      {/* 2. Language Selection */}
+      <Stack.Screen
+        name="Language"
+        component={LanguageScreen}
+        options={{ headerShown: false }}
+      />
+
+      {/* 3. Main App Screens */}
       <Stack.Screen
         name="Home"
         component={HomeScreen}
@@ -101,12 +99,12 @@ function AppNavigator({ initialRouteName }) {
         component={FeedScreen}
         options={{ headerShown: false }}
       />
+      
       <Stack.Screen
-  name="Onboarding"
-  component={OnboardingScreen}
-  options={{ headerShown: false }}
-/>
-
+        name="Onboarding"
+        component={OnboardingScreen}
+        options={{ headerShown: false }}
+      />
 
       <Stack.Screen
         name="ProfileScreen"
@@ -119,7 +117,8 @@ function AppNavigator({ initialRouteName }) {
         component={CreatePostScreen}
         options={{ headerShown: false }}
       />
-       <Stack.Screen
+      
+      <Stack.Screen
         name="UserQuotesScreen"
         component={UserQuotesScreen}
         options={{ headerShown: false }}
@@ -130,41 +129,50 @@ function AppNavigator({ initialRouteName }) {
         component={ProvidersScreen}
         options={{ title: t('nav_providers') }}
       />
+      
       <Stack.Screen 
         name="FeedbackScreen" 
         component={FeedbackScreen} 
         options={{ headerShown: false }} 
-    />
-     <Stack.Screen 
-      name="NotificationsScreen" 
-      component={NotificationsScreen} 
-      options={{ headerShown: false }} 
-    />
-     <Stack.Screen
+      />
+      
+      <Stack.Screen 
+        name="NotificationsScreen" 
+        component={NotificationsScreen} 
+        options={{ headerShown: false }} 
+      />
+      
+      <Stack.Screen
         name="BiddingScreen"
         component={BiddingScreen}
         options={{ headerShown: false }}
       />
+      
       <Stack.Screen 
-      name="ChatListScreen" 
-      component={ChatListScreen} 
-      options={{ headerShown: false }} />
+        name="ChatListScreen" 
+        component={ChatListScreen} 
+        options={{ headerShown: false }} 
+      />
+      
       <Stack.Screen 
-      name="SeasonalDemandsScreen" 
-      component={SeasonalDemandsScreen} 
-      options={{ headerShown: false }} 
+        name="SeasonalDemandsScreen" 
+        component={SeasonalDemandsScreen} 
+        options={{ headerShown: false }} 
       />
 
       <Stack.Screen 
-      name="ChatScreen" 
-      component={ChatScreen} 
-      options={{ headerShown: false }} />
+        name="ChatScreen" 
+        component={ChatScreen} 
+        options={{ headerShown: false }} 
+      />
+      
       <Stack.Screen 
-       name="BidResponsesScreen" 
-       component={BidResponsesScreen} 
-       options={{ headerShown: false }} 
-       />
-       <Stack.Screen 
+        name="BidResponsesScreen" 
+        component={BidResponsesScreen} 
+        options={{ headerShown: false }} 
+      />
+      
+      <Stack.Screen 
         name="BookingsScreen" 
         component={BookingsScreen} 
         options={{ headerShown: false }} 
@@ -223,35 +231,32 @@ function AppNavigator({ initialRouteName }) {
         component={RescheduleScreen} 
         options={{ headerShown: false }} 
       />
-    
-
     </Stack.Navigator>
   );
 }
 
 /* ✅ Root App */
 export default function App() {
+  // Default screen is set to Login
   const [bootstrapped, setBootstrapped] = useState(false);
-  const [initialRouteName, setInitialRouteName] = useState('Language');
+  const [initialRouteName, setInitialRouteName] = useState('Login');
 
   useEffect(() => {
     const bootstrapLanguage = async () => {
       await loadLanguage();
       try {
-        const savedLang = await AsyncStorage.getItem('seeker_lang');
         const token = await AsyncStorage.getItem('userToken');
         const role = await AsyncStorage.getItem('userRole');
 
-        if (!savedLang) {
-          setInitialRouteName('Language');
-        } else if (token && role === 'Seeker') {
+        // Check auth status: if token exists & role matches, go to Home. Otherwise, Login.
+        if (token && role === 'Seeker') {
           setInitialRouteName('Home');
         } else {
-          setInitialRouteName('Home');
+          setInitialRouteName('Login');
         }
       } catch (err) {
-        console.log('Error bootstrapping language and auth:', err);
-        setInitialRouteName('Language');
+        console.log('Error bootstrapping auth:', err);
+        setInitialRouteName('Login');
       }
       setBootstrapped(true);
     };
@@ -271,11 +276,11 @@ export default function App() {
     <LanguageProvider>
       <ChatProvider>
         <ThemeProvider>
-      <NavigationContainer>
-        <AppNavigator initialRouteName={initialRouteName} />
-      </NavigationContainer>
-      </ThemeProvider>
-       </ChatProvider>
+          <NavigationContainer>
+            <AppNavigator initialRouteName={initialRouteName} />
+          </NavigationContainer>
+        </ThemeProvider>
+      </ChatProvider>
     </LanguageProvider>
   );
 }
