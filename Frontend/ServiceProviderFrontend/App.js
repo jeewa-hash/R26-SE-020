@@ -29,11 +29,10 @@ import {
 // Screens
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
-import BottomTabNavigator from './navigation/BottomTabNavigator'; // NewsFeed already lives here
+import BottomTabNavigator from './navigation/BottomTabNavigator'; 
 import PortfolioGalleryScreen from './pages/PortfolioGalleryScreen';
 import CreatePostScreen from './pages/CreatePostScreen';
 import SubmitInquiryScreen from './screens/SubmitInquiryScreen';
-import NotificationScreen from './screens/NotificationScreen';
 
 const Stack = createStackNavigator();
 
@@ -206,11 +205,7 @@ export default function App() {
                           component={SubmitInquiryScreen}
                           options={{ headerShown: true, title: 'Submit Inquiry' }}
                         />
-                        <Stack.Screen
-                          name="Notifications"
-                          component={NotificationScreen}
-                          options={{ headerShown: true, title: 'Notifications' }}
-                        />
+                        
                       </Stack.Navigator>
                     </NavigationContainer>
 
