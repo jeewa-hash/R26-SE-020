@@ -10,6 +10,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { usePortfolio } from '../context/PortfolioContext';
 import { Colors } from '../theme';
 import TagGallerySection from '../components/portfolio/TagGallerySection';
+import { usePortfolioUpload } from '../hooks/usePortfolioUpload';
+import AIProcessingModal from '../components/portfolio/AIProcessingModal';
+import PortfolioTagScreen from '../components/portfolio/PortfolioTagScreen';
 
 export default function PortfolioGalleryScreen() {
   const { portfolioImages, getAllTags, getImagesByTag } = usePortfolio();
@@ -17,6 +20,16 @@ export default function PortfolioGalleryScreen() {
   const [selectedTag, setSelectedTag] = useState('All');
 
   const allTags = getAllTags();
+  const {
+    images,
+    processing,
+    progress,
+    showTagScreen,
+    initialTagHint,
+    openGallery,
+    cancelProcessing,
+    resetAll,
+  } = usePortfolioUpload();
 
   // Track which tags are new (added in last 24h)
   const newTags = useMemo(() => {
@@ -134,6 +147,7 @@ export default function PortfolioGalleryScreen() {
                   tag={tag}
                   images={getImagesByTag(tag)}
                   isNew={newTags.has(tag)}
+                  onAdd={() => openGallery(tag)}
                 />
               ))
             )}
@@ -141,6 +155,17 @@ export default function PortfolioGalleryScreen() {
           </ScrollView>
         </>
       )}
+
+      <AIProcessingModal
+        visible={processing}
+        progress={progress}
+        imageCount={images.length}
+        onCancel={cancelProcessing}
+      />
+      {showTagScreen && images.length > 0 && (
+        <PortfolioTagScreen images={images} onClose={resetAll} initialTagHint={initialTagHint} />
+      )}
+
     </View>
   );
 }

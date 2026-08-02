@@ -7,7 +7,11 @@ export function usePortfolioUpload() {
   const [progress, setProgress] = useState(0);
   const [showTagScreen, setShowTagScreen] = useState(false);
 
-  const openGallery = async () => {
+  const [initialTagHint, setInitialTagHint] = useState(null);
+
+  // Accept optional tagHint so callers can suggest a category to the tagging flow
+  const openGallery = async (tagHint = null) => {
+    setInitialTagHint(tagHint);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       alert('Permission to access gallery is required!');
@@ -15,7 +19,7 @@ export function usePortfolioUpload() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],   // ← fixed here
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       selectionLimit: 5,
       quality: 0.8,
@@ -50,6 +54,7 @@ export function usePortfolioUpload() {
     setProcessing(false);
     setProgress(0);
     setImages([]);
+    setInitialTagHint(null);
   };
 
   const resetAll = () => {
@@ -57,6 +62,7 @@ export function usePortfolioUpload() {
     setProcessing(false);
     setProgress(0);
     setShowTagScreen(false);
+    setInitialTagHint(null);
   };
 
   return {
@@ -64,6 +70,7 @@ export function usePortfolioUpload() {
     processing,
     progress,
     showTagScreen,
+    initialTagHint,
     openGallery,
     cancelProcessing,
     resetAll,

@@ -13,10 +13,7 @@ export default function TagGallerySection({ tag, images, isNew }) {
     <View style={styles.section}>
 
       {/* Section Header */}
-      <TouchableOpacity
-        style={styles.sectionHeader}
-        onPress={() => setCollapsed(!collapsed)}
-      >
+      <View style={styles.sectionHeader}>
         <View style={styles.sectionLeft}>
           <View style={styles.tagDot} />
           <Text style={styles.tagTitle}>{tag}</Text>
@@ -25,14 +22,24 @@ export default function TagGallerySection({ tag, images, isNew }) {
               <Text style={styles.newText}>NEW</Text>
             </View>
           )}
-          <Text style={styles.imageCount}>{images.length}</Text>
+          <Text style={styles.imageCount}>{images.length > 5 ? `${images.length}+` : `${images.length}`}</Text>
         </View>
-        <MaterialIcons
-          name={collapsed ? 'expand-more' : 'expand-less'}
-          size={22}
-          color={Colors.textLight}
-        />
-      </TouchableOpacity>
+
+        <View style={styles.headerRightRow}>
+          {typeof onAdd === 'function' && (
+            <TouchableOpacity style={styles.smallAddBtn} onPress={() => onAdd(tag)}>
+              <MaterialIcons name="add" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => setCollapsed(!collapsed)}>
+            <MaterialIcons
+              name={collapsed ? 'expand-more' : 'expand-less'}
+              size={22}
+              color={Colors.textLight}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {/* Images Grid */}
       {!collapsed && (
@@ -89,6 +96,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2,
   },
+  headerRightRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  smallAddBtn: { marginRight: 6, width: 34, height: 34, borderRadius: 17, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', elevation: 3 },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 3,
   },

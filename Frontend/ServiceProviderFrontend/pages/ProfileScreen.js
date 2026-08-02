@@ -200,8 +200,13 @@ export default function ProfileScreen({ navigation }) {
                   >
                     <MaterialIcons name="photo" size={28} color={color} />
                     <View style={styles.portfolioTagCount}>
-                      <Text style={styles.portfolioTagCountText}>{img.tags.length}</Text>
+                      <Text style={styles.portfolioTagCountText}>{img.tags.length > 5 ? `${img.tags.length}+` : img.tags.length}</Text>
                     </View>
+
+                    {/* small add button in corner */}
+                    <TouchableOpacity style={styles.portfolioCornerAdd} onPress={() => openGallery()}>
+                      <Text style={{ color: Colors.primary, fontSize: 18, fontWeight: '700' }}>+</Text>
+                    </TouchableOpacity>
                   </TouchableOpacity>
                 );
               })}
@@ -357,6 +362,7 @@ const styles = StyleSheet.create({
   },
   portfolioTagCount:     { position: 'absolute', bottom: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, paddingHorizontal: 5, paddingVertical: 2 },
   portfolioTagCountText: { fontSize: 9, color: '#fff', fontWeight: '700' },
+  portfolioCornerAdd: { position: 'absolute', top: 6, right: 6, width: 30, height: 30, borderRadius: 15, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', elevation: 4 },
 
   ratingPill:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFFBEB', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   ratingPillText: { fontSize: 12, color: '#B45309', fontWeight: '700' },

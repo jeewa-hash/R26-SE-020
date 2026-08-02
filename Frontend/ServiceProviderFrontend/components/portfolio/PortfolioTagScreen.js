@@ -22,13 +22,20 @@ const AI_TAGS_POOL = [
   ['AC Repair', 'Cooling', 'Maintenance', 'Split Unit', 'Service'],
 ];
 
-export default function PortfolioTagScreen({ images, onClose }) {
+export default function PortfolioTagScreen({ images, onClose, initialTagHint = null }) {
   const { saveImages } = usePortfolio();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [tagMap, setTagMap] = useState(() => {
     const map = {};
     images.forEach((img, i) => {
-      map[img.uri] = AI_TAGS_POOL[i % AI_TAGS_POOL.length];
+      const aiTags = AI_TAGS_POOL[i % AI_TAGS_POOL.length] || [];
+      // Prepend initial hint if provided and not already present
+      if (initialTagHint) {
+        const unique = [initialTagHint, ...aiTags.filter((t) => t !== initialTagHint)];
+        map[img.uri] = unique;
+      } else {
+        map[img.uri] = aiTags;
+      }
     });
     return map;
   });
