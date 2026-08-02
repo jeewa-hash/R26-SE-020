@@ -133,21 +133,69 @@ class QuestionEngine:
         start_step = 1
         extracted = extracted or {}
 
-        # smart routing
-        if service == "repairing" and sub_service:
+        # smart routing by sub_service
+        if sub_service:
+            sub_key = sub_service.lower().strip()
+            
+            if service == "repairing":
+                sub_map = {
+                    "fan": "electrical_q2",
+                    "tv": "electrical_q2",
+                    "fridge": "electrical_q2",
+                    "light": "electrical_q2",
+                    "electrical": "electrical_q2",
+                    "pipe": "plumbing_q1",
+                    "tap": "plumbing_q1",
+                    "plumbing": "plumbing_q1",
+                    "chair": "furniture_q2",
+                    "sofa": "furniture_q2",
+                    "furniture": "furniture_q2",
+                    "painting_renovation": "electrical_q2"
+                }
+                start_step = sub_map.get(sub_key, 1)
 
-            sub_map = {
-                "fan": "electrical_q2",
-                "tv": "electrical_q2",
-                "fridge": "electrical_q2",
-                "light": "electrical_q2",
-                "pipe": "plumbing_q1",
-                "tap": "plumbing_q1",
-                "chair": "furniture_q2",
-                "sofa": "furniture_q2"
-            }
+            elif service == "cleaning":
+                sub_map = {
+                    "house cleaning": "full_house_q1",
+                    "house_cleaning": "full_house_q1",
+                    "kitchen cleaning": "kitchen_q1",
+                    "kitchen_cleaning": "kitchen_q1",
+                    "bathroom cleaning": "bathroom_q1",
+                    "bathroom_cleaning": "bathroom_q1",
+                    "office cleaning": "office_q1",
+                    "office_cleaning": "office_q1",
+                    "post-construction cleaning": "postconstruction_q1",
+                    "post_construction": "postconstruction_q1",
+                    "move-in/move-out cleaning": "moveinout_q1",
+                    "move_cleaning": "moveinout_q1",
+                    "sofa/carpet/curtain cleaning": "sofa_q1",
+                    "fabric_cleaning": "sofa_q1"
+                }
+                start_step = sub_map.get(sub_key, 1)
 
-            start_step = sub_map.get(sub_service.lower(), 1)
+            elif service == "gardening":
+                sub_map = {
+                    "garden maintenance": "maintenance_q1",
+                    "maintenance": "maintenance_q1",
+                    "landscaping": "landscaping_q1",
+                    "planting": "planting_q1"
+                }
+                start_step = sub_map.get(sub_key, 1)
+
+            elif service == "care_support":
+                sub_map = {
+                    "child care": "child_q1",
+                    "child_care": "child_q1",
+                    "elderly care": "elderly_q1",
+                    "elderly_care": "elderly_q1",
+                    "pet care": "pet_q1",
+                    "pet_care": "pet_q1",
+                    "disability support": "disability_q1",
+                    "disability_support": "disability_q1",
+                    "personal assistance": "elderly_q2",
+                    "personal_assistance": "elderly_q2"
+                }
+                start_step = sub_map.get(sub_key, 1)
 
         # auto skip
         start_step = self._auto_skip_answered(flow, start_step, extracted)
@@ -248,16 +296,84 @@ class QuestionEngine:
             "question": self._format_question(next_step, next_data)
         }
 
+
+        # -------------------------
+    # BUILD REQUEST SUMMARY
     # -------------------------
+    def _build_request_summary(self, session):
+
+        service = session["service"]
+
+        answers = session["answers"]
+
+        sub_service = (
+            answers.get("service_type")
+            or answers.get("repair_type")
+            or answers.get("care_type")
+            or answers.get("garden_type")
+            or "General"
+        )
+
+        if service == "cleaning":
+
+            description = (
+                f"{answers.get('service_type', 'Cleaning service')} "
+                f"({answers.get('clean_type', 'standard cleaning')}) "
+                f"required for a "
+                f"{answers.get('house_size', 'property')} "
+                f"in {answers.get('location', 'the specified location')}. "
+                f"Focus area: {answers.get('focus_areas', 'general cleaning')}. "
+                f"Requested schedule: {answers.get('schedule', 'not specified')}."
+            )
+
+        elif service == "repairing":
+
+            description = (
+                f"{sub_service} repair requested "
+                f"at {answers.get('location', 'the specified location')}. "
+                f"Issue: {answers.get('problem', 'Not specified')}. "
+                f"Preferred schedule: {answers.get('schedule', 'Not specified')}."
+            )
+
+        elif service == "gardening":
+
+            description = (
+                f"{sub_service} service requested "
+                f"at {answers.get('location', 'the specified location')}. "
+                f"Preferred schedule: {answers.get('schedule', 'Not specified')}."
+            )
+
+        elif service == "care_support":
+
+            description = (
+                f"{sub_service} service requested "
+                f"at {answers.get('location', 'the specified location')}. "
+                f"Preferred schedule: {answers.get('schedule', 'Not specified')}."
+            )
+
+        else:
+
+            description = "Service request created."
+
+        return {
+            "service": service,
+            "sub_service": sub_service,
+            "description": description,
+            "details": answers
+        }
+
+        # -------------------------
     # FINAL OUTPUT
     # -------------------------
     def _build_final_output(self, session_id):
 
         session = self.sessions[session_id]
 
+        summary = self._build_request_summary(session)
+
         return {
             "success": True,
             "session_id": session_id,
-            "answers": session["answers"],
-            "message": "Flow completed successfully"
+            "message": "Service request completed successfully.",
+            "request_summary": summary
         }

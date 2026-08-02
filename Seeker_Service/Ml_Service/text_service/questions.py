@@ -763,7 +763,7 @@ TEXT_QUESTION_FLOW = {
             "answer_key": "location",
             "type": "text_input",
             "skip_if_in_input": ["colombo", "kandy", "galle", "negombo", "address", "area", "city", "town", "road", "street", "home", "house"],
-            "next": "common_care_notes"
+            "next": None
         }
     },
 
