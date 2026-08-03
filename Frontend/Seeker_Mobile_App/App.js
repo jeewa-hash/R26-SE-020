@@ -138,7 +138,7 @@ function AppNavigator({ initialRouteName }) {
       />
       
       <Stack.Screen 
-    name="NotificationsScreen" 
+    name="NotificationScreen" 
     component={NotificationScreen} 
     options={{ headerShown: false }} 
 />

@@ -20,6 +20,7 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +58,39 @@ export default function ProfileScreen() {
   const handleMenuPress = (screen) => {
     navigation.navigate(screen);
   };
+
+  const handleLogout = () => {
+  Alert.alert(
+    "Logout",
+    "Are you sure you want to logout?",
+    [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await AsyncStorage.multiRemove([
+              "userToken",
+              "userRole",
+            ]);
+
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Login" }],
+            });
+
+          } catch (error) {
+            console.log(error);
+          }
+        },
+      },
+    ]
+  );
+};
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -165,17 +199,20 @@ export default function ProfileScreen() {
         </View>
 
         {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton}>
-          <LinearGradient
-            colors={['#EF4444', '#DC2626']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.logoutGradient}
-          >
-            <Ionicons name="log-out-outline" size={20} color="#fff" />
-            <Text style={styles.logoutText}>Logout</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        <TouchableOpacity
+  style={styles.logoutButton}
+  onPress={handleLogout}
+>
+  <LinearGradient
+    colors={['#EF4444', '#DC2626']}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 0 }}
+    style={styles.logoutGradient}
+  >
+    <Ionicons name="log-out-outline" size={20} color="#fff" />
+    <Text style={styles.logoutText}>Logout</Text>
+  </LinearGradient>
+</TouchableOpacity>
       </ScrollView>
 
       {/* Edit Profile Modal */}
