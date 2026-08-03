@@ -26,7 +26,7 @@ export default function FollowUpScreen({ route, navigation }) {
   const { language } = useContext(LanguageContext);
   const colorScheme = useColorScheme();
   const isDarkMode = colorScheme === 'dark';
-  
+
   const [questionData, setQuestionData] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ export default function FollowUpScreen({ route, navigation }) {
   const [progress, setProgress] = useState(0);
   const [expandedSections, setExpandedSections] = useState({});
   const [showSummaryScreen, setShowSummaryScreen] = useState(false);
-  
+
   // Location picker states
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -142,19 +142,19 @@ export default function FollowUpScreen({ route, navigation }) {
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       };
-      
+
       setCurrentRegion(newRegion);
       setSelectedLocation(newRegion);
-      
+
       // Reverse geocode to get address
       const [address] = await Location.reverseGeocodeAsync({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
       });
-      
+
       const formattedAddress = `${address.street || ''} ${address.streetNumber || ''}, ${address.city || ''}, ${address.region || ''}`;
       setLocationAddress(formattedAddress);
-      
+
       if (mapRef.current) {
         mapRef.current.animateToRegion(newRegion, 1000);
       }
@@ -178,7 +178,7 @@ export default function FollowUpScreen({ route, navigation }) {
         latitude: coordinate.latitude,
         longitude: coordinate.longitude,
       });
-      
+
       const formattedAddress = `${address.street || ''} ${address.streetNumber || ''}, ${address.city || ''}, ${address.region || ''}`.trim();
       setLocationAddress(formattedAddress || `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`);
     } catch (error) {
@@ -221,26 +221,41 @@ export default function FollowUpScreen({ route, navigation }) {
       const payload = {
         session_id: sessionId,
         answer_key: questionData.answer_key,
-        answer: finalAnswer || "skipped",
+        // If the answer is a location object, send only the address string.
+        // Include latitude and longitude as extra fields for backend use if needed.
+        answer: typeof finalAnswer === 'object' && finalAnswer !== null ? finalAnswer.address : finalAnswer,
         app_lan: language === "si" ? "si" : "en",
+        ...(typeof finalAnswer === 'object' && finalAnswer !== null ? { lat: finalAnswer.lat, lng: finalAnswer.lng } : {}),
       };
 
       const endpoint = source === "image"
         ? "http://10.0.2.2:8000/flow/next"
         : "http://10.0.2.2:5002/text-chat";
 
-      const res = await fetch(endpoint, {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        // Try parsing JSON from a fresh clone of the response
+        data = await response.clone().json();
+      } catch (e) {
+        // If JSON parsing fails, read the original response as text
+        const raw = await response.text();
+        console.warn('Non‑JSON response from server:', raw);
+        Alert.alert('Server error', 'Unable to parse response. Please try again later.');
+        setLoading(false);
+        return;
+      }
 
       console.log("Response:", data);
 
       // ✅ SHOW SUMMARY SCREEN
-      if (data.final_decision) {
+      // The backend now returns the final result under `summary` rather than `final_decision`.
+      if (data.summary) {
         setQuestionData(null);
         setFinalDecision(data);
         setShowSummaryScreen(true);
@@ -254,10 +269,13 @@ export default function FollowUpScreen({ route, navigation }) {
         setQuestionData(nextQ);
         setSelectedOption(null);
         setProgress(prev => Math.min(prev + 20, 90));
+        // Reset loading state after handling response
+        setLoading(false);
       }
 
     } catch (err) {
       console.error("ERROR:", err);
+      setLoading(false);
     }
   };
 
@@ -297,15 +315,15 @@ export default function FollowUpScreen({ route, navigation }) {
         <ScrollView style={[styles.container, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
           {/* Final Decision Card */}
           <View style={styles.finalDecisionCard}>
-            <Text style={styles.finalDecisionText}>{finalDecision.summary}</Text>
+            <Text style={styles.finalDecisionText}>{finalDecision.summary?.brief_description}</Text>
           </View>
 
           {/* Response Timeline */}
           <View style={styles.timelineSection}>
             <Text style={[styles.sectionTitle, { color: isDarkMode ? '#F9FAFB' : '#1F2937' }]}>Responses</Text>
-            
+
             {userAnswers.map((item, index) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 key={index}
                 style={[styles.timelineItem, { borderBottomColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
                 onPress={() => toggleSection(index)}
@@ -318,13 +336,13 @@ export default function FollowUpScreen({ route, navigation }) {
                   <Text style={[styles.timelineQuestion, { color: isDarkMode ? '#F9FAFB' : '#1F2937' }]}>
                     {item.question}
                   </Text>
-                  
+
                   {expandedSections[index] && (
                     <View style={[styles.expandedContent, { borderTopColor: isDarkMode ? '#374151' : '#F3F4F6' }]}>
                       <Text style={[styles.answerText, { color: isDarkMode ? '#D1D5DB' : '#1F2937' }]}>{item.answer}</Text>
                     </View>
                   )}
-                  
+
                   {!expandedSections[index] && item.answer !== "Skipped" && (
                     <Text style={[styles.previewAnswer, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]} numberOfLines={1}>
                       {item.answer}
@@ -336,7 +354,7 @@ export default function FollowUpScreen({ route, navigation }) {
           </View>
 
           {/* Proceed Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.primaryButton}
             onPress={navigateToProviders}
           >
@@ -383,7 +401,7 @@ export default function FollowUpScreen({ route, navigation }) {
           </View>
 
           {/* Location Picker Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.locationPickerButton, { backgroundColor: isDarkMode ? '#374151' : '#F3F4F6', borderColor: isDarkMode ? '#4B5563' : '#E5E7EB' }]}
             onPress={() => setShowLocationPicker(true)}
           >
@@ -404,8 +422,6 @@ export default function FollowUpScreen({ route, navigation }) {
                 rankby: "distance",
                 type: "establishment",
               }}
-              currentLocation={true}
-              currentLocationLabel="Use current location"
               query={{
                 key: "YOUR_GOOGLE_MAPS_API_KEY",
                 language: "en",
@@ -449,14 +465,28 @@ export default function FollowUpScreen({ route, navigation }) {
           </View>
 
           <View style={styles.navigationButtons}>
-            <TouchableOpacity style={styles.backBtn}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
               <Text style={[styles.backBtnText, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]}>← Back</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.nextBtn}
-              onPress={() => handleAnswer()}
+              style={[styles.nextBtn, (selectedLocation || selectedOption) && styles.nextBtnActive]}
+              onPress={() => {
+                if (selectedLocation) {
+                  // Submit selected location as answer
+                  handleAnswer({
+                    address: locationAddress,
+                    lat: selectedLocation.latitude,
+                    lng: selectedLocation.longitude,
+                  });
+                } else {
+                  // No location selected, treat as skip
+                  handleAnswer();
+                }
+              }}
             >
-              <Text style={styles.nextBtnText}>Skip</Text>
+              <Text style={styles.nextBtnText}>
+                {selectedLocation ? "Next" : (selectedOption ? "Next" : "Skip")}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -468,7 +498,7 @@ export default function FollowUpScreen({ route, navigation }) {
           >
             <SafeAreaView style={[styles.modalContainer, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
               <View style={[styles.modalHeader, { borderBottomColor: isDarkMode ? '#4B5563' : '#E5E7EB', backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => setShowLocationPicker(false)}
                   style={styles.modalCloseButton}
                 >
@@ -510,7 +540,7 @@ export default function FollowUpScreen({ route, navigation }) {
               </MapView>
 
               <View style={styles.locationControls}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.currentLocationButton, { backgroundColor: isDarkMode ? '#374151' : '#fff', borderColor: isDarkMode ? '#4B5563' : '#E5E7EB' }]}
                   onPress={getCurrentLocation}
                 >
@@ -523,7 +553,7 @@ export default function FollowUpScreen({ route, navigation }) {
                 <View style={[styles.locationDetails, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
                   <Text style={[styles.selectedAddressLabel, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]}>Selected Address:</Text>
                   <Text style={[styles.selectedAddress, { color: isDarkMode ? '#F9FAFB' : '#1F2937' }]}>{locationAddress}</Text>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.confirmButton}
                     onPress={confirmLocation}
                   >
@@ -557,7 +587,7 @@ export default function FollowUpScreen({ route, navigation }) {
           </View>
         </View>
 
-        <ScrollView 
+        <ScrollView
           style={styles.optionsSection}
           showsVerticalScrollIndicator={false}
         >
