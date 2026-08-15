@@ -1,3 +1,4 @@
+export const IP_ADDRESS = '192.168.1.38';
 export const IP_ADDRESS = '192.168.1.22';
 
 export const CONFIG = {
