@@ -4,10 +4,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
+import { useAuth } from '../context/AuthContext';
 
 const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 
 export default function LoginScreen({ navigation }) {
+  const { saveUser } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -30,9 +32,20 @@ export default function LoginScreen({ navigation }) {
         }
       });
 
-      // On Success, save JWT and Role
+      const userProfile = {
+        id: response.data.user?.id || response.data.userId,
+        name: response.data.user?.name || response.data.name || email.split('@')[0],
+        email: response.data.user?.email || email,
+        phone: response.data.user?.telephone || response.data.user?.phone || '',
+        location: response.data.user?.district || response.data.user?.location || 'Colombo, Sri Lanka',
+        avatar: response.data.user?.profilePicture || response.data.user?.avatar || 'https://i.pravatar.cc/150?img=7',
+        role: response.data.role || 'Seeker',
+        profileImage: response.data.user?.profilePicture || response.data.user?.avatar || 'https://i.pravatar.cc/150?img=7',
+      };
+
       await AsyncStorage.setItem('userToken', response.data.token);
       await AsyncStorage.setItem('userRole', response.data.role);
+      await saveUser(userProfile);
 
       Alert.alert('Success', 'Logged in successfully!');
       navigation.replace('Home');

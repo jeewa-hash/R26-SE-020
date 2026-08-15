@@ -105,10 +105,14 @@ export default function FeedScreen({
 
           userName:
             post.userName ||
+            post.name ||
+            post.createdBy?.name ||
             'Customer',
 
           userAvatar:
             post.userAvatar ||
+            post.profileImage ||
+            post.avatar ||
             'https://randomuser.me/api/portraits/lego/1.jpg',
 
           timeAgo: formatTimeAgo(
