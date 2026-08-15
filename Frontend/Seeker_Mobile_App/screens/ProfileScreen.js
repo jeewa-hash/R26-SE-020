@@ -21,27 +21,40 @@ import { LinearGradient } from 'expo-linear-gradient';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { isDarkMode } = useTheme();
+  const { user, logout } = useAuth();
   const [showEditModal, setShowEditModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   
   const [userData, setUserData] = useState({
-    name: "Tashmi Perera",
-    email: "tashmi.perera@example.com",
-    phone: "+94 77 123 4567",
-    location: "Colombo, Sri Lanka",
+    name: user?.name || "User",
+    email: user?.email || "",
+    phone: user?.phone || user?.telephone || "",
+    location: user?.location || "Colombo, Sri Lanka",
     memberSince: "January 2024",
-    avatar: "https://i.pravatar.cc/150?img=7",
+    avatar: user?.avatar || user?.profileImage || "https://i.pravatar.cc/150?img=7",
     starPoints: 1250,
     rating: 4.8,
     totalServices: 24,
     totalReviews: 128,
   });
+
+  useEffect(() => {
+    setUserData((current) => ({
+      ...current,
+      name: user?.name || current.name,
+      email: user?.email || current.email,
+      phone: user?.phone || user?.telephone || current.phone,
+      location: user?.location || current.location,
+      avatar: user?.avatar || user?.profileImage || current.avatar,
+    }));
+  }, [user]);
 
   // Menu items
   const menuItems = [
@@ -73,10 +86,7 @@ export default function ProfileScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await AsyncStorage.multiRemove([
-              "userToken",
-              "userRole",
-            ]);
+            await logout();
 
             navigation.reset({
               index: 0,
