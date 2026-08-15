@@ -8,7 +8,7 @@ import { Server } from "socket.io";
 import postRoutes from "./routes/postRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import chatSocket from "./sockets/chatSocket.js";
-
+import feedbackRoutes from "./routes/feedbackRoutes.js";
 dotenv.config();
 
 const app = express();
@@ -22,8 +22,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static("uploads"));
 
 // routes
-app.use("/", postRoutes);
+app.use("/posts", postRoutes);
 app.use("/chat", chatRoutes);
+app.use("/feedback", feedbackRoutes);
 
 // HTTP + SOCKET SERVER
 const httpServer = createServer(app);

@@ -1,6 +1,7 @@
-import pymongo
+# pyrefly: ignore [missing-import]
+import pymongo  # type: ignore
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # type: ignore
 
 load_dotenv()
 
@@ -58,7 +59,9 @@ class SessionProxy:
             "category": self.data.get("category"),
             "object": self.data.get("object"),
             "answers": self.data.get("answers", {}),
-            "confidence": self.data.get("confidence")
+            "confidence": self.data.get("confidence"),
+            "user_name": self.data.get("user_name") or self.data.get("userName"),
+            "user_id": self.data.get("user_id") or self.data.get("userId")
         }
 
 db_manager = DBAdapter()

@@ -1,45 +1,20 @@
 import csv
 import os
-import random
-from collections import defaultdict
+import sys
+
+# Ensure parent directory (Ml_Service) is in sys.path
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PARENT_DIR = os.path.abspath(os.path.join(BASE_DIR, ".."))
+if PARENT_DIR not in sys.path:
+    sys.path.insert(0, PARENT_DIR)
+
 from joblib import dump
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
 
 from utils.preprocess import normalize_text
-TARGET_PER_SUBSERVICE = 80
-RANDOM_SEED = 42
-
-TEXT_PREFIXES = [
-    "need",
-    "please",
-    "can you",
-    "i want",
-    "looking for",
-    "urgent",
-    "plz",
-]
-
-TEXT_SUFFIXES = [
-    "today",
-    "soon",
-    "for my home",
-    "for my place",
-    "asap",
-    "",
-]
-
-TYPO_MAP = {
-    "cleaning": "clening",
-    "kitchen": "kichen",
-    "bathroom": "bathrom",
-    "garden": "gardan",
-    "maintenance": "maintaince",
-    "child": "chlid",
-    "elderly": "eldery",
-    "support": "suport",
-    "service": "servis",
-}
 
 
 def _read_dataset(csv_path):
@@ -50,99 +25,106 @@ def _read_dataset(csv_path):
             text = (row.get("text") or "").strip()
             service = (row.get("service") or "").strip()
             sub_service = (row.get("sub_service") or "").strip()
+
             if text and service and sub_service:
                 rows.append((normalize_text(text), service, sub_service))
+
     return rows
 
 
-def _inject_typo(text):
-    words = text.split()
-    if not words:
-        return text
-    idx = random.randrange(len(words))
-    replacement = TYPO_MAP.get(words[idx], words[idx])
-    words[idx] = replacement
-    return " ".join(words)
-
-
-def _variant_phrases(base):
-    variants = {
-        base,
-        f"{random.choice(TEXT_PREFIXES)} {base}",
-        f"{base} {random.choice(TEXT_SUFFIXES)}".strip(),
-        f"{random.choice(TEXT_PREFIXES)} {base} {random.choice(TEXT_SUFFIXES)}".strip(),
-    }
-    # Add one low-literacy/noisy variant
-    variants.add(_inject_typo(base))
-    return {normalize_text(v) for v in variants if v.strip()}
-
-
-def _expand_rows(rows, target_per_subservice=TARGET_PER_SUBSERVICE):
-    grouped = defaultdict(list)
-    for text, service, sub_service in rows:
-        grouped[sub_service].append((text, service, sub_service))
-
-    expanded = []
-    for sub_service, samples in grouped.items():
-        service = samples[0][1]
-        unique_texts = {s[0] for s in samples}
-        pool = set(unique_texts)
-
-        # Generate paraphrase-like variants until target count.
-        base_texts = list(unique_texts)
-        while len(pool) < target_per_subservice:
-            base = random.choice(base_texts)
-            for variant in _variant_phrases(base):
-                pool.add(variant)
-                if len(pool) >= target_per_subservice:
-                    break
-
-        selected = sorted(pool)[:target_per_subservice]
-        expanded.extend((txt, service, sub_service) for txt in selected)
-
-    return expanded
-
-
-def _write_expanded_dataset(path, rows):
-    with open(path, "w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["text", "service", "sub_service"])
-        for text, service, sub_service in rows:
-            writer.writerow([text, service, sub_service])
-
-
 def train_and_save():
-    random.seed(RANDOM_SEED)
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    dataset_path = os.path.join(base_dir, "data", "text_dataset.csv")
+
+    # =========================
+    # USE EXPANDED DATASET
+    # =========================
+    dataset_path = os.path.join(base_dir, "data", "text_dataset_expanded.csv")
+
     rows = _read_dataset(dataset_path)
+
     if not rows:
-        raise ValueError("Dataset is empty. Add rows to text_service/data/text_dataset.csv")
+        raise ValueError("Dataset is empty. Add data to text_dataset_expanded.csv")
 
-    expanded_rows = _expand_rows(rows, target_per_subservice=TARGET_PER_SUBSERVICE)
-    expanded_csv = os.path.join(base_dir, "data", "text_dataset_expanded.csv")
-    _write_expanded_dataset(expanded_csv, expanded_rows)
+    print("--------------------------------")
+    print("Dataset Loaded Successfully")
+    print(f"Total samples: {len(rows)}")
+    print("--------------------------------")
 
-    texts = [r[0] for r in expanded_rows]
-    service_labels = [r[1] for r in expanded_rows]
-    sub_service_labels = [r[2] for r in expanded_rows]
+    # =========================
+    # PREPARE DATA
+    # =========================
+    texts = [r[0] for r in rows]
+    service_labels = [r[1] for r in rows]
+    sub_service_labels = [r[2] for r in rows]
 
-    vectorizer = TfidfVectorizer(ngram_range=(1, 2), lowercase=True)
-    x = vectorizer.fit_transform(texts)
+    # =========================
+    # TF-IDF FEATURE EXTRACTION
+    # =========================
+    vectorizer = TfidfVectorizer(
+        ngram_range=(1, 3),
+        sublinear_tf=True,
+        lowercase=True,
+        min_df=1
+    )
 
-    service_model = LogisticRegression(max_iter=1200)
-    sub_service_model = LogisticRegression(max_iter=1200)
-    service_model.fit(x, service_labels)
-    sub_service_model.fit(x, sub_service_labels)
+    X_all = vectorizer.fit_transform(texts)
+    print("Text Vectorization Completed (1-3 ngrams, sublinear TF)")
 
+    # =========================
+    # EVALUATION ON TRAIN/TEST SPLIT
+    # =========================
+    print("\n================ EVALUATION ON HELD-OUT TEST SET (20%) ================")
+    
+    # 1. Service Model Evaluation
+    X_tr_s, X_te_s, y_tr_s, y_te_s = train_test_split(
+        X_all, service_labels, test_size=0.20, random_state=42, stratify=service_labels
+    )
+    eval_service_model = LogisticRegression(max_iter=1500, C=2.0)
+    eval_service_model.fit(X_tr_s, y_tr_s)
+    service_preds = eval_service_model.predict(X_te_s)
+    service_acc = accuracy_score(y_te_s, service_preds)
+    print(f"Main Service Model Accuracy: {service_acc * 100:.2f}%")
+    print("Service Classification Report:")
+    print(classification_report(y_te_s, service_preds, digits=4))
+
+    # 2. Sub-Service Model Evaluation
+    X_tr_sub, X_te_sub, y_tr_sub, y_te_sub = train_test_split(
+        X_all, sub_service_labels, test_size=0.20, random_state=42, stratify=sub_service_labels
+    )
+    eval_sub_model = LogisticRegression(max_iter=1500, C=2.0)
+    eval_sub_model.fit(X_tr_sub, y_tr_sub)
+    sub_preds = eval_sub_model.predict(X_te_sub)
+    sub_acc = accuracy_score(y_te_sub, sub_preds)
+    print(f"Sub-Service Model Accuracy: {sub_acc * 100:.2f}%")
+    print("Sub-Service Classification Report:")
+    print(classification_report(y_te_sub, sub_preds, digits=4))
+
+    # =========================
+    # TRAIN ON FULL DATASET
+    # =========================
+    print("\n--------------------------------")
+    print("Training Final Models on Full Dataset...")
+    
+    service_model = LogisticRegression(max_iter=1500, C=2.0)
+    service_model.fit(X_all, service_labels)
+
+    sub_service_model = LogisticRegression(max_iter=1500, C=2.0)
+    sub_service_model.fit(X_all, sub_service_labels)
+
+    # =========================
+    # SAVE MODELS
+    # =========================
     models_dir = os.path.join(base_dir, "..", "models")
     os.makedirs(models_dir, exist_ok=True)
+
     dump(vectorizer, os.path.join(models_dir, "text_vectorizer.joblib"))
     dump(service_model, os.path.join(models_dir, "text_service_model.joblib"))
     dump(sub_service_model, os.path.join(models_dir, "text_subservice_model.joblib"))
-    print(f"Saved text models to: {models_dir}")
-    print(f"Expanded dataset saved: {expanded_csv}")
-    print(f"Total expanded samples: {len(expanded_rows)}")
+
+    print("--------------------------------")
+    print("[OK] Training Completed Successfully")
+    print(f"Models saved in: {models_dir}")
+    print("--------------------------------")
 
 
 if __name__ == "__main__":
