@@ -1,7 +1,8 @@
-import tensorflow as tf
-from tensorflow.keras.applications import EfficientNetB0
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, Input, BatchNormalization
-from tensorflow.keras.models import Model
+# pyrefly: ignore [missing-import]
+import tensorflow as tf  # type: ignore
+from tensorflow.keras.applications import EfficientNetB0  # type: ignore
+from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout, Input, BatchNormalization  # type: ignore
+from tensorflow.keras.models import Model  # type: ignore
 
 def build_repair_model(num_classes=4):
     # 1. Define input (RGB - 3 channels)

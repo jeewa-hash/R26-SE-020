@@ -5,55 +5,88 @@ import { upload } from "../middleware/upload.js";
 import {
   getPosts,
   getPostById,
+  getPostsByUserId,
   previewPost,
   publishPost,
   updatePost,
   deletePost,
 } from "../controllers/postController.js";
 
+
 const router = express.Router();
+
 
 // =======================================================
 // GET ALL POSTS
 // =======================================================
-router.get("/", getPosts);
+
+router.get(
+  "/",
+  getPosts
+);
+
+
+// =======================================================
+// GET POSTS BY USER ID
+// IMPORTANT:
+// This MUST be before /:id
+// =======================================================
+
+router.get(
+  "/user/:userId",
+  getPostsByUserId
+);
+
 
 // =======================================================
 // GET SINGLE POST
 // =======================================================
-router.get("/:id", getPostById);
+
+router.get(
+  "/:id",
+  getPostById
+);
+
 
 // =======================================================
 // PREVIEW POST WITH GEMINI
-// Upload image + AI generates content
-// NOT SAVED YET
 // =======================================================
+
 router.post(
   "/preview",
   upload.single("image"),
   previewPost
 );
 
+
 // =======================================================
-// FINAL PUBLISH POST
-// User confirms AI result
+// PUBLISH FINAL POST
 // =======================================================
+
 router.post(
   "/publish",
   publishPost
 );
 
+
 // =======================================================
 // UPDATE POST
 // =======================================================
-router.put("/update/:id", updatePost);
+
+router.put(
+  "/update/:id",
+  updatePost
+);
+
 
 // =======================================================
 // DELETE POST
 // =======================================================
+
 router.delete(
   "/delete/:id",
   deletePost
 );
+
 
 export default router;
