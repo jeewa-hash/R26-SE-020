@@ -69,7 +69,7 @@ exports.register = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: role || 'Seeker',
+      role: 'Seeker',
       nicNumber,
       telephone,
       district,

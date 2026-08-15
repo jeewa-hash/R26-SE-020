@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const ServiceCategory = require('../models/ServiceCategory');
 const axios = require('axios');
 
-const AUTH_SERVICE_URL = 'http://127.0.0.1:4000/api/auth';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:4003';
 
 const logAudit = async (req, action, target) => {
   try {
