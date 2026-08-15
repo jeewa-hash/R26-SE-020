@@ -13,6 +13,7 @@ import { LanguageContext } from '../context/LanguageContext';
 import { getSlideshowData } from '../data/seasonalData';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/BottomNav';
+import { useAuth } from '../context/AuthContext';
 
 // Safe check for Legacy Architecture on Android to avoid New Architecture warnings
 if (
@@ -187,8 +188,9 @@ const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload })
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { language } = useContext(LanguageContext);
+  const { user } = useAuth();
 
-  const [user, setUser] = useState(null);
+  const [userState, setUserState] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -196,12 +198,12 @@ export default function HomeScreen() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const navigation = useNavigation();
 
-  // Defined loadUserDetails with useCallback to prevent reference errors & unnecessary re-renders
   const loadUserDetails = useCallback(async () => {
     try {
       const userData = await AsyncStorage.getItem('user');
       if (userData) {
-        setUser(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData);
+        setUserState(parsedUser);
       }
     } catch (error) {
       console.log("Error loading user:", error);
@@ -225,6 +227,8 @@ export default function HomeScreen() {
     const intervalId = setInterval(fetchUnreadCount, 15000);
     return () => clearInterval(intervalId);
   }, [loadUserDetails, fetchUnreadCount]);
+
+  const displayUser = user || userState;
 
   const toggleExpand = (id) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -358,7 +362,7 @@ export default function HomeScreen() {
             <View style={styles.headerLeft}>
               <Text style={styles.greeting}>{t('good_morning')}</Text>
               <Text style={styles.userName}>
-                {user?.name ? `${user.name} 👋` : "User 👋"}
+                {displayUser?.name ? `${displayUser.name} 👋` : "User 👋"}
               </Text>
               <Text style={styles.subGreeting}>{t('what_help_today')}</Text>
             </View>
@@ -382,9 +386,7 @@ export default function HomeScreen() {
               <TouchableOpacity style={styles.profileBtn} onPress={handleProfilePress}>
                 <Image
                   source={{
-                    uri: user?.profileImage 
-                      ? user.profileImage 
-                      : 'https://i.pravatar.cc/150?img=7'
+                    uri: displayUser?.profileImage || displayUser?.avatar || 'https://i.pravatar.cc/150?img=7'
                   }}
                   style={styles.profilePic}
                 />

@@ -1,39 +1,64 @@
+import sys
+import os
 import tensorflow as tf
 import numpy as np
 from tensorflow.keras.preprocessing import image
-import os
+
+# Matches flow_from_directory order (alphabetical folder names under train/val)
+CATEGORIES = ["electrical", "furniture", "other", "plumbing"]
+
 
 def predict_repair_category(img_path, model_path):
-    # 1. Load the trained model
-    model = tf.keras.models.load_model(model_path)
-    
-    # 2. Preprocess the image to match training format
+    model = tf.keras.models.load_model(model_path, compile=False)
+
     img = image.load_img(img_path, target_size=(224, 224))
     img_array = image.img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)
-    img_array /= 255.0  # Normalization
+    img_array /= 255.0
 
-    # 3. Predict
-    predictions = model.predict(img_array)
-    categories = ['Electrical', 'Furniture', 'Plumbing']
-    
-    result_index = np.argmax(predictions[0])
-    confidence = predictions[0][result_index]
+    predictions = model.predict(img_array, verbose=0)
+    result_index = int(np.argmax(predictions[0]))
+    confidence = float(predictions[0][result_index])
 
-    return categories[result_index], confidence
+    return CATEGORIES[result_index], confidence
+
+
+def find_default_sample_image(base_dir):
+    val_dir = os.path.join(base_dir, "data", "processed", "val")
+    if not os.path.isdir(val_dir):
+        return None
+    for root, _, files in os.walk(val_dir):
+        for name in sorted(files):
+            if name.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                return os.path.join(root, name)
+    return None
+
 
 if __name__ == "__main__":
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    MODEL_PATH = os.path.join(BASE_DIR, 'models', 'repair_model_v1.h5')
-    
-    # Path to an image you want to test
-    # Example: Place a photo of a broken chair in your test folder
-    TEST_IMAGE = os.path.join(BASE_DIR, 'data', 'processed', 'test', 'test_sample.jpg')
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.dirname(current_dir)
+    model_path = os.path.join(base_dir, "models", "repair_model_v1.h5")
 
-    if os.path.exists(TEST_IMAGE):
-        label, conf = predict_repair_category(TEST_IMAGE, MODEL_PATH)
-        print(f"\n--- Result ---")
-        print(f"Predicted Category: {label}")
-        print(f"Confidence Score: {conf*100:.2f}%")
+    if len(sys.argv) > 1:
+        test_image = os.path.abspath(sys.argv[1])
     else:
-        print(f"Error: Could not find image at {TEST_IMAGE}")
+        test_image = find_default_sample_image(base_dir)
+
+    if not test_image or not os.path.isfile(test_image):
+        print("Usage: python predict.py [path/to/image.jpg]")
+        print("No image found. Pass a file path or add images under data/processed/val/.")
+        sys.exit(1)
+
+    if not os.path.isfile(model_path):
+        print(f"Error: Model not found at {model_path}")
+        sys.exit(1)
+
+    label, conf = predict_repair_category(test_image, model_path)
+    print()
+    print("=" * 20)
+    print("   DETECTION RESULT   ")
+    print("=" * 20)
+    print(f"Image:      {test_image}")
+    print(f"Category:   {label}")
+    print(f"Confidence: {conf * 100:.2f}%")
+    print("=" * 20)

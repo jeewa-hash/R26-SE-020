@@ -259,6 +259,157 @@ exports.clearAllNotifications = async (req, res) => {
   }
 };
 
+// Match providers from an existing model output payload
+const normalize = (value) => String(value ?? '').trim().toLowerCase();
+const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusKm * c;
+};
+
+exports.matchProvidersFromModelOutput = async (req, res) => {
+  try {
+    const requestPayload = req.body || {};
+    const summary = requestPayload.summary || requestPayload;
+    const providerMatching = summary.provider_matching || requestPayload.provider_matching || {};
+    const criteria = providerMatching.criteria || {};
+
+    const stepBreakdown = Array.isArray(summary.step_breakdown) ? summary.step_breakdown : [];
+    const addressFromBreakdown = stepBreakdown.find((item) => {
+      const label = String(item?.label || '').toLowerCase();
+      return label.includes('address') || label.includes('location');
+    })?.answer;
+
+    const serviceCategory = normalize(criteria.service_category || summary.detected_category || summary.service_category);
+    const urgencyLevel = normalize(criteria.urgency_level || summary.urgency_level || '');
+    const serviceLocation = normalize(criteria.service_location || addressFromBreakdown || summary.location_summary || '');
+    const providerTags = Array.isArray(criteria.provider_tags)
+      ? criteria.provider_tags.map((tag) => normalize(tag))
+      : [];
+
+    const gps = requestPayload.gps || summary.gps || null;
+    const requestedLat = Number(gps?.lat ?? requestPayload.latitude ?? summary.latitude);
+    const requestedLng = Number(gps?.lng ?? requestPayload.longitude ?? summary.longitude);
+
+    const matchingQuery = {
+      role: 'ServiceProvider',
+      isVerified: true,
+      isBlocked: false,
+    };
+
+    if (serviceCategory) {
+      matchingQuery.category = { $regex: serviceCategory, $options: 'i' };
+    }
+
+    const providers = await Provider.find(matchingQuery).select('-password -__v');
+
+    const rankedProviders = providers
+      .map((provider) => {
+        const providerCategory = normalize(provider.category);
+        const providerDistrict = normalize(provider.district || provider.address || '');
+        const providerLocation = provider.location || {};
+        const providerTagSet = [provider.category, provider.district, provider.address]
+          .filter(Boolean)
+          .map((tag) => normalize(tag));
+
+        let score = 0;
+        const reasons = [];
+
+        if (serviceCategory && providerCategory.includes(serviceCategory)) {
+          score += 60;
+          reasons.push('category match');
+        } else if (providerCategory) {
+          score += 20;
+          reasons.push('related provider category');
+        }
+
+        if (serviceLocation && providerDistrict.includes(serviceLocation)) {
+          score += 25;
+          reasons.push('district/location match');
+        } else if (providerDistrict) {
+          score += 10;
+          reasons.push('provider location profile available');
+        }
+
+        if (urgencyLevel.includes('urgent') || urgencyLevel.includes('high')) {
+          score += 8;
+          reasons.push('high-priority handling');
+        } else {
+          score += 4;
+        }
+
+        const overlap = providerTags.filter((tag) => providerTagSet.includes(tag));
+        if (overlap.length > 0) {
+          score += overlap.length * 5;
+          reasons.push('tag overlap');
+        }
+
+        let distanceKm = null;
+        if (
+          requestedLat &&
+          requestedLng &&
+          providerLocation.latitude &&
+          providerLocation.longitude
+        ) {
+          distanceKm = calculateDistanceKm(
+            requestedLat,
+            requestedLng,
+            providerLocation.latitude,
+            providerLocation.longitude
+          );
+
+          if (distanceKm <= 5) {
+            score += 15;
+            reasons.push('nearby provider');
+          } else if (distanceKm <= 15) {
+            score += 8;
+            reasons.push('regional provider');
+          }
+        }
+
+        return {
+          providerId: provider._id,
+          email: provider.email,
+          name: provider.email?.split('@')[0] || 'Service Provider',
+          category: provider.category,
+          district: provider.district,
+          address: provider.address,
+          telephone: provider.telephone,
+          bio: provider.bio,
+          profileImage: provider.profileImage,
+          matchScore: score,
+          reasons,
+          distanceKm: distanceKm ? Number(distanceKm.toFixed(2)) : null,
+        };
+      })
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, 10);
+
+    return res.status(200).json({
+      success: true,
+      criteria: {
+        service_category: serviceCategory || criteria.service_category,
+        urgency_level: urgencyLevel || criteria.urgency_level,
+        service_location: serviceLocation || criteria.service_location,
+        detected_object: summary.detected_object || criteria.detected_object || null,
+      },
+      totalProviders: rankedProviders.length,
+      availableProviders: rankedProviders,
+      bestProvider: rankedProviders[0] || null,
+    });
+  } catch (err) {
+    console.error('[ProviderMatch] Error:', err.message);
+    return res.status(500).json({ message: 'Failed to match providers for the request' });
+  }
+};
+
 //get user profile by ID
 exports.getProfile = async (req, res) => {
   try {

@@ -22,6 +22,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LanguageContext } from '../context/LanguageContext';
 
 const { width } = Dimensions.get('window');
@@ -167,6 +168,9 @@ export default function CreatePostScreen() {
       return;
     }
 
+    const loggedUser = await AsyncStorage.getItem('user');
+    const loggedUserData = loggedUser ? JSON.parse(loggedUser) : null;
+
     // For NEW post: we must have generated a preview (which provides the server image path)
     // For EDIT post: we may have original image path, or a new preview (if user uploaded new image)
     let finalImagePath = null;
@@ -198,6 +202,9 @@ export default function CreatePostScreen() {
         category: previewData?.category || 'General',
         urgency: previewData?.urgency || 'medium',
         tags: previewData?.tags || [],
+        userId: loggedUserData?.id || loggedUserData?._id || null,
+        userName: loggedUserData?.name || 'Customer',
+        userAvatar: loggedUserData?.profileImage || loggedUserData?.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg',
       };
 
       let url = `${API_BASE_URL}/posts/publish`;

@@ -244,3 +244,29 @@ exports.clearNotifications = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// =======================================================
+// GET USER BY ID
+// =======================================================
+
+exports.getUserById = async (req, res) => {
+  try {
+    const user = await Seeker.findById(req.params.id)
+      .select('-password -otp -otpExpires');
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'User not found'
+      });
+    }
+
+    res.status(200).json(user);
+
+  } catch (err) {
+    console.error('GET USER BY ID ERROR:', err.message);
+
+    res.status(500).json({
+      message: 'Server error'
+    });
+  }
+};

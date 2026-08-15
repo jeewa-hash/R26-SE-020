@@ -51,6 +51,7 @@ import './i18n';
 import { LanguageProvider } from './context/LanguageContext';
 import { loadLanguage } from './i18n';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider } from './context/AuthContext';
 const Stack = createStackNavigator();
 function AppNavigator({ initialRouteName }) {
   const { t } = useTranslation();
@@ -276,9 +277,11 @@ export default function App() {
     <LanguageProvider>
       <ChatProvider>
         <ThemeProvider>
-          <NavigationContainer>
-            <AppNavigator initialRouteName={initialRouteName} />
-          </NavigationContainer>
+          <AuthProvider>
+            <NavigationContainer>
+              <AppNavigator initialRouteName={initialRouteName} />
+            </NavigationContainer>
+          </AuthProvider>
         </ThemeProvider>
       </ChatProvider>
     </LanguageProvider>

@@ -41,6 +41,7 @@ const upload = multer({
 router.post('/generate-bio', providerAuthController.generateBio);
 router.post('/register', upload.fields([{ name: 'nicImage', maxCount: 1 }, { name: 'profileImage', maxCount: 1 }]), providerAuthController.register);
 router.post('/login', providerAuthController.login);
+router.post('/match-providers', providerAuthController.matchProvidersFromModelOutput);
 
 // Public route to fetch all service categories
 router.get('/categories', async (req, res) => {

@@ -187,6 +187,22 @@ export default function FollowUpScreen({ route, navigation }) {
     }
   };
 
+  // Ensure an answer is always a displayable string
+  const formatAnswer = (ans) => {
+    if (ans === null || ans === undefined) return 'Skipped';
+    if (typeof ans === 'string') return ans;
+    if (typeof ans === 'object') {
+      if (ans.address) return ans.address;
+      if (ans.lat !== undefined && ans.lng !== undefined) return `${ans.lat.toFixed(6)}, ${ans.lng.toFixed(6)}`;
+      try {
+        return JSON.stringify(ans);
+      } catch (e) {
+        return String(ans);
+      }
+    }
+    return String(ans);
+  };
+
   // Confirm location selection
   const confirmLocation = () => {
     if (selectedLocation) {
@@ -204,6 +220,7 @@ export default function FollowUpScreen({ route, navigation }) {
 
   // 🔵 Handle answer with optional skip
   const handleAnswer = async (answer = null) => {
+    setLoading(true);
     try {
       const finalAnswer = answer || selectedOption;
 
@@ -213,7 +230,7 @@ export default function FollowUpScreen({ route, navigation }) {
           ...prev,
           {
             question: questionData.question,
-            answer: finalAnswer?.address || finalAnswer || "Skipped",
+            answer: formatAnswer(finalAnswer),
           }
         ]);
       }
@@ -254,14 +271,14 @@ export default function FollowUpScreen({ route, navigation }) {
       console.log("Response:", data);
 
       // ✅ SHOW SUMMARY SCREEN
-      // The backend now returns the final result under `summary` rather than `final_decision`.
-      if (data.summary) {
-        setQuestionData(null);
-        setFinalDecision(data);
-        setShowSummaryScreen(true);
-        setProgress(100);
-        return;
-      }
+      if (data.success) {
+          setLoading(false);
+          setQuestionData(null);
+          setFinalDecision(data);
+          setShowSummaryScreen(true);
+          setProgress(100);
+          return;
+        }
 
       const nextQ = data.next_question || data.question;
 
@@ -271,6 +288,11 @@ export default function FollowUpScreen({ route, navigation }) {
         setProgress(prev => Math.min(prev + 20, 90));
         // Reset loading state after handling response
         setLoading(false);
+        // Clear selected location and related state to avoid stale UI
+        setSelectedLocation(null);
+        setLocationAddress('');
+        setSelectedOption(null);
+        setShowLocationPicker(false);
       }
 
     } catch (err) {
@@ -309,13 +331,22 @@ export default function FollowUpScreen({ route, navigation }) {
 
   // 🔵 Final Result Screen
   if (finalDecision && showSummaryScreen) {
+    const summaryText =
+      typeof finalDecision.summary === 'string'
+        ? finalDecision.summary
+        : finalDecision.final_decision?.issue_summary
+        || finalDecision.final_decision?.location_summary
+        || finalDecision.summary?.brief_description
+        || finalDecision.request_summary?.description
+        || 'Your service request is ready.';
+
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
         <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={isDarkMode ? '#1F2937' : '#fff'} />
         <ScrollView style={[styles.container, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
           {/* Final Decision Card */}
           <View style={styles.finalDecisionCard}>
-            <Text style={styles.finalDecisionText}>{finalDecision.summary?.brief_description}</Text>
+            <Text style={styles.finalDecisionText}>{summaryText}</Text>
           </View>
 
           {/* Response Timeline */}
@@ -339,13 +370,13 @@ export default function FollowUpScreen({ route, navigation }) {
 
                   {expandedSections[index] && (
                     <View style={[styles.expandedContent, { borderTopColor: isDarkMode ? '#374151' : '#F3F4F6' }]}>
-                      <Text style={[styles.answerText, { color: isDarkMode ? '#D1D5DB' : '#1F2937' }]}>{item.answer}</Text>
+                      <Text style={[styles.answerText, { color: isDarkMode ? '#D1D5DB' : '#1F2937' }]}>{typeof item.answer === 'object' ? formatAnswer(item.answer) : item.answer}</Text>
                     </View>
                   )}
 
                   {!expandedSections[index] && item.answer !== "Skipped" && (
                     <Text style={[styles.previewAnswer, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]} numberOfLines={1}>
-                      {item.answer}
+                      {typeof item.answer === 'object' ? formatAnswer(item.answer) : item.answer}
                     </Text>
                   )}
                 </View>
@@ -429,12 +460,15 @@ export default function FollowUpScreen({ route, navigation }) {
                 region: "lk",
               }}
               onPress={(data, details = null) => {
-                handleAnswer({
+                // Store selected address as answer without immediate submission
+                const answerObj = {
                   address: data.description,
                   placeId: data.place_id,
                   lat: details?.geometry?.location?.lat,
                   lng: details?.geometry?.location?.lng,
-                });
+                };
+                setSelectedOption(answerObj);
+                setLocationAddress(data.description);
               }}
               styles={{
                 container: { flex: 0 },
@@ -460,6 +494,10 @@ export default function FollowUpScreen({ route, navigation }) {
               }}
               textInputProps={{
                 placeholderTextColor: isDarkMode ? '#9CA3AF' : '#9CA3AF',
+                onChangeText: (text) => {
+                  setLocationAddress(text);
+                  setSelectedOption({ address: text });
+                },
               }}
             />
           </View>
@@ -478,6 +516,9 @@ export default function FollowUpScreen({ route, navigation }) {
                     lat: selectedLocation.latitude,
                     lng: selectedLocation.longitude,
                   });
+                } else if (selectedOption) {
+                  // Submit selected address option as answer
+                  handleAnswer(selectedOption);
                 } else {
                   // No location selected, treat as skip
                   handleAnswer();
