@@ -1,8 +1,9 @@
-export const IP_ADDRESS = '192.168.1.22';
-
+export const IP_ADDRESS = '192.168.1.38';
 export const CONFIG = {
     API_BASE_URL: `http://${IP_ADDRESS}:5002`,
 };
 
 // Auth Service URL
 export const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003`;
+
+

@@ -28,7 +28,11 @@ app.use('/admin', adminRoutes);
 app.get('/', (req, res) => res.send('🚀 AuthService is Running!'));
 
 const PORT = process.env.PORT || 4003;
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 AuthService running on: http://0.0.0.0:${PORT}`);
     console.log(`📡 Accessible via network at: http://YOUR_IP:${PORT}`);
 });
+
+// Initialize Socket.io
+const io = require('./utils/socket').init(server);
+app.set('socketio', io);

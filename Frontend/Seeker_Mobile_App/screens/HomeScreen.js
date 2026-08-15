@@ -240,7 +240,7 @@ export default function HomeScreen() {
   };
 
   const handleNotifications = () => {
-    navigation.navigate("NotificationsScreen");
+    navigation.navigate("NotificationScreen");
   };
 
   const handleSubCategoryPress = (subcategory) => {
