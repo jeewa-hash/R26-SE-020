@@ -59,4 +59,7 @@ router.patch('/notifications/read-all', providerAuthController.verifyProvider, p
 router.delete('/notifications', providerAuthController.verifyProvider, providerAuthController.clearAllNotifications);
 router.patch('/notifications/:id/read', providerAuthController.verifyProvider, providerAuthController.markNotificationAsRead);
 
+//get user profile by ID
+router.get('/profile', providerAuthController.verifyProvider, providerAuthController.getProfile);
+
 module.exports = router;

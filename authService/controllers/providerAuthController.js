@@ -255,3 +255,15 @@ exports.clearAllNotifications = async (req, res) => {
     res.status(500).json({ message: 'Server error while clearing notifications' });
   }
 };
+
+//get user profile by ID
+exports.getProfile = async (req, res) => {
+  try {
+    const provider = await Provider.findById(req.user.id).select('-password');
+    if (!provider) return res.status(404).json({ message: 'Provider not found.' });
+    res.status(200).json({ provider });
+  } catch (err) {
+    console.error('[getProfile] Error:', err.message);
+    res.status(500).json({ message: 'Server error while fetching profile.' });
+  }
+};
