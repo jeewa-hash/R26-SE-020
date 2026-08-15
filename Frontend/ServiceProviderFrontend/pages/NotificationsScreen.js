@@ -155,7 +155,7 @@ export default function NotificationScreen({ navigation }) {
           <Text style={[styles.title, !item.isRead && styles.unreadText]}>{item.title}</Text>
           {!item.isRead && <View style={styles.unreadDot} />}
         </View>
-        <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
+        <Text style={styles.message}>{item.message}</Text>
         <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
       </View>
     </TouchableOpacity>

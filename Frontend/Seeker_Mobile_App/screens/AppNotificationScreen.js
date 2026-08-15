@@ -9,7 +9,7 @@ import {
   StatusBar,
   Alert,
 } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
 export default function NotificationsScreen() {
@@ -93,6 +93,46 @@ export default function NotificationsScreen() {
       iconColor: '#FF6B6B',
       action: 'Claim Offer',
     },
+    // ========== QUOTE NOTIFICATIONS ==========
+    {
+      id: 8,
+      type: 'quote',
+      title: 'New Quote Received',
+      message: 'John Miller sent you a quote for HVAC Repair: $180.',
+      time: '5 minutes ago',
+      read: false,
+      icon: 'document-text',
+      iconColor: '#8B5CF6',
+      action: 'View Quote',
+      postId: 'post_456',
+      quoteId: 'quote_123',
+    },
+    {
+      id: 9,
+      type: 'quote',
+      title: 'Quote Accepted',
+      message: 'Your quote for Kitchen Plumbing has been accepted by the customer.',
+      time: '1 hour ago',
+      read: true,
+      icon: 'checkmark-circle',
+      iconColor: '#10B981',
+      action: 'View Quote',
+      postId: 'post_457',
+      quoteId: 'quote_124',
+    },
+    {
+      id: 10,
+      type: 'quote',
+      title: 'Quote Declined',
+      message: 'Your quote for Garden Maintenance was declined.',
+      time: '3 hours ago',
+      read: true,
+      icon: 'close-circle',
+      iconColor: '#EF4444',
+      action: 'See Details',
+      postId: 'post_458',
+      quoteId: 'quote_125',
+    },
   ]);
 
   const handleMarkAsRead = (id) => {
@@ -140,7 +180,7 @@ export default function NotificationsScreen() {
 
   const handleNotificationPress = (notification) => {
     handleMarkAsRead(notification.id);
-    
+
     // Navigate based on notification type
     switch (notification.type) {
       case 'booking':
@@ -155,6 +195,10 @@ export default function NotificationsScreen() {
       case 'review':
         navigation.navigate('ProfileScreen', { tab: 'history' });
         break;
+      case 'quote':
+        // Navigate to the quotes screen (customer view)
+        navigation.navigate('UserQuotesScreen');
+        break;
       default:
         Alert.alert(notification.title, notification.message);
     }
@@ -167,14 +211,18 @@ export default function NotificationsScreen() {
   };
 
   const getIconName = (iconName) => {
-    if (iconName === 'checkmark-circle') return 'checkmark-circle';
-    if (iconName === 'chatbubble') return 'chatbubble-outline';
-    if (iconName === 'gavel') return 'gavel';
-    if (iconName === 'star') return 'star-outline';
-    if (iconName === 'card') return 'card-outline';
-    if (iconName === 'time') return 'time-outline';
-    if (iconName === 'pricetag') return 'pricetag-outline';
-    return 'notifications-outline';
+    switch (iconName) {
+      case 'checkmark-circle': return 'checkmark-circle';
+      case 'chatbubble': return 'chatbubble-outline';
+      case 'gavel': return 'gavel';
+      case 'star': return 'star-outline';
+      case 'card': return 'card-outline';
+      case 'time': return 'time-outline';
+      case 'pricetag': return 'pricetag-outline';
+      case 'document-text': return 'document-text-outline';
+      case 'close-circle': return 'close-circle-outline';
+      default: return 'notifications-outline';
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -182,7 +230,7 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -264,6 +312,16 @@ export default function NotificationsScreen() {
                 Bids
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'quote' && styles.activeTab]}
+              onPress={() => setActiveTab('quote')}
+            >
+              <Ionicons name="document-text-outline" size={16} color={activeTab === 'quote' ? '#fff' : '#6B7280'} />
+              <Text style={[styles.tabText, activeTab === 'quote' && styles.activeTabText]}>
+                Quotes
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
         </View>
       )}
@@ -281,7 +339,7 @@ export default function NotificationsScreen() {
               <View style={[styles.notificationIcon, { backgroundColor: `${notification.iconColor}15` }]}>
                 <Ionicons name={getIconName(notification.icon)} size={24} color={notification.iconColor} />
               </View>
-              
+
               <View style={styles.notificationContent}>
                 <View style={styles.notificationHeader}>
                   <Text style={[styles.notificationTitle, !notification.read && styles.unreadTitle]}>

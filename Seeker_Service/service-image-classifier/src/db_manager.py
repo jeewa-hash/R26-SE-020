@@ -59,13 +59,9 @@ class SessionProxy:
             "category": self.data.get("category"),
             "object": self.data.get("object"),
             "answers": self.data.get("answers", {}),
-<<<<<<< HEAD
             "confidence": self.data.get("confidence"),
             "user_name": self.data.get("user_name") or self.data.get("userName"),
             "user_id": self.data.get("user_id") or self.data.get("userId")
-=======
-            "confidence": self.data.get("confidence")
->>>>>>> 86c75e8e2fcb6e9227950833bbbe0f971d14ce70
         }
 
 db_manager = DBAdapter()

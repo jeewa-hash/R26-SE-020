@@ -1,5 +1,6 @@
 const Provider = require('../models/Provider');
 const Notification = require('../models/Notification');
+const socket = require('../utils/socket');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -32,12 +33,10 @@ exports.generateBio = async (req, res) => {
 // Registration Logic
 exports.register = async (req, res) => {
   try {
-    const { email, password, role, nicNumber, category, district, latitude, longitude, telephone, rawBio, gender, address } = req.body;
+    const { email, password, nicNumber, category, district, latitude, longitude, telephone, rawBio, gender, address } = req.body;
 
-    // Security Check: Prevent users from registering as Admin
-    if (role === 'Admin') {
-      return res.status(403).json({ message: 'Unauthorized role assignment' });
-    }
+    // Force provider role to ServiceProvider
+    const forcedRole = 'ServiceProvider';
 
     // Check if user already exists with email
     let user = await Provider.findOne({ email });
@@ -71,7 +70,7 @@ exports.register = async (req, res) => {
     user = new Provider({
       email,
       password: hashedPassword,
-      role,
+      role: forcedRole,
       nicNumber,
       nicImage,
       profileImage,
@@ -106,6 +105,10 @@ exports.register = async (req, res) => {
       });
       await notification.save();
       console.log('[Notification] Created for new provider:', email);
+
+      // Emit real-time notification to admin room
+      const io = socket.getIO();
+      io.to('admin_room').emit('new_notification', notification);
     } catch (notifErr) {
       console.error('[Notification] Failed to create notification:', notifErr.message);
     }

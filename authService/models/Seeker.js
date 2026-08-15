@@ -18,6 +18,7 @@ const seekerSchema = new mongoose.Schema(
     role: {
       type: String,
       required: true,
+      enum: ['Seeker'],
       default: 'Seeker',
     },
     nicNumber: {

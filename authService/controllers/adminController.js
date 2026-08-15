@@ -3,6 +3,7 @@ const Provider = require('../models/Provider');
 const Seeker = require('../models/Seeker');
 const Notification = require('../models/Notification');
 const ProviderNotification = require('../models/ProviderNotification');
+const SeekerNotification = require('../models/SeekerNotification');
 const HighDemandAlertLog = require('../models/HighDemandAlertLog');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -11,6 +12,7 @@ const { extractNicFromImage } = require('../utils/ocr');
 const { sendApprovalEmail, sendRejectionEmail, sendHighDemandEmail } = require('../utils/emailService');
 const { createAuditLog } = require('../utils/auditLogger');
 const AuditLog = require('../models/AuditLog');
+
 
 // Email transporter (same config as seeker)
 const transporter = nodemailer.createTransport({
@@ -226,6 +228,53 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+// Get real user growth data for analytics
+exports.getUserGrowthData = async (req, res) => {
+  try {
+    const seekers = await Seeker.find({}, 'createdAt');
+    const providers = await Provider.find({}, 'createdAt');
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentYear = new Date().getFullYear();
+
+    const processGrowth = (users) => {
+      const monthlyCounts = Array(12).fill(0);
+      users.forEach(user => {
+        const date = new Date(user.createdAt);
+        if (date.getFullYear() === currentYear) {
+          monthlyCounts[date.getMonth()]++;
+        }
+      });
+
+      let cumulative = 0;
+      return monthlyCounts.map((count, index) => {
+        cumulative += count;
+        return {
+          name: months[index],
+          date: `${currentYear}-${String(index + 1).padStart(2, '0')}-01`,
+          count: cumulative
+        };
+      });
+    };
+
+    const seekerGrowth = processGrowth(seekers);
+    const providerGrowth = processGrowth(providers);
+
+    const combinedData = months.map((month, index) => ({
+      name: month,
+      date: seekerGrowth[index].date,
+      seekers: seekerGrowth[index].count,
+      providers: providerGrowth[index].count,
+      total: seekerGrowth[index].count + providerGrowth[index].count
+    }));
+
+    res.json(combinedData);
+  } catch (err) {
+    console.error('Error fetching user growth data:', err.message);
+    res.status(500).json({ message: 'Server error while fetching growth data' });
+  }
+};
+
 // Helper to get model by type
 const getModelByType = (type) => {
   if (type === 'admin') return Admin;
@@ -323,6 +372,32 @@ exports.toggleUserStatus = async (req, res) => {
   }
 };
 
+// Get all providers for NIC verification management
+exports.getAllProvidersVerifications = async (req, res) => {
+  try {
+    const providers = await Provider.find({})
+      .select('-password')
+      .sort({ createdAt: -1 });
+    
+    // Map status for easier frontend consumption
+    const verifications = providers.map(p => {
+      let status = 'Pending';
+      if (p.isVerified) status = 'Approved';
+      else if (p.isRejected) status = 'Rejected';
+      
+      return {
+        ...p.toObject(),
+        verificationStatus: status
+      };
+    });
+
+    res.json(verifications);
+  } catch (err) {
+    console.error('Error fetching all provider verifications:', err.message);
+    res.status(500).json({ message: 'Server error while fetching verifications' });
+  }
+};
+
 // Get all unverified service providers (pending verification)
 exports.getUnverifiedProviders = async (req, res) => {
   try {
@@ -371,7 +446,17 @@ exports.getProviderVerificationDetails = async (req, res) => {
       }
     }
 
-    res.json(provider);
+    // Add verification status for frontend consistency
+    let status = 'Pending';
+    if (provider.isVerified) status = 'Approved';
+    else if (provider.isRejected) status = 'Rejected';
+
+    const providerWithStatus = {
+      ...provider.toObject(),
+      verificationStatus: status
+    };
+
+    res.json(providerWithStatus);
   } catch (err) {
     console.error('Error fetching verification details:', err.message);
     res.status(500).json({ message: 'Server error while fetching verification details' });
@@ -593,37 +678,37 @@ exports.dispatchHighDemandAlerts = async (req, res) => {
 
     const providers = await Provider.find(query);
 
-    if (providers.length === 0) {
-      // Record log even if no providers, to not retry
+    // Also Dispatch notifications to Seekers in that district
+    // This helps seekers know when demand is high so they can book in advance
+    const seekers = await Seeker.find({ 
+      district: district === 'All Districts' ? { $exists: true } : district,
+      isEmailVerified: true,
+      isBlocked: false
+    });
+
+    if (providers.length === 0 && seekers.length === 0) {
+      // Record log even if no one found, to not retry
       await HighDemandAlertLog.create({ category, district, timeframe, date: todayStr });
-      return res.status(200).json({ message: 'No providers found to send alerts to.' });
+      return res.status(200).json({ message: 'No providers or seekers found to send alerts to.' });
     }
 
-    // Dispatch emails and notifications
+    // Dispatch notifications to Providers (Emails skipped as per requirement)
     for (const provider of providers) {
-      // Create In-App Notification
       await ProviderNotification.create({
         providerId: provider._id,
         title: `🚀 High Demand Alert: ${category}!`,
         message: `High demand predicted for ${category} in ${district} for ${timeframe}. Stay active to grab more job requests and increase your earnings!`,
         type: 'high_demand_alert'
       });
+    }
 
-      // Send Email
-      if (provider.email) {
-        try {
-          await sendHighDemandEmail(
-            provider.email,
-            provider.fullName || 'Provider', // Fallback if fullName isn't present
-            category,
-            district,
-            avgDemand,
-            confidence
-          );
-        } catch (err) {
-          console.warn(`Failed to send high demand email to ${provider.email}`);
-        }
-      }
+    for (const seeker of seekers) {
+      await SeekerNotification.create({
+        seekerId: seeker._id,
+        title: `🚀 High Demand Alert: ${category}!`,
+        message: `We're seeing high demand for ${category} in ${district} for ${timeframe}. Book your service early to ensure availability!`,
+        type: 'high_demand_alert'
+      });
     }
 
     // Save to tracking DB
@@ -634,11 +719,11 @@ exports.dispatchHighDemandAlerts = async (req, res) => {
       action: 'Dispatched High Demand Alerts',
       category: 'Demand Forecasting',
       admin: req.user,
-      target: { name: `Alerts sent to ${providers.length} providers`, type: 'ALERT' },
+      target: { name: `Alerts sent to ${providers.length} providers and ${seekers.length} seekers`, type: 'ALERT' },
       metadata: { category, district, timeframe }
     });
 
-    res.status(200).json({ message: `High Demand alerts successfully sent to ${providers.length} providers.` });
+    res.status(200).json({ message: `High Demand alerts successfully sent to ${providers.length} providers and ${seekers.length} seekers.` });
   } catch (err) {
     console.error('Error dispatching high demand alerts:', err);
     res.status(500).json({ message: 'Internal server error while dispatching alerts' });

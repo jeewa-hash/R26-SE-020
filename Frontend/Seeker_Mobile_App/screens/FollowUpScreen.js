@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,14 +9,24 @@ import {
   StatusBar,
   ScrollView,
   Alert,
+  Modal,
+  Dimensions,
+  useColorScheme,
 } from "react-native";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { Ionicons } from "@expo/vector-icons";
 import { LanguageContext } from "../context/LanguageContext";
+import MapView, { Marker } from "react-native-maps";
+import * as Location from "expo-location";
+
+const { width, height } = Dimensions.get("window");
 
 export default function FollowUpScreen({ route, navigation }) {
-const { initialMessage, backendResponse, source } = route.params;
+  const { initialMessage, backendResponse, source } = route.params;
   const { language } = useContext(LanguageContext);
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
+
   const [questionData, setQuestionData] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,109 +35,249 @@ const { initialMessage, backendResponse, source } = route.params;
   const [userAnswers, setUserAnswers] = useState([]);
   const [progress, setProgress] = useState(0);
   const [expandedSections, setExpandedSections] = useState({});
+  const [showSummaryScreen, setShowSummaryScreen] = useState(false);
+
+  // Location picker states
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [locationAddress, setLocationAddress] = useState("");
+  const [currentRegion, setCurrentRegion] = useState({
+    latitude: 6.9271,
+    longitude: 79.8612,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  });
+  const [pickingLocation, setPickingLocation] = useState(false);
+  const mapRef = useRef(null);
+
+  // Dynamic styles based on theme
+  const dynamicStyles = {
+    container: {
+      backgroundColor: isDarkMode ? '#1F2937' : '#fff',
+    },
+    textColor: {
+      color: isDarkMode ? '#F9FAFB' : '#1F2937',
+    },
+    subTextColor: {
+      color: isDarkMode ? '#9CA3AF' : '#6B7280',
+    },
+    cardBackground: {
+      backgroundColor: isDarkMode ? '#374151' : '#F3F4F6',
+    },
+    inputBackground: {
+      backgroundColor: isDarkMode ? '#374151' : '#F9FAFB',
+      borderColor: isDarkMode ? '#4B5563' : '#E5E7EB',
+    },
+    optionBackground: {
+      backgroundColor: isDarkMode ? '#374151' : '#fff',
+      borderColor: isDarkMode ? '#4B5563' : '#E5E7EB',
+    },
+    selectedOptionBackground: {
+      backgroundColor: isDarkMode ? '#4C1D95' : '#EEF2FF',
+      borderColor: '#6366F1',
+    },
+    modalBackground: {
+      backgroundColor: isDarkMode ? '#1F2937' : '#fff',
+    },
+    modalOverlay: {
+      backgroundColor: isDarkMode ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)',
+    },
+  };
 
   // 🔵 Start prediction
   useEffect(() => {
-  const startPredict = async () => {
-    try {
-      // ⭐ IMAGE FLOW (ONLY ADD THIS BLOCK)
-      if (source === "image" && backendResponse) {
-        console.log("Using image response");
+    const startPredict = async () => {
+      try {
+        // ⭐ IMAGE FLOW (ONLY ADD THIS BLOCK)
+        if (source === "image" && route.params.session_id) {
+          console.log("IMAGE FLOW ACTIVE");
+          setQuestionData(route.params.initialQuestion);
+          setSessionId(route.params.session_id);
+          setProgress(20);
+          setLoading(false);
+          return;
+        }
 
-        setQuestionData(backendResponse.next_question);
-        setSessionId(backendResponse.session_id);
-        setSelectedOption(null);
-        setProgress(20);
-        return; // 🚨 VERY IMPORTANT
+        // ✅ KEEP YOUR TEXT FLOW EXACTLY SAME
+        const res = await fetch("http://10.0.2.2:5002/text-predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: initialMessage,
+            app_lan: language === "si" ? "si" : "en",
+          }),
+        });
+
+        const data = await res.json();
+
+        if (data.next_question) {
+          setQuestionData(data.next_question);
+          setSessionId(data.session_id);
+          setSelectedOption(null);
+          setProgress(20);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    startPredict();
+  }, []);
+
+  // Get current location
+  const getCurrentLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please allow location access to use this feature');
+        return;
       }
 
-      // ✅ KEEP YOUR TEXT FLOW EXACTLY SAME
-      const res = await fetch("http://10.0.2.2:5002/text-predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: initialMessage,
-          app_lan: language === "si" ? "si" : "en",
-        }),
+      const location = await Location.getCurrentPositionAsync({});
+      const newRegion = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+
+      setCurrentRegion(newRegion);
+      setSelectedLocation(newRegion);
+
+      // Reverse geocode to get address
+      const [address] = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
       });
 
-      const data = await res.json();
+      const formattedAddress = `${address.street || ''} ${address.streetNumber || ''}, ${address.city || ''}, ${address.region || ''}`;
+      setLocationAddress(formattedAddress);
 
-      if (data.next_question) {
-        setQuestionData(data.next_question);
-        setSessionId(data.session_id);
-        setSelectedOption(null);
-        setProgress(20);
+      if (mapRef.current) {
+        mapRef.current.animateToRegion(newRegion, 1000);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Failed to get current location');
     }
   };
 
-  startPredict();
-}, []);
+  // Handle map press
+  const handleMapPress = (event) => {
+    const { coordinate } = event.nativeEvent;
+    setSelectedLocation(coordinate);
+    reverseGeocode(coordinate);
+  };
+
+  // Reverse geocode coordinates to address
+  const reverseGeocode = async (coordinate) => {
+    try {
+      const [address] = await Location.reverseGeocodeAsync({
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+      });
+
+      const formattedAddress = `${address.street || ''} ${address.streetNumber || ''}, ${address.city || ''}, ${address.region || ''}`.trim();
+      setLocationAddress(formattedAddress || `${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`);
+    } catch (error) {
+      console.error(error);
+      setLocationAddress(`${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`);
+    }
+  };
+
+  // Confirm location selection
+  const confirmLocation = () => {
+    if (selectedLocation) {
+      const locationData = {
+        address: locationAddress,
+        lat: selectedLocation.latitude,
+        lng: selectedLocation.longitude,
+      };
+      setShowLocationPicker(false);
+      handleAnswer(locationData);
+    } else {
+      Alert.alert('No Location', 'Please select a location on the map');
+    }
+  };
 
   // 🔵 Handle answer with optional skip
- const handleAnswer = async (answer = null) => {
-  try {
-    const finalAnswer = answer || selectedOption;
+  const handleAnswer = async (answer = null) => {
+    try {
+      const finalAnswer = answer || selectedOption;
 
-    // ✅ SAVE ANSWERS (THIS IS WHY SUMMARY WAS EMPTY)
-    if (questionData) {
-      setUserAnswers(prev => [
-        ...prev,
-        {
-          question: questionData.question,
-          answer: finalAnswer || "Skipped",
-        }
-      ]);
-    }
+      // ✅ SAVE ANSWERS
+      if (questionData) {
+        setUserAnswers(prev => [
+          ...prev,
+          {
+            question: questionData.question,
+            answer: finalAnswer?.address || finalAnswer || "Skipped",
+          }
+        ]);
+      }
 
-    const payload = {
-      session_id: sessionId,
-      answer_key: questionData.answer_key,
-      answer: finalAnswer || "skipped",
-      app_lan: language === "si" ? "si" : "en",
-    };
+      const payload = {
+        session_id: sessionId,
+        answer_key: questionData.answer_key,
+        // If the answer is a location object, send only the address string.
+        // Include latitude and longitude as extra fields for backend use if needed.
+        answer: typeof finalAnswer === 'object' && finalAnswer !== null ? finalAnswer.address : finalAnswer,
+        app_lan: language === "si" ? "si" : "en",
+        ...(typeof finalAnswer === 'object' && finalAnswer !== null ? { lat: finalAnswer.lat, lng: finalAnswer.lng } : {}),
+      };
 
-    const endpoint =
-      source === "image"
-        ? "http://10.0.2.2:5000/chat"
+      const endpoint = source === "image"
+        ? "http://10.0.2.2:8000/flow/next"
         : "http://10.0.2.2:5002/text-chat";
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    const data = await res.json();
+      let data;
+      try {
+        // Try parsing JSON from a fresh clone of the response
+        data = await response.clone().json();
+      } catch (e) {
+        // If JSON parsing fails, read the original response as text
+        const raw = await response.text();
+        console.warn('Non‑JSON response from server:', raw);
+        Alert.alert('Server error', 'Unable to parse response. Please try again later.');
+        setLoading(false);
+        return;
+      }
 
-    console.log("Response:", data);
+      console.log("Response:", data);
 
-    // ✅ SHOW SUMMARY SCREEN INSTEAD OF DIRECT FINAL
-    if (data.final_decision) {
-      setQuestionData(null);
-      setFinalDecision(data);
-      setShowSummaryScreen(true); // ⭐ IMPORTANT
-      setProgress(100);
-      return;
+      // ✅ SHOW SUMMARY SCREEN
+      // The backend now returns the final result under `summary` rather than `final_decision`.
+      if (data.summary) {
+        setQuestionData(null);
+        setFinalDecision(data);
+        setShowSummaryScreen(true);
+        setProgress(100);
+        return;
+      }
+
+      const nextQ = data.next_question || data.question;
+
+      if (nextQ) {
+        setQuestionData(nextQ);
+        setSelectedOption(null);
+        setProgress(prev => Math.min(prev + 20, 90));
+        // Reset loading state after handling response
+        setLoading(false);
+      }
+
+    } catch (err) {
+      console.error("ERROR:", err);
+      setLoading(false);
     }
-
-    const nextQ = data.next_question || data.question;
-
-    if (nextQ) {
-      setQuestionData(nextQ);
-      setSelectedOption(null);
-      setProgress(prev => Math.min(prev + 20, 90));
-    }
-
-  } catch (err) {
-    console.error("ERROR:", err);
-  }
-};
+  };
 
   const toggleSection = (index) => {
     setExpandedSections(prev => ({
@@ -148,53 +298,53 @@ const { initialMessage, backendResponse, source } = route.params;
   // 🔵 Loading Screen
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#6366F1" />
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={[styles.loadingText, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]}>Loading...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   // 🔵 Final Result Screen
-  if (finalDecision) {
+  if (finalDecision && showSummaryScreen) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-        <ScrollView style={styles.container}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
+        <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={isDarkMode ? '#1F2937' : '#fff'} />
+        <ScrollView style={[styles.container, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
           {/* Final Decision Card */}
           <View style={styles.finalDecisionCard}>
-            <Text style={styles.finalDecisionText}>{finalDecision.summary}</Text>
+            <Text style={styles.finalDecisionText}>{finalDecision.summary?.brief_description}</Text>
           </View>
 
           {/* Response Timeline */}
           <View style={styles.timelineSection}>
-            <Text style={styles.sectionTitle}>Responses</Text>
-            
+            <Text style={[styles.sectionTitle, { color: isDarkMode ? '#F9FAFB' : '#1F2937' }]}>Responses</Text>
+
             {userAnswers.map((item, index) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 key={index}
-                style={styles.timelineItem}
+                style={[styles.timelineItem, { borderBottomColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
                 onPress={() => toggleSection(index)}
                 activeOpacity={0.7}
               >
-                <View style={styles.timelineNumber}>
-                  <Text style={styles.timelineNumberText}>{index + 1}</Text>
+                <View style={[styles.timelineNumber, { backgroundColor: isDarkMode ? '#4C1D95' : '#EEF2FF' }]}>
+                  <Text style={[styles.timelineNumberText, { color: '#6366F1' }]}>{index + 1}</Text>
                 </View>
                 <View style={styles.timelineContent}>
-                  <Text style={styles.timelineQuestion}>
+                  <Text style={[styles.timelineQuestion, { color: isDarkMode ? '#F9FAFB' : '#1F2937' }]}>
                     {item.question}
                   </Text>
-                  
+
                   {expandedSections[index] && (
-                    <View style={styles.expandedContent}>
-                      <Text style={styles.answerText}>{item.answer}</Text>
+                    <View style={[styles.expandedContent, { borderTopColor: isDarkMode ? '#374151' : '#F3F4F6' }]}>
+                      <Text style={[styles.answerText, { color: isDarkMode ? '#D1D5DB' : '#1F2937' }]}>{item.answer}</Text>
                     </View>
                   )}
-                  
+
                   {!expandedSections[index] && item.answer !== "Skipped" && (
-                    <Text style={styles.previewAnswer} numberOfLines={1}>
+                    <Text style={[styles.previewAnswer, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]} numberOfLines={1}>
                       {item.answer}
                     </Text>
                   )}
@@ -203,8 +353,8 @@ const { initialMessage, backendResponse, source } = route.params;
             ))}
           </View>
 
-          {/* Proceed Button - Navigates to Providers Screen */}
-          <TouchableOpacity 
+          {/* Proceed Button */}
+          <TouchableOpacity
             style={styles.primaryButton}
             onPress={navigateToProviders}
           >
@@ -217,15 +367,15 @@ const { initialMessage, backendResponse, source } = route.params;
 
   if (!questionData) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
         <View style={styles.centerContainer}>
-          <Text>No question available</Text>
+          <Text style={{ color: isDarkMode ? '#F9FAFB' : '#1F2937' }}>No question available</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // ⭐ ADDRESS Screen
+  // ⭐ ADDRESS Screen with Location Picker
   if (
     questionData.type === "address" ||
     questionData.question?.toLowerCase().includes("address") ||
@@ -233,9 +383,9 @@ const { initialMessage, backendResponse, source } = route.params;
     questionData.question?.toLowerCase().includes("area")
   ) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-        <View style={styles.container}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
+        <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={isDarkMode ? '#1F2937' : '#fff'} />
+        <View style={[styles.container, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
           <View style={styles.progressSection}>
             <View style={styles.progressBarContainer}>
               <View style={[styles.progressBar, { width: `${progress}%` }]} />
@@ -244,11 +394,20 @@ const { initialMessage, backendResponse, source } = route.params;
           </View>
 
           <View style={styles.headerSection}>
-            <Text style={styles.mainTitle}>Location Details</Text>
-            <View style={styles.questionCard}>
-              <Text style={styles.questionText}>{questionData.question}</Text>
+            <Text style={[styles.mainTitle, { color: isDarkMode ? '#F9FAFB' : '#1F2937' }]}>Location Details</Text>
+            <View style={[styles.questionCard, { backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}>
+              <Text style={[styles.questionText, { color: isDarkMode ? '#F9FAFB' : '#1F2937' }]}>{questionData.question}</Text>
             </View>
           </View>
+
+          {/* Location Picker Button */}
+          <TouchableOpacity
+            style={[styles.locationPickerButton, { backgroundColor: isDarkMode ? '#374151' : '#F3F4F6', borderColor: isDarkMode ? '#4B5563' : '#E5E7EB' }]}
+            onPress={() => setShowLocationPicker(true)}
+          >
+            <Ionicons name="map-outline" size={24} color="#6366F1" />
+            <Text style={styles.locationPickerButtonText}>Pick Location on Map</Text>
+          </TouchableOpacity>
 
           <View style={styles.addressSection}>
             <GooglePlacesAutocomplete
@@ -263,8 +422,6 @@ const { initialMessage, backendResponse, source } = route.params;
                 rankby: "distance",
                 type: "establishment",
               }}
-              currentLocation={true}
-              currentLocationLabel="Use current location"
               query={{
                 key: "YOUR_GOOGLE_MAPS_API_KEY",
                 language: "en",
@@ -281,28 +438,131 @@ const { initialMessage, backendResponse, source } = route.params;
               }}
               styles={{
                 container: { flex: 0 },
-                textInput: styles.addressInput,
-                listView: styles.addressListView,
-                row: styles.addressRow,
-                description: { fontSize: 14, color: "#6B7280" },
+                textInput: {
+                  ...styles.addressInput,
+                  backgroundColor: isDarkMode ? '#374151' : '#F9FAFB',
+                  borderColor: isDarkMode ? '#4B5563' : '#E5E7EB',
+                  color: isDarkMode ? '#F9FAFB' : '#1F2937',
+                },
+                listView: {
+                  ...styles.addressListView,
+                  backgroundColor: isDarkMode ? '#374151' : '#fff',
+                },
+                row: {
+                  ...styles.addressRow,
+                  backgroundColor: isDarkMode ? '#374151' : '#fff',
+                  borderBottomColor: isDarkMode ? '#4B5563' : '#E5E7EB',
+                },
+                description: {
+                  fontSize: 14,
+                  color: isDarkMode ? '#D1D5DB' : '#6B7280',
+                },
               }}
               textInputProps={{
-                placeholderTextColor: "#9CA3AF",
+                placeholderTextColor: isDarkMode ? '#9CA3AF' : '#9CA3AF',
               }}
             />
           </View>
 
           <View style={styles.navigationButtons}>
-            <TouchableOpacity style={styles.backBtn}>
-              <Text style={styles.backBtnText}>← Back</Text>
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+              <Text style={[styles.backBtnText, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]}>← Back</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.nextBtn}
-              onPress={() => handleAnswer()}
+              style={[styles.nextBtn, (selectedLocation || selectedOption) && styles.nextBtnActive]}
+              onPress={() => {
+                if (selectedLocation) {
+                  // Submit selected location as answer
+                  handleAnswer({
+                    address: locationAddress,
+                    lat: selectedLocation.latitude,
+                    lng: selectedLocation.longitude,
+                  });
+                } else {
+                  // No location selected, treat as skip
+                  handleAnswer();
+                }
+              }}
             >
-              <Text style={styles.nextBtnText}>Skip</Text>
+              <Text style={styles.nextBtnText}>
+                {selectedLocation ? "Next" : (selectedOption ? "Next" : "Skip")}
+              </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Location Picker Modal */}
+          <Modal
+            visible={showLocationPicker}
+            animationType="slide"
+            presentationStyle="fullScreen"
+          >
+            <SafeAreaView style={[styles.modalContainer, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: isDarkMode ? '#4B5563' : '#E5E7EB', backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
+                <TouchableOpacity
+                  onPress={() => setShowLocationPicker(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Ionicons name="close" size={24} color={isDarkMode ? '#F9FAFB' : '#1F2937'} />
+                </TouchableOpacity>
+                <Text style={[styles.modalTitle, { color: isDarkMode ? '#F9FAFB' : '#1F2937' }]}>Select Location</Text>
+                <View style={{ width: 40 }} />
+              </View>
+
+              {pickingLocation && (
+                <View style={styles.loadingOverlay}>
+                  <ActivityIndicator size="large" color="#6366F1" />
+                </View>
+              )}
+
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                region={currentRegion}
+                onPress={handleMapPress}
+                showsUserLocation={true}
+                showsMyLocationButton={true}
+              >
+                {selectedLocation && (
+                  <Marker
+                    coordinate={selectedLocation}
+                    draggable
+                    onDragEnd={(e) => {
+                      const { coordinate } = e.nativeEvent;
+                      setSelectedLocation(coordinate);
+                      reverseGeocode(coordinate);
+                    }}
+                  >
+                    <View style={styles.markerContainer}>
+                      <Ionicons name="location" size={32} color="#6366F1" />
+                    </View>
+                  </Marker>
+                )}
+              </MapView>
+
+              <View style={styles.locationControls}>
+                <TouchableOpacity
+                  style={[styles.currentLocationButton, { backgroundColor: isDarkMode ? '#374151' : '#fff', borderColor: isDarkMode ? '#4B5563' : '#E5E7EB' }]}
+                  onPress={getCurrentLocation}
+                >
+                  <Ionicons name="locate" size={20} color="#6366F1" />
+                  <Text style={[styles.currentLocationText, { color: '#6366F1' }]}>My Location</Text>
+                </TouchableOpacity>
+              </View>
+
+              {selectedLocation && (
+                <View style={[styles.locationDetails, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
+                  <Text style={[styles.selectedAddressLabel, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]}>Selected Address:</Text>
+                  <Text style={[styles.selectedAddress, { color: isDarkMode ? '#F9FAFB' : '#1F2937' }]}>{locationAddress}</Text>
+                  <TouchableOpacity
+                    style={styles.confirmButton}
+                    onPress={confirmLocation}
+                  >
+                    <Text style={styles.confirmButtonText}>Confirm Location</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </SafeAreaView>
+          </Modal>
         </View>
       </SafeAreaView>
     );
@@ -310,9 +570,9 @@ const { initialMessage, backendResponse, source } = route.params;
 
   // ⭐ Main Question Screen
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <View style={styles.container}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={isDarkMode ? '#1F2937' : '#fff'} />
+      <View style={[styles.container, { backgroundColor: isDarkMode ? '#1F2937' : '#fff' }]}>
         <View style={styles.progressSection}>
           <View style={styles.progressBarContainer}>
             <View style={[styles.progressBar, { width: `${progress}%` }]} />
@@ -321,13 +581,13 @@ const { initialMessage, backendResponse, source } = route.params;
         </View>
 
         <View style={styles.headerSection}>
-          <Text style={styles.mainTitle}>Service Assessment</Text>
-          <View style={styles.questionCard}>
-            <Text style={styles.questionText}>{questionData.question}</Text>
+          <Text style={[styles.mainTitle, { color: isDarkMode ? '#F9FAFB' : '#1F2937' }]}>Service Assessment</Text>
+          <View style={[styles.questionCard, { backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}>
+            <Text style={[styles.questionText, { color: isDarkMode ? '#F9FAFB' : '#1F2937' }]}>{questionData.question}</Text>
           </View>
         </View>
 
-        <ScrollView 
+        <ScrollView
           style={styles.optionsSection}
           showsVerticalScrollIndicator={false}
         >
@@ -336,7 +596,8 @@ const { initialMessage, backendResponse, source } = route.params;
               key={idx}
               style={[
                 styles.optionItem,
-                selectedOption === opt && styles.optionItemSelected,
+                { backgroundColor: isDarkMode ? '#374151' : '#fff', borderColor: isDarkMode ? '#4B5563' : '#E5E7EB' },
+                selectedOption === opt && [styles.optionItemSelected, { backgroundColor: isDarkMode ? '#4C1D95' : '#EEF2FF', borderColor: '#6366F1' }],
               ]}
               onPress={() => setSelectedOption(opt)}
               activeOpacity={0.7}
@@ -344,12 +605,14 @@ const { initialMessage, backendResponse, source } = route.params;
               <View style={styles.optionContent}>
                 <View style={[
                   styles.radioCircle,
+                  { borderColor: isDarkMode ? '#6B7280' : '#D1D5DB' },
                   selectedOption === opt && styles.radioCircleSelected,
                 ]}>
                   {selectedOption === opt && <View style={styles.radioInner} />}
                 </View>
                 <Text style={[
                   styles.optionText,
+                  { color: isDarkMode ? '#F9FAFB' : '#1F2937' },
                   selectedOption === opt && styles.optionTextSelected,
                 ]}>
                   {opt}
@@ -362,9 +625,9 @@ const { initialMessage, backendResponse, source } = route.params;
           ))}
         </ScrollView>
 
-        <View style={styles.navigationButtons}>
+        <View style={[styles.navigationButtons, { borderTopColor: isDarkMode ? '#374151' : '#E5E7EB' }]}>
           <TouchableOpacity style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Back</Text>
+            <Text style={[styles.backBtnText, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]}>← Back</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.nextBtn, selectedOption && styles.nextBtnActive]}
@@ -384,7 +647,6 @@ const { initialMessage, backendResponse, source } = route.params;
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   container: {
     flex: 1,
@@ -399,7 +661,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: "#6B7280",
   },
   progressSection: {
     marginBottom: 24,
@@ -427,18 +688,15 @@ const styles = StyleSheet.create({
   mainTitle: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#1F2937",
     marginBottom: 16,
   },
   questionCard: {
-    backgroundColor: "#F3F4F6",
     padding: 16,
     borderRadius: 12,
   },
   questionText: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#1F2937",
     lineHeight: 24,
   },
   optionsSection: {
@@ -448,16 +706,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#fff",
     padding: 16,
     borderRadius: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
   optionItemSelected: {
     borderColor: "#6366F1",
-    backgroundColor: "#EEF2FF",
   },
   optionContent: {
     flexDirection: "row",
@@ -469,7 +724,6 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: "#D1D5DB",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -485,7 +739,6 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 15,
-    color: "#1F2937",
     flex: 1,
   },
   optionTextSelected: {
@@ -498,7 +751,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
     marginTop: 16,
   },
   backBtn: {
@@ -507,7 +759,6 @@ const styles = StyleSheet.create({
   },
   backBtnText: {
     fontSize: 16,
-    color: "#6B7280",
   },
   nextBtn: {
     backgroundColor: "#9CA3AF",
@@ -528,15 +779,12 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   addressInput: {
-    backgroundColor: "#F9FAFB",
     padding: 14,
     borderRadius: 10,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
   addressListView: {
-    backgroundColor: "#fff",
     borderRadius: 10,
     marginTop: 5,
     elevation: 3,
@@ -548,7 +796,114 @@ const styles = StyleSheet.create({
   addressRow: {
     padding: 14,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#E5E7EB",
+  },
+  // Location Picker Styles
+  locationPickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+  locationPickerButtonText: {
+    fontSize: 16,
+    color: "#6366F1",
+    marginLeft: 8,
+    fontWeight: "500",
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  modalCloseButton: {
+    padding: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  map: {
+    width: width,
+    height: height - 200,
+  },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  markerContainer: {
+    alignItems: "center",
+  },
+  locationControls: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+  },
+  currentLocationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 25,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    borderWidth: 1,
+  },
+  currentLocationText: {
+    marginLeft: 8,
+    fontWeight: "500",
+  },
+  locationDetails: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  selectedAddressLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  selectedAddress: {
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  confirmButton: {
+    backgroundColor: "#6366F1",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
   },
   // Final Result Styles
   finalDecisionCard: {
@@ -568,7 +923,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#1F2937",
     marginBottom: 16,
   },
   timelineItem: {
@@ -576,13 +930,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
   },
   timelineNumber: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#EEF2FF",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -590,7 +942,6 @@ const styles = StyleSheet.create({
   timelineNumberText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#6366F1",
   },
   timelineContent: {
     flex: 1,
@@ -598,22 +949,18 @@ const styles = StyleSheet.create({
   timelineQuestion: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#1F2937",
     marginBottom: 4,
   },
   previewAnswer: {
     fontSize: 12,
-    color: "#6B7280",
   },
   expandedContent: {
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
   },
   answerText: {
     fontSize: 14,
-    color: "#1F2937",
   },
   primaryButton: {
     backgroundColor: "#6366F1",

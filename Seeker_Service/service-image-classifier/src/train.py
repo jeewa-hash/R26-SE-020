@@ -25,11 +25,7 @@ def main():
     print("--- Starting Training ---")
     history = model.fit(
         train_gen,
-<<<<<<< HEAD
         epochs=15,
-=======
-        epochs=15,  # You can increase this if you have a lot of data
->>>>>>> 86c75e8e2fcb6e9227950833bbbe0f971d14ce70
         validation_data=val_gen,
         callbacks=[early_stop, checkpoint]
     )
