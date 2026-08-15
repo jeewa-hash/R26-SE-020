@@ -10,12 +10,14 @@ router.post('/logout', adminController.logout);
 router.post('/register', adminController.verifyAdmin, adminController.register);
 router.get('/profile', adminController.verifyAdmin, adminController.getProfile);
 router.get('/dashboard-stats', adminController.verifyAdmin, adminController.getDashboardStats);
+router.get('/user-growth', adminController.verifyAdmin, adminController.getUserGrowthData);
 router.get('/users', adminController.verifyAdmin, adminController.getAllUsers);
 router.put('/users/:type/:id', adminController.verifyAdmin, adminController.updateUser);
 router.delete('/users/:type/:id', adminController.verifyAdmin, adminController.deleteUser);
 router.patch('/users/:type/:id/status', adminController.verifyAdmin, adminController.toggleUserStatus);
 
 // Provider NIC Verification Routes
+router.get('/providers/verifications', adminController.verifyAdmin, adminController.getAllProvidersVerifications);
 router.get('/providers/unverified', adminController.verifyAdmin, adminController.getUnverifiedProviders);
 router.get('/providers/rejected', adminController.verifyAdmin, adminController.getRejectedProviders);
 router.get('/providers/:id/verify-details', adminController.verifyAdmin, adminController.getProviderVerificationDetails);

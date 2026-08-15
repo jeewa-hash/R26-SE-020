@@ -228,6 +228,53 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+// Get real user growth data for analytics
+exports.getUserGrowthData = async (req, res) => {
+  try {
+    const seekers = await Seeker.find({}, 'createdAt');
+    const providers = await Provider.find({}, 'createdAt');
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentYear = new Date().getFullYear();
+
+    const processGrowth = (users) => {
+      const monthlyCounts = Array(12).fill(0);
+      users.forEach(user => {
+        const date = new Date(user.createdAt);
+        if (date.getFullYear() === currentYear) {
+          monthlyCounts[date.getMonth()]++;
+        }
+      });
+
+      let cumulative = 0;
+      return monthlyCounts.map((count, index) => {
+        cumulative += count;
+        return {
+          name: months[index],
+          date: `${currentYear}-${String(index + 1).padStart(2, '0')}-01`,
+          count: cumulative
+        };
+      });
+    };
+
+    const seekerGrowth = processGrowth(seekers);
+    const providerGrowth = processGrowth(providers);
+
+    const combinedData = months.map((month, index) => ({
+      name: month,
+      date: seekerGrowth[index].date,
+      seekers: seekerGrowth[index].count,
+      providers: providerGrowth[index].count,
+      total: seekerGrowth[index].count + providerGrowth[index].count
+    }));
+
+    res.json(combinedData);
+  } catch (err) {
+    console.error('Error fetching user growth data:', err.message);
+    res.status(500).json({ message: 'Server error while fetching growth data' });
+  }
+};
+
 // Helper to get model by type
 const getModelByType = (type) => {
   if (type === 'admin') return Admin;
@@ -325,6 +372,32 @@ exports.toggleUserStatus = async (req, res) => {
   }
 };
 
+// Get all providers for NIC verification management
+exports.getAllProvidersVerifications = async (req, res) => {
+  try {
+    const providers = await Provider.find({})
+      .select('-password')
+      .sort({ createdAt: -1 });
+    
+    // Map status for easier frontend consumption
+    const verifications = providers.map(p => {
+      let status = 'Pending';
+      if (p.isVerified) status = 'Approved';
+      else if (p.isRejected) status = 'Rejected';
+      
+      return {
+        ...p.toObject(),
+        verificationStatus: status
+      };
+    });
+
+    res.json(verifications);
+  } catch (err) {
+    console.error('Error fetching all provider verifications:', err.message);
+    res.status(500).json({ message: 'Server error while fetching verifications' });
+  }
+};
+
 // Get all unverified service providers (pending verification)
 exports.getUnverifiedProviders = async (req, res) => {
   try {
@@ -373,7 +446,17 @@ exports.getProviderVerificationDetails = async (req, res) => {
       }
     }
 
-    res.json(provider);
+    // Add verification status for frontend consistency
+    let status = 'Pending';
+    if (provider.isVerified) status = 'Approved';
+    else if (provider.isRejected) status = 'Rejected';
+
+    const providerWithStatus = {
+      ...provider.toObject(),
+      verificationStatus: status
+    };
+
+    res.json(providerWithStatus);
   } catch (err) {
     console.error('Error fetching verification details:', err.message);
     res.status(500).json({ message: 'Server error while fetching verification details' });
