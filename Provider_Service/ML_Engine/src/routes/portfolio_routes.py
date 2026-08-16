@@ -2,8 +2,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from flask import Blueprint, request, jsonify
 from db import get_db
-from auth_service import get_current_user
-
+from auth_service import get_current_user, get_all_providers
 portfolio_bp = Blueprint("portfolio", __name__)
 SPECIALIZATION_MIN = 3
 
@@ -248,3 +247,206 @@ def delete_item(item_id):
         return jsonify({"error": "Item not found or does not belong to you."}), 404
 
     return jsonify({"message": "Portfolio item deleted.", "id": item_id}), 200
+@portfolio_bp.route("/portfolio/all-providers", methods=["GET"])
+def get_all_providers_with_portfolio():
+    try:
+        providers_from_auth = get_all_providers()
+
+        if not providers_from_auth:
+            return jsonify({
+                "success": True,
+                "totalProviders": 0,
+                "providers": []
+            }), 200
+
+        db = get_db()
+
+        portfolio_items = list(
+            db.portfolio_items.find({})
+        )
+
+        portfolio_by_provider = {}
+
+        for item in portfolio_items:
+            user_id = str(
+                item.get("user_id", "")
+            ).strip()
+
+            if not user_id:
+                continue
+
+            portfolio_by_provider.setdefault(
+                user_id, []
+            ).append(item)
+
+        final_providers = []
+
+        for provider in providers_from_auth:
+
+            provider_id = str(
+                provider.get("_id")
+                or provider.get("id")
+                or ""
+            ).strip()
+
+            if not provider_id:
+                continue
+
+            provider_portfolio = portfolio_by_provider.get(
+                provider_id,
+                []
+            )
+
+            categories = set()
+            labels = set()
+            specific_labels = set()
+            tags = set()
+
+            for item in provider_portfolio:
+
+                category_group = str(
+                    item.get("category_group", "")
+                ).strip()
+
+                service_key = str(
+                    item.get("service_key", "")
+                ).strip()
+
+                label = str(
+                    item.get("label", "")
+                ).strip()
+
+                specific_label = str(
+                    item.get("specific_label", "")
+                ).strip()
+
+                if category_group:
+                    categories.add(category_group)
+
+                if service_key:
+                    categories.add(service_key)
+
+                if label:
+                    labels.add(label)
+
+                if specific_label:
+                    specific_labels.add(specific_label)
+
+                item_tags = item.get("tags", [])
+
+                if isinstance(item_tags, list):
+                    for tag in item_tags:
+                        if tag:
+                            tags.add(str(tag).strip())
+
+            specialization = {
+                "awarded": False
+            }
+
+            specialization_counts = {}
+
+            for item in provider_portfolio:
+
+                specific_label = item.get("specific_label")
+
+                if specific_label:
+                    specific_label = str(
+                        specific_label
+                    ).strip()
+
+                    specialization_counts[
+                        specific_label
+                    ] = specialization_counts.get(
+                        specific_label, 0
+                    ) + 1
+
+            if specialization_counts:
+
+                top_label = max(
+                    specialization_counts,
+                    key=specialization_counts.get
+                )
+
+                top_count = specialization_counts[
+                    top_label
+                ]
+
+                if top_count >= SPECIALIZATION_MIN:
+
+                    matching_item = next(
+                        (
+                            item
+                            for item in provider_portfolio
+                            if str(
+                                item.get(
+                                    "specific_label",
+                                    ""
+                                )
+                            ).strip() == top_label
+                        ),
+                        {}
+                    )
+
+                    specialization = {
+                        "awarded": True,
+                        "badge": "Better Version",
+                        "specific_label": top_label,
+                        "label": matching_item.get(
+                            "label",
+                            ""
+                        ),
+                        "count": top_count
+                    }
+
+            name = (
+                provider.get("name")
+                or provider.get("fullName")
+                or (
+                    f"{provider.get('firstName', '')} "
+                    f"{provider.get('lastName', '')}"
+                ).strip()
+                or provider.get(
+                    "email",
+                    ""
+                ).split("@")[0]
+            )
+
+            final_providers.append({
+                "provider": {
+                    "id": provider_id,
+                    "name": name,
+                    "email": provider.get("email", ""),
+                    "category": provider.get("category", ""),
+                    "district": provider.get("district", ""),
+                    "profileImage": provider.get("profileImage", ""),
+                    "isVerified": provider.get("isVerified", False),
+                    "isBlocked": provider.get("isBlocked", False)
+                },
+                "portfolio": {
+                    "total_images": len(provider_portfolio),
+                    "categories": sorted(categories),
+                    "labels": sorted(labels),
+                    "specific_labels": sorted(specific_labels),
+                    "tags": sorted(tags),
+                    "specialization": specialization
+                }
+            })
+
+        return jsonify({
+            "success": True,
+            "totalProviders": len(final_providers),
+            "providers": final_providers
+        }), 200
+
+    except Exception as e:
+
+        print(
+            "[Get All Providers] Error:",
+            str(e)
+        )
+
+        return jsonify({
+            "success": False,
+            "message": "Failed to get all providers",
+            "error": str(e)
+        }), 500

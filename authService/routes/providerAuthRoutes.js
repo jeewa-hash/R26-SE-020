@@ -62,5 +62,6 @@ router.patch('/notifications/:id/read', providerAuthController.verifyProvider, p
 
 //get user profile by ID
 router.get('/profile', providerAuthController.verifyProvider, providerAuthController.getProfile);
+router.get('/providers', providerAuthController.getAllProviders);
 
 module.exports = router;
