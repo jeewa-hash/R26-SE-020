@@ -145,15 +145,13 @@ export default function NewsFeedScreen() {
 
   // ← use POSTS from feedData, NOT from context
   const filteredPosts = useMemo(() =>
-    POSTS.filter((post) => {
+    posts.filter((post) => {
       const matchCat = selectedCategory === 'All' || post.category === selectedCategory;
-      const matchSearch =
-        post.description.toLowerCase().includes(search.toLowerCase()) ||
-        post.category.toLowerCase().includes(search.toLowerCase()) ||
-        post.location.toLowerCase().includes(search.toLowerCase());
+      const postText = `${post.title} ${post.description} ${post.category} ${post.location}`.toLowerCase();
+      const matchSearch = postText.includes(search.toLowerCase());
       return matchCat && matchSearch;
     }),
-    [search, selectedCategory]
+    [search, selectedCategory, posts]
   );
 
   const feedItems = useMemo(() => {
@@ -166,6 +164,10 @@ export default function NewsFeedScreen() {
     });
     return items;
   }, [filteredPosts]);
+
+  const handleRequestPress = (post) => {
+    navigation.navigate('RequestService', { post });
+  };
 
   return (
     <View style={styles.container}>

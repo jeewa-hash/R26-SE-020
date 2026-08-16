@@ -13,10 +13,12 @@ export const ChatProvider = ({ children }) => {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [typingUsers, setTypingUsers] = useState({});
   const [unreadCount, setUnreadCount] = useState({});
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
     const initSocket = async () => {
       const userId = await AsyncStorage.getItem('userId');
+      setCurrentUserId(userId);
       const newSocket = io('http://10.0.2.2:5003', {
         transports: ['websocket'],
       });
@@ -60,7 +62,7 @@ export const ChatProvider = ({ children }) => {
   }, []);
 
   const sendMessage = (receiverId, message, receiverName) => {
-    if (socket && message.trim()) {
+    if (socket && currentUserId && message.trim()) {
       const messageData = {
         senderId: currentUserId,
         receiverId,

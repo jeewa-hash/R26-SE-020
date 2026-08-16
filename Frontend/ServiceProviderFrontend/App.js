@@ -165,7 +165,7 @@ export default function App() {
     }
   };
 
-  if (initialRoute === null) {
+  if (!initialRoute) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#6366f1" />

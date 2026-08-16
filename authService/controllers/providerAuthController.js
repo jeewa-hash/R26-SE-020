@@ -167,6 +167,8 @@ exports.login = async (req, res) => {
       user: {
         id: user._id,
         role: user.role,
+        email: user.email,
+        name: user.email.split('@')[0],
       },
     };
 
