@@ -1,11 +1,14 @@
 import os
 import io
 import uuid
+import requests
 import numpy as np
 import tensorflow as tf
+
 from PIL import Image
 from fastapi import FastAPI, UploadFile, File, Body, Query
 from fastapi.middleware.cors import CORSMiddleware
+
 from db_manager import db_manager
 
 # --- Translator ---
@@ -22,6 +25,11 @@ from tensorflow.keras.applications.mobilenet_v2 import (
     decode_predictions
 )
 
+
+# ============================================================
+# FASTAPI
+# ============================================================
+
 app = FastAPI()
 
 app.add_middleware(
@@ -31,20 +39,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------
-# DATA MAPPINGS — FULLY DYNAMIC BRANCHED QUESTION FLOW
-# ---------------------------------------------------
+
+# ============================================================
+# PROVIDER SERVICE CONFIGURATION
+# ============================================================
+
+# Public endpoint - NO TOKEN REQUIRED
+PROVIDER_SERVICE_URL = "http://localhost:5000/portfolio/all-providers"
+
+
+# ============================================================
+# DATA MAPPINGS
+# ============================================================
 
 ISSUE_MAPPING = {
 
-    # =================================================
+    # ========================================================
     # ELECTRICAL
-    # =================================================
+    # ========================================================
+
     "electrical": {
 
         "steps": {
 
-            # STEP 1
             1: {
                 "question": "Which electrical item needs service?",
                 "options": [
@@ -58,8 +75,8 @@ ISSUE_MAPPING = {
                 ]
             },
 
-            # STEP 2 — Branches based on Step 1 answer (which appliance)
             2: {
+
                 "Fan": {
                     "question": "What is the fan doing?",
                     "options": [
@@ -69,6 +86,7 @@ ISSUE_MAPPING = {
                         "Stops after some time"
                     ]
                 },
+
                 "TV": {
                     "question": "What is the TV issue?",
                     "options": [
@@ -78,6 +96,7 @@ ISSUE_MAPPING = {
                         "Screen flickering"
                     ]
                 },
+
                 "Fridge": {
                     "question": "What is the fridge issue?",
                     "options": [
@@ -87,6 +106,7 @@ ISSUE_MAPPING = {
                         "Making noise"
                     ]
                 },
+
                 "Washing Machine": {
                     "question": "What is the washing machine issue?",
                     "options": [
@@ -96,6 +116,7 @@ ISSUE_MAPPING = {
                         "Stops mid-cycle"
                     ]
                 },
+
                 "Light": {
                     "question": "Which lights are affected?",
                     "options": [
@@ -104,6 +125,7 @@ ISSUE_MAPPING = {
                         "Multiple rooms"
                     ]
                 },
+
                 "Rice Cooker": {
                     "question": "What is the rice cooker issue?",
                     "options": [
@@ -112,6 +134,7 @@ ISSUE_MAPPING = {
                         "Stops too early"
                     ]
                 },
+
                 "Other appliance": {
                     "question": "What is the issue?",
                     "options": [
@@ -122,10 +145,8 @@ ISSUE_MAPPING = {
                 }
             },
 
-            # STEP 3 — Branches based on Step 2 answer (specific symptom)
             3: {
 
-                # --- Fan branches ---
                 "Not running": {
                     "question": "Did the fan stop suddenly or did it never start?",
                     "options": [
@@ -134,6 +155,7 @@ ISSUE_MAPPING = {
                         "Never worked at all"
                     ]
                 },
+
                 "Running slowly": {
                     "question": "Is the speed issue constant or intermittent?",
                     "options": [
@@ -142,6 +164,7 @@ ISSUE_MAPPING = {
                         "Gets slower over time"
                     ]
                 },
+
                 "Making noise": {
                     "question": "What type of noise is the fan making?",
                     "options": [
@@ -151,6 +174,7 @@ ISSUE_MAPPING = {
                         "Clicking"
                     ]
                 },
+
                 "Stops after some time": {
                     "question": "How long does the fan run before stopping?",
                     "options": [
@@ -160,7 +184,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- TV branches ---
                 "No picture": {
                     "question": "Is the screen completely black or showing something?",
                     "options": [
@@ -169,6 +192,7 @@ ISSUE_MAPPING = {
                         "Flickering on and off"
                     ]
                 },
+
                 "No sound": {
                     "question": "Is the sound completely gone or just very low?",
                     "options": [
@@ -177,6 +201,7 @@ ISSUE_MAPPING = {
                         "Crackling or distorted"
                     ]
                 },
+
                 "Not turning on": {
                     "question": "Does the power indicator light come on?",
                     "options": [
@@ -185,6 +210,7 @@ ISSUE_MAPPING = {
                         "Light is on but no picture"
                     ]
                 },
+
                 "Screen flickering": {
                     "question": "When does the screen flicker?",
                     "options": [
@@ -194,7 +220,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Fridge branches ---
                 "Not cooling": {
                     "question": "Is the fridge motor running?",
                     "options": [
@@ -203,6 +228,7 @@ ISSUE_MAPPING = {
                         "Runs but stops quickly"
                     ]
                 },
+
                 "Overcooling": {
                     "question": "Is everything freezing or just certain items?",
                     "options": [
@@ -211,6 +237,7 @@ ISSUE_MAPPING = {
                         "Ice forming inside"
                     ]
                 },
+
                 "Water leaking": {
                     "question": "Where is the water coming from?",
                     "options": [
@@ -220,7 +247,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Washing Machine branches ---
                 "Won't start": {
                     "question": "Is there any display or light on the machine?",
                     "options": [
@@ -229,6 +255,7 @@ ISSUE_MAPPING = {
                         "Shows an error code"
                     ]
                 },
+
                 "Won't spin": {
                     "question": "Does the machine fill with water normally?",
                     "options": [
@@ -237,6 +264,7 @@ ISSUE_MAPPING = {
                         "Doesn't fill at all"
                     ]
                 },
+
                 "Won't drain": {
                     "question": "Is the drain hose blocked or kinked?",
                     "options": [
@@ -245,6 +273,7 @@ ISSUE_MAPPING = {
                         "Not sure"
                     ]
                 },
+
                 "Stops mid-cycle": {
                     "question": "At which point does it stop?",
                     "options": [
@@ -255,7 +284,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Light branches ---
                 "Single light": {
                     "question": "What type of light is it?",
                     "options": [
@@ -265,6 +293,7 @@ ISSUE_MAPPING = {
                         "Not sure"
                     ]
                 },
+
                 "Entire room": {
                     "question": "Did the room lights go off suddenly?",
                     "options": [
@@ -273,6 +302,7 @@ ISSUE_MAPPING = {
                         "Gradually getting dimmer"
                     ]
                 },
+
                 "Multiple rooms": {
                     "question": "Did a power trip occur at the same time?",
                     "options": [
@@ -282,7 +312,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Rice Cooker branches ---
                 "Not heating": {
                     "question": "Does the power light come on when switched on?",
                     "options": [
@@ -291,6 +320,7 @@ ISSUE_MAPPING = {
                         "Light flickers"
                     ]
                 },
+
                 "Burning rice": {
                     "question": "Has this started happening recently or always?",
                     "options": [
@@ -299,6 +329,7 @@ ISSUE_MAPPING = {
                         "Only with certain rice types"
                     ]
                 },
+
                 "Stops too early": {
                     "question": "Does it switch to 'warm' mode too soon?",
                     "options": [
@@ -308,7 +339,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Other appliance branches ---
                 "No power": {
                     "question": "Have you checked the plug and socket?",
                     "options": [
@@ -317,6 +347,7 @@ ISSUE_MAPPING = {
                         "Fuse might be blown"
                     ]
                 },
+
                 "Noise": {
                     "question": "What type of noise is the appliance making?",
                     "options": [
@@ -326,6 +357,7 @@ ISSUE_MAPPING = {
                         "High-pitched sound"
                     ]
                 },
+
                 "Overheating": {
                     "question": "Does it overheat immediately or after some time?",
                     "options": [
@@ -335,7 +367,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Fallback ---
                 "default": {
                     "question": "How long has this issue been happening?",
                     "options": [
@@ -347,7 +378,6 @@ ISSUE_MAPPING = {
                 }
             },
 
-            # STEP 4
             4: {
                 "question": "Is there any electrical risk?",
                 "options": [
@@ -358,7 +388,6 @@ ISSUE_MAPPING = {
                 ]
             },
 
-            # STEP 5
             5: {
                 "question": "When do you need this service?",
                 "options": [
@@ -368,7 +397,6 @@ ISSUE_MAPPING = {
                 ]
             },
 
-            # STEP 6
             6: {
                 "question": "What is your address?",
                 "options": []
@@ -376,14 +404,15 @@ ISSUE_MAPPING = {
         }
     },
 
-    # =================================================
+
+    # ========================================================
     # FURNITURE
-    # =================================================
+    # ========================================================
+
     "furniture": {
 
         "steps": {
 
-            # STEP 1
             1: {
                 "question": "What type of furniture needs repair?",
                 "options": [
@@ -394,8 +423,8 @@ ISSUE_MAPPING = {
                 ]
             },
 
-            # STEP 2 — Branches based on furniture type
             2: {
+
                 "Woodwork": {
                     "question": "What is the main problem?",
                     "options": [
@@ -405,6 +434,7 @@ ISSUE_MAPPING = {
                         "Termite damage"
                     ]
                 },
+
                 "Upholstered Furniture": {
                     "question": "What is the main problem?",
                     "options": [
@@ -414,6 +444,7 @@ ISSUE_MAPPING = {
                         "Foam worn out"
                     ]
                 },
+
                 "Cabinets & Doors": {
                     "question": "What is the problem?",
                     "options": [
@@ -423,6 +454,7 @@ ISSUE_MAPPING = {
                         "Surface peeling"
                     ]
                 },
+
                 "Outdoor Furniture": {
                     "question": "What is the main problem?",
                     "options": [
@@ -434,10 +466,8 @@ ISSUE_MAPPING = {
                 }
             },
 
-            # STEP 3 — Branches based on Step 2 answer
             3: {
 
-                # --- Woodwork branches ---
                 "Broken joint": {
                     "question": "Which part of the furniture has the broken joint?",
                     "options": [
@@ -447,6 +477,7 @@ ISSUE_MAPPING = {
                         "Other joint"
                     ]
                 },
+
                 "Cracked wood": {
                     "question": "How severe is the crack?",
                     "options": [
@@ -455,6 +486,7 @@ ISSUE_MAPPING = {
                         "Wood is splitting apart"
                     ]
                 },
+
                 "Wobbly structure": {
                     "question": "Which furniture is wobbly?",
                     "options": [
@@ -464,6 +496,7 @@ ISSUE_MAPPING = {
                         "Shelf or rack"
                     ]
                 },
+
                 "Termite damage": {
                     "question": "How widespread is the termite damage?",
                     "options": [
@@ -474,7 +507,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Upholstered Furniture branches ---
                 "Torn fabric": {
                     "question": "How large is the tear?",
                     "options": [
@@ -484,6 +516,7 @@ ISSUE_MAPPING = {
                         "Completely worn out"
                     ]
                 },
+
                 "Sagging cushion": {
                     "question": "Which cushion is sagging?",
                     "options": [
@@ -493,6 +526,7 @@ ISSUE_MAPPING = {
                         "Armrest"
                     ]
                 },
+
                 "Broken frame": {
                     "question": "Is the frame visibly cracked or just weak?",
                     "options": [
@@ -502,6 +536,7 @@ ISSUE_MAPPING = {
                         "Not sure"
                     ]
                 },
+
                 "Foam worn out": {
                     "question": "Do you want the foam replaced or the entire cover too?",
                     "options": [
@@ -511,7 +546,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Cabinets & Doors branches ---
                 "Door won't close": {
                     "question": "Why does the door not close properly?",
                     "options": [
@@ -521,6 +555,7 @@ ISSUE_MAPPING = {
                         "Not sure"
                     ]
                 },
+
                 "Broken hinge": {
                     "question": "How many hinges are broken?",
                     "options": [
@@ -529,6 +564,7 @@ ISSUE_MAPPING = {
                         "All hinges on this door"
                     ]
                 },
+
                 "Drawer stuck": {
                     "question": "Is the drawer stuck or completely jammed?",
                     "options": [
@@ -537,6 +573,7 @@ ISSUE_MAPPING = {
                         "Came off its track"
                     ]
                 },
+
                 "Surface peeling": {
                     "question": "What surface is peeling?",
                     "options": [
@@ -547,7 +584,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Outdoor Furniture branches ---
                 "Rotting wood": {
                     "question": "How much of the wood is rotting?",
                     "options": [
@@ -556,6 +592,7 @@ ISSUE_MAPPING = {
                         "Entire piece"
                     ]
                 },
+
                 "Broken planks": {
                     "question": "How many planks are broken?",
                     "options": [
@@ -564,6 +601,7 @@ ISSUE_MAPPING = {
                         "More than three"
                     ]
                 },
+
                 "Rust": {
                     "question": "How severe is the rust?",
                     "options": [
@@ -572,6 +610,7 @@ ISSUE_MAPPING = {
                         "Structural rust — weakening the frame"
                     ]
                 },
+
                 "Loose joints": {
                     "question": "Are the joints loose or completely detached?",
                     "options": [
@@ -581,7 +620,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Fallback ---
                 "default": {
                     "question": "How severe is the damage?",
                     "options": [
@@ -593,7 +631,6 @@ ISSUE_MAPPING = {
                 }
             },
 
-            # STEP 4
             4: {
                 "question": "What material is the furniture made of?",
                 "options": [
@@ -605,7 +642,6 @@ ISSUE_MAPPING = {
                 ]
             },
 
-            # STEP 5
             5: {
                 "question": "Is on-site work possible?",
                 "options": [
@@ -615,7 +651,6 @@ ISSUE_MAPPING = {
                 ]
             },
 
-            # STEP 6
             6: {
                 "question": "When do you need this service?",
                 "options": [
@@ -625,7 +660,6 @@ ISSUE_MAPPING = {
                 ]
             },
 
-            # STEP 7
             7: {
                 "question": "What is your address?",
                 "options": []
@@ -633,14 +667,15 @@ ISSUE_MAPPING = {
         }
     },
 
-    # =================================================
+
+    # ========================================================
     # PLUMBING
-    # =================================================
+    # ========================================================
+
     "plumbing": {
 
         "steps": {
 
-            # STEP 1
             1: {
                 "question": "What plumbing issue do you need help with?",
                 "options": [
@@ -651,8 +686,8 @@ ISSUE_MAPPING = {
                 ]
             },
 
-            # STEP 2 — Branches based on plumbing category
             2: {
+
                 "Leaks": {
                     "question": "Where is the leak?",
                     "options": [
@@ -662,6 +697,7 @@ ISSUE_MAPPING = {
                         "Toilet"
                     ]
                 },
+
                 "Pipes": {
                     "question": "What is the pipe issue?",
                     "options": [
@@ -671,6 +707,7 @@ ISSUE_MAPPING = {
                         "Rust"
                     ]
                 },
+
                 "Blocked Drains": {
                     "question": "Which drain is blocked?",
                     "options": [
@@ -680,6 +717,7 @@ ISSUE_MAPPING = {
                         "Floor drain"
                     ]
                 },
+
                 "Taps & Toilets": {
                     "question": "What is the problem?",
                     "options": [
@@ -690,10 +728,8 @@ ISSUE_MAPPING = {
                 }
             },
 
-            # STEP 3 — Branches based on Step 2 answer
             3: {
 
-                # --- Leaks branches ---
                 "Under sink": {
                     "question": "Is the leak coming from the pipe or the tap?",
                     "options": [
@@ -703,6 +739,7 @@ ISSUE_MAPPING = {
                         "Not sure"
                     ]
                 },
+
                 "Wall": {
                     "question": "Is there visible water seeping or just a damp stain?",
                     "options": [
@@ -712,6 +749,7 @@ ISSUE_MAPPING = {
                         "Mold forming"
                     ]
                 },
+
                 "Ceiling": {
                     "question": "Is there a bathroom or kitchen directly above the leak?",
                     "options": [
@@ -721,6 +759,7 @@ ISSUE_MAPPING = {
                         "Top floor or roof"
                     ]
                 },
+
                 "Toilet": {
                     "question": "Where exactly is the toilet leaking from?",
                     "options": [
@@ -731,7 +770,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Pipes branches ---
                 "Burst pipe": {
                     "question": "Is water still gushing or has it slowed down?",
                     "options": [
@@ -741,6 +779,7 @@ ISSUE_MAPPING = {
                         "Not sure"
                     ]
                 },
+
                 "Blocked pipe": {
                     "question": "Which area has the blocked pipe?",
                     "options": [
@@ -750,6 +789,7 @@ ISSUE_MAPPING = {
                         "Not sure"
                     ]
                 },
+
                 "Noise": {
                     "question": "What type of noise are the pipes making?",
                     "options": [
@@ -759,6 +799,7 @@ ISSUE_MAPPING = {
                         "Rattling"
                     ]
                 },
+
                 "Rust": {
                     "question": "Is there visible rust or just discoloured water?",
                     "options": [
@@ -769,7 +810,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Blocked Drains branches ---
                 "Kitchen sink": {
                     "question": "Is it completely blocked or draining slowly?",
                     "options": [
@@ -779,6 +819,7 @@ ISSUE_MAPPING = {
                         "Water backing up"
                     ]
                 },
+
                 "Bathroom sink": {
                     "question": "What seems to be causing the blockage?",
                     "options": [
@@ -788,6 +829,7 @@ ISSUE_MAPPING = {
                         "Not sure"
                     ]
                 },
+
                 "Floor drain": {
                     "question": "Which floor drain is affected?",
                     "options": [
@@ -798,7 +840,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Taps & Toilets branches ---
                 "Dripping tap": {
                     "question": "Which tap is dripping?",
                     "options": [
@@ -808,6 +849,7 @@ ISSUE_MAPPING = {
                         "Multiple taps"
                     ]
                 },
+
                 "Toilet won't flush": {
                     "question": "Is the flush handle working or broken?",
                     "options": [
@@ -817,6 +859,7 @@ ISSUE_MAPPING = {
                         "Tank not filling up"
                     ]
                 },
+
                 "Low pressure": {
                     "question": "Is the low pressure happening in one tap or everywhere?",
                     "options": [
@@ -827,7 +870,6 @@ ISSUE_MAPPING = {
                     ]
                 },
 
-                # --- Fallback ---
                 "default": {
                     "question": "How severe is the issue?",
                     "options": [
@@ -839,7 +881,6 @@ ISSUE_MAPPING = {
                 }
             },
 
-            # STEP 4
             4: {
                 "question": "Is water still flowing normally in your home?",
                 "options": [
@@ -850,7 +891,6 @@ ISSUE_MAPPING = {
                 ]
             },
 
-            # STEP 5
             5: {
                 "question": "Is there any immediate risk?",
                 "options": [
@@ -861,7 +901,6 @@ ISSUE_MAPPING = {
                 ]
             },
 
-            # STEP 6
             6: {
                 "question": "When do you need this service?",
                 "options": [
@@ -871,24 +910,21 @@ ISSUE_MAPPING = {
                 ]
             },
 
-            # STEP 7
             7: {
                 "question": "What is your address?",
                 "options": []
             }
         }
-    },
-
-    
+    }
 }
 
-# ---------------------------------------------------
-# SMART OBJECT GROUP MAPPING
-# ---------------------------------------------------
+
+# ============================================================
+# OBJECT GROUP MAPPING
+# ============================================================
 
 OBJECT_FLOW_MAP = {
 
-    # ELECTRICAL
     "Fan": "Fan",
     "TV": "TV",
     "Fridge": "Fridge",
@@ -896,39 +932,45 @@ OBJECT_FLOW_MAP = {
     "Light": "Light",
     "Rice Cooker": "Rice Cooker",
 
-    # FURNITURE
     "Chair or stool": "Woodwork",
     "Dining table": "Woodwork",
     "Bed frame": "Woodwork",
     "Wardrobe / cupboard": "Cabinets & Doors",
     "Sofa / couch": "Upholstered Furniture",
 
-    # PLUMBING
     "Pipe": "Pipes",
     "Drain": "Blocked Drains",
     "Tap": "Taps & Toilets"
 }
 
-# ---------------------------------------------------
+
+# ============================================================
 # MODEL SETUP
-# ---------------------------------------------------
+# ============================================================
 
 MODEL_PATH = "../models/repair_model_v1.h5"
-#MODEL_PATH = "../models/efficientnet_repair_v1.h5"
 
 model = tf.keras.models.load_model(MODEL_PATH)
 
-# Updated to match your 4-class dataset
-CLASSES = ["electrical", "furniture", "other", "plumbing"]
-visual_identifier = MobileNetV2(weights='imagenet')
+CLASSES = [
+    "electrical",
+    "furniture",
+    "other",
+    "plumbing"
+]
 
-# ---------------------------------------------------
+visual_identifier = MobileNetV2(weights="imagenet")
+
+
+# ============================================================
 # IMAGE HELPER
-# ---------------------------------------------------
+# ============================================================
 
 def get_shared_tensor(image_bytes):
 
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    img = Image.open(
+        io.BytesIO(image_bytes)
+    ).convert("RGB")
 
     img = img.resize((224, 224))
 
@@ -936,16 +978,16 @@ def get_shared_tensor(image_bytes):
 
     return np.expand_dims(arr, axis=0)
 
-# ---------------------------------------------------
-# SMART FLOW MATCHER  ✅ FIXED — guards against missing category or step
-# ---------------------------------------------------
+
+# ============================================================
+# SMART FLOW MATCHER
+# ============================================================
 
 def get_matching_question_group(category, detected_object):
 
     if not detected_object:
         return None
 
-    # ✅ Guard: category must exist in ISSUE_MAPPING
     if category not in ISSUE_MAPPING:
         return None
 
@@ -954,10 +996,8 @@ def get_matching_question_group(category, detected_object):
     if not mapped_group:
         return None
 
-    # ✅ Guard: step 2 may not be a branching dict (e.g. "other" category)
     step2 = ISSUE_MAPPING[category]["steps"].get(2, {})
 
-    # Step 2 must be a branching dict (not a plain question node)
     if "question" in step2:
         return None
 
@@ -969,17 +1009,24 @@ def get_matching_question_group(category, detected_object):
 
     return None
 
-# ---------------------------------------------------
+
+# ============================================================
 # OBJECT DETECTION
-# ---------------------------------------------------
+# ============================================================
 
 def detect_object(base_tensor):
 
     mobile_x = preprocess_input(base_tensor.copy())
 
-    preds = visual_identifier.predict(mobile_x)
+    preds = visual_identifier.predict(
+        mobile_x,
+        verbose=0
+    )
 
-    top_10 = decode_predictions(preds, top=10)[0]
+    top_10 = decode_predictions(
+        preds,
+        top=10
+    )[0]
 
     for _, label, score in top_10:
 
@@ -987,7 +1034,6 @@ def detect_object(base_tensor):
 
         print("Detected:", label, score)
 
-        # ELECTRICAL
         if any(x in label for x in ["fan", "blower"]):
             return "Fan"
 
@@ -1006,7 +1052,6 @@ def detect_object(base_tensor):
         elif any(x in label for x in ["oven", "microwave", "cooker"]):
             return "Rice Cooker"
 
-        # FURNITURE
         elif any(x in label for x in ["chair", "seat", "stool"]):
             return "Chair or stool"
 
@@ -1022,7 +1067,6 @@ def detect_object(base_tensor):
         elif any(x in label for x in ["cabinet", "wardrobe", "cupboard"]):
             return "Wardrobe / cupboard"
 
-        # PLUMBING
         elif any(x in label for x in ["pipe", "pipeline"]):
             return "Pipe"
 
@@ -1034,9 +1078,441 @@ def detect_object(base_tensor):
 
     return None
 
-# ---------------------------------------------------
+
+# ============================================================
+# PROVIDER MATCHING
+# ============================================================
+
+def normalize_service_category(value):
+
+    if not value:
+        return ""
+
+    value = str(value).lower().strip()
+
+    # Remove common characters
+    value = value.replace("&", "and")
+    value = value.replace("-", " ")
+    value = value.replace("_", " ")
+
+    return " ".join(value.split())
+
+
+# ============================================================
+# GET ALL PROVIDERS
+# ============================================================
+
+def get_all_providers():
+
+    try:
+
+        response = requests.get(
+            PROVIDER_SERVICE_URL,
+            timeout=10
+        )
+
+        print(
+            "[Provider Service]",
+            response.status_code
+        )
+
+        if response.status_code != 200:
+
+            print(
+                "[Provider Service] Failed:",
+                response.text
+            )
+
+            return []
+
+        data = response.json()
+
+        providers = data.get(
+            "providers",
+            []
+        )
+
+        print(
+            "[Provider Service] Providers received:",
+            len(providers)
+        )
+
+        return providers
+
+    except requests.exceptions.RequestException as err:
+
+        print(
+            "[Provider Service] Connection error:",
+            str(err)
+        )
+
+        return []
+
+    except Exception as err:
+
+        print(
+            "[Provider Service] Unexpected error:",
+            str(err)
+        )
+
+        return []
+
+
+# ============================================================
+# CATEGORY MATCHING
+# ============================================================
+
+def category_matches(
+    requested_category,
+    provider_category
+):
+
+    requested = normalize_service_category(
+        requested_category
+    )
+
+    provider = normalize_service_category(
+        provider_category
+    )
+
+    if not requested or not provider:
+        return False
+
+    # --------------------------------------------------------
+    # ELECTRICAL
+    # --------------------------------------------------------
+
+    if requested == "electrical":
+
+        electrical_keywords = [
+            "electrical",
+            "electrician",
+            "electrical repair",
+            "electrical repairs",
+            "electric repair",
+            "appliance repair",
+            "electric"
+        ]
+
+        return any(
+            keyword in provider
+            for keyword in electrical_keywords
+        )
+
+    # --------------------------------------------------------
+    # PLUMBING
+    # --------------------------------------------------------
+
+    if requested == "plumbing":
+
+        plumbing_keywords = [
+            "plumbing",
+            "plumber",
+            "plumbing repair",
+            "pipe repair"
+        ]
+
+        return any(
+            keyword in provider
+            for keyword in plumbing_keywords
+        )
+
+    # --------------------------------------------------------
+    # FURNITURE
+    # --------------------------------------------------------
+
+    if requested == "furniture":
+
+        furniture_keywords = [
+            "furniture",
+            "carpentry",
+            "carpenter",
+            "woodwork",
+            "wood working",
+            "upholstery",
+            "furniture repair"
+        ]
+
+        return any(
+            keyword in provider
+            for keyword in furniture_keywords
+        )
+
+    # --------------------------------------------------------
+    # CLEANING
+    # --------------------------------------------------------
+
+    if requested == "cleaning":
+
+        cleaning_keywords = [
+            "cleaning",
+            "house cleaning",
+            "home cleaning",
+            "cleaner"
+        ]
+
+        return any(
+            keyword in provider
+            for keyword in cleaning_keywords
+        )
+
+    # --------------------------------------------------------
+    # FALLBACK
+    # --------------------------------------------------------
+
+    return (
+        requested in provider
+        or provider in requested
+    )
+
+
+# ============================================================
+# FILTER PROVIDERS
+# ============================================================
+
+def filter_matching_providers(
+    category,
+    providers,
+    district=None
+):
+
+    matching = []
+
+    requested_category = normalize_service_category(
+        category
+    )
+
+    requested_district = normalize_service_category(
+        district
+    )
+
+    for item in providers:
+
+        provider = item.get(
+            "provider",
+            {}
+        )
+
+        provider_category = provider.get(
+            "category",
+            ""
+        )
+
+        provider_district = provider.get(
+            "district",
+            ""
+        )
+
+        is_blocked = provider.get(
+            "isBlocked",
+            False
+        )
+
+        # ----------------------------------------------------
+        # Skip blocked providers
+        # ----------------------------------------------------
+
+        if is_blocked:
+            continue
+
+        # ----------------------------------------------------
+        # Category must match
+        # ----------------------------------------------------
+
+        if not category_matches(
+            requested_category,
+            provider_category
+        ):
+            continue
+
+        # ----------------------------------------------------
+        # District filter
+        #
+        # Only apply district filtering if we actually have
+        # a district value.
+        # ----------------------------------------------------
+
+        district_match = True
+
+        if requested_district:
+
+            district_match = (
+                requested_district
+                == normalize_service_category(
+                    provider_district
+                )
+            )
+
+        # ----------------------------------------------------
+        # Add provider
+        # ----------------------------------------------------
+
+        provider_result = {
+            "provider": provider,
+            "portfolio": item.get(
+                "portfolio",
+                {}
+            ),
+            "match": {
+                "category_match": True,
+                "district_match": district_match
+            }
+        }
+
+        # Exact district providers first
+        if district_match:
+
+            provider_result["match"]["priority"] = "HIGH"
+
+        else:
+
+            provider_result["match"]["priority"] = "NORMAL"
+
+        matching.append(
+            provider_result
+        )
+
+    # --------------------------------------------------------
+    # Sort:
+    # HIGH priority first
+    # --------------------------------------------------------
+
+    matching.sort(
+        key=lambda x: (
+            0
+            if x["match"]["priority"] == "HIGH"
+            else 1
+        )
+    )
+
+    return matching
+
+
+# ============================================================
+# FIND PROVIDERS FOR REQUEST
+# ============================================================
+
+def find_matching_providers(
+    category,
+    answers
+):
+
+    all_providers = get_all_providers()
+
+    if not all_providers:
+
+        return {
+            "success": False,
+            "total": 0,
+            "providers": [],
+            "message": "Unable to retrieve providers from provider service."
+        }
+
+    # --------------------------------------------------------
+    # Try to find district from address.
+    #
+    # Example:
+    # "Gampaha"
+    # "Colombo"
+    #
+    # If the address contains a district, it will be used.
+    # --------------------------------------------------------
+
+    address = None
+
+    for key in [
+        "step_7",
+        "step_6",
+        "step_5"
+    ]:
+
+        if answers.get(key):
+
+            address = answers[key]
+
+            break
+
+    district = None
+
+    if address:
+
+        known_districts = [
+            "Colombo",
+            "Gampaha",
+            "Kalutara",
+            "Kandy",
+            "Galle",
+            "Matara",
+            "Jaffna",
+            "Kurunegala",
+            "Puttalam",
+            "Anuradhapura",
+            "Polonnaruwa",
+            "Badulla",
+            "Monaragala",
+            "Ratnapura",
+            "Kegalle",
+            "Matale",
+            "Nuwara Eliya",
+            "Hambantota",
+            "Batticaloa",
+            "Ampara",
+            "Trincomalee",
+            "Mannar",
+            "Mullaitivu",
+            "Kilinochchi",
+            "Vavuniya"
+        ]
+
+        address_normalized = normalize_service_category(
+            address
+        )
+
+        for d in known_districts:
+
+            if normalize_service_category(d) in address_normalized:
+
+                district = d
+
+                break
+
+    # --------------------------------------------------------
+    # Filter
+    # --------------------------------------------------------
+
+    matching = filter_matching_providers(
+        category=category,
+        providers=all_providers,
+        district=district
+    )
+
+    # --------------------------------------------------------
+    # If no district providers exist, return category matches
+    # anyway.
+    # --------------------------------------------------------
+
+    if district:
+
+        exact_district = [
+            p for p in matching
+            if p["match"]["district_match"]
+        ]
+
+        if exact_district:
+
+            matching = exact_district
+
+    return {
+        "success": True,
+        "total": len(matching),
+        "providers": matching,
+        "district_used": district
+    }
+
+
+# ============================================================
 # START FLOW
-# ---------------------------------------------------
+# ============================================================
 
 @app.post("/predict")
 async def start_service_flow(
@@ -1045,27 +1521,56 @@ async def start_service_flow(
 ):
 
     contents = await file.read()
-    base_tensor = get_shared_tensor(contents)
 
+    base_tensor = get_shared_tensor(
+        contents
+    )
+
+    # --------------------------------------------------------
     # CATEGORY PREDICTION
-    domain_input = base_tensor / 255.0
-    preds = model.predict(domain_input)
+    # --------------------------------------------------------
 
-    best_idx = np.argmax(preds[0])
-    conf_score = float(preds[0][best_idx])
+    domain_input = base_tensor / 255.0
+
+    preds = model.predict(
+        domain_input,
+        verbose=0
+    )
+
+    best_idx = np.argmax(
+        preds[0]
+    )
+
+    conf_score = float(
+        preds[0][best_idx]
+    )
 
     category = CLASSES[best_idx]
-    confidence_str = f"{round(conf_score * 100, 2)}%"
 
-    # ❌ HANDLE "OTHER" CATEGORY IMMEDIATELY
+    confidence_str = (
+        f"{round(conf_score * 100, 2)}%"
+    )
+
+    # --------------------------------------------------------
+    # OTHER
+    # --------------------------------------------------------
+
     if category == "other":
 
-        session_id = f"REPAIR-{uuid.uuid4().hex[:4].upper()}"
+        session_id = (
+            f"REPAIR-{uuid.uuid4().hex[:4].upper()}"
+        )
 
-        agent_text = "Sorry, we can't identify a valid repair category for this issue."
+        agent_text = (
+            "Sorry, we can't identify a valid "
+            "repair category for this issue."
+        )
 
         if language == "si":
-            agent_text = get_sinhala_translation(agent_text)
+
+            agent_text = get_sinhala_translation(
+                agent_text
+            )
 
         return {
             "session_id": session_id,
@@ -1079,17 +1584,26 @@ async def start_service_flow(
             }
         }
 
-    # OBJECT DETECTION (only for valid categories)
-    identified_item = detect_object(base_tensor)
+    # --------------------------------------------------------
+    # OBJECT DETECTION
+    # --------------------------------------------------------
 
-    # FLOW GROUP
+    identified_item = detect_object(
+        base_tensor
+    )
+
     matched_group = get_matching_question_group(
         category,
         identified_item
     )
 
-    session_id = f"REPAIR-{uuid.uuid4().hex[:4].upper()}"
-    current_step = 2 if matched_group else 1
+    session_id = (
+        f"REPAIR-{uuid.uuid4().hex[:4].upper()}"
+    )
+
+    current_step = (
+        2 if matched_group else 1
+    )
 
     session_data = {
         "id": session_id,
@@ -1103,25 +1617,38 @@ async def start_service_flow(
         "current_step": current_step
     }
 
-    db_manager.save_session(session_data)
+    db_manager.save_session(
+        session_data
+    )
 
-    flow = ISSUE_MAPPING[category]
+    flow = ISSUE_MAPPING[
+        category
+    ]
 
-    # SMART QUESTION
     if matched_group:
-        raw_q = flow["steps"][2][matched_group]
+
+        raw_q = flow["steps"][2][
+            matched_group
+        ]
+
         next_q = {
             "question": raw_q["question"],
             "options": raw_q["options"]
         }
+
     else:
+
         next_q = flow["steps"][1]
 
-    # AGENT SPEECH
-    agent_text = f"I've identified a {category} issue."
+    agent_text = (
+        f"I've identified a {category} issue."
+    )
 
     if language == "si":
-        agent_text = get_sinhala_translation(agent_text)
+
+        agent_text = get_sinhala_translation(
+            agent_text
+        )
 
     return {
         "session_id": session_id,
@@ -1129,127 +1656,177 @@ async def start_service_flow(
         "detected_object": identified_item,
         "detected_group": matched_group,
         "agent_speech": agent_text,
-        "next_question": translate_payload(next_q, language)
+        "next_question": translate_payload(
+            next_q,
+            language
+        )
     }
-# ---------------------------------------------------
-# NEXT FLOW STEP — FULLY DYNAMIC BRANCHING
-# ---------------------------------------------------
+
+
+# ============================================================
+# NEXT FLOW STEP
+# ============================================================
 
 @app.post("/flow/next")
-async def get_next_step(body: dict = Body(...)):
+async def get_next_step(
+    body: dict = Body(...)
+):
 
-    session_id = body.get("session_id")
+    session_id = body.get(
+        "session_id"
+    )
 
-    raw_answer = body.get("answer")
+    raw_answer = body.get(
+        "answer"
+    )
 
-    session = db_manager.get_session(session_id)
+    session = db_manager.get_session(
+        session_id
+    )
 
     if not session:
+
         return {
             "success": False,
             "message": "Invalid session"
         }
 
-    language = getattr(session, "language", "en")
+    language = getattr(
+        session,
+        "language",
+        "en"
+    )
 
     answer = (
-        translate_answer_to_english(raw_answer)
+        translate_answer_to_english(
+            raw_answer
+        )
         if language == "si"
         else raw_answer
     )
 
-    cat  = session.category
+    cat = session.category
+
     step = session.current_step
 
-    # SAVE ANSWER
-    answers = session.answers or {}
+    answers = (
+        session.answers
+        or {}
+    )
 
-    answers[f"step_{step}"] = answer
+    answers[
+        f"step_{step}"
+    ] = answer
 
     session.answers = answers
 
-    # ✅ Step 1 answer = flow_group (appliance / plumbing type / furniture type / other type)
     if step == 1:
-        session.object     = answer
+
+        session.object = answer
         session.flow_group = answer
 
-    # ✅ Step 2 answer = used to branch Step 3
     if step == 2:
+
         session.step2_answer = answer
 
-    # Persist BEFORE reading back, so getattr reflects latest values
-    db_manager.save_session(session)
+    db_manager.save_session(
+        session
+    )
 
-    next_step  = step + 1
-    flow_steps = ISSUE_MAPPING[cat]["steps"]
+    next_step = step + 1
 
-    # FLOW FINISHED — build rich summary
+    flow_steps = ISSUE_MAPPING[
+        cat
+    ]["steps"]
+
+    # --------------------------------------------------------
+    # FINISHED
+    # --------------------------------------------------------
+
     if next_step not in flow_steps:
-        summary = build_summary(session, answers)
+
+        summary = build_summary(
+            session,
+            answers
+        )
+
         return {
-            "success":  True,
-            "summary":  summary
+            "success": True,
+            "summary": summary
         }
 
-    # -------------------------------------------------------
-    # RESOLVE: always return exactly ONE {question, options}
-    # -------------------------------------------------------
-    raw_next = flow_steps[next_step]
+    raw_next = flow_steps[
+        next_step
+    ]
 
-    # Read back the freshly-saved values
-    flow_group = getattr(session, "flow_group",   None)
-    step2_ans  = getattr(session, "step2_answer", None)
+    flow_group = getattr(
+        session,
+        "flow_group",
+        None
+    )
+
+    step2_ans = getattr(
+        session,
+        "step2_answer",
+        None
+    )
 
     def resolve_question(q_node):
-        """
-        Recursively resolve a potentially-branched node to a single
-        {question, options} dict.
 
-        Priority:
-          1. Already a plain question  → return as-is
-          2. Current answer            → direct branch key (step 1→2, step 2→3)
-          3. step2_answer              → branch key saved from step 2
-          4. flow_group                → branch key saved from step 1
-          5. "default"                 → safe fallback
-          6. First value               → absolute last resort
-        """
-        # Already resolved — plain question node
         if "question" in q_node:
+
             return q_node
 
-        # 1. The answer the user JUST gave is the most direct branch key
         if answer and answer in q_node:
-            return resolve_question(q_node[answer])
 
-        # 2. Step 2 answer (resolves step 3 onwards)
+            return resolve_question(
+                q_node[answer]
+            )
+
         if step2_ans and step2_ans in q_node:
-            return resolve_question(q_node[step2_ans])
 
-        # 3. flow_group / step 1 answer
+            return resolve_question(
+                q_node[step2_ans]
+            )
+
         if flow_group and flow_group in q_node:
-            return resolve_question(q_node[flow_group])
 
-        # 4. Explicit default key
+            return resolve_question(
+                q_node[flow_group]
+            )
+
         if "default" in q_node:
-            return resolve_question(q_node["default"])
 
-        # 5. Absolute last resort — first child
-        return resolve_question(next(iter(q_node.values())))
+            return resolve_question(
+                q_node["default"]
+            )
 
-    next_q = resolve_question(raw_next)
+        return resolve_question(
+            next(iter(q_node.values()))
+        )
+
+    next_q = resolve_question(
+        raw_next
+    )
 
     session.current_step = next_step
 
-    db_manager.save_session(session)
+    db_manager.save_session(
+        session
+    )
 
     return {
-        "session_id":    session_id,
-        "next_question": translate_payload(next_q, language)
+        "session_id": session_id,
+        "next_question": translate_payload(
+            next_q,
+            language
+        )
     }
 
-# ---------------------------------------------------
-# STEP LABEL MAPS — human-readable question labels per category
-# ---------------------------------------------------
+
+# ============================================================
+# STEP LABELS
+# ============================================================
 
 STEP_LABELS = {
 
@@ -1280,292 +1857,645 @@ STEP_LABELS = {
         5: "Immediate Risk",
         6: "Urgency",
         7: "Address"
-    },
-
-    
+    }
 }
 
-# ---------------------------------------------------
-# URGENCY RESOLVER — reads the urgency answer from answers
-# ---------------------------------------------------
 
-def resolve_urgency(answers: dict) -> str:
-    """
-    Scan all step answers to find the urgency level.
-    Works across all categories regardless of which step urgency falls on.
-    """
+# ============================================================
+# URGENCY
+# ============================================================
+
+def resolve_urgency(
+    answers: dict
+) -> str:
+
     urgency_map = {
-        "flexible":        "Low — Flexible scheduling",
-        "within 24 hours": "Medium — Within 24 hours",
-        "urgent":          "High — Urgent, needs immediate attention",
-        "emergency":       "Critical — Emergency service required",
-        "flooding occurring":     "Critical — Emergency (flooding)",
-        "water spreading fast":   "Critical — Emergency (water spreading)",
-        "sparks visible":         "Critical — Emergency (electrical sparks)",
-        "no immediate risk":      "Low — No immediate risk",
-        "bad smell present":      "Medium — Needs prompt attention (odour)",
-        "burning smell":          "High — Urgent (burning smell detected)",
-        "power trips happening":  "High — Urgent (power tripping)"
+
+        "flexible":
+            "Low — Flexible scheduling",
+
+        "within 24 hours":
+            "Medium — Within 24 hours",
+
+        "urgent":
+            "High — Urgent, needs immediate attention",
+
+        "emergency":
+            "Critical — Emergency service required",
+
+        "flooding occurring":
+            "Critical — Emergency (flooding)",
+
+        "water spreading fast":
+            "Critical — Emergency (water spreading)",
+
+        "sparks visible":
+            "Critical — Emergency (electrical sparks)",
+
+        "no immediate risk":
+            "Low — No immediate risk",
+
+        "bad smell present":
+            "Medium — Needs prompt attention (odour)",
+
+        "burning smell":
+            "High — Urgent (burning smell detected)",
+
+        "power trips happening":
+            "High — Urgent (power tripping)"
     }
+
     for val in answers.values():
+
         if val:
+
             normalized = val.strip().lower()
+
             for key, label in urgency_map.items():
+
                 if key in normalized:
+
                     return label
+
     return "Unknown"
 
-# ---------------------------------------------------
-# BRIEF DESCRIPTION GENERATOR
-# ---------------------------------------------------
 
-def generate_brief_description(category: str, answers: dict, detected_object: str) -> str:
-    """
-    Builds a human-readable, meaningful one-paragraph description of the
-    service request based on category and all collected answers.
-    """
+# ============================================================
+# DESCRIPTION
+# ============================================================
 
-    vals = [v for v in answers.values() if v]
+def generate_brief_description(
+    category,
+    answers,
+    detected_object
+):
+
+    vals = [
+        v
+        for v in answers.values()
+        if v
+    ]
 
     if category == "electrical":
-        appliance  = answers.get("step_1") or detected_object or "an electrical appliance"
-        symptom    = answers.get("step_2", "an issue")
-        detail     = answers.get("step_3", "")
-        risk       = answers.get("step_4", "no known risk")
-        urgency    = answers.get("step_5", "flexible timing")
-        address    = answers.get("step_6", "address not provided")
 
-        desc = (
-            f"The customer has reported a problem with their {appliance}. "
-            f"The appliance is experiencing '{symptom}'"
+        appliance = (
+            answers.get("step_1")
+            or detected_object
+            or "an electrical appliance"
+        )
+
+        symptom = answers.get(
+            "step_2",
+            "an issue"
+        )
+
+        detail = answers.get(
+            "step_3",
+            ""
+        )
+
+        risk = answers.get(
+            "step_4",
+            "no known risk"
+        )
+
+        urgency = answers.get(
+            "step_5",
+            "flexible timing"
+        )
+
+        address = answers.get(
+            "step_6",
+            "address not provided"
+        )
+
+        return (
+            f"The customer has reported a problem "
+            f"with their {appliance}. "
+            f"The appliance is experiencing "
+            f"'{symptom}'"
             f"{f', specifically described as: {detail}' if detail else ''}. "
             f"Safety assessment indicates: {risk}. "
-            f"Service is requested with {urgency} and the job location is {address}."
+            f"Service is requested with {urgency} "
+            f"and the job location is {address}."
         )
 
     elif category == "furniture":
-        ftype   = answers.get("step_1", "furniture")
-        problem = answers.get("step_2", "a problem")
-        detail  = answers.get("step_3", "")
-        material= answers.get("step_4", "unknown material")
-        onsite  = answers.get("step_5", "not specified")
-        urgency = answers.get("step_6", "flexible")
-        address = answers.get("step_7", "address not provided")
 
-        desc = (
-            f"The customer requires repair for their {ftype}. "
+        ftype = answers.get(
+            "step_1",
+            "furniture"
+        )
+
+        problem = answers.get(
+            "step_2",
+            "a problem"
+        )
+
+        detail = answers.get(
+            "step_3",
+            ""
+        )
+
+        material = answers.get(
+            "step_4",
+            "unknown material"
+        )
+
+        onsite = answers.get(
+            "step_5",
+            "not specified"
+        )
+
+        urgency = answers.get(
+            "step_6",
+            "flexible"
+        )
+
+        address = answers.get(
+            "step_7",
+            "address not provided"
+        )
+
+        return (
+            f"The customer requires repair "
+            f"for their {ftype}. "
             f"The reported problem is '{problem}'"
             f"{f', with further detail: {detail}' if detail else ''}. "
             f"The furniture material is {material}. "
             f"On-site work: {onsite}. "
-            f"Service is needed with {urgency} scheduling at {address}."
+            f"Service is needed with {urgency} "
+            f"scheduling at {address}."
         )
 
     elif category == "plumbing":
-        area    = answers.get("step_1", "a plumbing area")
-        issue   = answers.get("step_2", "an issue")
-        detail  = answers.get("step_3", "")
-        flow    = answers.get("step_4", "unknown")
-        risk    = answers.get("step_5", "no known risk")
-        urgency = answers.get("step_6", "flexible")
-        address = answers.get("step_7", "address not provided")
 
-        desc = (
-            f"A plumbing issue has been reported in the {area} area. "
+        area = answers.get(
+            "step_1",
+            "a plumbing area"
+        )
+
+        issue = answers.get(
+            "step_2",
+            "an issue"
+        )
+
+        detail = answers.get(
+            "step_3",
+            ""
+        )
+
+        flow = answers.get(
+            "step_4",
+            "unknown"
+        )
+
+        risk = answers.get(
+            "step_5",
+            "no known risk"
+        )
+
+        urgency = answers.get(
+            "step_6",
+            "flexible"
+        )
+
+        address = answers.get(
+            "step_7",
+            "address not provided"
+        )
+
+        return (
+            f"A plumbing issue has been reported "
+            f"in the {area} area. "
             f"The specific problem is '{issue}'"
             f"{f', described further as: {detail}' if detail else ''}. "
             f"Current water flow status: {flow}. "
             f"Immediate risk level: {risk}. "
-            f"Service urgency is {urgency} and the address is {address}."
+            f"Service urgency is {urgency} "
+            f"and the address is {address}."
         )
 
-    
+    return (
+        f"A {category} service request has been submitted. "
+        f"Details collected: {', '.join(vals)}."
+    )
 
-    else:
-        desc = (
-            f"A {category} service request has been submitted. "
-            f"Details collected: {', '.join(vals)}."
-        )
 
-    return desc
+# ============================================================
+# PROVIDER MATCHING CRITERIA
+# ============================================================
 
-# ---------------------------------------------------
-# PROVIDER MATCHING CRITERIA BUILDER
-# ---------------------------------------------------
-
-def build_provider_criteria(category: str, answers: dict, urgency_level: str) -> dict:
-    """
-    Extracts structured criteria that can be used to match
-    the right service provider from the database.
-    """
+def build_provider_criteria(
+    category,
+    answers,
+    urgency_level
+):
 
     address = None
-    for step_key in ["step_6", "step_7", "step_5"]:
+
+    for step_key in [
+        "step_6",
+        "step_7",
+        "step_5"
+    ]:
+
         if answers.get(step_key):
-            address = answers[step_key]
+
+            address = answers[
+                step_key
+            ]
+
             break
 
     is_urgent = any(
         word in urgency_level.lower()
-        for word in ["urgent", "critical", "emergency", "high"]
+        for word in [
+            "urgent",
+            "critical",
+            "emergency",
+            "high"
+        ]
     )
 
     criteria = {
-        "service_category":   category,
-        "urgency_level":      urgency_level,
-        "is_urgent":          is_urgent,
-        "service_location":   address,
-        "provider_tags":      [],
-        "match_priority":     "HIGH" if is_urgent else "NORMAL"
+
+        "service_category":
+            category,
+
+        "urgency_level":
+            urgency_level,
+
+        "is_urgent":
+            is_urgent,
+
+        "service_location":
+            address,
+
+        "provider_tags":
+            [],
+
+        "match_priority":
+            "HIGH"
+            if is_urgent
+            else "NORMAL"
     }
 
-    # Build provider skill tags based on category + answers
     if category == "electrical":
-        appliance = answers.get("step_1", "").lower()
-        risk      = answers.get("step_4", "").lower()
-        criteria["provider_tags"].append("electrician")
-        if "fridge" in appliance or "washing" in appliance:
-            criteria["provider_tags"].append("appliance_repair")
-        if "sparks" in risk or "burning" in risk or "trip" in risk:
-            criteria["provider_tags"].append("electrical_safety")
-            criteria["match_priority"] = "HIGH"
+
+        appliance = answers.get(
+            "step_1",
+            ""
+        ).lower()
+
+        risk = answers.get(
+            "step_4",
+            ""
+        ).lower()
+
+        criteria[
+            "provider_tags"
+        ].append(
+            "electrician"
+        )
+
+        if (
+            "fridge" in appliance
+            or "washing" in appliance
+        ):
+
+            criteria[
+                "provider_tags"
+            ].append(
+                "appliance_repair"
+            )
+
+        if any(
+            x in risk
+            for x in [
+                "sparks",
+                "burning",
+                "trip"
+            ]
+        ):
+
+            criteria[
+                "provider_tags"
+            ].append(
+                "electrical_safety"
+            )
+
+            criteria[
+                "match_priority"
+            ] = "HIGH"
 
     elif category == "furniture":
-        ftype    = answers.get("step_1", "").lower()
-        material = answers.get("step_4", "").lower()
-        criteria["provider_tags"].append("furniture_repair")
-        if "upholstered" in ftype or "sofa" in ftype:
-            criteria["provider_tags"].append("upholstery")
-        if "wood" in material or "woodwork" in ftype:
-            criteria["provider_tags"].append("carpentry")
+
+        ftype = answers.get(
+            "step_1",
+            ""
+        ).lower()
+
+        material = answers.get(
+            "step_4",
+            ""
+        ).lower()
+
+        criteria[
+            "provider_tags"
+        ].append(
+            "furniture_repair"
+        )
+
+        if (
+            "upholstered" in ftype
+            or "sofa" in ftype
+        ):
+
+            criteria[
+                "provider_tags"
+            ].append(
+                "upholstery"
+            )
+
+        if (
+            "wood" in material
+            or "woodwork" in ftype
+        ):
+
+            criteria[
+                "provider_tags"
+            ].append(
+                "carpentry"
+            )
+
         if "outdoor" in ftype:
-            criteria["provider_tags"].append("outdoor_repair")
+
+            criteria[
+                "provider_tags"
+            ].append(
+                "outdoor_repair"
+            )
 
     elif category == "plumbing":
-        area = answers.get("step_1", "").lower()
-        risk = answers.get("step_5", "").lower()
-        criteria["provider_tags"].append("plumber")
-        if "burst" in answers.get("step_2", "").lower():
-            criteria["provider_tags"].append("emergency_plumbing")
-            criteria["match_priority"] = "HIGH"
-        if "drain" in area or "blocked" in area:
-            criteria["provider_tags"].append("drain_specialist")
 
-    elif category == "other":
-        stype = answers.get("step_1", "").lower()
-        if "cleaning" in stype:
-            criteria["provider_tags"].append("cleaning_service")
-        if "painting" in stype:
-            criteria["provider_tags"].append("painter")
-        if "maintenance" in stype:
-            criteria["provider_tags"].append("handyman")
+        area = answers.get(
+            "step_1",
+            ""
+        ).lower()
+
+        risk = answers.get(
+            "step_5",
+            ""
+        ).lower()
+
+        criteria[
+            "provider_tags"
+        ].append(
+            "plumber"
+        )
+
+        if "burst" in answers.get(
+            "step_2",
+            ""
+        ).lower():
+
+            criteria[
+                "provider_tags"
+            ].append(
+                "emergency_plumbing"
+            )
+
+            criteria[
+                "match_priority"
+            ] = "HIGH"
+
+        if (
+            "drain" in area
+            or "blocked" in area
+        ):
+
+            criteria[
+                "provider_tags"
+            ].append(
+                "drain_specialist"
+            )
 
     return criteria
 
-# ---------------------------------------------------
-# MASTER SUMMARY BUILDER
-# ---------------------------------------------------
 
-def build_summary(session, answers: dict) -> dict:
-    """
-    Builds the complete, meaningful service request summary
-    ready for provider matching.
-    """
+# ============================================================
+# MASTER SUMMARY
+# ============================================================
 
-    category       = session.category
-    detected_obj   = getattr(session, "object",     None)
-    confidence     = getattr(session, "confidence", "N/A")
-    session_id     = getattr(session, "id",         "N/A")
-    language       = getattr(session, "language",   "en")
+def build_summary(
+    session,
+    answers
+):
 
-    # Step label map for this category
-    labels = STEP_LABELS.get(category, {})
+    category = session.category
 
-    # Build structured step-by-step breakdown
+    detected_obj = getattr(
+        session,
+        "object",
+        None
+    )
+
+    confidence = getattr(
+        session,
+        "confidence",
+        "N/A"
+    )
+
+    session_id = getattr(
+        session,
+        "id",
+        "N/A"
+    )
+
+    language = getattr(
+        session,
+        "language",
+        "en"
+    )
+
+    labels = STEP_LABELS.get(
+        category,
+        {}
+    )
+
     step_breakdown = []
+
     for step_key, raw_answer in answers.items():
+
         try:
-            step_num = int(step_key.replace("step_", ""))
+
+            step_num = int(
+                step_key.replace(
+                    "step_",
+                    ""
+                )
+            )
+
         except ValueError:
+
             continue
-        label = labels.get(step_num, f"Step {step_num}")
+
+        label = labels.get(
+            step_num,
+            f"Step {step_num}"
+        )
+
         step_breakdown.append({
-            "step":     step_num,
-            "label":    label,
-            "answer":   raw_answer
+            "step": step_num,
+            "label": label,
+            "answer": raw_answer
         })
 
-    step_breakdown.sort(key=lambda x: x["step"])
+    step_breakdown.sort(
+        key=lambda x: x["step"]
+    )
 
-    # Resolve urgency
-    urgency_level = resolve_urgency(answers)
+    # --------------------------------------------------------
+    # URGENCY
+    # --------------------------------------------------------
 
-    # Generate human-readable description
-    brief_description = generate_brief_description(category, answers, detected_obj)
+    urgency_level = resolve_urgency(
+        answers
+    )
 
-    # Build provider matching criteria
-    provider_criteria = build_provider_criteria(category, answers, urgency_level)
+    # --------------------------------------------------------
+    # DESCRIPTION
+    # --------------------------------------------------------
+
+    brief_description = generate_brief_description(
+        category,
+        answers,
+        detected_obj
+    )
+
+    # --------------------------------------------------------
+    # MATCHING CRITERIA
+    # --------------------------------------------------------
+
+    provider_criteria = build_provider_criteria(
+        category,
+        answers,
+        urgency_level
+    )
+
+    # ========================================================
+    # ACTUAL PROVIDER MATCHING
+    # ========================================================
+
+    provider_matching = find_matching_providers(
+        category,
+        answers
+    )
+
+    # --------------------------------------------------------
+    # RETURN
+    # --------------------------------------------------------
 
     return {
 
-        # ── Identity ──────────────────────────────────────────
-        "session_id":          session_id,
-        "language":            language,
+        "session_id":
+            session_id,
 
-        # ── Detection ─────────────────────────────────────────
-        "detected_category":   category,
-        "detected_object":     detected_obj,
-        "model_confidence":    confidence,
+        "language":
+            language,
 
-        # ── Step-by-Step Answers ───────────────────────────────
-        "step_breakdown":      step_breakdown,
+        "detected_category":
+            category,
 
-        # ── Human-Readable Summary ────────────────────────────
-        "brief_description":   brief_description,
+        "detected_object":
+            detected_obj,
 
-        # ── Urgency ───────────────────────────────────────────
-        "urgency_level":       urgency_level,
+        "model_confidence":
+            confidence,
 
-        # ── Provider Matching ─────────────────────────────────
+        "step_breakdown":
+            step_breakdown,
+
+        "brief_description":
+            brief_description,
+
+        "urgency_level":
+            urgency_level,
+
         "provider_matching": {
-            "status":          "READY",
-            "criteria":        provider_criteria,
-            "message":         (
-                f"Service request is ready for provider matching. "
-                f"Looking for a {', '.join(provider_criteria['provider_tags']) or category} "
-                f"provider near {provider_criteria['service_location'] or 'the specified location'} "
-                f"with match priority: {provider_criteria['match_priority']}."
-            )
+
+            "status":
+                "READY",
+
+            "criteria":
+                provider_criteria,
+
+            "total_matched_providers":
+                provider_matching["total"],
+
+            "district_used":
+                provider_matching.get(
+                    "district_used"
+                ),
+
+            "providers":
+                provider_matching["providers"],
+
+            "message":
+                (
+                    f"Found "
+                    f"{provider_matching['total']} "
+                    f"matching provider(s) for "
+                    f"{category}."
+                )
         }
     }
 
-# ---------------------------------------------------
-# /summary — fetch summary for any completed session
-# ---------------------------------------------------
+
+# ============================================================
+# SUMMARY ENDPOINT
+# ============================================================
 
 @app.get("/summary/{session_id}")
-async def get_summary(session_id: str):
+async def get_summary(
+    session_id: str
+):
 
-    session = db_manager.get_session(session_id)
+    session = db_manager.get_session(
+        session_id
+    )
 
     if not session:
+
         return {
             "success": False,
             "message": "Session not found"
         }
 
-    answers = getattr(session, "answers", {}) or {}
+    answers = (
+        getattr(
+            session,
+            "answers",
+            {}
+        )
+        or {}
+    )
 
-    summary = build_summary(session, answers)
+    summary = build_summary(
+        session,
+        answers
+    )
 
     return {
         "success": True,
         "summary": summary
     }
 
-# ---------------------------------------------------
+
+# ============================================================
 # MAIN
-# ---------------------------------------------------
+# ============================================================
 
 if __name__ == "__main__":
 
