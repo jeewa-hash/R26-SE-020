@@ -14,117 +14,333 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import BottomNav from '../components/BottomNav';
 
-// ===============================
+// ======================================================
 // API BASE URL
-// ===============================
-const API_BASE_URL =
-  'http://10.0.2.2:6000';
+// ======================================================
+const API_BASE_URL = 'http://10.0.2.2:6000';
 
-// ===============================
+// ======================================================
 // FEED SCREEN
-// ===============================
-export default function FeedScreen({
-  navigation,
-}) {
+// ======================================================
+export default function FeedScreen({ navigation }) {
   const [posts, setPosts] = useState([]);
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [interestedPosts, setInterestedPosts] = useState({});
 
-  const [refreshing, setRefreshing] =
-    useState(false);
-
-  const [interestedPosts, setInterestedPosts] =
-    useState({});
-
-  // ===============================
+  // ======================================================
   // FORMAT TIME
-  // ===============================
+  // ======================================================
   const formatTimeAgo = timestamp => {
     if (!timestamp) return 'Just now';
 
     const date = new Date(timestamp);
-
     const now = new Date();
 
-    const diff = Math.floor(
-      (now - date) / 1000
-    );
+    const diff = Math.floor((now - date) / 1000);
 
-    if (diff < 60)
+    if (diff < 60) {
       return `${diff}s ago`;
+    }
 
-    if (diff < 3600)
-      return `${Math.floor(
-        diff / 60
-      )}m ago`;
+    if (diff < 3600) {
+      return `${Math.floor(diff / 60)}m ago`;
+    }
 
-    if (diff < 86400)
-      return `${Math.floor(
-        diff / 3600
-      )}h ago`;
+    if (diff < 86400) {
+      return `${Math.floor(diff / 3600)}h ago`;
+    }
 
-    return `${Math.floor(
-      diff / 86400
-    )}d ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
   };
 
-  // ===============================
+  // ======================================================
+  // GET LOGGED-IN USER
+  // ======================================================
+  const getLoggedInUser = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('user');
+
+      if (!storedUser) {
+        console.log('No logged-in user found in AsyncStorage');
+        return null;
+      }
+
+      const user = JSON.parse(storedUser);
+
+      console.log('LOGGED IN USER:', user);
+
+      return user;
+    } catch (error) {
+      console.log('GET LOGGED USER ERROR:', error);
+      return null;
+    }
+  };
+
+  // ======================================================
+  // GET USER NAME FROM POST
+  // ======================================================
+  const getPostUserName = (post, loggedInUser) => {
+    /*
+     * We check the possible locations where your backend
+     * might return the user's name.
+     */
+
+    // 1. post.user.name
+    if (
+      post.user &&
+      typeof post.user === 'object' &&
+      post.user.name
+    ) {
+      return post.user.name;
+    }
+
+    // 2. post.user.fullName
+    if (
+      post.user &&
+      typeof post.user === 'object' &&
+      post.user.fullName
+    ) {
+      return post.user.fullName;
+    }
+
+    // 3. post.userName
+    if (
+      typeof post.userName === 'string' &&
+      post.userName.trim() !== ''
+    ) {
+      return post.userName;
+    }
+
+    // 4. post.name
+    if (
+      typeof post.name === 'string' &&
+      post.name.trim() !== ''
+    ) {
+      return post.name;
+    }
+
+    // 5. post.createdBy.name
+    if (
+      post.createdBy &&
+      typeof post.createdBy === 'object' &&
+      post.createdBy.name
+    ) {
+      return post.createdBy.name;
+    }
+
+    // 6. post.seeker.name
+    if (
+      post.seeker &&
+      typeof post.seeker === 'object' &&
+      post.seeker.name
+    ) {
+      return post.seeker.name;
+    }
+
+    // 7. If this post belongs to the currently logged-in user,
+    // use the logged-in user's name.
+    if (loggedInUser) {
+      const loggedInUserId =
+        loggedInUser._id ||
+        loggedInUser.id ||
+        loggedInUser.userId;
+
+      const postUserId =
+        typeof post.user === 'string'
+          ? post.user
+          : post.user?._id ||
+            post.user?.id ||
+            post.userId ||
+            post.createdBy?._id ||
+            post.createdBy?.id;
+
+      if (
+        loggedInUserId &&
+        postUserId &&
+        String(loggedInUserId) === String(postUserId)
+      ) {
+        return (
+          loggedInUser.name ||
+          loggedInUser.fullName ||
+          loggedInUser.userName ||
+          loggedInUser.username ||
+          'Unknown User'
+        );
+      }
+    }
+
+    // IMPORTANT:
+    // Do NOT use "Customer" or "Test Seeker" here.
+    return 'Unknown User';
+  };
+
+  // ======================================================
+  // GET USER AVATAR
+  // ======================================================
+  const getPostUserAvatar = (post, loggedInUser) => {
+    if (
+      post.user &&
+      typeof post.user === 'object' &&
+      post.user.profileImage
+    ) {
+      return post.user.profileImage;
+    }
+
+    if (
+      post.user &&
+      typeof post.user === 'object' &&
+      post.user.avatar
+    ) {
+      return post.user.avatar;
+    }
+
+    if (post.userAvatar) {
+      return post.userAvatar;
+    }
+
+    if (post.profileImage) {
+      return post.profileImage;
+    }
+
+    if (post.avatar) {
+      return post.avatar;
+    }
+
+    // If current logged-in user made this post
+    if (loggedInUser) {
+      const loggedInUserId =
+        loggedInUser._id ||
+        loggedInUser.id ||
+        loggedInUser.userId;
+
+      const postUserId =
+        typeof post.user === 'string'
+          ? post.user
+          : post.user?._id ||
+            post.user?.id ||
+            post.userId ||
+            post.createdBy?._id ||
+            post.createdBy?.id;
+
+      if (
+        loggedInUserId &&
+        postUserId &&
+        String(loggedInUserId) === String(postUserId)
+      ) {
+        return (
+          loggedInUser.profileImage ||
+          loggedInUser.avatar ||
+          'https://randomuser.me/api/portraits/lego/1.jpg'
+        );
+      }
+    }
+
+    return 'https://randomuser.me/api/portraits/lego/1.jpg';
+  };
+
+  // ======================================================
   // FETCH POSTS
-  // ===============================
+  // ======================================================
   const fetchPosts = async () => {
     try {
       setLoading(true);
 
-      // ✅ CORRECT ROUTE
+      const loggedInUser = await getLoggedInUser();
+
+      const token = await AsyncStorage.getItem('token');
+
+      console.log('TOKEN EXISTS:', !!token);
+
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
       const response = await fetch(
-        `${API_BASE_URL}/posts`
+        `${API_BASE_URL}/posts`,
+        {
+          method: 'GET',
+          headers,
+        }
+      );
+
+      console.log(
+        'POST RESPONSE STATUS:',
+        response.status
       );
 
       const data = await response.json();
 
-      console.log('POSTS:', data);
+      console.log(
+        'POSTS RESPONSE:',
+        JSON.stringify(data, null, 2)
+      );
 
       if (!data.success) {
         Alert.alert(
           'Error',
-          'Failed to load posts'
+          data.message ||
+            data.error ||
+            'Failed to load posts'
         );
 
+        setPosts([]);
         return;
       }
 
-      const postsArray =
-        data.posts || [];
+      const postsArray = data.posts || [];
 
-      const formattedPosts =
-        postsArray.map(post => ({
+      // ==================================================
+      // FORMAT POSTS
+      // ==================================================
+      const formattedPosts = postsArray.map(post => {
+        const postUserName = getPostUserName(
+          post,
+          loggedInUser
+        );
+
+        const postUserAvatar = getPostUserAvatar(
+          post,
+          loggedInUser
+        );
+
+        console.log(
+          'POST:',
+          post._id,
+          'USER NAME:',
+          postUserName
+        );
+
+        return {
           id: post._id,
 
-          userName:
-            post.userName ||
-            post.name ||
-            post.createdBy?.name ||
-            'Customer',
+          userName: postUserName,
 
-          userAvatar:
-            post.userAvatar ||
-            post.profileImage ||
-            post.avatar ||
-            'https://randomuser.me/api/portraits/lego/1.jpg',
+          userAvatar: postUserAvatar,
 
           timeAgo: formatTimeAgo(
             post.createdAt
           ),
 
-          title: post.title,
+          title:
+            post.title ||
+            'Untitled Service',
 
           description:
-            post.description,
+            post.description ||
+            '',
 
-          image: post.image || '',
+          image:
+            post.image ||
+            '',
 
           category:
             post.category ||
@@ -134,23 +350,28 @@ export default function FeedScreen({
             post.urgency ||
             'medium',
 
-          tags: post.tags || [],
+          tags:
+            Array.isArray(post.tags)
+              ? post.tags
+              : [],
 
           interestedCount:
-            post.interestedCount ||
-            0,
-        }));
+            Number(
+              post.interestedCount || 0
+            ),
+        };
+      });
 
       setPosts(formattedPosts);
     } catch (error) {
       console.log(
-        'FETCH ERROR:',
+        'FETCH POSTS ERROR:',
         error
       );
 
       Alert.alert(
         'Error',
-        'Could not fetch posts'
+        'Could not fetch posts. Please check your connection.'
       );
 
       setPosts([]);
@@ -159,9 +380,9 @@ export default function FeedScreen({
     }
   };
 
-  // ===============================
+  // ======================================================
   // REFRESH
-  // ===============================
+  // ======================================================
   const onRefresh = async () => {
     setRefreshing(true);
 
@@ -170,9 +391,9 @@ export default function FeedScreen({
     setRefreshing(false);
   };
 
-  // ===============================
+  // ======================================================
   // LOAD POSTS
-  // ===============================
+  // ======================================================
   useEffect(() => {
     fetchPosts();
 
@@ -187,93 +408,93 @@ export default function FeedScreen({
     return unsubscribe;
   }, [navigation]);
 
-  // ===============================
+  // ======================================================
   // INTERESTED BUTTON
-  // ===============================
-  const handleInterested =
-    postId => {
-      setInterestedPosts(prev => ({
-        ...prev,
-        [postId]:
-          !prev[postId],
-      }));
+  // ======================================================
+  const handleInterested = postId => {
+    const currentlyInterested =
+      !!interestedPosts[postId];
 
-      setPosts(prevPosts =>
-        prevPosts.map(post =>
-          post.id === postId
-            ? {
-                ...post,
+    setInterestedPosts(prev => ({
+      ...prev,
+      [postId]: !currentlyInterested,
+    }));
 
-                interestedCount:
+    setPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.id === postId
+          ? {
+              ...post,
+              interestedCount:
+                Math.max(
+                  0,
                   post.interestedCount +
-                  (interestedPosts[
-                    postId
-                  ]
-                    ? -1
-                    : 1),
-              }
-            : post
-        )
-      );
+                    (currentlyInterested
+                      ? -1
+                      : 1)
+                ),
+            }
+          : post
+      )
+    );
 
-      Alert.alert(
-        interestedPosts[postId]
-          ? 'Removed'
-          : 'Interested',
-        interestedPosts[postId]
-          ? 'Interest removed'
-          : 'You are interested in this service'
-      );
-    };
+    Alert.alert(
+      currentlyInterested
+        ? 'Removed'
+        : 'Interested',
+      currentlyInterested
+        ? 'Interest removed'
+        : 'You are interested in this service'
+    );
+  };
 
-  // ===============================
+  // ======================================================
   // CREATE POST
-  // ===============================
+  // ======================================================
   const handleCreatePost = () => {
     navigation.navigate(
       'CreatePostScreen'
     );
   };
 
-  // ===============================
+  // ======================================================
   // URGENCY STYLE
-  // ===============================
-  const getUrgencyStyle =
-    urgency => {
-      switch (urgency) {
-        case 'high':
-          return {
-            bg: '#FEE2E2',
-            color: '#EF4444',
-            text: 'Urgent',
-          };
+  // ======================================================
+  const getUrgencyStyle = urgency => {
+    switch (urgency) {
+      case 'high':
+        return {
+          bg: '#FEE2E2',
+          color: '#EF4444',
+          text: 'Urgent',
+        };
 
-        case 'medium':
-          return {
-            bg: '#FEF3C7',
-            color: '#F59E0B',
-            text: 'Medium',
-          };
+      case 'medium':
+        return {
+          bg: '#FEF3C7',
+          color: '#F59E0B',
+          text: 'Medium',
+        };
 
-        case 'low':
-          return {
-            bg: '#D1FAE5',
-            color: '#10B981',
-            text: 'Low',
-          };
+      case 'low':
+        return {
+          bg: '#D1FAE5',
+          color: '#10B981',
+          text: 'Low',
+        };
 
-        default:
-          return {
-            bg: '#F3F4F6',
-            color: '#6B7280',
-            text: 'Normal',
-          };
-      }
-    };
+      default:
+        return {
+          bg: '#F3F4F6',
+          color: '#6B7280',
+          text: 'Normal',
+        };
+    }
+  };
 
-  // ===============================
+  // ======================================================
   // RENDER POST
-  // ===============================
+  // ======================================================
   const renderPost = post => {
     const urgency =
       getUrgencyStyle(
@@ -281,14 +502,14 @@ export default function FeedScreen({
       );
 
     const isInterested =
-      interestedPosts[post.id];
+      !!interestedPosts[post.id];
 
     return (
       <View
         key={post.id}
         style={styles.postCard}
       >
-        {/* HEADER */}
+        {/* ================= HEADER ================= */}
         <View
           style={styles.postHeader}
         >
@@ -330,7 +551,7 @@ export default function FeedScreen({
           </TouchableOpacity>
         </View>
 
-        {/* BADGES */}
+        {/* ================= BADGES ================= */}
         <View
           style={styles.badgeRow}
         >
@@ -371,14 +592,14 @@ export default function FeedScreen({
           </View>
         </View>
 
-        {/* TITLE */}
+        {/* ================= TITLE ================= */}
         <Text
           style={styles.postTitle}
         >
           {post.title}
         </Text>
 
-        {/* DESCRIPTION */}
+        {/* ================= DESCRIPTION ================= */}
         <Text
           style={
             styles.postDescription
@@ -387,27 +608,25 @@ export default function FeedScreen({
           {post.description}
         </Text>
 
-        {/* IMAGE */}
+        {/* ================= IMAGE ================= */}
         {post.image ? (
           <Image
             source={{
-              uri:
-                post.image.startsWith(
-                  'http'
-                )
-                  ? post.image
-                  : `${API_BASE_URL}/${post.image.replace(
-                      /\\/g,
-                      '/'
-                    )}`,
+              uri: post.image.startsWith(
+                'http'
+              )
+                ? post.image
+                : `${API_BASE_URL}/${post.image.replace(
+                    /\\/g,
+                    '/'
+                  )}`,
             }}
             style={styles.postImage}
           />
         ) : null}
 
-        {/* TAGS */}
-        {post.tags?.length >
-          0 && (
+        {/* ================= TAGS ================= */}
+        {post.tags?.length > 0 && (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={
@@ -438,7 +657,7 @@ export default function FeedScreen({
           </ScrollView>
         )}
 
-        {/* INTERESTED BUTTON */}
+        {/* ================= INTERESTED ================= */}
         <TouchableOpacity
           style={
             styles.interestedButton
@@ -509,9 +728,9 @@ export default function FeedScreen({
     );
   };
 
-  // ===============================
+  // ======================================================
   // LOADING
-  // ===============================
+  // ======================================================
   if (loading) {
     return (
       <SafeAreaView
@@ -536,9 +755,9 @@ export default function FeedScreen({
     );
   }
 
-  // ===============================
+  // ======================================================
   // MAIN UI
-  // ===============================
+  // ======================================================
   return (
     <SafeAreaView
       style={styles.container}
@@ -547,7 +766,7 @@ export default function FeedScreen({
         barStyle="light-content"
       />
 
-      {/* HEADER */}
+      {/* ================= HEADER ================= */}
       <LinearGradient
         colors={[
           '#667eea',
@@ -592,7 +811,7 @@ export default function FeedScreen({
         </View>
       </LinearGradient>
 
-      {/* POSTS */}
+      {/* ================= POSTS ================= */}
       <ScrollView
         style={
           styles.feedContainer
@@ -605,7 +824,9 @@ export default function FeedScreen({
             onRefresh={
               onRefresh
             }
-            colors={['#667eea']}
+            colors={[
+              '#667eea',
+            ]}
           />
         }
       >
@@ -614,8 +835,7 @@ export default function FeedScreen({
             styles.feedContent
           }
         >
-          {posts.length ===
-          0 ? (
+          {posts.length === 0 ? (
             <View
               style={
                 styles.emptyContainer
@@ -665,9 +885,9 @@ export default function FeedScreen({
   );
 }
 
-// ===============================
+// ======================================================
 // STYLES
-// ===============================
+// ======================================================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
