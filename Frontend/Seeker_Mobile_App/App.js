@@ -21,6 +21,7 @@ import ProfileScreen from './screens/ProfileScreen';
 import CreatePostScreen from './screens/CreatePostScreen';
 import LanguageScreen from './screens/LanguageScreen';
 import OnboardingScreen from './screens/OnboardingScreen'; 
+import ProviderProfileScreen from './screens/ProviderProfileScreen';
 
 import FeedbackScreen from './screens/FeedbackScreen';
 import BiddingScreen from './screens/BiddingScreen';
@@ -226,6 +227,10 @@ function AppNavigator({ initialRouteName }) {
         component={SpendAnalyticsScreen} 
         options={{ headerShown: false }} 
       />
+
+      <Stack.Screen 
+      name="ProviderProfile" 
+      component={ProviderProfileScreen} />
       
       <Stack.Screen 
         name="RescheduleScreen" 

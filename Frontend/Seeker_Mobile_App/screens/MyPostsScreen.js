@@ -1,3 +1,5 @@
+// screens/FeedScreen.js
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -14,10 +16,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { IP_ADDRESS } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 
-const API_BASE_URL = 'http://10.0.2.2:6000';
+// Use the IP from config
+const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 
 export default function FeedScreen({ navigation }) {
   const { isDarkMode } = useTheme();
@@ -25,25 +30,64 @@ export default function FeedScreen({ navigation }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [token, setToken] = useState(null);
 
+  // Load user data from storage
   useEffect(() => {
-    fetchPosts();
+    const loadUserData = async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem('userToken');
+        const storedUserId = await AsyncStorage.getItem('userId');
+        setToken(storedToken);
+        setUserId(storedUserId);
+      } catch (error) {
+        console.log('Error loading user data:', error);
+      }
+    };
+    loadUserData();
+  }, []);
+
+  // Fetch posts when userId is available
+  useEffect(() => {
+    if (userId && token) {
+      fetchPosts();
+    } else if (userId === null && token === null) {
+      // Still loading, do nothing
+    } else {
+      // No user logged in
+      setLoading(false);
+    }
 
     const unsubscribe = navigation.addListener('focus', () => {
-      fetchPosts();
+      if (userId && token) {
+        fetchPosts();
+      }
     });
 
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, userId, token]);
 
   // =======================================================
-  // FETCH POSTS
+  // FETCH USER'S POSTS
   // =======================================================
   const fetchPosts = async () => {
+    if (!userId || !token) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_BASE_URL}/posts`);
+      const response = await fetch(
+        `${API_BASE_URL}/posts/user/${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       const data = await response.json();
 
@@ -70,6 +114,9 @@ export default function FeedScreen({ navigation }) {
         setPosts(formattedPosts);
       } else {
         setPosts([]);
+        if (data.error === 'User not found') {
+          Alert.alert('Error', 'User not found. Please log in again.');
+        }
       }
     } catch (error) {
       console.log('Fetch Posts Error:', error);
@@ -91,13 +138,8 @@ export default function FeedScreen({ navigation }) {
     );
 
     if (diff < 60) return `${diff}s ago`;
-
-    if (diff < 3600)
-      return `${Math.floor(diff / 60)}m ago`;
-
-    if (diff < 86400)
-      return `${Math.floor(diff / 3600)}h ago`;
-
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return `${Math.floor(diff / 86400)}d ago`;
   };
 
@@ -127,10 +169,7 @@ export default function FeedScreen({ navigation }) {
       'Delete Post',
       `Are you sure you want to delete "${post.title}"?`,
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
@@ -145,7 +184,10 @@ export default function FeedScreen({ navigation }) {
   // =======================================================
   const deletePost = async (postId) => {
     try {
-      console.log('Deleting Post ID:', postId);
+      if (!token) {
+        Alert.alert('Error', 'You are not authenticated.');
+        return;
+      }
 
       const response = await fetch(
         `${API_BASE_URL}/posts/delete/${postId}`,
@@ -153,36 +195,25 @@ export default function FeedScreen({ navigation }) {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
         }
       );
 
       const data = await response.json();
 
-      console.log('Delete Response:', data);
-
       if (response.ok && data.success) {
         setPosts((prevPosts) =>
           prevPosts.filter((post) => post.id !== postId)
         );
 
-        Alert.alert(
-          'Success',
-          'Post deleted successfully'
-        );
+        Alert.alert('Success', 'Post deleted successfully');
       } else {
-        Alert.alert(
-          'Error',
-          data.error || 'Failed to delete post'
-        );
+        Alert.alert('Error', data.error || 'Failed to delete post');
       }
     } catch (error) {
       console.log('Delete Error:', error);
-
-      Alert.alert(
-        'Error',
-        'Network error while deleting post'
-      );
+      Alert.alert('Error', 'Network error while deleting post');
     }
   };
 
@@ -192,32 +223,13 @@ export default function FeedScreen({ navigation }) {
   const getUrgencyStyle = (urgency) => {
     switch (urgency) {
       case 'high':
-        return {
-          bg: '#FEE2E2',
-          color: '#EF4444',
-          text: 'Urgent',
-        };
-
+        return { bg: '#FEE2E2', color: '#EF4444', text: 'Urgent' };
       case 'medium':
-        return {
-          bg: '#FEF3C7',
-          color: '#F59E0B',
-          text: 'Medium',
-        };
-
+        return { bg: '#FEF3C7', color: '#F59E0B', text: 'Medium' };
       case 'low':
-        return {
-          bg: '#D1FAE5',
-          color: '#10B981',
-          text: 'Low',
-        };
-
+        return { bg: '#D1FAE5', color: '#10B981', text: 'Low' };
       default:
-        return {
-          bg: '#F3F4F6',
-          color: '#6B7280',
-          text: 'Normal',
-        };
+        return { bg: '#F3F4F6', color: '#6B7280', text: 'Normal' };
     }
   };
 
@@ -233,14 +245,8 @@ export default function FeedScreen({ navigation }) {
         ]}
       >
         <StatusBar
-          barStyle={
-            isDarkMode
-              ? 'light-content'
-              : 'dark-content'
-          }
-          backgroundColor={
-            isDarkMode ? '#1a1a2e' : '#667eea'
-          }
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
 
         <LinearGradient
@@ -251,26 +257,62 @@ export default function FeedScreen({ navigation }) {
           }
           style={styles.header}
         >
-          <Text style={styles.headerTitle}>
-            Service Feed
-          </Text>
-
+          <Text style={styles.headerTitle}>My Posts</Text>
           <TouchableOpacity
-            onPress={() =>
-              navigation.navigate('CreatePostScreen')
-            }
+            onPress={() => navigation.navigate('CreatePostScreen')}
           >
-            <Ionicons
-              name="add-circle"
-              size={28}
-              color="#fff"
-            />
+            <Ionicons name="add-circle" size={28} color="#fff" />
           </TouchableOpacity>
         </LinearGradient>
 
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>
-            Loading posts...
+          <Text style={styles.loadingText}>Loading your posts...</Text>
+        </View>
+
+        <BottomNav />
+      </SafeAreaView>
+    );
+  }
+
+  // =======================================================
+  // NOT LOGGED IN
+  // =======================================================
+  if (!userId || !token) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.container,
+          isDarkMode && styles.containerDark,
+        ]}
+      >
+        <StatusBar
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        />
+
+        <LinearGradient
+          colors={
+            isDarkMode
+              ? ['#1a1a2e', '#16213e']
+              : ['#667eea', '#764ba2']
+          }
+          style={styles.header}
+        >
+          <Text style={styles.headerTitle}>My Posts</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('CreatePostScreen')}
+          >
+            <Ionicons name="add-circle" size={28} color="#fff" />
+          </TouchableOpacity>
+        </LinearGradient>
+
+        <View style={styles.centerContainer}>
+          <Ionicons name="lock-closed-outline" size={60} color="#D1D5DB" />
+          <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
+            Please Log In
+          </Text>
+          <Text style={[styles.emptySubtext, isDarkMode && styles.textMutedDark]}>
+            You need to be logged in to view your posts.
           </Text>
         </View>
 
@@ -287,12 +329,8 @@ export default function FeedScreen({ navigation }) {
       ]}
     >
       <StatusBar
-        barStyle={
-          isDarkMode ? 'light-content' : 'dark-content'
-        }
-        backgroundColor={
-          isDarkMode ? '#1a1a2e' : '#667eea'
-        }
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
       />
 
       {/* HEADER */}
@@ -304,20 +342,12 @@ export default function FeedScreen({ navigation }) {
         }
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>
-          Service Feed
-        </Text>
+        <Text style={styles.headerTitle}>My Posts</Text>
 
         <TouchableOpacity
-          onPress={() =>
-            navigation.navigate('CreatePostScreen')
-          }
+          onPress={() => navigation.navigate('CreatePostScreen')}
         >
-          <Ionicons
-            name="add-circle"
-            size={28}
-            color="#fff"
-          />
+          <Ionicons name="add-circle" size={28} color="#fff" />
         </TouchableOpacity>
       </LinearGradient>
 
@@ -334,17 +364,12 @@ export default function FeedScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {posts.map((post) => {
-          const urgency = getUrgencyStyle(
-            post.urgency
-          );
+          const urgency = getUrgencyStyle(post.urgency);
 
           const imageUrl = post.image
             ? post.image.startsWith('http')
               ? post.image
-              : `${API_BASE_URL}/${post.image.replace(
-                  /\\/g,
-                  '/'
-                )}`
+              : `${API_BASE_URL}/${post.image.replace(/\\/g, '/')}`
             : null;
 
           return (
@@ -365,17 +390,14 @@ export default function FeedScreen({ navigation }) {
               >
                 {/* HEADER */}
                 <View style={styles.cardHeader}>
-                  <View
-                    style={styles.categoryContainer}
-                  >
+                  <View style={styles.categoryContainer}>
                     <View
                       style={[
                         styles.categoryIcon,
                         {
-                          backgroundColor:
-                            isDarkMode
-                              ? '#2d3561'
-                              : '#667eea15',
+                          backgroundColor: isDarkMode
+                            ? '#2d3561'
+                            : '#667eea15',
                         },
                       ]}
                     >
@@ -389,8 +411,7 @@ export default function FeedScreen({ navigation }) {
                     <Text
                       style={[
                         styles.postCategory,
-                        isDarkMode &&
-                          styles.textDark,
+                        isDarkMode && styles.textDark,
                       ]}
                     >
                       {post.category}
@@ -400,10 +421,7 @@ export default function FeedScreen({ navigation }) {
                   <View
                     style={[
                       styles.urgencyBadge,
-                      {
-                        backgroundColor:
-                          urgency.bg,
-                      },
+                      { backgroundColor: urgency.bg },
                     ]}
                   >
                     <Ionicons
@@ -415,9 +433,7 @@ export default function FeedScreen({ navigation }) {
                     <Text
                       style={[
                         styles.urgencyText,
-                        {
-                          color: urgency.color,
-                        },
+                        { color: urgency.color },
                       ]}
                     >
                       {urgency.text}
@@ -440,8 +456,7 @@ export default function FeedScreen({ navigation }) {
                   numberOfLines={2}
                   style={[
                     styles.postDescription,
-                    isDarkMode &&
-                      styles.textMutedDark,
+                    isDarkMode && styles.textMutedDark,
                   ]}
                 >
                   {post.description}
@@ -467,8 +482,7 @@ export default function FeedScreen({ navigation }) {
                     <Text
                       style={[
                         styles.footerText,
-                        isDarkMode &&
-                          styles.textMutedDark,
+                        isDarkMode && styles.textMutedDark,
                       ]}
                     >
                       {post.date}
@@ -485,8 +499,7 @@ export default function FeedScreen({ navigation }) {
                     <Text
                       style={[
                         styles.footerText,
-                        isDarkMode &&
-                          styles.textMutedDark,
+                        isDarkMode && styles.textMutedDark,
                       ]}
                     >
                       {post.timeAgo}
@@ -503,8 +516,7 @@ export default function FeedScreen({ navigation }) {
                     <Text
                       style={[
                         styles.responseText,
-                        isDarkMode &&
-                          styles.textDark,
+                        isDarkMode && styles.textDark,
                       ]}
                     >
                       {post.responseCount} bids
@@ -517,9 +529,7 @@ export default function FeedScreen({ navigation }) {
                   {/* EDIT */}
                   <TouchableOpacity
                     style={styles.editButton}
-                    onPress={() =>
-                      handleEditPost(post)
-                    }
+                    onPress={() => handleEditPost(post)}
                   >
                     <Ionicons
                       name="create-outline"
@@ -527,19 +537,13 @@ export default function FeedScreen({ navigation }) {
                       color="#667eea"
                     />
 
-                    <Text
-                      style={styles.editButtonText}
-                    >
-                      Edit
-                    </Text>
+                    <Text style={styles.editButtonText}>Edit</Text>
                   </TouchableOpacity>
 
                   {/* DELETE */}
                   <TouchableOpacity
                     style={styles.deleteButton}
-                    onPress={() =>
-                      handleDeletePost(post)
-                    }
+                    onPress={() => handleDeletePost(post)}
                   >
                     <Ionicons
                       name="trash-outline"
@@ -547,13 +551,7 @@ export default function FeedScreen({ navigation }) {
                       color="#EF4444"
                     />
 
-                    <Text
-                      style={
-                        styles.deleteButtonText
-                      }
-                    >
-                      Delete
-                    </Text>
+                    <Text style={styles.deleteButtonText}>Delete</Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -567,18 +565,13 @@ export default function FeedScreen({ navigation }) {
             <View
               style={[
                 styles.emptyIcon,
-                isDarkMode &&
-                  styles.emptyIconDark,
+                isDarkMode && styles.emptyIconDark,
               ]}
             >
               <Ionicons
                 name="newspaper-outline"
                 size={50}
-                color={
-                  isDarkMode
-                    ? '#2d3561'
-                    : '#D1D5DB'
-                }
+                color={isDarkMode ? '#2d3561' : '#D1D5DB'}
               />
             </View>
 
@@ -594,39 +587,22 @@ export default function FeedScreen({ navigation }) {
             <Text
               style={[
                 styles.emptySubtext,
-                isDarkMode &&
-                  styles.textMutedDark,
+                isDarkMode && styles.textMutedDark,
               ]}
             >
-              Be the first to post a service
-              request
+              You haven't created any posts yet.
             </Text>
 
             <TouchableOpacity
               style={styles.createPostButton}
-              onPress={() =>
-                navigation.navigate(
-                  'CreatePostScreen'
-                )
-              }
+              onPress={() => navigation.navigate('CreatePostScreen')}
             >
               <LinearGradient
                 colors={['#667eea', '#764ba2']}
-                style={
-                  styles.createPostGradient
-                }
+                style={styles.createPostGradient}
               >
-                <Ionicons
-                  name="add"
-                  size={20}
-                  color="#fff"
-                />
-
-                <Text
-                  style={styles.createPostText}
-                >
-                  Create New Post
-                </Text>
+                <Ionicons name="add" size={20} color="#fff" />
+                <Text style={styles.createPostText}>Create New Post</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -656,8 +632,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    paddingTop:
-      Platform.OS === 'ios' ? 12 : 16,
+    paddingTop: Platform.OS === 'ios' ? 12 : 16,
   },
 
   headerTitle: {
@@ -892,6 +867,27 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#6B7280',
+  },
+
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginTop: 16,
+  },
+
+  emptySubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 8,
   },
 
   textDark: {

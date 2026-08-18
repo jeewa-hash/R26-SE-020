@@ -322,74 +322,86 @@ export default function HomeScreen() {
       }
     }
   };
-
-  const handleImageUpload = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (status !== 'granted') {
-        Alert.alert(t('common_error'), t('home_permission_gallery'));
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
-      });
-
-      if (result.canceled) return;
-
-      const imageUri = result.assets[0].uri;
-      const formData = new FormData();
-
-      formData.append('file', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'photo.jpg',
-      });
-      
-      formData.append('app_lan', language === 'si' ? 'si' : 'en');
-
-      const response = await fetch('http://10.0.2.2:8000/predict', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      const data = await response.json();
-
-      if (data.session_id) {
-        Alert.alert(
-          t('home_detection_result'),
-          `${data.agent_speech}`,
-          [
-            {
-              text: t('common_ok'),
-              onPress: () => {
-                navigation.navigate("FollowUpScreen", {
-                  session_id: data.session_id,
-                  initialQuestion: data.next_question,
-                  category: data.category,
-                  source: "image", 
-                });
-              }
-            }
-          ]
-        );
-      } else {
-        Alert.alert(t('common_error'), t('home_no_object_detected'));
-      }
-
-    } catch (error) {
-      console.log("UPLOAD ERROR:", error);
-      Alert.alert(t('common_error'), "Server connection failed. Please check if the backend is running.");
+const handleImageUpload = async () => {
+  try {
+    // 1. Get the token from storage
+    const token = await AsyncStorage.getItem('userToken');
+    if (!token) {
+      Alert.alert('Error', 'You are not logged in. Please log in again.');
+      return;
     }
-  };
 
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(t('common_error'), t('home_permission_gallery'));
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (result.canceled) return;
+
+    const imageUri = result.assets[0].uri;
+    const formData = new FormData();
+
+    formData.append('file', {
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: 'photo.jpg',
+    });
+    formData.append('app_lan', language === 'si' ? 'si' : 'en');
+
+    // 2. Add the Authorization header
+    const response = await fetch('http://10.0.2.2:8000/predict', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,   // <-- CRUCIAL
+        // DO NOT set 'Content-Type' manually; fetch will add the correct boundary for FormData
+      },
+    });
+
+    // 3. Check response status
+    if (response.status === 401) {
+      Alert.alert('Session Expired', 'Please log in again.');
+      // Optionally navigate to Login screen
+      return;
+    }
+
+    const data = await response.json();
+
+    if (data.session_id) {
+      Alert.alert(
+        t('home_detection_result'),
+        `${data.agent_speech}`,
+        [
+          {
+            text: t('common_ok'),
+            onPress: () => {
+              navigation.navigate('FollowUpScreen', {
+                session_id: data.session_id,
+                initialQuestion: data.next_question,
+                category: data.category,
+                source: 'image',
+              });
+            }
+          }
+        ]
+      );
+    } else {
+      Alert.alert(t('common_error'), t('home_no_object_detected'));
+    }
+
+  } catch (error) {
+    console.log('UPLOAD ERROR:', error);
+    Alert.alert(t('common_error'), 'Server connection failed. Please check if the backend is running.');
+  }
+};
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#667eea" />
