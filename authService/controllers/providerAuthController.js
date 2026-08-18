@@ -423,3 +423,27 @@ exports.getProfile = async (req, res) => {
     res.status(500).json({ message: 'Server error while fetching profile.' });
   }
 };
+
+
+exports.getAllProviders = async (req, res) => {
+  try {
+    const providers = await Provider.find({
+      role: 'ServiceProvider',
+      isBlocked: false
+    }).select('-password -__v');
+
+    return res.status(200).json({
+      success: true,
+      totalProviders: providers.length,
+      providers
+    });
+
+  } catch (err) {
+    console.error('[GetAllProviders] Error:', err.message);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get all providers'
+    });
+  }
+};

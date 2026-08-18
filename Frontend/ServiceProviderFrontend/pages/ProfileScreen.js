@@ -45,7 +45,29 @@ export default function ProfileScreen({ navigation }) {
   } = usePortfolioUpload();
 
   const allTags       = getAllTags();
-  const previewImages = portfolioImages.slice(0, 6);
+  const [showAddTooltip, setShowAddTooltip] = React.useState(false);
+
+  // Group portfolio images by their AI/user tags into categories for the horizontal scroller
+  const categoryMap = {};
+  portfolioImages.forEach((img) => {
+    const tags = img.tags && img.tags.length > 0 ? img.tags : ['Uncategorized'];
+    tags.forEach((tag) => {
+      if (!categoryMap[tag]) categoryMap[tag] = [];
+      categoryMap[tag].push(img);
+    });
+  });
+  const categories = Object.keys(categoryMap).map((tag) => ({
+    name: tag,
+    count: categoryMap[tag].length,
+  }));
+
+  const CATEGORY_COLORS = ['#2563EB', '#7C3AED', '#059669', '#F59E0B', '#DC2626', '#0891B2'];
+
+  const handleAddPress = () => {
+    setShowAddTooltip(true);
+    openGallery();
+    setTimeout(() => setShowAddTooltip(false), 1600);
+  };
 
   const C = isDark
     ? { bg: '#0f0f0f', card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', subCard: '#2a2a2a' }
@@ -185,35 +207,61 @@ export default function ProfileScreen({ navigation }) {
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: C.text }]}>Portfolio</Text>
-            <TouchableOpacity onPress={() => navigation.getParent()?.navigate('PortfolioGallery')}>
-              <Text style={styles.seeAll}>View All ({portfolioImages.length})</Text>
-            </TouchableOpacity>
           </View>
 
-          {previewImages.length === 0 ? (
+          {portfolioImages.length === 0 ? (
             <TouchableOpacity style={[styles.portfolioEmpty, { backgroundColor: C.subCard, borderColor: C.border }]} onPress={openGallery}>
               <MaterialIcons name="add-photo-alternate" size={32} color={Colors.primary} />
               <Text style={[styles.portfolioEmptyTitle, { color: C.text }]}>Add Portfolio Images</Text>
               <Text style={[styles.portfolioEmptySub, { color: C.textSub }]}>Upload work photos — AI will tag them automatically</Text>
             </TouchableOpacity>
           ) : (
-            <View style={styles.portfolioGrid}>
-              {previewImages.map((img, index) => {
-                const tagColors = ['#2563EB', '#7C3AED', '#059669', '#F59E0B', '#DC2626', '#0891B2'];
-                const color = tagColors[index % tagColors.length];
-                return (
-                  <TouchableOpacity
-                    key={img.id}
-                    style={[styles.portfolioItem, { backgroundColor: color + '20' }]}
-                    onPress={() => navigation.getParent()?.navigate('PortfolioGallery')}
-                  >
-                    <MaterialIcons name="photo" size={28} color={color} />
-                    <View style={styles.portfolioTagCount}>
-                      <Text style={styles.portfolioTagCountText}>{img.tags.length}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+            <View style={styles.portfolioContainer}>
+              {/* Corner "add more" button — only shown once the user has images */}
+              <TouchableOpacity
+                style={[styles.addImageCorner, { borderColor: C.card }]}
+                onPress={handleAddPress}
+                activeOpacity={0.85}
+              >
+                <MaterialIcons name="add" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              {showAddTooltip && (
+                <View style={styles.addTooltip}>
+                  <Text style={styles.addTooltipText}>Add Portfolio Images</Text>
+                </View>
+              )}
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryScrollContent}
+              >
+                {categories.map((cat, index) => {
+                  const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
+                  return (
+                    <TouchableOpacity
+                      key={cat.name}
+                      style={[styles.categoryCard, { backgroundColor: color + '25' }]}
+                      activeOpacity={0.85}
+                      onPress={() => navigation.getParent()?.navigate('PortfolioGallery', { category: cat.name })}
+                    >
+                      <MaterialIcons name="photo" size={30} color={color} />
+
+                      <View style={styles.categoryCountBadge}>
+                        <Text style={styles.categoryCountText}>{cat.count}</Text>
+                      </View>
+
+                      <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.78)']}
+                        style={styles.categoryLabelGradient}
+                      >
+                        <Text style={styles.categoryLabelText} numberOfLines={1}>{cat.name}</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
           )}
         </View>
@@ -359,13 +407,63 @@ const styles = StyleSheet.create({
   portfolioEmpty:      { alignItems: 'center', padding: 24, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed' },
   portfolioEmptyTitle: { fontSize: 14, fontWeight: 'bold', marginTop: 8, marginBottom: 4 },
   portfolioEmptySub:   { fontSize: 12, textAlign: 'center' },
-  portfolioGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  portfolioItem: {
-    width: '30%', aspectRatio: 1, borderRadius: 10,
-    justifyContent: 'center', alignItems: 'center', position: 'relative',
+
+  // Wraps the category scroller so the corner button/tooltip can be absolutely positioned against it
+  portfolioContainer: { position: 'relative', paddingTop: 14, paddingRight: 6 },
+
+  // Small round "add more" button pinned to the top-right corner of the portfolio section
+  addImageCorner: {
+    position: 'absolute',
+    top: -2,
+    right: -8,
+    zIndex: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  portfolioTagCount:     { position: 'absolute', bottom: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, paddingHorizontal: 5, paddingVertical: 2 },
-  portfolioTagCountText: { fontSize: 9, color: '#fff', fontWeight: '700' },
+
+  // Tooltip bubble that pops up above the corner button when tapped
+  addTooltip: {
+    position: 'absolute',
+    top: -34,
+    right: -8,
+    zIndex: 20,
+    backgroundColor: 'rgba(17,17,17,0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  addTooltipText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+
+  // Horizontal category scroller
+  categoryScrollContent: { gap: 12, paddingVertical: 4, paddingRight: 8 },
+  categoryCard: {
+    width: 96, height: 96, borderRadius: 16,
+    justifyContent: 'center', alignItems: 'center',
+    position: 'relative', overflow: 'hidden',
+  },
+  categoryCountBadge: {
+    position: 'absolute', top: 6, right: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10,
+    minWidth: 20, paddingHorizontal: 5, paddingVertical: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  categoryCountText: { fontSize: 10, color: '#fff', fontWeight: '700' },
+  categoryLabelGradient: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    paddingTop: 18, paddingBottom: 8, paddingHorizontal: 6,
+    alignItems: 'center',
+  },
+  categoryLabelText: { fontSize: 12, fontWeight: '700', color: '#fff' },
 
   ratingPill:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFFBEB', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   ratingPillText: { fontSize: 12, color: '#B45309', fontWeight: '700' },
