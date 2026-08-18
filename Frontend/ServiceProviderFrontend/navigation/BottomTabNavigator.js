@@ -9,6 +9,7 @@ import { ThemeContext } from '../context/ThemeContext';
 // Import Screens
 import NewsFeedScreen from '../pages/NewsFeedScreen';
 import BookingsScreen from '../pages/BookingsScreen';
+import EarningsScreen from '../pages/EarningsScreen';
 import ProfileScreen from '../pages/ProfileScreen';
 import ChatScreen from '../pages/ChatScreen'; // Added
 import QuotationTemplate from '../pages/QuotationTemplate'; // Added
@@ -154,11 +155,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     paddingTop: 10,
   },
-
-  tabBarItem: {
-    paddingVertical: 1,
-  },
-
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -184,7 +180,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#FFF',
   },
-  
   tabLabel: {
     fontSize: 10,
     fontWeight: '500',
