@@ -1,14 +1,14 @@
-/**
- * index.js
- * Main Entry Point
- */
-
 import express from "express";
-import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import cors from "cors";
+import dns from "node:dns";
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
-import adRoutes from "./routes/adPostRoute.js";
+import adPostRoutes from "./routes/adPostRoute.js";
+// import portfolioRoutes from "./routes/portfolioRoute.js";
+// import dashboardRoutes from "./routes/dashboardRoute.js";
+// import jobRoutes from "./routes/jobRoute.js";
 
 // ─────────────────────────────────────────────
 // Config
@@ -36,18 +36,18 @@ app.use(express.urlencoded({
 // MongoDB Connection
 // ─────────────────────────────────────────────
 
-mongoose.connect(process.env.MONGODB_URI)
-.then(() => {
-
-  console.log("✅ MongoDB Connected Successfully");
-
-})
-.catch((err) => {
-
-  console.error("❌ MongoDB Connection Error:");
-  console.error(err.message);
-
-});
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGODB_URI is not set. Check that .env exists in Provider_Service/Backend and is saved as UTF-8.");
+} else {
+  mongoose.connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("✅ MongoDB Connected Successfully");
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Error:");
+    console.error(err.message);
+  });
+}
 
 // ─────────────────────────────────────────────
 // Root Route
@@ -57,7 +57,7 @@ app.get("/", (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: "AI Advertisement Generator API Running 🚀"
+    message: "Provider Service API Running 🚀"
   });
 
 });
@@ -80,7 +80,10 @@ app.get("/health", (req, res) => {
 // API Routes
 // ─────────────────────────────────────────────
 
-app.use("/api/ad", adRoutes);
+app.use("/api/provider/ads", adPostRoutes); // AI-assisted service post generation (FR-03)
+// app.use("/api/provider/portfolio", portfolioRoutes);
+// app.use("/api/provider/dashboard", dashboardRoutes);
+// app.use("/api/provider/jobs", jobRoutes);
 
 // ─────────────────────────────────────────────
 // 404 Handler
@@ -122,7 +125,7 @@ app.listen(PORT, () => {
 
   console.log(`
 🚀 ===================================
- AI Advertisement Generator Running
+ Provider Service Running
 ===================================
 🌍 URL   : http://localhost:${PORT}
 📦 PORT  : ${PORT}
