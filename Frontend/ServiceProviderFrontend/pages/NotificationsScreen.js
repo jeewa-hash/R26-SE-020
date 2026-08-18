@@ -1,244 +1,334 @@
-import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Modal } from 'react-native';
-import { Text } from 'react-native-paper';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useNotifications } from '../context/NotificationsContext';
-import i18n from '../locales';
-import TaskDetailsModal from '../components/TaskDetailsModal';
-import BidModal from '../components/BidModal';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, SafeAreaView } from 'react-native';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { IP_ADDRESS } from '../config';
 
-const { height } = Dimensions.get('window');
+const API_URL = `http://${IP_ADDRESS}:4003`;
 
-const TABS = ['All', 'Jobs', 'Bids', 'Payments'];
-const TAB_FILTERS = {
-  All: () => true,
-  Jobs: (n) => n.type === 'job_match' || n.type === 'quotation_request',
-  Bids: (n) => n.type === 'bid_opening' || n.type === 'bid_accepted',
-  Payments: (n) => n.type === 'payment',
-};
+export default function NotificationScreen({ navigation }) {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-export default function NotificationsScreen({ navigation }) {
-  const { notifications, markAsRead } = useNotifications();
-  const [activeTab, setActiveTab] = useState('All');
-  
-  // Modal States
-  const [modalVisible, setModalVisible] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
-  
-  const [isBidVisible, setIsBidVisible] = useState(false);
-  const [selectedJobForBid, setSelectedJobForBid] = useState(null);
+  useEffect(() => {
+    fetchNotifications();
+    
+    const intervalId = setInterval(() => {
+      fetchNotifications(false);
+    }, 10000);
+    
+    return () => clearInterval(intervalId);
+  }, []);
 
-  const filtered = notifications.filter(TAB_FILTERS[activeTab] || TAB_FILTERS.All);
-
-  // Open the "Job Details" Modal
-  const handleOpenDetails = (task) => {
-    setSelectedTask(task);
-    setModalVisible(true);
-    markAsRead(task.id);
-  };
-
-  // Open the "Bid Now" Bottom Sheet
-  const handleOpenBid = (job) => {
-    setSelectedJobForBid(job);
-    setIsBidVisible(true);
-    markAsRead(job.id);
-  };
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Activity</Text>
-        <TouchableOpacity>
-          <MaterialIcons name="settings" size={24} color="#6B7280" />
-        </TouchableOpacity>
-      </View>
-
-      <View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsContainer} contentContainerStyle={styles.tabsContent}>
-          {TABS.map((tab) => (
-            <TouchableOpacity 
-              key={tab} 
-              onPress={() => setActiveTab(tab)} 
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
-            >
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-        {filtered.map((item) => (
-          <NotificationCard 
-            key={item.id} 
-            item={item} 
-            onPress={() => markAsRead(item.id)}
-            onActionPress={() => {
-              if (item.type === 'bid_opening') {
-                handleOpenBid(item);
-              } else {
-                handleOpenDetails(item);
-              }
-            }} 
-          />
-        ))}
-        {/* Padding for absolute Bottom Tab Bar */}
-        <View style={{ height: 100 }} />
-      </ScrollView>
-
-      {/* 1. TASK DETAILS MODAL */}
-      <TaskDetailsModal 
-        visible={modalVisible}
-        task={selectedTask}
-        onDismiss={() => setModalVisible(false)}
-        onChat={() => {
-          setModalVisible(false);
-          navigation.navigate('ChatScreen', { customer: selectedTask?.job?.customer || 'Client' });
-        }}
-        onQuote={() => {
-          setModalVisible(false);
-          navigation.navigate('QuotationTemplate', { task: selectedTask });
-        }}
-      />
-
-      {/* 2. ATTRACTIVE BID MODAL (Bottom Sheet Style) */}
-      <Modal
-        visible={isBidVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsBidVisible(false)}
-      >
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: 'Notifications',
+      headerTitleStyle: {
+        fontWeight: 'bold',
+        color: '#111827',
+      },
+      headerLeft: () => (
         <TouchableOpacity 
-          style={styles.modalOverlay} 
-          activeOpacity={1} 
-          onPress={() => setIsBidVisible(false)}
+          style={{ marginLeft: 15 }} 
+          onPress={() => navigation.goBack()}
         >
-          <View style={styles.modalFlexFiller} />
-          <BidModal 
-            job={selectedJobForBid} 
-            onDismiss={() => setIsBidVisible(false)} 
-          />
+          <MaterialIcons name="arrow-back" size={26} color="#333" />
         </TouchableOpacity>
-      </Modal>
-    </View>
-  );
-}
+      ),
+    });
+  }, [navigation]);
 
-function NotificationCard({ item, onPress, onActionPress }) {
-  const isSi = i18n.language === 'si';
-  const title = isSi ? item.titleSi : item.title;
-  const body = isSi ? item.bodySi : item.body;
+  const fetchNotifications = async (showLoading = true) => {
+    if (showLoading && !refreshing) setLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
 
-  return (
+      const response = await fetch(`${API_URL}/notifications`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        setNotifications(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notifications', err);
+    } finally {
+      if (showLoading) setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchNotifications(false);
+  };
+
+  const markAsRead = async (id) => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await fetch(`${API_URL}/notifications/${id}/read`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        setNotifications(prev => prev.map(n => n._id === id ? { ...n, isRead: true } : n));
+      }
+    } catch (err) {
+      console.error('Failed to mark notification as read', err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await fetch(`${API_URL}/notifications/read-all`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      }
+    } catch (err) {
+      console.error('Failed to mark all as read', err);
+    }
+  };
+
+  const clearAll = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await fetch(`${API_URL}/notifications`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        setNotifications([]);
+      }
+    } catch (err) {
+      console.error('Failed to clear notifications', err);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const d = new Date(dateString);
+    const now = new Date();
+    const diff = now - d;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return d.toLocaleDateString();
+  };
+
+  const renderItem = ({ item }) => (
     <TouchableOpacity 
-      style={[styles.card, !item.read && styles.unreadCard]} 
-      onPress={onPress}
-      activeOpacity={0.8}
+      style={[styles.notificationCard, !item.isRead && styles.unreadCard]}
+      onPress={() => !item.isRead && markAsRead(item._id)}
+      activeOpacity={0.7}
     >
-      <View style={styles.cardInner}>
-        <View style={[styles.iconBox, { backgroundColor: item.iconBg || '#F3F4F6' }]}>
-          <MaterialIcons name={item.icon || 'notifications'} size={24} color={item.iconColor || '#7C3AED'} />
+      <View style={[styles.iconContainer, { backgroundColor: !item.isRead ? '#6366f115' : '#f3f4f6' }]}>
+        <MaterialIcons 
+          name={item.type === 'high_demand_alert' ? 'trending-up' : 'notifications'} 
+          size={22} 
+          color={!item.isRead ? '#6366f1' : '#6b7280'} 
+        />
+      </View>
+      <View style={styles.textContainer}>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, !item.isRead && styles.unreadText]}>{item.title}</Text>
+          {!item.isRead && <View style={styles.unreadDot} />}
         </View>
-
-        <View style={styles.contentBox}>
-          <View style={styles.titleRow}>
-            <Text style={styles.cardTitle}>{title}</Text>
-            <Text style={styles.timeText}>{item.time}</Text>
-          </View>
-          <Text style={styles.cardBody} numberOfLines={2}>{body}</Text>
-
-          {item.type === 'job_match' && (
-            <View style={styles.jobPreview}>
-              <View style={styles.jobRow}>
-                <Text style={styles.jobLocation}><MaterialIcons name="place" size={12}/> {item.job?.location}</Text>
-                <Text style={styles.jobPrice}>{item.job?.budget}</Text>
-              </View>
-              <TouchableOpacity style={styles.primaryAction} onPress={onActionPress}>
-                <Text style={styles.primaryActionText}>View Job Details</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {item.type === 'bid_opening' && (
-            <View style={styles.actionRow}>
-              <View style={styles.bidMeta}>
-                <Text style={styles.bidPrice}>{item.bidDetails?.basePrice}</Text>
-                <Text style={styles.bidTime}>⌛ {item.bidDetails?.deadline}</Text>
-              </View>
-              <TouchableOpacity style={styles.bidButton} onPress={onActionPress}>
-                <Text style={styles.bidButtonText}>Bid Now</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {item.type === 'quotation_request' && (
-            <View style={styles.actionRow}>
-              <View style={styles.quoteMeta}>
-                <Text style={styles.quoteUrgency}>Urgency: {item.quoteDetails?.urgency}</Text>
-              </View>
-              <TouchableOpacity style={styles.quoteButton} onPress={onActionPress}>
-                <Text style={styles.quoteButtonText}>Send Quote</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+        <Text style={styles.message}>{item.message}</Text>
+        <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
       </View>
     </TouchableOpacity>
+  );
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#6366f1" />
+      </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        {notifications.length > 0 && (
+          <View style={styles.actionHeader}>
+            <TouchableOpacity onPress={markAllAsRead} style={styles.actionBtn}>
+              <MaterialIcons name="done-all" size={18} color="#6366f1" />
+              <Text style={styles.actionBtnText}>Mark all read</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={clearAll} style={styles.actionBtn}>
+              <MaterialIcons name="delete-sweep" size={18} color="#ef4444" />
+              <Text style={[styles.actionBtnText, { color: '#ef4444' }]}>Clear all</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {notifications.length === 0 ? (
+          <View style={styles.center}>
+            <View style={styles.emptyIconContainer}>
+              <MaterialIcons name="notifications-none" size={60} color="#d1d5db" />
+            </View>
+            <Text style={styles.emptyTitle}>All caught up!</Text>
+            <Text style={styles.emptySubtitle}>You'll see your notifications here when they arrive.</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={notifications}
+            keyExtractor={(item) => item._id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#6366f1']}
+                tintColor="#6366f1"
+              />
+            }
+          />
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F4F6' },
-  header: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingTop: 60, paddingHorizontal: 20, paddingBottom: 20, backgroundColor: '#FFF' 
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
   },
-  headerTitle: { fontSize: 26, fontWeight: '800', color: '#111827' },
-  tabsContainer: { backgroundColor: '#FFF', paddingBottom: 10 },
-  tabsContent: { paddingHorizontal: 20, gap: 10 },
-  tab: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 12, backgroundColor: '#F3F4F6' },
-  tabActive: { backgroundColor: '#7C3AED' },
-  tabText: { color: '#6B7280', fontWeight: '600' },
-  tabTextActive: { color: '#FFF' },
-  listContent: { padding: 16 },
-  
-  card: { 
-    backgroundColor: '#FFF', borderRadius: 20, padding: 16, marginBottom: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3
+  container: {
+    flex: 1,
   },
-  unreadCard: { borderLeftWidth: 4, borderLeftColor: '#7C3AED', backgroundColor: '#FDFDFF' },
-  cardInner: { flexDirection: 'row', gap: 12 },
-  iconBox: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  contentBox: { flex: 1 },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#1F2937', flex: 1 },
-  timeText: { fontSize: 11, color: '#9CA3AF' },
-  cardBody: { fontSize: 13, color: '#4B5563', lineHeight: 18, marginBottom: 10 },
-
-  actionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 12 },
-  bidButton: { backgroundColor: '#7C3AED', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
-  bidButtonText: { color: '#FFF', fontWeight: '700', fontSize: 12 },
-  bidPrice: { fontSize: 14, fontWeight: '800', color: '#10B981' },
-  bidTime: { fontSize: 11, color: '#F59E0B', fontWeight: '600' },
-
-  quoteButton: { borderWidth: 1.5, borderColor: '#7C3AED', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
-  quoteButtonText: { color: '#7C3AED', fontWeight: '700', fontSize: 12 },
-  quoteUrgency: { fontSize: 12, color: '#EF4444', fontWeight: '600' },
-
-  jobPreview: { backgroundColor: '#F9FAFB', padding: 12, borderRadius: 12 },
-  jobRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  jobLocation: { fontSize: 11, color: '#6B7280' },
-  jobPrice: { fontSize: 13, fontWeight: '700', color: '#7C3AED' },
-  primaryAction: { backgroundColor: '#EEF2FF', padding: 10, borderRadius: 10, alignItems: 'center' },
-  primaryActionText: { color: '#4F46E5', fontSize: 12, fontWeight: '700' },
-
-  // Modal Overlays
-  modalOverlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0,0,0,0.5)', 
-    justifyContent: 'flex-end' 
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  modalFlexFiller: { 
-    flex: 1 
-  }
+  actionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6366f1',
+  },
+  listContainer: {
+    padding: 16,
+  },
+  notificationCard: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  unreadCard: {
+    backgroundColor: '#f9faff',
+    borderLeftWidth: 4,
+    borderLeftColor: '#6366f1',
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  textContainer: {
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#4b5563',
+  },
+  unreadText: {
+    color: '#111827',
+    fontWeight: 'bold',
+  },
+  message: {
+    fontSize: 14,
+    color: '#6b7280',
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  date: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#6366f1',
+  },
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: '#6b7280',
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
 });

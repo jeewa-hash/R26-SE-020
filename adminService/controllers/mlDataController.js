@@ -2,7 +2,7 @@ const axios = require('axios');
 const { differenceInDays } = require('date-fns');
 const MLData = require('../models/MLData');
 
-const CALENDARIFIC_API_KEY = 'miym2tkkEJmfOBLwiuzTlabtwhIhEPrn';
+const CALENDARIFIC_API_KEY = process.env.CALENDARIFIC_API_KEY || '5RNoUlmJqTubUQ9kMlp2UGEDw6ftBWIW';
 const CALENDARIFIC_URL = 'https://calendarific.com/api/v2/holidays';
 const OPEN_METEO_URL = 'https://archive-api.open-meteo.com/v1/archive';
 const TIMEZONE = 'Asia/Colombo';
@@ -11,6 +11,10 @@ const DISTRICT_COORDINATES = {
     Colombo: { latitude: 6.9271, longitude: 79.8612 },
     Gampaha: { latitude: 7.0840, longitude: 79.9927 }
 };
+
+// Caches to avoid redundant API calls and stay within rate limits
+const holidayCache = new Map(); // key: YYYY-MM-DD, value: boolean
+const rainCache = new Map();    // key: YYYY-MM-DD:District, value: boolean
 
 const formatISODate = (dateObj) => dateObj.toISOString().slice(0, 10);
 const toDayOfWeek = (dateObj) => {
@@ -28,7 +32,10 @@ const addDays = (dateObj, amount) => {
 };
 
 const fetchHolidayForDate = async (dateObj) => {
-    const [year, month, day] = formatISODate(dateObj).split('-');
+    const dateString = formatISODate(dateObj);
+    if (holidayCache.has(dateString)) return holidayCache.get(dateString);
+
+    const [year, month, day] = dateString.split('-');
 
     try {
         const response = await axios.get(CALENDARIFIC_URL, {
@@ -44,19 +51,43 @@ const fetchHolidayForDate = async (dateObj) => {
         });
 
         const holidays = response?.data?.response?.holidays || [];
-        return holidays.length > 0;
+        const isHoliday = holidays.length > 0;
+        holidayCache.set(dateString, isHoliday);
+        return isHoliday;
     } catch (error) {
-        console.warn('[WARNING] Calendarific lookup failed:', error.message || error);
+        if (error.response?.status === 429) {
+            console.warn(`[WARNING] Calendarific Rate Limit hit for ${dateString}. Defaulting to non-holiday.`);
+        } else {
+            console.warn('[WARNING] Calendarific lookup failed:', error.message || error);
+        }
         return false;
     }
 };
 
-const fetchRainForDate = async (dateObj, coords) => {
+const fetchRainForDate = async (dateObj, coords, districtName) => {
     const dateString = formatISODate(dateObj);
+    const cacheKey = `${dateString}:${districtName}`;
+    if (rainCache.has(cacheKey)) return rainCache.get(cacheKey);
+
     const { latitude, longitude } = coords;
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(dateObj);
+    target.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
+
+    let apiUrl = OPEN_METEO_URL; // Default archive
+    
+    if (diffDays >= 0 && diffDays <= 14) {
+        apiUrl = 'https://api.open-meteo.com/v1/forecast';
+    } else if (diffDays > 14) {
+        // Weather forecast beyond 14 days is not supported by free API
+        return false;
+    }
+
     try {
-        const response = await axios.get(OPEN_METEO_URL, {
+        const response = await axios.get(apiUrl, {
             params: {
                 latitude,
                 longitude,
@@ -69,9 +100,11 @@ const fetchRainForDate = async (dateObj, coords) => {
         });
 
         const rainSum = response?.data?.daily?.rain_sum?.[0];
-        return Number(rainSum) > 0.5;
+        const isRainy = Number(rainSum) > 0.5;
+        rainCache.set(cacheKey, isRainy);
+        return isRainy;
     } catch (error) {
-        console.warn('[WARNING] Open-Meteo lookup failed:', error.message || error);
+        console.warn(`[WARNING] Open-Meteo lookup failed for ${dateString}:`, error.message);
         return false;
     }
 };
@@ -122,7 +155,7 @@ const prepareFeatures = async (date, category, district) => {
 
     const coords = DISTRICT_COORDINATES[district];
     const isHoliday = await fetchHolidayForDate(parsedDate) ? 1 : 0;
-    const isRainy = await fetchRainForDate(parsedDate, coords) ? 1 : 0;
+    const isRainy = await fetchRainForDate(parsedDate, coords, district) ? 1 : 0;
     const isSpecialEvent = isSpecialEventDate(parsedDate) ? 1 : 0;
     const isLongWeekend = await computeLongWeekend(parsedDate, Boolean(isHoliday));
     const isSunny = isRainy ? 0 : 1;
@@ -220,6 +253,18 @@ const logServiceForML = async (serviceInfo) => {
     }
 };
 
+const fetchPrediction = async (date, category, district) => {
+    try {
+        const features = await prepareFeatures(date, category, district);
+        const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5000';
+        const response = await axios.post(`${ML_SERVICE_URL}/predict`, features);
+        return response.data;
+    } catch (err) {
+        console.warn(`[WARNING] Failed prediction for ${district} - ${category} on ${date}:`, err.message);
+        return null;
+    }
+};
+
 const getSmartPrediction = async (req, res) => {
     try {
         const { date, category, district } = req.body;
@@ -229,8 +274,8 @@ const getSmartPrediction = async (req, res) => {
         }
 
         const features = await prepareFeatures(date, category, district);
-
-        const response = await axios.post('http://127.0.0.1:5000/predict', features);
+        const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5000';
+        const response = await axios.post(`${ML_SERVICE_URL}/predict`, features);
 
         res.json({ prediction: response.data });
     } catch (error) {
@@ -239,4 +284,47 @@ const getSmartPrediction = async (req, res) => {
     }
 };
 
-module.exports = { logServiceForML, getSmartPrediction };
+const getSmartPredictionBatch = async (req, res) => {
+    try {
+        const { dates, categories, districts } = req.body;
+
+        if (!Array.isArray(dates) || !Array.isArray(categories) || !Array.isArray(districts)) {
+            return res.status(400).json({ error: 'dates, categories, and districts must be arrays' });
+        }
+
+        const allPredictions = [];
+
+        // To avoid overwhelming the DB and external APIs, process in chunks
+        const CHUNK_SIZE = 10;
+        const tasks = [];
+        for (const date of dates) {
+            for (const category of categories) {
+                for (const district of districts) {
+                    tasks.push({ date, category, district });
+                }
+            }
+        }
+
+        for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
+            const chunk = tasks.slice(i, i + CHUNK_SIZE);
+            const chunkPromises = chunk.map(task => 
+                fetchPrediction(task.date, task.category, task.district)
+            );
+            const chunkResults = await Promise.all(chunkPromises);
+            allPredictions.push(...chunkResults.filter(r => r !== null));
+        }
+
+        // Clear caches after a large batch to save memory
+        if (tasks.length > 50) {
+            holidayCache.clear();
+            rainCache.clear();
+        }
+
+        res.json({ predictions: allPredictions });
+    } catch (error) {
+        console.error('[ERROR] Error in smart prediction batch:', error.message || error);
+        res.status(500).json({ error: 'Batch prediction failed', details: error.message });
+    }
+};
+
+module.exports = { logServiceForML, getSmartPrediction, getSmartPredictionBatch };

@@ -2,11 +2,17 @@ const Admin = require('../models/Admin');
 const Provider = require('../models/Provider');
 const Seeker = require('../models/Seeker');
 const Notification = require('../models/Notification');
+const ProviderNotification = require('../models/ProviderNotification');
+const SeekerNotification = require('../models/SeekerNotification');
+const HighDemandAlertLog = require('../models/HighDemandAlertLog');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const { extractNicFromImage } = require('../utils/ocr');
-const { sendApprovalEmail, sendRejectionEmail } = require('../utils/emailService');
+const { sendApprovalEmail, sendRejectionEmail, sendHighDemandEmail } = require('../utils/emailService');
+const { createAuditLog } = require('../utils/auditLogger');
+const AuditLog = require('../models/AuditLog');
+
 
 // Email transporter (same config as seeker)
 const transporter = nodemailer.createTransport({
@@ -71,6 +77,15 @@ exports.register = async (req, res) => {
     });
 
     await admin.save();
+
+    // Create Audit Log
+    const currentAdmin = await Admin.findById(req.user.id);
+    await createAuditLog({
+      action: 'Admin Registered',
+      category: 'Admin',
+      admin: currentAdmin,
+      target: { id: admin._id, name: admin.fullName, type: 'Admin' }
+    });
 
     // Send credentials email to the new admin
     const mailOptions = {
@@ -213,6 +228,53 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+// Get real user growth data for analytics
+exports.getUserGrowthData = async (req, res) => {
+  try {
+    const seekers = await Seeker.find({}, 'createdAt');
+    const providers = await Provider.find({}, 'createdAt');
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentYear = new Date().getFullYear();
+
+    const processGrowth = (users) => {
+      const monthlyCounts = Array(12).fill(0);
+      users.forEach(user => {
+        const date = new Date(user.createdAt);
+        if (date.getFullYear() === currentYear) {
+          monthlyCounts[date.getMonth()]++;
+        }
+      });
+
+      let cumulative = 0;
+      return monthlyCounts.map((count, index) => {
+        cumulative += count;
+        return {
+          name: months[index],
+          date: `${currentYear}-${String(index + 1).padStart(2, '0')}-01`,
+          count: cumulative
+        };
+      });
+    };
+
+    const seekerGrowth = processGrowth(seekers);
+    const providerGrowth = processGrowth(providers);
+
+    const combinedData = months.map((month, index) => ({
+      name: month,
+      date: seekerGrowth[index].date,
+      seekers: seekerGrowth[index].count,
+      providers: providerGrowth[index].count,
+      total: seekerGrowth[index].count + providerGrowth[index].count
+    }));
+
+    res.json(combinedData);
+  } catch (err) {
+    console.error('Error fetching user growth data:', err.message);
+    res.status(500).json({ message: 'Server error while fetching growth data' });
+  }
+};
+
 // Helper to get model by type
 const getModelByType = (type) => {
   if (type === 'admin') return Admin;
@@ -237,6 +299,15 @@ exports.updateUser = async (req, res) => {
     const updatedUser = await Model.findByIdAndUpdate(id, req.body, { new: true }).select('-password');
     if (!updatedUser) return res.status(404).json({ message: 'User not found' });
 
+    // Create Audit Log
+    const currentAdmin = await Admin.findById(req.user.id);
+    await createAuditLog({
+      action: `User Updated (${type})`,
+      category: 'User',
+      admin: currentAdmin,
+      target: { id: updatedUser._id, name: updatedUser.name || updatedUser.fullName || updatedUser.email, type }
+    });
+
     res.json(updatedUser);
   } catch (err) {
     console.error('Error updating user:', err.message);
@@ -254,6 +325,15 @@ exports.deleteUser = async (req, res) => {
 
     const deletedUser = await Model.findByIdAndDelete(id);
     if (!deletedUser) return res.status(404).json({ message: 'User not found' });
+
+    // Create Audit Log
+    const currentAdmin = await Admin.findById(req.user.id);
+    await createAuditLog({
+      action: `User Deleted (${type})`,
+      category: 'User',
+      admin: currentAdmin,
+      target: { id: deletedUser._id, name: deletedUser.name || deletedUser.fullName || deletedUser.email, type }
+    });
 
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
@@ -276,10 +356,45 @@ exports.toggleUserStatus = async (req, res) => {
     user.isBlocked = !user.isBlocked;
     await user.save();
 
+    // Create Audit Log
+    const currentAdmin = await Admin.findById(req.user.id);
+    await createAuditLog({
+      action: user.isBlocked ? 'User Blocked' : 'User Unblocked',
+      category: 'User',
+      admin: currentAdmin,
+      target: { id: user._id, name: user.name || user.fullName || user.email, type }
+    });
+
     res.json({ message: `User successfully ${user.isBlocked ? 'blocked' : 'unblocked'}`, isBlocked: user.isBlocked });
   } catch (err) {
     console.error('Error toggling user status:', err.message);
     res.status(500).json({ message: 'Server error while toggling status' });
+  }
+};
+
+// Get all providers for NIC verification management
+exports.getAllProvidersVerifications = async (req, res) => {
+  try {
+    const providers = await Provider.find({})
+      .select('-password')
+      .sort({ createdAt: -1 });
+    
+    // Map status for easier frontend consumption
+    const verifications = providers.map(p => {
+      let status = 'Pending';
+      if (p.isVerified) status = 'Approved';
+      else if (p.isRejected) status = 'Rejected';
+      
+      return {
+        ...p.toObject(),
+        verificationStatus: status
+      };
+    });
+
+    res.json(verifications);
+  } catch (err) {
+    console.error('Error fetching all provider verifications:', err.message);
+    res.status(500).json({ message: 'Server error while fetching verifications' });
   }
 };
 
@@ -331,7 +446,17 @@ exports.getProviderVerificationDetails = async (req, res) => {
       }
     }
 
-    res.json(provider);
+    // Add verification status for frontend consistency
+    let status = 'Pending';
+    if (provider.isVerified) status = 'Approved';
+    else if (provider.isRejected) status = 'Rejected';
+
+    const providerWithStatus = {
+      ...provider.toObject(),
+      verificationStatus: status
+    };
+
+    res.json(providerWithStatus);
   } catch (err) {
     console.error('Error fetching verification details:', err.message);
     res.status(500).json({ message: 'Server error while fetching verification details' });
@@ -364,6 +489,15 @@ exports.verifyProvider = async (req, res) => {
       provider.adminNote = '';
       await provider.save();
 
+      // Create Audit Log
+      const currentAdmin = await Admin.findById(req.user.id);
+      await createAuditLog({
+        action: 'NIC Approved',
+        category: 'NIC',
+        admin: currentAdmin,
+        target: { id: provider._id, name: provider.email, type: 'Provider' }
+      });
+
       // Send approval email
       try {
         await sendApprovalEmail(provider.email, provider.email.split('@')[0]);
@@ -378,6 +512,16 @@ exports.verifyProvider = async (req, res) => {
       provider.isBlocked = false;
       provider.adminNote = adminNote.trim();
       await provider.save();
+
+      // Create Audit Log
+      const currentAdmin = await Admin.findById(req.user.id);
+      await createAuditLog({
+        action: 'NIC Rejected',
+        category: 'NIC',
+        admin: currentAdmin,
+        target: { id: provider._id, name: provider.email, type: 'Provider' },
+        metadata: { reason: adminNote.trim() }
+      });
 
       // Send rejection email
       try {
@@ -445,5 +589,143 @@ exports.clearAllNotifications = async (req, res) => {
   } catch (err) {
     console.error('Error clearing notifications:', err.message);
     res.status(500).json({ message: 'Server error while clearing notifications' });
+  }
+};
+
+// Get audit logs with filtering, pagination, and sorting
+exports.getAuditLogs = async (req, res) => {
+  try {
+    const { category, startDate, endDate, page = 1, limit = 10 } = req.query;
+    
+    let query = {};
+    if (category) query.category = category;
+    
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    const logs = await AuditLog.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    const total = await AuditLog.countDocuments(query);
+
+    res.json({
+      logs,
+      total,
+      pages: Math.ceil(total / limit),
+      currentPage: parseInt(page)
+    });
+  } catch (err) {
+    console.error('Error fetching audit logs:', err.message);
+    res.status(500).json({ message: 'Server error while fetching audit logs' });
+  }
+};
+
+// Internal route for other services to create audit logs
+exports.createAuditLogInternal = async (req, res) => {
+  try {
+    const { action, category, adminId, target, metadata } = req.body;
+    
+    const admin = await Admin.findById(adminId);
+    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+
+    await createAuditLog({
+      action,
+      category,
+      admin,
+      target,
+      metadata
+    });
+
+    res.status(201).json({ message: 'Audit log created' });
+  } catch (err) {
+    console.error('Error in internal audit log creation:', err.message);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Dispatch High Demand Alerts to Providers
+exports.dispatchHighDemandAlerts = async (req, res) => {
+  try {
+    const { category, district, timeframe, avgDemand, confidence } = req.body;
+    
+    // Check if we already sent this specific alert today
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    const existingLog = await HighDemandAlertLog.findOne({
+      category,
+      district,
+      timeframe,
+      date: todayStr
+    });
+
+    if (existingLog) {
+      return res.status(200).json({ message: 'Alerts already dispatched for this category, district, and timeframe today. Skipping to prevent spam.' });
+    }
+
+    // Find verified, active providers in the district and category
+    const query = {
+      role: 'ServiceProvider',
+      isVerified: true,
+      isBlocked: false,
+    };
+    if (district !== 'All Districts') query.district = district;
+    if (category !== 'All Categories') query.category = category;
+
+    const providers = await Provider.find(query);
+
+    // Also Dispatch notifications to Seekers in that district
+    // This helps seekers know when demand is high so they can book in advance
+    const seekers = await Seeker.find({ 
+      district: district === 'All Districts' ? { $exists: true } : district,
+      isEmailVerified: true,
+      isBlocked: false
+    });
+
+    if (providers.length === 0 && seekers.length === 0) {
+      // Record log even if no one found, to not retry
+      await HighDemandAlertLog.create({ category, district, timeframe, date: todayStr });
+      return res.status(200).json({ message: 'No providers or seekers found to send alerts to.' });
+    }
+
+    // Dispatch notifications to Providers (Emails skipped as per requirement)
+    for (const provider of providers) {
+      await ProviderNotification.create({
+        providerId: provider._id,
+        title: `🚀 High Demand Alert: ${category}!`,
+        message: `High demand predicted for ${category} in ${district} for ${timeframe}. Stay active to grab more job requests and increase your earnings!`,
+        type: 'high_demand_alert'
+      });
+    }
+
+    for (const seeker of seekers) {
+      await SeekerNotification.create({
+        seekerId: seeker._id,
+        title: `🚀 High Demand Alert: ${category}!`,
+        message: `We're seeing high demand for ${category} in ${district} for ${timeframe}. Book your service early to ensure availability!`,
+        type: 'high_demand_alert'
+      });
+    }
+
+    // Save to tracking DB
+    await HighDemandAlertLog.create({ category, district, timeframe, date: todayStr });
+
+    // Optional: Log to AuditLog
+    await createAuditLog({
+      action: 'Dispatched High Demand Alerts',
+      category: 'Demand Forecasting',
+      admin: req.user,
+      target: { name: `Alerts sent to ${providers.length} providers and ${seekers.length} seekers`, type: 'ALERT' },
+      metadata: { category, district, timeframe }
+    });
+
+    res.status(200).json({ message: `High Demand alerts successfully sent to ${providers.length} providers and ${seekers.length} seekers.` });
+  } catch (err) {
+    console.error('Error dispatching high demand alerts:', err);
+    res.status(500).json({ message: 'Internal server error while dispatching alerts' });
   }
 };

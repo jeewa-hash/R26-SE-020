@@ -41,4 +41,13 @@ router.post('/verify-otp', seekerAuthController.verifyOTP);
 router.post('/login', seekerAuthController.login);
 router.post('/logout', seekerAuthController.logout);
 
+// Get user by ID
+router.get('/user/:id', seekerAuthController.getUserById);
+
+// Notification Routes
+router.get('/notifications', seekerAuthController.verifyToken, seekerAuthController.getNotifications);
+router.patch('/notifications/:id/read', seekerAuthController.verifyToken, seekerAuthController.markAsRead);
+router.patch('/notifications/read-all', seekerAuthController.verifyToken, seekerAuthController.markAllAsRead);
+router.delete('/notifications', seekerAuthController.verifyToken, seekerAuthController.clearNotifications);
+
 module.exports = router;

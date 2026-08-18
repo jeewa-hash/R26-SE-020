@@ -193,6 +193,15 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.aiTagNote}>✨ {allTags.length} tags detected by AI from your portfolio</Text>
           )}
         </View>
+        <View style={styles.btnContainer}>
+                    <TouchableOpacity 
+                      style={styles.submitInquiryBtn}
+                      onPress={() => navigation.navigate('SubmitInquiry')}
+                    >
+                      <MaterialIcons name="rate-review" size={18} color="#6366f1" />
+                      <Text style={styles.submitInquiryBtnText}>Submit Inquiries</Text>
+                    </TouchableOpacity>
+                  </View>
 
         {/* ── Portfolio ── */}
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
@@ -487,4 +496,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  submitInquiryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#f3f4ff', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 },
+  submitInquiryBtnText: { fontSize: 13, fontWeight: '700', color: '#6366f1' },
 });

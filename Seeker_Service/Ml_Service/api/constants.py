@@ -186,15 +186,31 @@ FURNITURE_PREFIXES = ["furniture_", "Furniture_Repair"]
 
 # SUB_CATEGORY_MAPPING translates ML classes to Step 1 options
 SUB_CATEGORY_MAPPING = {
+    # Electrical (matches ISSUE_MAPPING step-2 keys)
     "lighting": "Light",
     "fan": "Fan",
     "tv": "TV",
     "fridge": "Fridge",
     "kitchen": "Rice Cooker",
     "washing": "Washing Machine",
+
+    # Plumbing (matches ISSUE_MAPPING step-1 keys)
+    # Note: your model labels are like "plumbing_blocked_kitchen_sink",
+    # "plumbing_low_water_pressure_tap", etc. So we map by substrings.
+    "low_water_pressure": "Low water pressure",
+    "overflow": "Overflow",
+    "pipe": "Pipe damage",
+    "blocked": "Blockage",
+    "backup": "Blockage",
+    "dripping": "Leakage",
+    "leaking": "Leakage",
+
+    # General plumbing keywords
     "leakage": "Leakage",
     "blockage": "Blockage",
     "toilet": "Toilet",
+
+    # Furniture
     "chair": "Chair",
     "table": "Table",
     "sofa": "Sofa",

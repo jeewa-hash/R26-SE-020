@@ -10,6 +10,7 @@ from constants import ISSUE_MAPPING
 from ml_handler import MLHandler
 from db_adapter import db_manager, SessionProxy 
 from engine import ConversationEngine
+from translations import translate_payload, translate_answer_to_english, get_sinhala_translation
 
 app = Flask(__name__)
 CORS(app)
@@ -38,6 +39,25 @@ print("ML Handler initialized.")
 
 HIGH_CONFIDENCE_THRESHOLD = 0.70
 MEDIUM_CONFIDENCE_THRESHOLD = 0.35
+
+
+def _is_sinhala_language(language_value):
+    normalized = (language_value or "").strip().lower()
+    return normalized in {"sinhala", "si", "sinh"}
+
+
+def _translate_for_session(session, payload):
+    if not payload:
+        return payload
+    app_lan = getattr(session, "app_lan", "english")
+    language = "sinhala" if _is_sinhala_language(app_lan) else "english"
+    return translate_payload(payload, language)
+
+
+def _translate_text_for_session(session, text):
+    if _is_sinhala_language(getattr(session, "app_lan", "english")):
+        return get_sinhala_translation(text)
+    return text
 
 
 def _get_step_config(category, step):
@@ -178,8 +198,12 @@ def predict():
 
         # Create Persistent Session with readable ID (e.g. REPAIR-A7B2)
         session_id = f"REPAIR-{str(uuid.uuid4().hex[:4].upper())}"
+        app_lan_raw = request.form.get('app_lan', 'english')
+        app_lan = 'sinhala' if _is_sinhala_language(app_lan_raw) else 'english'
+        print(f"DEBUG: /predict app_lan parsed as: {app_lan}")
         session = SessionProxy({
             "id": session_id,
+            "app_lan": app_lan,
             "step": 1,
             "category": category,
             "object_name": object_name,
@@ -206,12 +230,13 @@ def predict():
             session.pending_identified_item = None
             db_manager.save_session(session)
             
+            next_question = ConversationEngine.get_next_question(session)
             return jsonify({
                 'session_id': session.id,
                 'object': session.object_name,
                 'confidence': confidence_str,
                 'detected_item': identified_item,
-                'next_question': ConversationEngine.get_next_question(session)
+                'next_question': _translate_for_session(session, next_question)
             })
 
         # Default Step 1
@@ -224,22 +249,23 @@ def predict():
             session.manual_category_selection = False
             session.manual_item_selection = False
             db_manager.save_session(session)
+            confirmation_question = {
+                'step': 1,
+                'type': 'confirmation',
+                'question': f"Does your issue involve a {identified_item}?",
+                'options': ["Yes", "No, choose category"]
+            }
             return jsonify({
                 'session_id': session.id,
                 'object': session.object_name,
                 'confidence': confidence_str,
                 'detected_item': identified_item,
-                'next_question': {
-                    'step': 1,
-                    'type': 'confirmation',
-                    'question': f"Does your issue involve a {identified_item}?",
-                    'options': ["Yes", "No, choose category"]
-                }
+                'next_question': _translate_for_session(session, confirmation_question)
             })
 
         db_manager.save_session(session)
 
-        next_q = ConversationEngine.get_next_question(session)
+        next_q = _translate_for_session(session, ConversationEngine.get_next_question(session))
 
         return jsonify({
             'session_id': session.id,
@@ -262,10 +288,14 @@ def chat():
     if not session:
         return jsonify({'error': 'Invalid session ID'}), 400
 
+    normalized_answer = answer
+    if _is_sinhala_language(getattr(session, "app_lan", "english")) and isinstance(answer, str):
+        normalized_answer = translate_answer_to_english(answer)
+
     # Handle optional Step 1 confirmation flow.
     pending_item = getattr(session, "pending_identified_item", None)
     if session.step == 1 and pending_item:
-        normalized = (answer or "").strip().lower()
+        normalized = (normalized_answer or "").strip().lower()
         if normalized == "yes":
             _set_identified_item_for_step1(session, session.category, pending_item)
             session.pending_identified_item = None
@@ -275,7 +305,7 @@ def chat():
             db_manager.save_session(session)
             return jsonify({
                 'session_id': session.id,
-                'next_question': ConversationEngine.get_next_question(session)
+                'next_question': _translate_for_session(session, ConversationEngine.get_next_question(session))
             })
 
         if normalized.startswith("no"):
@@ -283,14 +313,15 @@ def chat():
             session.manual_category_selection = True
             session.manual_item_selection = False
             db_manager.save_session(session)
+            category_question = {
+                'step': 1,
+                'type': 'category_selection',
+                'question': "Please choose the correct service category first:",
+                'options': ["Electrical", "Plumbing", "Furniture"]
+            }
             return jsonify({
                 'session_id': session.id,
-                'next_question': {
-                    'step': 1,
-                    'type': 'category_selection',
-                    'question': "Please choose the correct service category first:",
-                    'options': ["Electrical", "Plumbing", "Furniture"]
-                }
+                'next_question': _translate_for_session(session, category_question)
             })
 
         return jsonify({
@@ -304,10 +335,10 @@ def chat():
             "plumbing": "plumbing",
             "furniture": "furniture"
         }
-        selected = (answer or "").strip().lower()
+        selected = (normalized_answer or "").strip().lower()
         if selected not in category_map:
             return jsonify({
-                'error': "Please choose one category: Electrical, Plumbing, or Furniture."
+                'error': _translate_text_for_session(session, "Please choose one category: Electrical, Plumbing, or Furniture.")
             }), 400
 
         session.category = category_map[selected]
@@ -319,24 +350,25 @@ def chat():
         db_manager.save_session(session)
         return jsonify({
             'session_id': session.id,
-            'next_question': _build_step1_question_for_category(session.category)
+            'next_question': _translate_for_session(session, _build_step1_question_for_category(session.category))
         })
 
     # Manual item selection path after category is chosen.
     if session.step == 1 and getattr(session, "manual_item_selection", False):
-        selected = (answer or "").strip()
+        selected = (normalized_answer or "").strip()
         if not selected:
-            return jsonify({'error': 'Please provide a valid answer.'}), 400
+            return jsonify({'error': _translate_text_for_session(session, 'Please provide a valid answer.')}), 400
 
         if selected == "Other (type manually)":
             # Keep manual item mode ON; next user message should carry typed value.
+            text_input_question = {
+                'step': 1,
+                'type': 'text_input',
+                'question': "Please type the exact item/problem you need help with:"
+            }
             return jsonify({
                 'session_id': session.id,
-                'next_question': {
-                    'step': 1,
-                    'type': 'text_input',
-                    'question': "Please type the exact item/problem you need help with:"
-                }
+                'next_question': _translate_for_session(session, text_input_question)
             })
 
         _set_identified_item_for_step1(session, session.category, selected)
@@ -345,17 +377,17 @@ def chat():
         db_manager.save_session(session)
         return jsonify({
             'session_id': session.id,
-            'next_question': ConversationEngine.get_next_question(session)
+            'next_question': _translate_for_session(session, ConversationEngine.get_next_question(session))
         })
 
     # Persist answer for the current step in a category-safe way
-    _save_answer_for_current_step(session, answer)
+    _save_answer_for_current_step(session, normalized_answer)
 
     # Move to next step
     session.step += 1
     db_manager.save_session(session)
 
-    next_q = ConversationEngine.get_next_question(session)
+    next_q = _translate_for_session(session, ConversationEngine.get_next_question(session))
 
     if next_q:
         return jsonify({

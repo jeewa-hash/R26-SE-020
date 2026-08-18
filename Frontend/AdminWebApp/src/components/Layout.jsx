@@ -1,8 +1,9 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { API_BASE_URL } from '../config';
-import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock } from 'react-icons/fi';
+import { io } from 'socket.io-client';
+import { API_BASE_URL, AUTH_SERVICE_URL } from '../config';
+import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare, FiActivity, FiTrendingUp, FiBarChart2 } from 'react-icons/fi';
 import { HiOutlineShieldCheck } from 'react-icons/hi';
 
 function Layout() {
@@ -11,28 +12,55 @@ function Layout() {
 
   const [notifications, setNotifications] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [notifLoading, setNotifLoading] = useState(false);
   const dropdownRef = useRef(null);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      if (!token) return;
-      const response = await axios.get(`${API_BASE_URL}/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications(response.data);
-    } catch (err) {
-      console.error('Failed to fetch notifications', err);
+  useEffect(() => {
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
     }
-  };
+  }, []);
 
   useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const token = localStorage.getItem('adminToken');
+        if (!token) return;
+        const response = await axios.get(`${API_BASE_URL}/notifications`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setNotifications(response.data);
+      } catch (err) {
+        console.error('Failed to fetch notifications', err);
+      }
+    };
+
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+
+    // Socket.io Implementation
+    const socket = io(AUTH_SERVICE_URL);
+
+    socket.on('connect', () => {
+      console.log('Connected to socket server');
+      socket.emit('join', 'admin_room');
+    });
+
+    socket.on('new_notification', (notification) => {
+      console.log('New real-time notification received:', notification);
+      setNotifications((prev) => [notification, ...prev]);
+      
+      // Optional: Play sound or show browser notification
+      if (Notification.permission === 'granted') {
+        new window.Notification(notification.title, {
+          body: notification.message,
+        });
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -157,11 +185,46 @@ function Layout() {
             Manage Categories
           </NavLink>
           <NavLink
-            to="/rejected-verifications"
+            to="/nic-verifications"
             className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
           >
-            <span className="sidebar-link-icon"><FiXCircle /></span>
-            Rejected Verifications
+            <span className="sidebar-link-icon"><HiOutlineShieldCheck /></span>
+            NIC Verifications
+          </NavLink>
+          <NavLink
+            to="/penalty-management"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiAlertCircle /></span>
+            Penalty Management
+          </NavLink>
+          <NavLink
+            to="/inquiries"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiMessageSquare /></span>
+            Inquiries
+          </NavLink>
+          <NavLink
+            to="/audit-logs"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiActivity /></span>
+            Audit Logs
+          </NavLink>
+          <NavLink
+            to="/demand-forecasting"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiTrendingUp /></span>
+            Demand Forecasting
+          </NavLink>
+          <NavLink
+            to="/analytics"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiBarChart2 /></span>
+            Analytics
           </NavLink>
 
           <div className="sidebar-section-label">System</div>

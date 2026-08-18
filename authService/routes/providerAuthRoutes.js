@@ -41,6 +41,7 @@ const upload = multer({
 router.post('/generate-bio', providerAuthController.generateBio);
 router.post('/register', upload.fields([{ name: 'nicImage', maxCount: 1 }, { name: 'profileImage', maxCount: 1 }]), providerAuthController.register);
 router.post('/login', providerAuthController.login);
+router.post('/match-providers', providerAuthController.matchProvidersFromModelOutput);
 
 // Public route to fetch all service categories
 router.get('/categories', async (req, res) => {
@@ -52,5 +53,15 @@ router.get('/categories', async (req, res) => {
     res.status(500).json({ message: 'Server error while fetching categories' });
   }
 });
+
+// Notification routes
+router.get('/notifications', providerAuthController.verifyProvider, providerAuthController.getNotifications);
+router.patch('/notifications/read-all', providerAuthController.verifyProvider, providerAuthController.markAllNotificationsAsRead);
+router.delete('/notifications', providerAuthController.verifyProvider, providerAuthController.clearAllNotifications);
+router.patch('/notifications/:id/read', providerAuthController.verifyProvider, providerAuthController.markNotificationAsRead);
+
+//get user profile by ID
+router.get('/profile', providerAuthController.verifyProvider, providerAuthController.getProfile);
+router.get('/providers', providerAuthController.getAllProviders);
 
 module.exports = router;

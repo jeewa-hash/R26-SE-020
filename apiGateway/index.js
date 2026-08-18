@@ -24,6 +24,7 @@ app.use('/api/auth', createProxyMiddleware({
 app.use('/api', createProxyMiddleware({
     target: 'http://127.0.0.1:5001',
     changeOrigin: true,
+    pathRewrite: { '^/api': '' },
     onError: (err, req, res) => { console.error('Proxy Error (/api):', err.message); res.status(500).send('Proxy Error'); }
 }));
 

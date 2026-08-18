@@ -14,6 +14,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { ThemeContext } from '../context/ThemeContext';
 import { LanguageContext } from '../context/LanguageContext';
+import SettingsScreen from '../screens/SettingsScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearCredentials } from '../utils/biometricAuth';
+import { CommonActions } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.72;
@@ -38,6 +42,7 @@ export default function ProfileHeader({ navigation, onLogout }) {
   const { language, setLanguage } = useContext(LanguageContext);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const sideAnim   = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
@@ -65,6 +70,19 @@ export default function ProfileHeader({ navigation, onLogout }) {
     setLanguage(code);
     i18n.changeLanguage(code);
   };
+
+  const handleLogout = async () => {
+  await clearCredentials();
+  await AsyncStorage.removeItem('userToken');
+  await AsyncStorage.removeItem('userRole');
+
+  navigation.dispatch(
+    CommonActions.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    })
+  );
+};
 
   return (
     <>
@@ -153,24 +171,37 @@ export default function ProfileHeader({ navigation, onLogout }) {
           {/* Menu items */}
           <View style={styles.menuSection}>
             <Text style={[styles.menuSectionLabel, { color: isDark ? '#8E8E93' : '#AAAAAA' }]}>MENU</Text>
-            {SIDEBAR_MENU.map((item, index) => (
-              <View key={item.id}>
-                <TouchableOpacity
-                  style={styles.menuRow}
-                  onPress={() => handleNav(item.route)}
-                  activeOpacity={0.6}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: item.bg }]}>
-                    <MaterialIcons name={item.icon} size={18} color={item.color} />
-                  </View>
-                  <Text style={[styles.menuLabel, { color: isDark ? '#F2F2F7' : '#111' }]}>{item.label}</Text>
-                  <MaterialIcons name="chevron-right" size={18} color={isDark ? '#48484A' : '#D1D5DB'} />
-                </TouchableOpacity>
-                {index < SIDEBAR_MENU.length - 1 && (
-                  <View style={[styles.menuDivider, { backgroundColor: isDark ? '#2c2c2e' : '#F1F5F9', marginLeft: 62 }]} />
-                )}
-              </View>
-            ))}
+            {SIDEBAR_MENU.map((item, index) => {
+              const isSettings = item.route === 'Settings';
+              return (
+                <View key={item.id}>
+                  <TouchableOpacity
+                    style={styles.menuRow}
+                    onPress={() =>
+                      isSettings ? setSettingsOpen(!settingsOpen) : handleNav(item.route)
+                    }
+                    activeOpacity={0.6}
+                  >
+                    <View style={[styles.menuIconBox, { backgroundColor: item.bg }]}>
+                      <MaterialIcons name={item.icon} size={18} color={item.color} />
+                    </View>
+                    <Text style={[styles.menuLabel, { color: isDark ? '#F2F2F7' : '#111' }]}>{item.label}</Text>
+                    <MaterialIcons
+                      name={isSettings ? (settingsOpen ? 'expand-less' : 'expand-more') : 'chevron-right'}
+                      size={18}
+                      color={isDark ? '#48484A' : '#D1D5DB'}
+                    />
+                  </TouchableOpacity>
+
+                  {/* Settings dropdown (App Lock) */}
+                  {isSettings && settingsOpen && <SettingsScreen isDark={isDark} />}
+
+                  {index < SIDEBAR_MENU.length - 1 && (
+                    <View style={[styles.menuDivider, { backgroundColor: isDark ? '#2c2c2e' : '#F1F5F9', marginLeft: 62 }]} />
+                  )}
+                </View>
+              );
+            })}
           </View>
 
           {/* Preferences */}
@@ -227,8 +258,8 @@ export default function ProfileHeader({ navigation, onLogout }) {
 
           {/* Logout */}
           <TouchableOpacity
-            style={[styles.logoutBtn, { backgroundColor: isDark ? '#2d0f0f' : '#FEF2F2', borderColor: isDark ? '#501313' : '#FECACA' }]}
-            onPress={onLogout}
+           style={[styles.logoutBtn, { backgroundColor: isDark ? '#2d0f0f' : '#FEF2F2', borderColor: isDark ? '#501313' : '#FECACA' }]}
+           onPress={handleLogout}
           >
             <MaterialIcons name="logout" size={18} color="#DC2626" />
             <Text style={styles.logoutText}>Log Out</Text>
