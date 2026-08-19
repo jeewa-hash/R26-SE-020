@@ -4,11 +4,14 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dns from "node:dns";
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
+import http from "http";
+import { Server } from "socket.io";
 
 import adPostRoutes from "./routes/adPostRoute.js";
-// import portfolioRoutes from "./routes/portfolioRoute.js";
-// import dashboardRoutes from "./routes/dashboardRoute.js";
-// import jobRoutes from "./routes/jobRoute.js";
+import jobStatusRoutes from "./routes/jobStatusRoute.js";
+import quotationRoutes from "./routes/quotationRoutes.js";
+import { initNotificationSocket } from "./sockets/notificationSocket.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 // ─────────────────────────────────────────────
 // Config
@@ -17,6 +20,14 @@ import adPostRoutes from "./routes/adPostRoute.js";
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
 
 // ─────────────────────────────────────────────
 // Middleware
@@ -31,6 +42,12 @@ app.use(express.json({
 app.use(express.urlencoded({
   extended: true
 }));
+
+// Pass `io` instance to Express app object for controllers
+app.set("io", io);
+
+// Start Socket.io connections
+initNotificationSocket(io);
 
 // ─────────────────────────────────────────────
 // MongoDB Connection
@@ -81,9 +98,9 @@ app.get("/health", (req, res) => {
 // ─────────────────────────────────────────────
 
 app.use("/api/provider/ads", adPostRoutes); // AI-assisted service post generation (FR-03)
-// app.use("/api/provider/portfolio", portfolioRoutes);
-// app.use("/api/provider/dashboard", dashboardRoutes);
-// app.use("/api/provider/jobs", jobRoutes);
+app.use("/api/provider/jobs", jobStatusRoutes);
+app.use("/api/provider/quotations", quotationRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // ─────────────────────────────────────────────
 // 404 Handler
