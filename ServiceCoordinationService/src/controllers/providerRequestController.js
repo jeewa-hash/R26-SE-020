@@ -56,6 +56,26 @@ export const createProviderRequest = async (req, res) => {
       });
     }
 
+    // Governance restriction check: If provider has 3 or more unaddressed provider cancellations, block new proposals
+    const unsubmittedCancels = await Booking.countDocuments({
+      providerId,
+      bookingStatus: "CANCELLED",
+      "cancellationInfo.cancelledBy": "PROVIDER",
+      "cancellationInfo.inquiryStatus": "NOT_SUBMITTED",
+    });
+
+    const pendingInquiries = await Booking.countDocuments({
+      providerId,
+      "cancellationInfo.inquiryStatus": "PENDING",
+    });
+
+    if (unsubmittedCancels >= 3 || pendingInquiries >= 3 || (unsubmittedCancels + pendingInquiries) >= 3) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is temporarily restricted from submitting proposals due to 3 or more unaddressed service cancellations. Please submit inquiries to restore access.",
+      });
+    }
+
     const post = await Post.findById(postId);
 
     if (!post) {
@@ -371,6 +391,21 @@ export const acceptProviderRequest = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Only pending requests can be accepted",
+      });
+    }
+
+    // Check if provider is restricted due to 3 or more cancellations
+    const providerCancels = await Booking.countDocuments({
+      providerId: providerRequest.providerId,
+      bookingStatus: "CANCELLED",
+      "cancellationInfo.cancelledBy": "PROVIDER",
+      "cancellationInfo.inquiryStatus": "NOT_SUBMITTED",
+    });
+
+    if (providerCancels >= 3) {
+      return res.status(403).json({
+        success: false,
+        message: "This service provider has 3 or more unaddressed cancellations and cannot be booked until inquiries are approved.",
       });
     }
 

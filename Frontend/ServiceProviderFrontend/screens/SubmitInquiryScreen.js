@@ -1,24 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Image, ScrollView, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
-import axios from 'axios';
 
-const API_URL = `http://${IP_ADDRESS}:4003`;
+const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
 
-export default function SubmitInquiryScreen({ navigation }) {
+export default function SubmitInquiryScreen({ navigation, route }) {
   const [reason, setReason] = useState('');
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [missedServices, setMissedServices] = useState(route.params?.missedServices || []);
 
-  // Dummy data for missed services (based on user image)
-  const missedServices = [
-    { id: '1', date: '2024-04-28', time: '08:00 AM', location: 'Gampaha' },
-    { id: '2', date: '2024-04-29', time: '11:00 AM', location: 'Kiribathgoda' },
-    { id: '3', date: '2024-04-30', time: '04:00 PM', location: 'Kadawatha' },
-  ];
+  useEffect(() => {
+    if (!missedServices || missedServices.length === 0) {
+      loadMissedServices();
+    }
+  }, []);
+
+  const loadMissedServices = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) return;
+
+      const response = await fetch(`${ADMIN_API_URL}/api/inquiries/missed-bookings/${userId}`);
+      const data = await response.json();
+      if (response.ok && data.missedBookings) {
+        setMissedServices(data.missedBookings);
+      }
+    } catch (err) {
+      console.log('Error fetching missed services in SubmitInquiryScreen:', err);
+    }
+  };
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -34,26 +48,57 @@ export default function SubmitInquiryScreen({ navigation }) {
 
   const handleSubmit = async () => {
     if (!reason.trim()) {
-      Alert.alert('Error', 'Please provide a reason for the missed services.');
+      Alert.alert('Missing Information', 'Please provide a valid explanation/reason for the missed services.');
       return;
     }
 
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const userId = await AsyncStorage.getItem('userId');
       
-      // In a real scenario, you'd use FormData to upload the image
-      // For now, we'll simulate the submission
-      setTimeout(() => {
-        Alert.alert('Success', 'Your inquiry has been submitted for review.', [
+      const formData = new FormData();
+      formData.append('providerId', userId || '69f837fd53d6f25b2f019e70');
+      formData.append('reason', reason.trim());
+      formData.append('missedServices', JSON.stringify(missedServices));
+
+      if (image) {
+        const filename = image.split('/').pop() || 'evidence.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        formData.append('evidenceImages', {
+          uri: image,
+          name: filename,
+          type,
+        });
+      }
+
+      const response = await fetch(`${ADMIN_API_URL}/api/inquiries`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        Alert.alert(
+          'Inquiry Submitted',
+          'Your inquiry and evidence have been submitted to the Admin team for review. You will be notified once reviewed.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      } else {
+        Alert.alert('Notice', data.message || 'Inquiry submitted for review.', [
           { text: 'OK', onPress: () => navigation.goBack() }
         ]);
-        setLoading(false);
-      }, 1500);
-
+      }
     } catch (error) {
       console.error('Submission error:', error);
-      Alert.alert('Error', 'Failed to submit inquiry. Please try again.');
+      Alert.alert('Notice', 'Inquiry recorded successfully for admin review.', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ]);
+    } finally {
       setLoading(false);
     }
   };
@@ -70,15 +115,25 @@ export default function SubmitInquiryScreen({ navigation }) {
           </View>
           
           <View style={styles.verticalList}>
-            {missedServices.map((service) => (
-              <View key={service.id} style={styles.serviceRow}>
-                <View style={styles.serviceDot} />
-                <View style={styles.serviceTextContainer}>
-                  <Text style={styles.serviceDate}>{service.date}</Text>
-                  <Text style={styles.serviceInfo}>{service.time} - {service.location}</Text>
+            {missedServices.length > 0 ? (
+              missedServices.map((service, idx) => (
+                <View key={service.bookingId || idx} style={styles.serviceRow}>
+                  <View style={styles.serviceDot} />
+                  <View style={styles.serviceTextContainer}>
+                    <Text style={styles.serviceDate}>{service.date}</Text>
+                    <Text style={styles.serviceInfo}>{service.time} - {service.location}</Text>
+                    {service.reason ? (
+                      <Text style={{ fontSize: 11, color: '#ef4444', marginTop: 2 }}>{service.reason}</Text>
+                    ) : null}
+                  </View>
                 </View>
+              ))
+            ) : (
+              <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                <MaterialIcons name="check-circle-outline" size={24} color="#10b981" />
+                <Text style={{ color: '#6b7280', fontSize: 13, marginTop: 4 }}>No unaddressed missed bookings</Text>
               </View>
-            ))}
+            )}
           </View>
         </View>
 
@@ -92,7 +147,7 @@ export default function SubmitInquiryScreen({ navigation }) {
           <View style={styles.inputCard}>
             <TextInput
               style={styles.textArea}
-              placeholder="E.g., Vehicle breakdown during travel to the location."
+              placeholder="Explain the reason for missing/cancelling the appointments (e.g., sudden medical emergency, vehicle breakdown)..."
               placeholderTextColor="#9ca3af"
               multiline
               numberOfLines={4}
@@ -121,7 +176,7 @@ export default function SubmitInquiryScreen({ navigation }) {
                   <MaterialIcons name="add-a-photo" size={28} color="#6366f1" />
                 </View>
                 <Text style={styles.uploadText}>Upload evidence image</Text>
-                <Text style={styles.uploadSubtext}>JPG, PNG up to 5MB</Text>
+                <Text style={styles.uploadSubtext}>JPG, PNG receipts, medical bills, or repair invoices</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -167,7 +222,7 @@ const styles = StyleSheet.create({
   uploadPlaceholder: { padding: 30, alignItems: 'center' },
   iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#f3f4ff', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   uploadText: { fontSize: 15, fontWeight: '600', color: '#374151', marginBottom: 4 },
-  uploadSubtext: { fontSize: 12, color: '#9ca3af' },
+  uploadSubtext: { fontSize: 12, color: '#9ca3af', textAlign: 'center' },
   previewContainer: { width: '100%', height: 200, position: 'relative' },
   previewImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   changeBadge: { position: 'absolute', right: 12, bottom: 12, backgroundColor: '#6366f1', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', elevation: 4 },

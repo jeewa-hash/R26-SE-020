@@ -317,17 +317,145 @@
 
 .missed-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
 }
 
 .missed-mini-card {
-  padding: 10px;
+  padding: 12px;
   background: white;
   border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: var(--transition-fast);
+}
+
+.missed-mini-card.approved {
+  border-color: #a7f3d0;
+  background: #f0fdf4;
+}
+
+.missed-mini-card.rejected {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.card-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-date {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--gray-800);
+}
+
+.item-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+}
+
+.item-badge.item-approved {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.item-badge.item-rejected {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.item-badge.item-pending {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.card-time-loc {
+  font-size: 12px;
+  color: var(--gray-600);
+  margin: 0;
+}
+
+.card-reason {
+  font-size: 11px;
+  color: #dc2626;
+  margin: 0;
+  background: #fef2f2;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.card-item-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--gray-100);
+}
+
+.item-action-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 4px;
   border-radius: var(--radius-sm);
   font-size: 11px;
-  color: var(--gray-600);
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: var(--transition-fast);
+}
+
+.item-action-btn.approve {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+.item-action-btn.approve:hover, .item-action-btn.approve.active {
+  background: #16a34a;
+  color: white;
+}
+
+.item-action-btn.reject {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.item-action-btn.reject:hover, .item-action-btn.reject.active {
+  background: #dc2626;
+  color: white;
+}
+
+.itemized-submit-btn {
+  flex: 1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 14px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.itemized-submit-btn:hover {
+  background: #4f46e5;
 }
 
 .reason-box {
@@ -358,22 +486,33 @@
   width: 100%;
   height: 120px;
   object-fit: cover;
+  display: block;
 }
 
 .evidence-card p {
-  margin: 10px 0;
+  padding: 8px;
   font-size: 12px;
-  color: var(--gray-500);
+  color: var(--gray-600);
+  margin: 0;
 }
 
 .note-textarea {
   width: 100%;
-  min-height: 100px;
+  height: 80px;
   padding: 12px;
-  border: 1px solid var(--gray-200);
+  border: 1px solid var(--gray-300);
   border-radius: var(--radius-md);
-  font-size: 14px;
   resize: vertical;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--gray-800);
+  box-sizing: border-box;
+}
+
+.note-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .action-buttons {
@@ -381,6 +520,7 @@
   gap: 12px;
   margin-top: 8px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .action-buttons-center {
@@ -398,11 +538,13 @@
   font-weight: 600;
   font-size: 14px;
   transition: var(--transition-fast);
+  cursor: pointer;
 }
 
 .approve-btn {
   background: var(--success);
   color: white;
+  border: none;
 }
 
 .approve-btn:hover {

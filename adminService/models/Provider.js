@@ -45,7 +45,7 @@ const providerSchema = new mongoose.Schema(
     },
     nicImage: {
       type: String,
-      required: true, // Make false because Admin might not have one, or handled later
+      required: true,
     },
     profileImage: {
       type: String,
@@ -58,6 +58,22 @@ const providerSchema = new mongoose.Schema(
     isBlocked: {
       type: Boolean,
       default: false,
+    },
+    consecutiveRejections: {
+      type: Number,
+      default: 0,
+    },
+    blockedUntil: {
+      type: Date,
+      default: null,
+    },
+    blockReason: {
+      type: String,
+      default: '',
+    },
+    lastUnblockedAt: {
+      type: Date,
+      default: null,
     },
     extractedNicNumber: {
       type: String,
@@ -80,24 +96,8 @@ const providerSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
-    consecutiveRejections: {
-      type: Number,
-      default: 0,
-    },
-    blockedUntil: {
-      type: Date,
-      default: null,
-    },
-    blockReason: {
-      type: String,
-      default: '',
-    },
-    lastUnblockedAt: {
-      type: Date,
-      default: null,
-    },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Provider', providerSchema);
+module.exports = mongoose.models.Provider || mongoose.model('Provider', providerSchema);
