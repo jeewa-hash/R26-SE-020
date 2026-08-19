@@ -75,6 +75,7 @@ export default function ProfileScreen({ navigation }) {
     await clearCredentials();
     await AsyncStorage.removeItem('userToken');
     await AsyncStorage.removeItem('userRole');
+    await AsyncStorage.removeItem('userId');
     
     navigation.dispatch(
       CommonActions.reset({

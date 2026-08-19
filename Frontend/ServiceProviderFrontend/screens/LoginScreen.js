@@ -5,6 +5,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
 import { saveCredentials } from '../utils/biometricAuth';
+import { getUserIdFromJwt } from '../utils/jwtHelpers';
 
 const API_URL = `http://${IP_ADDRESS}:4003`;
 
@@ -30,6 +31,11 @@ export default function LoginScreen({ navigation }) {
       await saveCredentials(response.data.token, response.data.role);
       await AsyncStorage.setItem('userToken', response.data.token);
       await AsyncStorage.setItem('userRole', response.data.role);
+
+      const userId = getUserIdFromJwt(response.data.token);
+      if (userId) {
+        await AsyncStorage.setItem('userId', String(userId));
+      }
 
       navigation.replace('Main');
       

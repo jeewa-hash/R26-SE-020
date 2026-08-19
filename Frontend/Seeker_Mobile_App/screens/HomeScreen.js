@@ -26,6 +26,53 @@ if (
 
 const { width } = Dimensions.get('window');
 
+const SUGGESTED_PROVIDERS = [
+  {
+    id: 's1',
+    name: 'Dilshan Perera',
+    category: 'Electrical',
+    rating: 4.9,
+    reviews: 124,
+    distance: '1.2 km',
+    image: 'https://randomuser.me/api/portraits/men/32.jpg',
+    isOnline: true,
+    reason: 'Top Rated in Electrical'
+  },
+  {
+    id: 's2',
+    name: 'Saman Kumara',
+    category: 'Plumbing',
+    rating: 4.8,
+    reviews: 89,
+    distance: '0.8 km',
+    image: 'https://randomuser.me/api/portraits/men/45.jpg',
+    isOnline: false,
+    reason: 'Recently Used Category'
+  },
+  {
+    id: 's3',
+    name: 'Priya Silva',
+    category: 'Cleaning',
+    rating: 4.7,
+    reviews: 156,
+    distance: '2.5 km',
+    image: 'https://randomuser.me/api/portraits/women/44.jpg',
+    isOnline: true,
+    reason: 'Nearby in Cleaning'
+  },
+  {
+    id: 's4',
+    name: 'Aruna Jayasuriya',
+    category: 'Gardening',
+    rating: 4.9,
+    reviews: 67,
+    distance: '3.1 km',
+    image: 'https://randomuser.me/api/portraits/men/62.jpg',
+    isOnline: true,
+    reason: 'Most Used Category'
+  }
+];
+
 const CATEGORIES = [
   {
     id: 1, title: 'Repairing Services', icon: 'build', color: '#FF6B6B',
