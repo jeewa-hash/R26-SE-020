@@ -40,9 +40,17 @@ export default function LoginScreen({ navigation }) {
       navigation.replace('Main');
       
     } catch (error) {
-      const msg = error.response?.data?.message || 'Something went wrong';
+      const data = error.response?.data;
+      const msg = data?.message || 'Something went wrong';
       console.log('Login Error:', msg);
-      Alert.alert('Login Failed', msg);
+      if (data?.isBlocked) {
+        Alert.alert(
+          '⚠️ Account Suspended',
+          msg || 'Your account is suspended for 30 days due to repeated inquiry rejections. Access is restricted for 1 month or until unblocked by Admin.'
+        );
+      } else {
+        Alert.alert('Login Failed', msg);
+      }
     } finally {
       setLoading(false);
     }

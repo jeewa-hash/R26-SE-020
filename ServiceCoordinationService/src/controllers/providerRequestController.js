@@ -56,23 +56,18 @@ export const createProviderRequest = async (req, res) => {
       });
     }
 
-    // Governance restriction check: If provider has 3 or more unaddressed provider cancellations, block new proposals
-    const unsubmittedCancels = await Booking.countDocuments({
+    // Governance restriction check: If provider has 3 or more active unapproved cancellations, block new proposals
+    const activeUnapproved = await Booking.countDocuments({
       providerId,
       bookingStatus: "CANCELLED",
       "cancellationInfo.cancelledBy": "PROVIDER",
-      "cancellationInfo.inquiryStatus": "NOT_SUBMITTED",
+      "cancellationInfo.inquiryStatus": { $ne: "APPROVED" },
     });
 
-    const pendingInquiries = await Booking.countDocuments({
-      providerId,
-      "cancellationInfo.inquiryStatus": "PENDING",
-    });
-
-    if (unsubmittedCancels >= 3 || pendingInquiries >= 3 || (unsubmittedCancels + pendingInquiries) >= 3) {
+    if (activeUnapproved >= 3) {
       return res.status(403).json({
         success: false,
-        message: "Your account is temporarily restricted from submitting proposals due to 3 or more unaddressed service cancellations. Please submit inquiries to restore access.",
+        message: `Your account is temporarily restricted from submitting proposals due to 3 or more active missed service cancellations (Penalty score: ${activeUnapproved}/3). Please submit inquiries to restore access.`,
       });
     }
 
@@ -394,18 +389,18 @@ export const acceptProviderRequest = async (req, res) => {
       });
     }
 
-    // Check if provider is restricted due to 3 or more cancellations
-    const providerCancels = await Booking.countDocuments({
+    // Check if provider is restricted due to 3 or more active unapproved cancellations
+    const providerActiveMissed = await Booking.countDocuments({
       providerId: providerRequest.providerId,
       bookingStatus: "CANCELLED",
       "cancellationInfo.cancelledBy": "PROVIDER",
-      "cancellationInfo.inquiryStatus": "NOT_SUBMITTED",
+      "cancellationInfo.inquiryStatus": { $ne: "APPROVED" },
     });
 
-    if (providerCancels >= 3) {
+    if (providerActiveMissed >= 3) {
       return res.status(403).json({
         success: false,
-        message: "This service provider has 3 or more unaddressed cancellations and cannot be booked until inquiries are approved.",
+        message: `This service provider currently has ${providerActiveMissed} active missed/cancelled services and cannot be booked until inquiries are reviewed and approved by Administration.`,
       });
     }
 

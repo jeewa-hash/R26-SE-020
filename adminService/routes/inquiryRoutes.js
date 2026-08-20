@@ -30,6 +30,9 @@ const upload = multer({
 // Provider inquiry endpoints
 router.post('/inquiries', upload.array('evidenceImages', 5), inquiryController.submitInquiry);
 router.get('/inquiries/missed-bookings/:providerId', inquiryController.getProviderMissedBookings);
+router.get('/inquiries/provider-status/:providerId', inquiryController.getProviderStatus);
+router.get('/inquiries/check-bookable/:providerId', inquiryController.checkProviderBookable);
+router.get('/inquiries/notifications/:providerId', inquiryController.getProviderNotifications);
 
 // Admin inquiry & penalty management endpoints
 router.get('/inquiries', inquiryController.getAllInquiries);
