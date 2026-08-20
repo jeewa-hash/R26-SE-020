@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
 const Inquiry = require('../models/Inquiry');
 const Provider = require('../models/Provider');
+const ProviderNotification = require('../models/ProviderNotification');
 
 // Email transporter
 const transporter = nodemailer.createTransport({
@@ -26,48 +27,154 @@ if (process.env.COORDINATION_MONGO_URI) {
   }
 }
 
-// Helper to send suspension email on 3 consecutive rejections
-async function sendSuspensionEmail(toEmail, providerName, adminNote) {
+// Helper to send suspension email including upcoming bookings on suspension
+async function sendSuspensionEmail(provider, adminNote) {
+  let upcomingBookings = [];
+
+  if (coordinationDb && coordinationDb.readyState === 1) {
+    try {
+      const bookingsColl = coordinationDb.collection('bookings');
+      const postsColl = coordinationDb.collection('posts');
+
+      // Find all active/upcoming bookings that are NOT CANCELLED (bookingStatus != CANCELLED)
+      const activeBookings = await bookingsColl.find({
+        providerId: new mongoose.Types.ObjectId(provider._id),
+        bookingStatus: { $ne: 'CANCELLED' }
+      }).sort({ scheduledDate: 1, startTime: 1 }).toArray();
+
+      for (const b of activeBookings) {
+        let postTitle = 'Service Appointment';
+        let postCategory = '';
+        let seekerAddress = b.location?.address || b.location?.city || '';
+
+        if (b.postId && mongoose.Types.ObjectId.isValid(b.postId)) {
+          const post = await postsColl.findOne({ _id: new mongoose.Types.ObjectId(b.postId) });
+          if (post) {
+            postTitle = post.title || postTitle;
+            postCategory = post.category || '';
+            if (!seekerAddress && post.location?.address) {
+              seekerAddress = post.location.address;
+            }
+          }
+        }
+
+        upcomingBookings.push({
+          bookingId: b._id.toString(),
+          date: b.scheduledDate || 'Upcoming',
+          time: b.startTime ? `${b.startTime} - ${b.endTime || ''}` : 'Scheduled Time',
+          location: seekerAddress || provider.district || 'Client Location',
+          title: postTitle,
+          category: postCategory,
+          status: b.bookingStatus,
+        });
+      }
+    } catch (dbErr) {
+      console.log('[Email] Error fetching upcoming bookings for email:', dbErr.message);
+    }
+  }
+
+  // Generate HTML table for upcoming bookings
+  let bookingsHtml = '';
+  if (upcomingBookings.length > 0) {
+    bookingsHtml = `
+      <div style="margin-top: 20px; background-color: #fffbeb; border: 1.5px solid #fde68a; border-radius: 10px; padding: 18px;">
+        <h3 style="color: #b45309; margin-top: 0;">
+          ⚠️ CRITICAL: YOU MUST FULFILL YOUR UPCOMING COMMITTED JOBS (${upcomingBookings.length})
+        </h3>
+        <p style="color: #92400e; font-size: 13.5px; line-height: 1.5; margin-bottom: 14px;">
+          Even though your account is currently <strong>SUSPENDED</strong> from accepting new bookings, <strong>you must honor and complete all previously confirmed client appointments listed below</strong> as agreed. Failure to attend these jobs will result in permanent account termination.
+        </p>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb;">
+          <thead>
+            <tr style="background-color: #f3f4f6; text-align: left; color: #374151;">
+              <th style="padding: 10px; border-bottom: 1px solid #e5e7eb;">Date & Time</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e5e7eb;">Service Details</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e5e7eb;">Location</th>
+              <th style="padding: 10px; border-bottom: 1px solid #e5e7eb;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${upcomingBookings.map((b) => `
+              <tr style="border-bottom: 1px solid #f3f4f6;">
+                <td style="padding: 10px; font-weight: 600; color: #111827;">
+                  📅 ${b.date}<br/><span style="font-size: 11.5px; color: #6b7280;">⏰ ${b.time}</span>
+                </td>
+                <td style="padding: 10px; color: #1f2937;">
+                  <strong>${b.title}</strong>
+                  ${b.category ? `<br/><span style="font-size: 11.5px; color: #4f46e5;">${b.category}</span>` : ''}
+                  <br/><span style="font-size: 10px; color: #9ca3af;">ID: ${b.bookingId}</span>
+                </td>
+                <td style="padding: 10px; color: #4b5563;">
+                  📍 ${b.location}
+                </td>
+                <td style="padding: 10px;">
+                  <span style="display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; background-color: #dbeafe; color: #1e40af;">
+                    ${b.status}
+                  </span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else {
+    bookingsHtml = `
+      <div style="margin-top: 16px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; color: #64748b; font-size: 13px;">
+        ℹ️ You currently have no pending upcoming confirmed bookings in the system.
+      </div>
+    `;
+  }
+
   const mailOptions = {
     from: process.env.EMAIL_FROM || 'Work Wave <noreply@workwave.com>',
-    to: toEmail,
-    subject: '⚠️ Account Suspended: 3 Consecutive Inquiries Rejected - Work Wave',
+    to: provider.email,
+    subject: '⚠️ Account Suspended Notice & Upcoming Bookings Schedule - Work Wave',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #333; border: 1px solid #fee2e2; border-radius: 12px;">
-        <h2 style="color: #ef4444; margin-top: 0;">Account Suspended Notice</h2>
-        <p>Dear <strong>${providerName || 'Service Provider'}</strong>,</p>
-        <p>Your recent service cancellation inquiries (3 consecutive inquiries) have been <strong>REJECTED</strong> by the Administration due to invalid or insufficient reasons for missed services.</p>
-        
-        <div style="background-color: #fee2e2; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #ef4444;">
-          <strong>Admin Note:</strong><br/>
-          <span>${adminNote || 'No acceptable proof or valid justification was provided for consecutive job cancellations.'}</span>
+      <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; padding: 24px; color: #333; border: 1px solid #fee2e2; border-radius: 12px; background-color: #ffffff;">
+        <div style="border-bottom: 2px solid #ef4444; padding-bottom: 12px; margin-bottom: 18px;">
+          <h2 style="color: #ef4444; margin: 0;">⚠️ Account Suspended Notice (30 Days)</h2>
+          <span style="font-size: 12px; color: #6b7280;">Work Wave Governance & Trust Enforcement</span>
         </div>
 
-        <h3 style="color: #b91c1c; margin-bottom: 8px;">Suspension Policy Enforcement:</h3>
-        <ul style="padding-left: 20px; line-height: 1.6;">
-          <li>Your account has been <strong>automatically suspended for 1 Month (30 Days)</strong>.</li>
-          <li>You cannot accept new bookings or send proposals to client posts during this period.</li>
+        <p>Dear <strong>${provider.name || provider.email.split('@')[0]}</strong>,</p>
+        <p>Your recent service cancellation inquiries (3 distinct missed service inquiries) have been <strong>REJECTED</strong> by the Administration due to invalid or insufficient justifications.</p>
+        
+        <div style="background-color: #fee2e2; padding: 14px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #ef4444;">
+          <strong>Admin Rejection Feedback:</strong><br/>
+          <span style="color: #991b1b;">${adminNote || 'No acceptable proof or valid emergency evidence was provided.'}</span>
+        </div>
+
+        <h3 style="color: #b91c1c; margin-bottom: 8px;">Suspension Terms:</h3>
+        <ul style="padding-left: 20px; line-height: 1.6; color: #374151;">
+          <li>Your account has been <strong>suspended for 1 Month (30 Days)</strong> until <strong>${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</strong>.</li>
+          <li>You are logged out and restricted from accepting new service requests or submitting proposals.</li>
         </ul>
 
-        <div style="background-color: #f3f4f6; padding: 18px; border-radius: 8px; margin: 20px 0; border: 1px dashed #d1d5db;">
-          <h4 style="margin-top: 0; color: #111827;">How to Appeal & Request Early Unblock:</h4>
-          <p style="margin-bottom: 8px;">If you have valid justifications, official medical records, or genuine emergency evidence to appeal this suspension, please email your explanation and evidence directly to:</p>
-          <p style="font-size: 16px; font-weight: bold; color: #4f46e5; margin: 10px 0;">
+        ${bookingsHtml}
+
+        <div style="background-color: #f3f4f6; padding: 16px; border-radius: 8px; margin: 20px 0; border: 1px dashed #cbd5e1;">
+          <h4 style="margin-top: 0; color: #111827;">Pardon Policy & How to Appeal:</h4>
+          <p style="margin-bottom: 8px; font-size: 13px; color: #4b5563;">
+            Once the 30-day suspension period concludes (or if the Administrator grants an early pardon and unblocks you), your account will receive a <strong>clean slate with a 0 rejection count</strong>. Only 3 new consecutive rejections from that point onwards will trigger suspension.
+          </p>
+          <p style="margin-bottom: 8px; font-size: 13px; color: #4b5563;">To appeal with valid official documents, please contact:</p>
+          <p style="font-size: 15px; font-weight: bold; color: #4f46e5; margin: 8px 0;">
             📧 nethmiumaya5@gmail.com
           </p>
-          <p style="font-size: 13px; color: #6b7280; margin-bottom: 0;">Our Admin team will review your appeal and may manually unblock your account.</p>
         </div>
 
-        <p style="font-size: 13px; color: #6b7280;">If no appeal is approved, your account will be automatically unblocked after the 1-month penalty period expires.</p>
-        <br/>
-        <p>Best regards,<br/><strong>Work Wave Governance Team</strong></p>
+        <p style="font-size: 12px; color: #9ca3af; text-align: center; margin-top: 24px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+          Work Wave Platform Governance System • Automated Security Dispatch
+        </p>
       </div>
     `,
   };
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log(`[Email] Consecutive rejection penalty email sent to ${toEmail}:`, info.messageId);
+    console.log(`[Email] Suspension & upcoming bookings email sent to ${provider.email}:`, info.messageId);
     return info;
   } catch (err) {
     console.error('[Email] Failed to send penalty email:', err.message);
@@ -99,25 +206,20 @@ exports.getProviderMissedBookings = async (req, res) => {
       await provider.save();
     }
 
-    // 1. Get inquiries submitted by this provider (only consider ones after lastUnblockedAt if penalty was served)
-    const existingInquiries = await Inquiry.find({ providerId });
-    const validInquiries = existingInquiries.filter(inq => {
-      if (!provider.lastUnblockedAt) return true;
-      return new Date(inq.createdAt) >= new Date(provider.lastUnblockedAt);
-    });
+    // 1. Get inquiries submitted by this provider
+    const existingInquiries = await Inquiry.find({ providerId }).sort({ createdAt: -1 });
     
-    // Set of bookingIds that are already approved
-    const approvedBookingIds = new Set();
-    const pendingBookingIds = new Set();
-    let pendingInquiriesCount = 0;
-
-    validInquiries.forEach((inq) => {
-      if (inq.status === 'Approved') {
-        inq.missedServices.forEach((s) => approvedBookingIds.add(s.bookingId));
-      } else if (inq.status === 'Submitted' || inq.status === 'Pending') {
-        pendingInquiriesCount += 1;
-        inq.missedServices.forEach((s) => pendingBookingIds.add(s.bookingId));
+    // Map of bookingId -> latest inquiry
+    const bookingInquiryMap = {};
+    existingInquiries.forEach((inq) => {
+      if (inq.bookingId && !bookingInquiryMap[inq.bookingId]) {
+        bookingInquiryMap[inq.bookingId] = inq;
       }
+      (inq.missedServices || []).forEach((s) => {
+        if (s.bookingId && !bookingInquiryMap[s.bookingId]) {
+          bookingInquiryMap[s.bookingId] = inq;
+        }
+      });
     });
 
     let rawMissedBookings = [];
@@ -144,12 +246,6 @@ exports.getProviderMissedBookings = async (req, res) => {
           .filter(b => {
             const cancelledBy = (b.cancellationInfo?.cancelledBy || b.cancelledBy || '').toUpperCase();
             if (cancelledBy === 'SEEKER' || b.cancelledBySeeker === true) return false;
-
-            // If provider completed a 1-month penalty, ignore past bookings from before lastUnblockedAt
-            if (provider.lastUnblockedAt) {
-              const bTime = b.scheduledDate ? new Date(b.scheduledDate).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-              if (bTime < new Date(provider.lastUnblockedAt).getTime()) return false;
-            }
 
             if (b.bookingStatus === 'CANCELLED') return true;
 
@@ -181,6 +277,22 @@ exports.getProviderMissedBookings = async (req, res) => {
                   : `Service not completed within 24h past scheduled duration (Provider No-show - status was ${b.bookingStatus})`)
               : (b.cancellationReason || b.delayInfo?.delayReason || 'Cancelled by provider');
 
+            const inq = bookingInquiryMap[b._id.toString()];
+            let inqStatus = 'NOT_SUBMITTED';
+            let inqId = null;
+            let inqReason = '';
+            let inqSubmittedAt = null;
+
+            if (inq) {
+              inqId = inq._id;
+              inqReason = inq.reason;
+              inqSubmittedAt = inq.createdAt;
+              if (inq.status === 'Approved') inqStatus = 'APPROVED';
+              else if (inq.status === 'Submitted' || inq.status === 'Pending') inqStatus = 'PENDING';
+              else if (inq.status === 'ReSubmited' || inq.status === 'ReSubmitted' || inq.status === 'Re-submitted') inqStatus = 'RESUBMITTED';
+              else if (inq.status === 'Rejected') inqStatus = 'REJECTED';
+            }
+
             return {
               bookingId: b._id.toString(),
               date: b.scheduledDate || (b.createdAt ? new Date(b.createdAt).toISOString().split('T')[0] : '2024-05-01'),
@@ -190,6 +302,11 @@ exports.getProviderMissedBookings = async (req, res) => {
               cancelledBy: b.cancellationInfo?.cancelledBy || b.cancelledBy || 'PROVIDER',
               status: b.bookingStatus,
               isAutoExpired,
+              inquiryStatus: inqStatus,
+              inquiryId: inqId,
+              inquiryReason: inqReason,
+              inquirySubmittedAt: inqSubmittedAt,
+              canSubmitInquiry: inqStatus !== 'APPROVED' && inqStatus !== 'PENDING' && inqStatus !== 'RESUBMITTED',
             };
           });
       } catch (dbErr) {
@@ -197,15 +314,13 @@ exports.getProviderMissedBookings = async (req, res) => {
       }
     }
 
-    // Filter out approved bookings (Rule: "inquire eka approve kalpth ethana pennanna epa")
-    let missedBookingsNeedingInquiry = rawMissedBookings.filter(
-      (b) => !approvedBookingIds.has(b.bookingId)
-    );
+    // Filter out APPROVED bookings (Rule: "Admin Approve කළ Inquiries ❌ Cleared (ලැයිස්තුවෙන් ඉවත් වේ)")
+    const activeMissedBookings = rawMissedBookings.filter((b) => b.inquiryStatus !== 'APPROVED');
 
-    const unsubmittedCount = missedBookingsNeedingInquiry.filter(b => !pendingBookingIds.has(b.bookingId)).length;
-    
-    // Restriction Rule: if unsubmittedCount >= 3 OR pendingInquiriesCount >= 3 OR combined >= 3
-    const isRestricted = unsubmittedCount >= 3 || pendingInquiriesCount >= 3 || (unsubmittedCount + pendingInquiriesCount) >= 3 || provider.isBlocked;
+    const penaltyScore = activeMissedBookings.length;
+    const penaltyRatio = `${penaltyScore}/3`;
+    const inquiryStatus = penaltyScore >= 3 ? 'Required' : (penaltyScore === 2 ? 'Optional' : 'Not Required');
+    const isRestricted = penaltyScore >= 3 || provider.isBlocked;
 
     return res.status(200).json({
       success: true,
@@ -217,14 +332,15 @@ exports.getProviderMissedBookings = async (req, res) => {
         blockedUntil: provider.blockedUntil,
         consecutiveRejections: provider.consecutiveRejections || 0,
       },
-      missedBookings: missedBookingsNeedingInquiry,
-      unsubmittedCount,
-      pendingInquiriesCount,
+      missedBookings: activeMissedBookings,
+      penaltyScore,
+      penaltyRatio,
+      inquiryStatus,
       isRestricted,
       restrictionMessage: isRestricted
         ? (provider.isBlocked 
             ? `Your account is suspended until ${provider.blockedUntil ? new Date(provider.blockedUntil).toLocaleDateString() : 'Admin unblocks'}. Appeal by emailing nethmiumaya5@gmail.com.`
-            : 'Your account is restricted from accepting new bookings or submitting proposals due to 3 or more unaddressed/pending service cancellations. Please submit inquiries to restore access.')
+            : 'Your account is restricted due to 3 or more unapproved service cancellations. Please submit inquiries for missed bookings.')
         : null,
     });
   } catch (error) {
@@ -235,11 +351,22 @@ exports.getProviderMissedBookings = async (req, res) => {
 
 /**
  * 2. POST /api/inquiries
- * Submit an inquiry from Provider App
+ * Submit an inquiry for a single missed booking (or batch) from Provider App
  */
 exports.submitInquiry = async (req, res) => {
   try {
-    const { providerId, providerName, providerEmail, providerAvatar, providerRole, reason, missedServices, evidenceImages } = req.body;
+    const {
+      providerId,
+      bookingId,
+      bookingDetails,
+      providerName,
+      providerEmail,
+      providerAvatar,
+      providerRole,
+      reason,
+      missedServices,
+      evidenceImages,
+    } = req.body;
 
     if (!providerId || !reason) {
       return res.status(400).json({ success: false, message: 'providerId and reason are required' });
@@ -250,12 +377,72 @@ exports.submitInquiry = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Provider not found' });
     }
 
+    // Determine target bookingId
+    let targetBookingId = bookingId || '';
+    let parsedBookingDetails = null;
+
+    if (typeof bookingDetails === 'string') {
+      try { parsedBookingDetails = JSON.parse(bookingDetails); } catch(e) { parsedBookingDetails = null; }
+    } else if (bookingDetails && typeof bookingDetails === 'object') {
+      parsedBookingDetails = bookingDetails;
+    }
+
+    if (!targetBookingId && parsedBookingDetails?.bookingId) {
+      targetBookingId = parsedBookingDetails.bookingId;
+    }
+
     let parsedMissedServices = [];
     if (typeof missedServices === 'string') {
       try { parsedMissedServices = JSON.parse(missedServices); } catch(e) { parsedMissedServices = []; }
     } else if (Array.isArray(missedServices)) {
       parsedMissedServices = missedServices;
     }
+
+    if (!targetBookingId && parsedMissedServices.length > 0) {
+      targetBookingId = parsedMissedServices[0].bookingId || parsedMissedServices[0].id || '';
+    }
+
+    // Check if this specific booking already has an active pending or resubmitted inquiry
+    if (targetBookingId) {
+      const existingPending = await Inquiry.findOne({
+        providerId: provider._id,
+        $or: [
+          { bookingId: targetBookingId },
+          { 'missedServices.bookingId': targetBookingId },
+        ],
+        status: { $in: ['Submitted', 'Pending', 'ReSubmited', 'ReSubmitted', 'Re-submitted'] },
+      });
+
+      if (existingPending) {
+        return res.status(400).json({
+          success: false,
+          message: 'An inquiry for this specific booking is already submitted and pending Admin review (Working days 1-3).',
+        });
+      }
+    }
+
+    // Check if this is a Re-Submission following a previous rejection
+    let isResubmission =
+      req.body.isResubmission === true ||
+      req.body.isResubmission === 'true' ||
+      req.body.isResubmit === true ||
+      req.body.isResubmit === 'true';
+
+    if (!isResubmission && targetBookingId) {
+      const previousRejected = await Inquiry.findOne({
+        providerId: provider._id,
+        $or: [
+          { bookingId: targetBookingId },
+          { 'missedServices.bookingId': targetBookingId },
+        ],
+        status: 'Rejected',
+      });
+      if (previousRejected) {
+        isResubmission = true;
+      }
+    }
+
+    const assignedStatus = isResubmission ? 'ReSubmited' : 'Submitted';
 
     // Collect uploaded file URLs if uploaded via multer
     let images = [];
@@ -265,25 +452,62 @@ exports.submitInquiry = async (req, res) => {
       images = Array.isArray(evidenceImages) ? evidenceImages : [evidenceImages];
     }
 
+    const itemDetails = parsedBookingDetails || (parsedMissedServices.length > 0 ? parsedMissedServices[0] : null) || {
+      bookingId: targetBookingId || 'MS-1',
+      date: new Date().toISOString().split('T')[0],
+      time: '10:00 AM',
+      location: provider.district || 'Colombo',
+      reason: 'Cancelled by provider',
+    };
+
+    const sanitizedMissedServices = [
+      {
+        bookingId: itemDetails.bookingId || targetBookingId || 'MS-1',
+        date: itemDetails.date || new Date().toISOString().split('T')[0],
+        time: itemDetails.time || '10:00 AM',
+        location: itemDetails.location || provider.district || 'Colombo',
+        reason: itemDetails.reason || itemDetails.cancellationReason || 'Cancelled by provider',
+        status: assignedStatus,
+        adminNote: '',
+      }
+    ];
+
     const newInquiry = new Inquiry({
       providerId: provider._id,
       providerName: providerName || provider.name || provider.email.split('@')[0],
       providerEmail: providerEmail || provider.email,
       providerAvatar: providerAvatar || provider.profileImage || '',
       providerRole: providerRole || provider.category || 'Service Provider',
-      missedServices: parsedMissedServices.length > 0 ? parsedMissedServices : [
-        { bookingId: 'MS-1', date: new Date().toISOString().split('T')[0], time: '10:00 AM', location: provider.district || 'Colombo' }
-      ],
+      bookingId: targetBookingId || sanitizedMissedServices[0].bookingId,
+      bookingDetails: itemDetails,
+      missedServices: sanitizedMissedServices,
       reason: reason.trim(),
       evidenceImages: images,
-      status: 'Submitted',
+      status: assignedStatus,
     });
 
     await newInquiry.save();
 
+    // Update coordinationDb booking if available
+    if (coordinationDb && coordinationDb.readyState === 1 && targetBookingId && mongoose.Types.ObjectId.isValid(targetBookingId)) {
+      try {
+        await coordinationDb.collection('bookings').updateOne(
+          { _id: new mongoose.Types.ObjectId(targetBookingId) },
+          { $set: { 'cancellationInfo.inquiryStatus': assignedStatus.toUpperCase(), 'cancellationInfo.inquiryId': newInquiry._id } }
+        );
+      } catch (cErr) {
+        console.log('Error updating coordination booking status on submit:', cErr.message);
+      }
+    }
+
     return res.status(201).json({
       success: true,
-      message: 'Inquiry submitted successfully and is pending admin review.',
+      message: isResubmission 
+        ? 'Inquiry re-submitted successfully with status ReSubmited and is pending admin review.'
+        : 'Inquiry submitted successfully for this booking and is pending admin review.',
+      inquiryId: newInquiry._id,
+      status: assignedStatus,
+      isResubmission,
       data: newInquiry,
     });
   } catch (error) {
@@ -407,23 +631,95 @@ exports.reviewInquiry = async (req, res) => {
         // At least one approved: reset consecutive rejections
         provider.consecutiveRejections = 0;
         await provider.save();
-      } else if (isAllRejected) {
-        // Increment consecutive rejections
-        provider.consecutiveRejections = (provider.consecutiveRejections || 0) + 1;
 
-        if (provider.consecutiveRejections >= 3) {
-          // Automatic 1 Month (30 Days) Block
+        // Dispatch in-app system notification for approval
+        try {
+          const dateStr = inquiry.bookingDetails?.date || (inquiry.missedServices && inquiry.missedServices[0]?.date) || 'Recent Missed Service';
+          const approvalNotice = new ProviderNotification({
+            providerId: provider._id,
+            title: 'Inquiry Approved — Penalty Cleared',
+            message: `Your inquiry for service on ${dateStr} has been APPROVED by Administration. The penalty score for this missed booking has been cleared.`,
+            type: 'inquiry_approved',
+            bookingId: inquiry.bookingId || (inquiry.missedServices && inquiry.missedServices[0]?.bookingId),
+            isRead: false,
+          });
+          await approvalNotice.save();
+        } catch (aNotifErr) {
+          console.log('Error creating provider notification on approval:', aNotifErr.message);
+        }
+      } else if (isAllRejected) {
+        // Find all reviewed inquiries for this provider ordered by reviewedAt ascending
+        const allProviderInquiries = await Inquiry.find({
+          providerId: provider._id,
+          status: { $in: ['Approved', 'Rejected'] },
+        }).sort({ reviewedAt: 1, createdAt: 1 });
+
+        // Calculate consecutive rejected DISTINCT bookings since the last approval
+        let distinctRejectedBookingIds = new Set();
+
+        for (const inq of allProviderInquiries) {
+          if (provider.lastUnblockedAt && new Date(inq.reviewedAt || inq.updatedAt) < new Date(provider.lastUnblockedAt)) {
+            continue;
+          }
+
+          if (inq.status === 'Approved') {
+            // Approval resets the consecutive streak
+            distinctRejectedBookingIds.clear();
+          } else if (inq.status === 'Rejected') {
+            const bId = inq.bookingId || (inq.missedServices && inq.missedServices[0]?.bookingId);
+            if (bId) {
+              distinctRejectedBookingIds.add(bId.toString());
+            } else {
+              distinctRejectedBookingIds.add(inq._id.toString());
+            }
+          }
+        }
+
+        const distinctCount = distinctRejectedBookingIds.size;
+        provider.consecutiveRejections = distinctCount;
+
+        // Send in-app system notification to provider allowing re-submission
+        try {
+          const dateStr = inquiry.bookingDetails?.date || (inquiry.missedServices && inquiry.missedServices[0]?.date) || 'Recent Missed Service';
+          const rejectionNotice = new ProviderNotification({
+            providerId: provider._id,
+            title: 'Inquiry Rejected — Re-submission Allowed',
+            message: `Your inquiry for service on ${dateStr} was rejected by Admin (Reason: "${adminNote || inquiry.adminNote || 'Insufficient proof'}"). You can re-submit an updated inquiry with more evidence.`,
+            type: 'inquiry_rejected',
+            bookingId: inquiry.bookingId || (inquiry.missedServices && inquiry.missedServices[0]?.bookingId),
+            isRead: false,
+          });
+          await rejectionNotice.save();
+        } catch (notifErr) {
+          console.log('Error creating provider notification on reject:', notifErr.message);
+        }
+
+        if (distinctCount >= 3) {
+          // Automatic 1 Month (30 Days) Block when 3 DISTINCT missed booking inquiries are rejected
           const oneMonthLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
           provider.isBlocked = true;
           provider.blockedUntil = oneMonthLater;
-          provider.blockReason = '3 consecutive inquiry rejections for missed services';
+          provider.blockReason = '3 distinct missed service inquiries rejected consecutively';
           autoBlocked = true;
           await provider.save();
 
-          // Immediately send email notification to provider
+          // Also save suspension in-app notification
+          try {
+            const blockNotice = new ProviderNotification({
+              providerId: provider._id,
+              title: 'Account Suspended (30 Days)',
+              message: 'Your account has been automatically suspended for 30 days due to 3 distinct missed service inquiry rejections. Access is restricted until ' + oneMonthLater.toLocaleDateString() + '.',
+              type: 'account_suspended',
+              isRead: false,
+            });
+            await blockNotice.save();
+          } catch (bNotifErr) {
+            console.log('Error creating suspension notification:', bNotifErr.message);
+          }
+
+          // Immediately send email notification to provider with full upcoming bookings schedule
           await sendSuspensionEmail(
-            provider.email,
-            provider.name || provider.email.split('@')[0],
+            provider,
             adminNote || inquiry.adminNote
           );
         } else {
@@ -518,39 +814,16 @@ exports.getPenaltyRegistry = async (req, res) => {
         }
       });
 
-      // Determine raw consecutive cancellations
-      let rawCancels = dynamicMissedList.length;
-      if (rawCancels === 0) {
-        if (latestInquiry && latestInquiry.status !== 'Approved') {
-          if (latestInquiry.missedServices && latestInquiry.missedServices.length > 0) {
-            rawCancels = latestInquiry.missedServices.length;
-          } else if (latestInquiry.status === 'Rejected' || latestInquiry.status === 'Submitted') {
-            rawCancels = 2;
-          }
-        } else if (p.consecutiveRejections) {
-          rawCancels = p.consecutiveRejections + 1;
-        }
-      }
+      // Determine raw active cancellations
+      const activeMissedCount = dynamicMissedList.length;
+      const penaltyCount = activeMissedCount;
+      const penaltyRatio = `${penaltyCount}/3`;
 
-      // Convert consecutive cancellations to Penalty Score (Rule: 2 cancels -> 1/3, 3 cancels -> 2/3, >=4 -> 3/3, 0/1 -> 0/3)
-      let penaltyScore = 0;
-      if (p.isBlocked || (p.consecutiveRejections && p.consecutiveRejections >= 3)) {
-        penaltyScore = 3;
-      } else if (rawCancels >= 4) {
-        penaltyScore = 3;
-      } else if (rawCancels === 3) {
-        penaltyScore = 2;
-      } else if (rawCancels === 2) {
-        penaltyScore = 1;
-      } else {
-        penaltyScore = 0; // 0 or 1 cancellation -> 0/3
-      }
-
-      // Inquiry status rule: Required for 3/3 (mandatory to unblock/reinstate), Optional for 2/3, Not Required for 0/3 & 1/3
+      // Inquiry status rule: Required for >= 3/3, Optional for 2/3, Not Required for <= 1/3
       let inquiryStatus = 'Not Required';
-      if (penaltyScore >= 3) {
+      if (penaltyCount >= 3 || p.isBlocked) {
         inquiryStatus = 'Required';
-      } else if (penaltyScore === 2) {
+      } else if (penaltyCount === 2) {
         inquiryStatus = 'Optional';
       } else {
         inquiryStatus = 'Not Required';
@@ -580,16 +853,17 @@ exports.getPenaltyRegistry = async (req, res) => {
         id: p._id,
         name: p.name || p.email.split('@')[0],
         role: p.category ? `${p.category} Specialist` : 'Service Provider',
-        rawCancels,
-        penaltyCount: penaltyScore,
+        rawCancels: penaltyCount,
+        penaltyCount: penaltyCount,
         maxPenalty: 3,
-        penaltyRatio: `${penaltyScore}/3`,
-        score: Math.round((penaltyScore / 3) * 100),
+        penaltyRatio: penaltyRatio,
+        score: Math.round((penaltyCount / 3) * 100),
         status,
         systemAction: p.isBlocked ? 'locked' : 'unlocked',
         inquiryStatus,
         consecutiveRejections: p.consecutiveRejections || 0,
         blockedUntil: p.blockedUntil,
+        isDanger: penaltyCount >= 3 || p.isBlocked,
         missedServices: missedServicesDisplay,
       };
     });
@@ -631,11 +905,13 @@ exports.toggleProviderLock = async (req, res) => {
       provider.consecutiveRejections = 0;
       provider.blockReason = '';
       provider.lastUnblockedAt = new Date();
+      await provider.save();
     } else {
       provider.blockReason = 'Manually locked by administrator';
+      await provider.save();
+      // Send suspension email with full upcoming jobs schedule
+      await sendSuspensionEmail(provider, 'Account locked by Administrator');
     }
-
-    await provider.save();
 
     return res.status(200).json({
       success: true,
@@ -648,3 +924,112 @@ exports.toggleProviderLock = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to toggle lock', error: error.message });
   }
 };
+
+/**
+ * 7. GET /api/inquiries/provider-status/:providerId
+ * Check provider block and suspension status for mobile app session validation
+ */
+exports.getProviderStatus = async (req, res) => {
+  try {
+    const { providerId } = req.params;
+    if (!providerId || !mongoose.Types.ObjectId.isValid(providerId)) {
+      return res.status(400).json({ success: false, message: 'Invalid provider ID' });
+    }
+
+    const provider = await Provider.findById(providerId).select('-password');
+    if (!provider) {
+      return res.status(404).json({ success: false, message: 'Provider not found' });
+    }
+
+    // Auto-unblock if 30 days expired
+    if (provider.isBlocked && provider.blockedUntil && new Date() >= new Date(provider.blockedUntil)) {
+      provider.isBlocked = false;
+      provider.blockedUntil = null;
+      provider.consecutiveRejections = 0;
+      provider.blockReason = '';
+      provider.lastUnblockedAt = new Date();
+      await provider.save();
+    }
+
+    // Count active unapproved missed/cancelled services from coordinationDb
+    let activeMissedCount = 0;
+    if (coordinationDb && coordinationDb.readyState === 1) {
+      try {
+        const bookingsColl = coordinationDb.collection('bookings');
+        activeMissedCount = await bookingsColl.countDocuments({
+          providerId: new mongoose.Types.ObjectId(providerId),
+          bookingStatus: 'CANCELLED',
+          'cancellationInfo.cancelledBy': 'PROVIDER',
+          'cancellationInfo.inquiryStatus': { $ne: 'APPROVED' },
+        });
+      } catch (cErr) {
+        console.log('Error counting missed bookings for provider status:', cErr.message);
+      }
+    }
+
+    const isRestricted = provider.isBlocked || activeMissedCount >= 3;
+    const isBookable = !isRestricted;
+    const canSendProposals = !isRestricted;
+    const canAcceptBooking = !isRestricted;
+
+    let restrictionReason = '';
+    if (provider.isBlocked) {
+      restrictionReason = provider.blockReason || 'Account suspended by Administrator (30 Days lockout)';
+    } else if (activeMissedCount >= 3) {
+      restrictionReason = `Penalty limit reached: ${activeMissedCount} active missed/cancelled services (${activeMissedCount}/3). Booking & proposals restricted until inquiries are reviewed and approved.`;
+    }
+
+    return res.status(200).json({
+      success: true,
+      providerId: provider._id,
+      name: provider.name,
+      email: provider.email,
+      // Standardized Boolean Flags for Seeker & Coordination integration:
+      isBookable,
+      canSendProposals,
+      canAcceptBooking,
+      isRestricted,
+      restrictionReason,
+      activeMissedBookingsCount: activeMissedCount,
+      penaltyScore: activeMissedCount,
+      penaltyRatio: `${activeMissedCount}/3`,
+      isBlocked: provider.isBlocked || false,
+      blockedUntil: provider.blockedUntil || null,
+      blockReason: provider.blockReason || '',
+      consecutiveRejections: provider.consecutiveRejections || 0,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
+ * 8. GET /api/inquiries/check-bookable/:providerId
+ * Dedicated lightweight endpoint for Seeker Service / Coordination Service to check if provider can be booked
+ */
+exports.checkProviderBookable = async (req, res) => {
+  return exports.getProviderStatus(req, res);
+};
+
+/**
+ * 8. GET /api/inquiries/notifications/:providerId
+ * Fetch in-app notifications for provider
+ */
+exports.getProviderNotifications = async (req, res) => {
+  try {
+    const { providerId } = req.params;
+    if (!providerId || !mongoose.Types.ObjectId.isValid(providerId)) {
+      return res.status(400).json({ success: false, message: 'Invalid provider ID' });
+    }
+
+    const notifs = await ProviderNotification.find({ providerId }).sort({ createdAt: -1 }).limit(30);
+    return res.status(200).json({
+      success: true,
+      count: notifs.length,
+      data: notifs,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+

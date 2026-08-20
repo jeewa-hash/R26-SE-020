@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiUser, FiShield, FiCheckCircle, FiXCircle, FiClock, FiMapPin, FiCalendar, FiX, FiSearch, FiRotateCcw } from 'react-icons/fi';
+import { FiUser, FiShield, FiCheckCircle, FiXCircle, FiClock, FiMapPin, FiCalendar, FiX, FiSearch, FiRotateCcw, FiUnlock } from 'react-icons/fi';
 import { HiOutlineExternalLink } from 'react-icons/hi';
 import { ADMIN_SERVICE_URL } from '../config';
 import './PenaltyManagementPage.css';
@@ -17,117 +17,65 @@ const PenaltyManagementPage = () => {
   const [inquiryFilter, setInquiryFilter] = useState('ALL');
 
   useEffect(() => {
-    fetchPenaltyRegistry();
+    fetchPenaltyRegistry(false);
+    const interval = setInterval(() => {
+      fetchPenaltyRegistry(true);
+    }, 3000);
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchPenaltyRegistry = async () => {
-    setLoading(true);
+  const fetchPenaltyRegistry = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const response = await fetch(`${ADMIN_SERVICE_URL}/api/inquiries/penalty-registry`);
       const data = await response.json();
-      if (response.ok && data.data && data.data.length > 0) {
+      if (response.ok && data.data) {
         setWorkers(data.data);
         if (data.stats) setStats(data.stats);
-      } else {
-        setWorkers(getDefaultWorkers());
-        setStats({ activeInquiries: 1, blockedAccounts: 0 });
+      } else if (!isBackground) {
+        setWorkers([]);
       }
     } catch (err) {
-      console.log('Error fetching penalty registry:', err.message);
-      setWorkers(getDefaultWorkers());
-      setStats({ activeInquiries: 1, blockedAccounts: 0 });
+      if (!isBackground) {
+        console.log('Error fetching penalty registry:', err.message);
+        setWorkers([]);
+      }
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
-  const getDefaultWorkers = () => [
-    {
-      id: 'w_1',
-      name: 'Arjun Perera',
-      role: 'Plumbing Specialist',
-      penaltyCount: 1,
-      penaltyRatio: '1/3',
-      score: 33,
-      status: 'Active',
-      systemAction: 'unlocked',
-      inquiryStatus: 'Required',
-      missedServices: [
-        { id: 101, date: '2024-05-01', time: '10:00 AM', location: 'Colombo 03' }
-      ]
-    },
-    {
-      id: 'w_2',
-      name: 'Nimali Silva',
-      role: 'Home Cleaning Specialist',
-      penaltyCount: 0,
-      penaltyRatio: '0/3',
-      score: 0,
-      status: 'Active',
-      systemAction: 'unlocked',
-      inquiryStatus: 'Not Required',
-      missedServices: []
-    },
-    {
-      id: 'w_3',
-      name: 'Kasun Rathnayake',
-      role: 'Electrician',
-      penaltyCount: 3,
-      penaltyRatio: '3/3',
-      score: 100,
-      status: 'Suspended',
-      systemAction: 'locked',
-      inquiryStatus: 'Required',
-      missedServices: [
-        { id: 301, date: '2024-05-04', time: '01:00 PM', location: 'Mount Lavinia' },
-        { id: 302, date: '2024-05-05', time: '10:30 AM', location: 'Dehiwala' },
-        { id: 303, date: '2024-05-06', time: '03:45 PM', location: 'Ratmalana' }
-      ]
-    }
-  ];
-
-  const handleToggleAction = async (e, id) => {
+  const handleUnblock = async (e, id) => {
     e.stopPropagation(); // Prevent row click
     try {
       const response = await fetch(`${ADMIN_SERVICE_URL}/api/inquiries/provider/${id}/toggle-lock`, {
-        method: 'PUT'
+        method: 'PUT',
       });
       const result = await response.json();
       if (response.ok) {
-        setWorkers(prev => prev.map(worker => {
-          if (worker.id === id) {
-            const newAction = result.systemAction;
-            return {
-              ...worker,
-              systemAction: newAction,
-              status: newAction === 'locked' ? 'Blocked' : 'Active',
-            };
-          }
-          return worker;
-        }));
-        // Update stats
-        setStats(prev => ({
-          ...prev,
-          blockedAccounts: result.isBlocked ? prev.blockedAccounts + 1 : Math.max(0, prev.blockedAccounts - 1)
-        }));
-        return;
+        setWorkers((prev) =>
+          prev.map((worker) => {
+            if (worker.id === id) {
+              return {
+                ...worker,
+                systemAction: 'unlocked',
+                status: 'Active',
+                isBlocked: false,
+                penaltyCount: 0,
+                penaltyRatio: '0/3',
+                score: 0,
+                inquiryStatus: 'Not Required',
+                missedServices: [],
+              };
+            }
+            return worker;
+          })
+        );
+        fetchPenaltyRegistry();
       }
     } catch (err) {
-      console.log('Toggle lock error:', err);
+      console.log('Unblock error:', err);
     }
-
-    // Fallback local toggle without mutating real penaltyCount
-    setWorkers(prev => prev.map(worker => {
-      if (worker.id === id) {
-        const newAction = worker.systemAction === 'unlocked' ? 'locked' : 'unlocked';
-        return {
-          ...worker,
-          systemAction: newAction,
-          status: newAction === 'locked' ? 'Blocked' : 'Active',
-        };
-      }
-      return worker;
-    }));
   };
 
   const getPenaltyCount = (worker) => {
@@ -372,16 +320,18 @@ const PenaltyManagementPage = () => {
                       </div>
                     </td>
                     <td>
-                      <div className="action-toggle-container">
+                      {worker.status === 'Suspended' || worker.status === 'Blocked' || worker.systemAction === 'locked' || worker.isBlocked ? (
                         <button
-                          className={`toggle-btn ${worker.systemAction}`}
-                          onClick={(e) => handleToggleAction(e, worker.id)}
-                          title={worker.systemAction === 'locked' ? 'Click to Unlock/Unblock' : 'Click to Lock/Block'}
+                          type="button"
+                          className="unblock-action-btn"
+                          onClick={(e) => handleUnblock(e, worker.id)}
+                          title="Click to Unblock/Restore Account"
                         >
-                          <div className="toggle-slider"></div>
+                          <FiUnlock /> Unblock
                         </button>
-                        <span className="toggle-label">{worker.systemAction?.toUpperCase()}</span>
-                      </div>
+                      ) : (
+                        <span className="no-action-label">—</span>
+                      )}
                     </td>
                     <td>
                       <span className={`inquiry-badge ${getInquiryBadgeClass(inquiryStatus)}`}>
@@ -454,6 +404,13 @@ const PenaltyManagementPage = () => {
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Modal Bottom Footer with Close Button */}
+            <div className="modal-bottom-actions">
+              <button type="button" className="details-modal-close-btn" onClick={closeDetails}>
+                <FiX /> Close
+              </button>
             </div>
           </div>
         </div>

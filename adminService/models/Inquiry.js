@@ -23,7 +23,7 @@ const missedBookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Pending', 'Approved', 'Rejected'],
+    enum: ['Pending', 'Approved', 'Rejected', 'Submitted', 'ReSubmited', 'ReSubmitted', 'CANCELLED', 'CONFIRMED', 'DELAY_REPORTED', 'IN_PROGRESS', 'RESCHEDULING_REQUIRED', 'RESCHEDULED'],
     default: 'Pending',
   },
   adminNote: {
@@ -56,6 +56,20 @@ const inquirySchema = new mongoose.Schema(
       type: String,
       default: 'Service Provider',
     },
+    bookingId: {
+      type: String,
+      default: '',
+      index: true,
+    },
+    bookingDetails: {
+      bookingId: String,
+      date: String,
+      time: String,
+      location: String,
+      reason: String,
+      cancellationReason: String,
+      seekerName: String,
+    },
     missedServices: [missedBookingSchema],
     reason: {
       type: String,
@@ -68,7 +82,7 @@ const inquirySchema = new mongoose.Schema(
     ],
     status: {
       type: String,
-      enum: ['Submitted', 'Pending', 'Approved', 'Rejected'],
+      enum: ['Submitted', 'Pending', 'Approved', 'Rejected', 'ReSubmited', 'ReSubmitted', 'Re-submitted'],
       default: 'Submitted',
     },
     adminNote: {
