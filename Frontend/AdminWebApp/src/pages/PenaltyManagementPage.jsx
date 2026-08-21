@@ -150,6 +150,51 @@ const PenaltyManagementPage = () => {
   const hasActiveFilters = searchTerm !== '' || scoreFilter !== 'ALL' || statusFilter !== 'ALL' || inquiryFilter !== 'ALL';
   const closeDetails = () => setSelectedWorker(null);
 
+  const handleExportCSV = () => {
+    const dataToExport = filteredWorkers.length > 0 ? filteredWorkers : workers;
+    if (!dataToExport || dataToExport.length === 0) {
+      alert('No penalty registry records available to export.');
+      return;
+    }
+
+    const escapeCSV = (val) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    // Columns: WORKER INFORMATION (Name, Specialization), PENALTY SCORE, STATUS, INQUIRY STATUS (Excluding SYSTEM ACTION)
+    const headers = ['Worker Name', 'Specialization', 'Penalty Score', 'Status', 'Inquiry Status'];
+
+    const rows = dataToExport.map((worker) => {
+      const count = getPenaltyCount(worker);
+      const ratio = worker.penaltyRatio || `${count}/3`;
+      const inquiryStatus = worker.inquiryStatus || (count >= 3 ? 'Required' : (count === 2 ? 'Optional' : 'Not Required'));
+
+      return [
+        escapeCSV(worker.name || 'N/A'),
+        escapeCSV(worker.role || 'N/A'),
+        escapeCSV(ratio),
+        escapeCSV(worker.status || 'Active'),
+        escapeCSV(inquiryStatus),
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Penalty_Point_Registry_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="penalty-page animate-fade-in">
       <div className="penalty-header">
@@ -158,7 +203,7 @@ const PenaltyManagementPage = () => {
           <p>Click any row to view full inquiry details and missed service history.</p>
         </div>
         <div className="header-right">
-          <button className="export-btn" onClick={() => alert('Exporting penalty records to CSV...')}>
+          <button className="export-btn" onClick={handleExportCSV} title="Download CSV Report">
             Export CSV <HiOutlineExternalLink />
           </button>
         </div>

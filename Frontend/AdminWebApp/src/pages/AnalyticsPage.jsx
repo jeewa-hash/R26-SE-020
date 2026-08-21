@@ -3,24 +3,58 @@ import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
-  Legend, ResponsiveContainer, LineChart, Line 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+  Legend, ResponsiveContainer, LineChart, Line
 } from 'recharts';
-import { FiFilter, FiMap, FiActivity, FiCalendar, FiSearch, FiChevronUp, FiChevronDown } from 'react-icons/fi';
-import { DISTRICT_METADATA, generateMockData, generatePerformanceMockData } from '../data/mockAnalyticsData';
-import { API_BASE_URL } from '../config';
+import {
+  FiFilter, FiMap, FiActivity, FiCalendar, FiSearch,
+  FiChevronUp, FiChevronDown, FiAlertTriangle, FiCheckCircle,
+  FiClock, FiXCircle, FiLayers, FiUsers, FiTrendingUp, FiDollarSign, FiLock
+} from 'react-icons/fi';
+import { DISTRICT_METADATA, generatePerformanceMockData } from '../data/mockAnalyticsData';
+import { API_BASE_URL, ADMIN_SERVICE_URL } from '../config';
 import './AnalyticsPage.css';
 
 const AnalyticsPage = () => {
-  const [activeTab, setActiveTab] = useState('demand-supply');
-  const [performanceTab, setPerformanceTab] = useState('user-growth'); // 'user-growth', 'booking-growth', 'revenue-growth'
-  const [userTypeFilter, setUserTypeFilter] = useState('All'); // 'All', 'Seekers', 'Providers'
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('analytics_active_tab') || 'demand-supply');
+  const [performanceTab, setPerformanceTab] = useState(() => localStorage.getItem('analytics_perf_tab') || 'user-growth');
+  const [userTypeFilter, setUserTypeFilter] = useState(() => localStorage.getItem('analytics_user_filter') || 'All');
+  const [bookingStatusFilter, setBookingStatusFilter] = useState(() => localStorage.getItem('analytics_booking_filter') || 'ALL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [districtData, setDistrictData] = useState([]);
   const [totalOverview, setTotalOverview] = useState([]);
+  const [summaryStats, setSummaryStats] = useState({
+    totalDemand: 0,
+    totalSupply: 0,
+    avgSupplyPercentage: 0,
+    districtsBelow75: 0,
+    activeDistrictsCount: 2,
+    totalDistrictsCount: 25,
+  });
   const [performanceData, setPerformanceData] = useState({ userData: [], bookingData: [], revenueData: [] });
+
+  // Tab & Filter persistence handlers
+  const handleSetActiveTab = (tab) => {
+    setActiveTab(tab);
+    localStorage.setItem('analytics_active_tab', tab);
+  };
+
+  const handleSetPerformanceTab = (tab) => {
+    setPerformanceTab(tab);
+    localStorage.setItem('analytics_perf_tab', tab);
+  };
+
+  const handleSetUserTypeFilter = (filter) => {
+    setUserTypeFilter(filter);
+    localStorage.setItem('analytics_user_filter', filter);
+  };
+
+  const handleSetBookingStatusFilter = (filter) => {
+    setBookingStatusFilter(filter);
+    localStorage.setItem('analytics_booking_filter', filter);
+  };
 
   // Table State
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,35 +63,56 @@ const AnalyticsPage = () => {
 
   // Memoize handleFilter to avoid infinite loops
   const handleFilter = useCallback(async () => {
-    // Filter District Data (Demand-Supply)
-    const mockDistricts = generateMockData();
-    setDistrictData(mockDistricts);
+    // 1. Fetch Real Demand-Supply Analytics Data from Admin Backend
+    try {
+      const params = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
 
-    const overview = [
-      {
-        name: 'Total Country',
-        Demand: mockDistricts.reduce((sum, d) => sum + d.demand, 0),
-        Supply: mockDistricts.reduce((sum, d) => sum + d.supply, 0),
+      const demandRes = await axios.get(`${ADMIN_SERVICE_URL}/api/analytics/demand-supply`, { params });
+      if (demandRes.data && demandRes.data.success) {
+        setDistrictData(demandRes.data.data);
+        setTotalOverview(demandRes.data.totalOverview || []);
+        if (demandRes.data.summary) {
+          setSummaryStats(demandRes.data.summary);
+        }
       }
-    ];
-    setTotalOverview(overview);
+    } catch (err) {
+      console.error('Failed to fetch real demand-supply data:', err);
+    }
 
-    // Fetch Real User Growth Data from Backend
+    // 2. Fetch Real Service Booking Growth Data from Admin Backend
+    let realBookingData = [];
+    try {
+      const params = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+
+      const bookingRes = await axios.get(`${ADMIN_SERVICE_URL}/api/analytics/booking-growth`, { params });
+      if (bookingRes.data && bookingRes.data.success) {
+        realBookingData = bookingRes.data.data;
+      }
+    } catch (bErr) {
+      console.error('Failed to fetch real booking growth data:', bErr);
+    }
+
+    // 3. Fetch Real User Growth Data from Backend
     try {
       const token = localStorage.getItem('adminToken');
       const response = await axios.get(`${API_BASE_URL}/user-growth`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
-      
+
       const realUserData = response.data;
-      
-      // Filter Performance Data (Merge real user data with mock bookings/revenue)
+
+      // Filter Performance Data (Merge real user & booking data)
       const mockPerfData = generatePerformanceMockData();
       let perfData = {
         ...mockPerfData,
-        userData: realUserData
+        userData: realUserData,
+        bookingData: realBookingData.length > 0 ? realBookingData : mockPerfData.bookingData,
       };
-      
+
       if (startDate || endDate) {
         const filterByDate = (data) => data.filter(item => {
           const itemDate = new Date(item.date);
@@ -72,12 +127,15 @@ const AnalyticsPage = () => {
           revenueData: filterByDate(perfData.revenueData)
         };
       }
-      
+
       setPerformanceData(perfData);
     } catch (err) {
       console.error('Failed to fetch real user growth data', err);
-      // Fallback to mock data if API fails
+      // Fallback to mock user/revenue data if API fails, but keep real bookings
       let perfData = generatePerformanceMockData();
+      if (realBookingData.length > 0) {
+        perfData.bookingData = realBookingData;
+      }
       if (startDate || endDate) {
         const filterByDate = (data) => data.filter(item => {
           const itemDate = new Date(item.date);
@@ -96,22 +154,29 @@ const AnalyticsPage = () => {
     }
   }, [startDate, endDate]);
 
-  // Initial load
+  // Initial load and Real-time auto-polling every 4 seconds
   useEffect(() => {
     handleFilter();
+    const interval = setInterval(() => {
+      handleFilter();
+    }, 4000);
+    return () => clearInterval(interval);
   }, [handleFilter]);
 
-  // Create Cloud Icon Helper
-  const createCloudIcon = (districtName, percentage, sizeFactor) => {
-    const color = percentage < 75 ? '#ef4444' : '#3b82f6';
-    const width = 60 * sizeFactor;
-    const height = 45 * sizeFactor;
-    
+  // Create Cloud Icon Helper (Red <75%, Blue >=75%, Yellow for Other Districts)
+  const createCloudIcon = (districtName, isAvailable, percentage, sizeFactor = 1) => {
+    let color = '#eab308'; // Default Yellow for coming soon districts
+    if (isAvailable) {
+      color = percentage < 75 ? '#ef4444' : '#3b82f6';
+    }
+    const width = 68 * sizeFactor;
+    const height = 48 * sizeFactor;
+
     const svg = `
       <svg width="${width}" height="${height + 10}" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
-        <path d="M50,110 L40,90 L60,90 Z" fill="${color}" opacity="0.9" />
-        <rect x="0" y="0" width="100" height="90" rx="20" fill="${color}" opacity="0.8" />
-        <text x="50" y="50" font-family="Inter, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">${districtName}</text>
+        <path d="M50,110 L40,90 L60,90 Z" fill="${color}" opacity="0.95" />
+        <rect x="0" y="0" width="100" height="90" rx="20" fill="${color}" opacity="0.9" />
+        <text x="50" y="50" font-family="Inter, sans-serif" font-size="13" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">${districtName}</text>
       </svg>
     `;
 
@@ -135,21 +200,27 @@ const AnalyticsPage = () => {
   // Memoize Filtered and Sorted Data
   const filteredAndSortedData = useMemo(() => {
     let sortableData = [...districtData];
-    
+
     if (searchTerm) {
-      sortableData = sortableData.filter(item => 
+      sortableData = sortableData.filter(item =>
         item.district.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     if (statusFilter !== 'All') {
       sortableData = sortableData.filter(item => {
-        const isCritical = item.percentage < 75;
-        return statusFilter === 'Critical' ? isCritical : !isCritical;
+        if (statusFilter === 'Critical') return item.isAvailable && item.percentage < 75;
+        if (statusFilter === 'Stable') return item.isAvailable && item.percentage >= 75;
+        if (statusFilter === 'ComingSoon') return !item.isAvailable;
+        return true;
       });
     }
 
     sortableData.sort((a, b) => {
+      // Keep available districts at top by default if sorting by district or percentage
+      if (a.isAvailable !== b.isAvailable) {
+        return a.isAvailable ? -1 : 1;
+      }
       if (a[sortConfig.key] < b[sortConfig.key]) {
         return sortConfig.direction === 'asc' ? -1 : 1;
       }
@@ -171,35 +242,35 @@ const AnalyticsPage = () => {
     <div className="analytics-page">
       <div className="analytics-header">
         <div className="tab-toggles">
-          <button 
-            className={`tab-btn ${activeTab === 'demand-supply' ? 'active' : ''}`}
-            onClick={() => setActiveTab('demand-supply')}
+          <button
+            className={`tab-btn tab-btn-maps ${activeTab === 'demand-supply' ? 'active' : ''}`}
+            onClick={() => handleSetActiveTab('demand-supply')}
           >
-            <FiMap /> Demand-Supply Maps
+            <FiMap className="tab-btn-icon" /> <span>Demand-Supply Maps</span>
           </button>
-          <button 
-            className={`tab-btn ${activeTab === 'performance' ? 'active' : ''}`}
-            onClick={() => setActiveTab('performance')}
+          <button
+            className={`tab-btn tab-btn-perf ${activeTab === 'performance' ? 'active' : ''}`}
+            onClick={() => handleSetActiveTab('performance')}
           >
-            <FiActivity /> Performance Analytics
+            <FiActivity className="tab-btn-icon" /> <span>Performance Analytics</span>
           </button>
         </div>
 
         <div className="filter-bar">
           <div className="filter-group">
             <label><FiCalendar /> Start Date</label>
-            <input 
-              type="date" 
-              value={startDate} 
-              onChange={(e) => setStartDate(e.target.value)} 
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
             />
           </div>
           <div className="filter-group">
             <label><FiCalendar /> End Date</label>
-            <input 
-              type="date" 
-              value={endDate} 
-              onChange={(e) => setEndDate(e.target.value)} 
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
             />
           </div>
           <button className="filter-btn" onClick={handleFilter}>
@@ -212,9 +283,21 @@ const AnalyticsPage = () => {
         <div className="space-y-6">
           <div className="analytics-content">
             <div className="map-section">
-              <MapContainer 
-                center={[7.8731, 80.7718]} 
-                zoom={7} 
+              <div className="map-legend-bar">
+                <div className="legend-item">
+                  <span className="legend-dot red"></span> Critical (&lt; 75% Supply)
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot blue"></span> Stable (&ge; 75% Supply)
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot yellow"></span> Coming soon...
+                </div>
+              </div>
+
+              <MapContainer
+                center={[7.8731, 80.7718]}
+                zoom={7}
                 style={{ height: '600px', width: '100%', borderRadius: '12px' }}
               >
                 <TileLayer
@@ -229,19 +312,35 @@ const AnalyticsPage = () => {
                     <Marker
                       key={data.district}
                       position={metadata.center}
-                      icon={createCloudIcon(data.district, data.percentage, metadata.size_factor)}
+                      icon={createCloudIcon(data.district, data.isAvailable, data.percentage, metadata.size_factor)}
                     >
-                      <Tooltip sticky>
-                        <div className="map-tooltip">
-                          <strong style={{ fontSize: '16px', display: 'block', marginBottom: '4px' }}>{data.district}</strong>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            <span>Demand: <b>{data.demand}</b></span>
-                            <span>Supply: <b>{data.supply}</b></span>
-                            <span style={{ color: data.percentage < 75 ? '#ef4444' : '#3b82f6', fontWeight: 'bold' }}>
+                      <Tooltip sticky direction="top" offset={[0, -10]} opacity={1}>
+                        {data.isAvailable ? (
+                          <div className="map-popup-card">
+                            <h4 className="map-popup-title">{data.district}</h4>
+                            <div className="map-popup-row">
+                              <span className="map-popup-label">Demand:</span>
+                              <strong className="map-popup-val">{data.demand}</strong>
+                            </div>
+                            <div className="map-popup-row">
+                              <span className="map-popup-label">Supply:</span>
+                              <strong className="map-popup-val">{data.supply}</strong>
+                            </div>
+                            <div
+                              className="map-popup-percentage"
+                              style={{ color: data.percentage < 75 ? '#ef4444' : '#3b82f6' }}
+                            >
                               Percentage: {data.percentage.toFixed(2)}%
-                            </span>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="map-popup-card coming-soon-card">
+                            <h4 className="map-popup-title">{data.district}</h4>
+                            <div className="map-popup-coming-soon">
+                              <span className="coming-soon-badge">Coming soon...</span>
+                            </div>
+                          </div>
+                        )}
                       </Tooltip>
                     </Marker>
                   );
@@ -259,8 +358,8 @@ const AnalyticsPage = () => {
                     <YAxis />
                     <RechartsTooltip />
                     <Legend />
-                    <Bar dataKey="Demand" fill="#3b82f6" />
-                    <Bar dataKey="Supply" fill="#10b981" />
+                    <Bar dataKey="Demand" fill="#3b82f6" name="Demand" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Supply" fill="#10b981" name="Supply" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -268,13 +367,19 @@ const AnalyticsPage = () => {
                 <div className="stat-item">
                   <span className="label">Avg. Supply %</span>
                   <span className="value">
-                    {(districtData.reduce((acc, curr) => acc + curr.percentage, 0) / (districtData.length || 1)).toFixed(2)}%
+                    {summaryStats.avgSupplyPercentage.toFixed(2)}%
                   </span>
                 </div>
                 <div className="stat-item">
                   <span className="label">Districts Below 75%</span>
                   <span className="value text-red-500">
-                    {districtData.filter(d => d.percentage < 75).length}
+                    {summaryStats.districtsBelow75}
+                  </span>
+                </div>
+                <div className="stat-item">
+                  <span className="label">Active Coverage</span>
+                  <span className="value" style={{ fontSize: '15px', color: '#4f46e5' }}>
+                    Colombo &amp; Gampaha
                   </span>
                 </div>
               </div>
@@ -283,25 +388,31 @@ const AnalyticsPage = () => {
 
           <div className="table-section">
             <div className="table-header-controls">
-              <h3>District Breakdown</h3>
+              <div>
+                <h3>District Breakdown</h3>
+                <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#64748b' }}>
+                  Live service demand &amp; supply fulfillment ratio across Sri Lanka districts.
+                </p>
+              </div>
               <div className="table-filters">
                 <div className="status-filter-group">
                   <label>Status:</label>
-                  <select 
-                    value={statusFilter} 
+                  <select
+                    value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                     className="status-select"
                   >
                     <option value="All">All Statuses</option>
-                    <option value="Critical">Critical Only</option>
-                    <option value="Stable">Stable Only</option>
+                    <option value="Critical">Critical (&lt;75%)</option>
+                    <option value="Stable">Stable (&ge;75%)</option>
+                    <option value="ComingSoon">Coming soon...</option>
                   </select>
                 </div>
                 <div className="search-container">
                   <FiSearch />
-                  <input 
-                    type="text" 
-                    placeholder="Search district..." 
+                  <input
+                    type="text"
+                    placeholder="Search district..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -331,17 +442,32 @@ const AnalyticsPage = () => {
                 <tbody>
                   {filteredAndSortedData.length > 0 ? (
                     filteredAndSortedData.map((item) => (
-                      <tr key={item.district}>
-                        <td>{item.district}</td>
-                        <td>{item.demand}</td>
-                        <td>{item.supply}</td>
-                        <td className={item.percentage < 75 ? 'text-red-500 font-bold' : 'text-blue-500 font-bold'}>
-                          {item.percentage.toFixed(2)}%
+                      <tr key={item.district} className={!item.isAvailable ? 'row-coming-soon' : ''}>
+                        <td>
+                          <strong>{item.district}</strong>
+                          {!item.isAvailable && <span className="sub-badge-cs"> (Upcoming)</span>}
+                        </td>
+                        <td>{item.isAvailable ? item.demand : <span className="text-gray-400">-</span>}</td>
+                        <td>{item.isAvailable ? item.supply : <span className="text-gray-400">-</span>}</td>
+                        <td>
+                          {item.isAvailable ? (
+                            <span className={item.percentage < 75 ? 'text-red-500 font-bold' : 'text-blue-500 font-bold'}>
+                              {item.percentage.toFixed(2)}%
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
                         <td>
-                          <span className={`status-badge ${item.percentage < 75 ? 'critical' : 'stable'}`}>
-                            {item.percentage < 75 ? 'Critical' : 'Stable'}
-                          </span>
+                          {item.isAvailable ? (
+                            <span className={`status-badge ${item.percentage < 75 ? 'critical' : 'stable'}`}>
+                              {item.percentage < 75 ? 'Critical' : 'Stable'}
+                            </span>
+                          ) : (
+                            <span className="status-badge coming-soon">
+                              Coming soon...
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -360,23 +486,23 @@ const AnalyticsPage = () => {
       ) : (
         <div className="performance-view space-y-6">
           <div className="performance-tabs">
-            <button 
+            <button
               className={`perf-tab-btn ${performanceTab === 'user-growth' ? 'active' : ''}`}
-              onClick={() => setPerformanceTab('user-growth')}
+              onClick={() => handleSetPerformanceTab('user-growth')}
             >
-              User Growth
+              <FiUsers /> User Growth
             </button>
-            <button 
+            <button
               className={`perf-tab-btn ${performanceTab === 'booking-growth' ? 'active' : ''}`}
-              onClick={() => setPerformanceTab('booking-growth')}
+              onClick={() => handleSetPerformanceTab('booking-growth')}
             >
-              Service Booking Growth
+              <FiTrendingUp /> Service Booking Growth
             </button>
-            <button 
+            <button
               className={`perf-tab-btn ${performanceTab === 'revenue-growth' ? 'active' : ''}`}
-              onClick={() => setPerformanceTab('revenue-growth')}
+              onClick={() => handleSetPerformanceTab('revenue-growth')}
             >
-              Revenue Growth
+              <FiDollarSign /> Revenue Growth
             </button>
           </div>
 
@@ -387,23 +513,23 @@ const AnalyticsPage = () => {
                   <div className="flex flex-col gap-4">
                     <h3>User Growth</h3>
                     <div className="user-type-filters">
-                      <button 
-                        className={`filter-chip ${userTypeFilter === 'All' ? 'active' : ''}`}
-                        onClick={() => setUserTypeFilter('All')}
+                      <button
+                        className={`filter-chip chip-user-all ${userTypeFilter === 'All' ? 'active' : ''}`}
+                        onClick={() => handleSetUserTypeFilter('All')}
                       >
-                        Show All
+                        <FiUsers /> Show All
                       </button>
-                      <button 
-                        className={`filter-chip ${userTypeFilter === 'Seekers' ? 'active' : ''}`}
-                        onClick={() => setUserTypeFilter('Seekers')}
+                      <button
+                        className={`filter-chip chip-seekers ${userTypeFilter === 'Seekers' ? 'active' : ''}`}
+                        onClick={() => handleSetUserTypeFilter('Seekers')}
                       >
-                        Seekers Only
+                        <FiUsers /> Seekers Only
                       </button>
-                      <button 
-                        className={`filter-chip ${userTypeFilter === 'Providers' ? 'active' : ''}`}
-                        onClick={() => setUserTypeFilter('Providers')}
+                      <button
+                        className={`filter-chip chip-providers ${userTypeFilter === 'Providers' ? 'active' : ''}`}
+                        onClick={() => handleSetUserTypeFilter('Providers')}
                       >
-                        Providers Only
+                        <FiUsers /> Providers Only
                       </button>
                     </div>
                   </div>
@@ -412,15 +538,15 @@ const AnalyticsPage = () => {
                       {userTypeFilter === 'All' ? 'Total Users' : userTypeFilter === 'Seekers' ? 'Total Seekers' : 'Total Providers'}:
                     </span>
                     <span className="value">
-                      {performanceData.userData.length > 0 
+                      {performanceData.userData.length > 0
                         ? (
-                            userTypeFilter === 'All' 
-                            ? (performanceData.userData[performanceData.userData.length - 1].seekers + 
-                               performanceData.userData[performanceData.userData.length - 1].providers)
+                          userTypeFilter === 'All'
+                            ? (performanceData.userData[performanceData.userData.length - 1].seekers +
+                              performanceData.userData[performanceData.userData.length - 1].providers)
                             : userTypeFilter === 'Seekers'
-                            ? performanceData.userData[performanceData.userData.length - 1].seekers
-                            : performanceData.userData[performanceData.userData.length - 1].providers
-                          ).toLocaleString() 
+                              ? performanceData.userData[performanceData.userData.length - 1].seekers
+                              : performanceData.userData[performanceData.userData.length - 1].providers
+                        ).toLocaleString()
                         : 0}
                     </span>
                   </div>
@@ -434,25 +560,25 @@ const AnalyticsPage = () => {
                       <RechartsTooltip />
                       <Legend verticalAlign="top" height={36} iconType="circle" />
                       {(userTypeFilter === 'All' || userTypeFilter === 'Seekers') && (
-                        <Line 
-                          type="monotone" 
-                          dataKey="seekers" 
-                          stroke="#8b5cf6" 
-                          strokeWidth={3} 
-                          dot={{ r: 6 }} 
-                          activeDot={{ r: 8 }} 
-                          name="Service Seekers" 
+                        <Line
+                          type="monotone"
+                          dataKey="seekers"
+                          stroke="#8b5cf6"
+                          strokeWidth={3}
+                          dot={{ r: 6 }}
+                          activeDot={{ r: 8 }}
+                          name="Service Seekers"
                         />
                       )}
                       {(userTypeFilter === 'All' || userTypeFilter === 'Providers') && (
-                        <Line 
-                          type="monotone" 
-                          dataKey="providers" 
-                          stroke="#10b981" 
-                          strokeWidth={3} 
-                          dot={{ r: 6 }} 
-                          activeDot={{ r: 8 }} 
-                          name="Service Providers" 
+                        <Line
+                          type="monotone"
+                          dataKey="providers"
+                          stroke="#10b981"
+                          strokeWidth={3}
+                          dot={{ r: 6 }}
+                          activeDot={{ r: 8 }}
+                          name="Service Providers"
                         />
                       )}
                     </LineChart>
@@ -462,53 +588,212 @@ const AnalyticsPage = () => {
             )}
 
             {performanceTab === 'booking-growth' && (
-              <div className="performance-card">
-                <div className="card-header">
-                  <h3>Service Booking Growth</h3>
-                  <div className="summary-stat">
-                    <span className="label">Total Bookings:</span>
-                    <span className="value">
-                      {performanceData.bookingData.reduce((sum, d) => sum + d.bookings, 0).toLocaleString()}
-                    </span>
+              <div className="space-y-6">
+                {/* 1. Main Interactive Booking Growth Bar Chart */}
+                <div className="performance-card">
+                  <div className="card-header">
+                    <div className="flex flex-col gap-4">
+                      <h3>Service Booking Growth</h3>
+                      <div className="user-type-filters">
+                        <button 
+                          className={`filter-chip chip-all ${bookingStatusFilter === 'ALL' ? 'active' : ''}`}
+                          onClick={() => handleSetBookingStatusFilter('ALL')}
+                        >
+                          <FiLayers /> All Bookings
+                        </button>
+                        <button 
+                          className={`filter-chip chip-completed ${bookingStatusFilter === 'COMPLETED' ? 'active' : ''}`}
+                          onClick={() => handleSetBookingStatusFilter('COMPLETED')}
+                        >
+                          <FiCheckCircle /> Completed Only
+                        </button>
+                        <button 
+                          className={`filter-chip chip-confirmed ${bookingStatusFilter === 'CONFIRMED' ? 'active' : ''}`}
+                          onClick={() => handleSetBookingStatusFilter('CONFIRMED')}
+                        >
+                          <FiClock /> Confirmed Only
+                        </button>
+                        <button 
+                          className={`filter-chip chip-cancelled ${bookingStatusFilter === 'CANCELLED' ? 'active' : ''}`}
+                          onClick={() => handleSetBookingStatusFilter('CANCELLED')}
+                        >
+                          <FiXCircle /> Cancelled Only
+                        </button>
+                      </div>
+                    </div>
+                    <div className="summary-stat">
+                      <span className="label">
+                        {bookingStatusFilter === 'ALL' 
+                          ? 'Total Bookings:' 
+                          : bookingStatusFilter === 'COMPLETED' 
+                          ? 'Total Completed Bookings:' 
+                          : bookingStatusFilter === 'CONFIRMED'
+                          ? 'Total Confirmed Bookings:'
+                          : 'Total Cancelled Bookings:'}
+                      </span>
+                      <span className="value">
+                        {performanceData.bookingData.reduce((sum, d) => {
+                          if (bookingStatusFilter === 'ALL') return sum + (d.totalBookings || 0);
+                          if (bookingStatusFilter === 'CONFIRMED') return sum + (d.confirmedBookings || 0);
+                          if (bookingStatusFilter === 'CANCELLED') return sum + (d.cancelledBookings || 0);
+                          return sum + (d.completedBookings !== undefined ? d.completedBookings : d.bookings || 0);
+                        }, 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="chart-container">
+                    <ResponsiveContainer width="100%" height={380}>
+                      <BarChart data={performanceData.bookingData.map(d => ({
+                        ...d,
+                        displayValue: bookingStatusFilter === 'ALL' 
+                          ? (d.totalBookings || 0)
+                          : bookingStatusFilter === 'CONFIRMED'
+                          ? (d.confirmedBookings || 0)
+                          : bookingStatusFilter === 'CANCELLED'
+                          ? (d.cancelledBookings || 0)
+                          : (d.completedBookings !== undefined ? d.completedBookings : d.bookings || 0)
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis allowDecimals={false} />
+                        <RechartsTooltip />
+                        <Legend />
+                        <Bar 
+                          dataKey="displayValue" 
+                          fill={
+                            bookingStatusFilter === 'ALL' 
+                              ? '#4f46e5' 
+                              : bookingStatusFilter === 'COMPLETED' 
+                              ? '#059669' 
+                              : bookingStatusFilter === 'CONFIRMED' 
+                              ? '#2563eb' 
+                              : '#e11d48'
+                          } 
+                          radius={[6, 6, 0, 0]} 
+                          name={
+                            bookingStatusFilter === 'ALL'
+                              ? 'All Bookings'
+                              : bookingStatusFilter === 'CONFIRMED'
+                              ? 'Confirmed Bookings'
+                              : bookingStatusFilter === 'CANCELLED'
+                              ? 'Cancelled Bookings'
+                              : 'Completed Bookings'
+                          } 
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
-                <div className="chart-container">
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={performanceData.bookingData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <RechartsTooltip />
-                      <Legend />
-                      <Bar dataKey="bookings" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Completed Bookings" />
-                    </BarChart>
-                  </ResponsiveContainer>
+
+                {/* 2. All Bookings vs Completed Bookings Comparison Card */}
+                <div className="performance-card comparison-card">
+                  <div className="card-header">
+                    <div>
+                      <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FiTrendingUp style={{ color: '#4f46e5' }} /> All Bookings vs Completed Bookings
+                      </h3>
+                      <p style={{ margin: '4px 0 0', fontSize: '13.5px', color: '#64748b' }}>
+                        Side-by-side volume comparison of total requested bookings versus successfully completed service bookings.
+                      </p>
+                    </div>
+                    <div className="comparison-stats-pills">
+                      <div className="comparison-stat-pill pill-indigo">
+                        <span className="pill-dot indigo"></span>
+                        <span className="pill-label">Total Bookings:</span>
+                        <strong className="pill-val">
+                          {performanceData.bookingData.reduce((sum, d) => sum + (d.totalBookings || 0), 0)}
+                        </strong>
+                      </div>
+                      <div className="comparison-stat-pill pill-emerald">
+                        <span className="pill-dot emerald"></span>
+                        <span className="pill-label">Completed:</span>
+                        <strong className="pill-val">
+                          {performanceData.bookingData.reduce((sum, d) => sum + (d.completedBookings || 0), 0)}
+                        </strong>
+                      </div>
+                      <div className="comparison-stat-pill pill-cyan">
+                        <span className="pill-label">Completion Rate:</span>
+                        <strong className="pill-val">
+                          {(() => {
+                            const total = performanceData.bookingData.reduce((sum, d) => sum + (d.totalBookings || 0), 0);
+                            const completed = performanceData.bookingData.reduce((sum, d) => sum + (d.completedBookings || 0), 0);
+                            return total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0.0%';
+                          })()}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="chart-container">
+                    <ResponsiveContainer width="100%" height={380}>
+                      <BarChart data={performanceData.bookingData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis allowDecimals={false} />
+                        <RechartsTooltip />
+                        <Legend verticalAlign="top" height={36} />
+                        <Bar 
+                          dataKey="totalBookings" 
+                          fill="#4f46e5" 
+                          radius={[6, 6, 0, 0]} 
+                          name="All Bookings (Total Volume)" 
+                        />
+                        <Bar 
+                          dataKey="completedBookings" 
+                          fill="#10b981" 
+                          radius={[6, 6, 0, 0]} 
+                          name="Completed Bookings" 
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             )}
 
             {performanceTab === 'revenue-growth' && (
-              <div className="performance-card">
+              <div className="performance-card revenue-card-wrapper">
                 <div className="card-header">
-                  <h3>Revenue Growth</h3>
+                  <div className="flex items-center gap-3">
+                    <h3>Revenue Growth</h3>
+                    <span className="upcoming-tag">Next Version</span>
+                  </div>
                   <div className="summary-stat">
                     <span className="label">Total Revenue:</span>
-                    <span className="value">
-                      Rs. {performanceData.revenueData.reduce((sum, d) => sum + d.revenue, 0).toLocaleString()}
+                    <span className="value" style={{ color: '#94a3b8', fontSize: '18px' }}>
+                      Coming soon...
                     </span>
                   </div>
                 </div>
-                <div className="chart-container">
-                  <ResponsiveContainer width="100%" height={400}>
-                    <LineChart data={performanceData.revenueData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <RechartsTooltip formatter={(value) => `Rs. ${value.toLocaleString()}`} />
-                      <Legend />
-                      <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={{ r: 6 }} activeDot={{ r: 8 }} name="Revenue (Rs.)" />
-                    </LineChart>
-                  </ResponsiveContainer>
+
+                <div className="chart-container blurred-chart-container">
+                  {/* Blurred Background Chart */}
+                  <div className="blurred-chart-content">
+                    <ResponsiveContainer width="100%" height={400}>
+                      <LineChart data={performanceData.revenueData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={{ r: 6 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Overlay Banner */}
+                  <div className="coming-soon-overlay">
+                    <div className="coming-soon-modal-card">
+                      <div className="coming-soon-icon-wrap">
+                        <FiLock className="coming-soon-lock-icon" />
+                      </div>
+                      <h4 className="coming-soon-heading">Comming on the next version</h4>
+                      <p className="coming-soon-desc">
+                        Revenue Growth Analytics and real-time financial tracking are currently under development and will be available in the upcoming version release.
+                      </p>
+                      <div className="coming-soon-pill-badge">
+                        <span>✨ Upcoming Feature</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

@@ -192,6 +192,108 @@ exports.getProfile = async (req, res) => {
   }
 };
 
+// Update current admin profile
+exports.updateProfile = async (req, res) => {
+  try {
+    const { fullName, telephone, district, email } = req.body;
+    const admin = await Admin.findById(req.user.id);
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+
+    // If email is being changed, check if it's already taken
+    if (email && email.toLowerCase() !== admin.email.toLowerCase()) {
+      const existingEmail = await Admin.findOne({ email: email.toLowerCase() });
+      if (existingEmail) {
+        return res.status(400).json({ message: 'An admin account with this email already exists' });
+      }
+      admin.email = email.toLowerCase();
+    }
+
+    if (fullName) admin.fullName = fullName.trim();
+    if (telephone !== undefined) admin.telephone = telephone.trim();
+    if (district !== undefined) admin.district = district.trim();
+
+    await admin.save();
+
+    // Audit log
+    try {
+      await createAuditLog({
+        action: 'Profile Updated',
+        category: 'Admin',
+        admin: admin,
+        target: { id: admin._id, name: admin.fullName, type: 'Admin' },
+      });
+    } catch (aErr) {
+      console.log('Audit log error on profile update:', aErr.message);
+    }
+
+    res.json({
+      message: 'Profile updated successfully',
+      admin: {
+        id: admin._id,
+        fullName: admin.fullName,
+        email: admin.email,
+        nic: admin.nic,
+        telephone: admin.telephone,
+        district: admin.district,
+        role: admin.role,
+      },
+    });
+  } catch (err) {
+    console.error('updateProfile error:', err.message);
+    res.status(500).json({ message: 'Server error while updating profile' });
+  }
+};
+
+// Change admin password
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Both current password and new password are required' });
+    }
+
+    const admin = await Admin.findById(req.user.id);
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+
+    // Verify current password
+    const isMatch = await bcrypt.compare(currentPassword, admin.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ message: 'New password must be different from current password' });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    admin.password = await bcrypt.hash(newPassword, salt);
+    await admin.save();
+
+    // Audit log
+    try {
+      await createAuditLog({
+        action: 'Password Changed',
+        category: 'Security',
+        admin: admin,
+        target: { id: admin._id, name: admin.fullName, type: 'Admin' },
+      });
+    } catch (aErr) {
+      console.log('Audit log error on password change:', aErr.message);
+    }
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    console.error('changePassword error:', err.message);
+    res.status(500).json({ message: 'Server error while changing password' });
+  }
+};
+
 // Get dashboard stats
 exports.getDashboardStats = async (req, res) => {
   try {

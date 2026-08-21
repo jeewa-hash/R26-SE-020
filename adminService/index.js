@@ -27,6 +27,7 @@ const testMLRoutes = require('./routes/testML');
 const retrainRoutes = require('./routes/retrain');
 const categoryRoutes = require('./routes/categoryRoutes');
 const inquiryRoutes = require('./routes/inquiryRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 // සටහන: ඔයාගේ routes folder එකේ testML.js නමින් file එකක් තියෙන්න ඕනේ.
 
 // --- Route Mounting ---
@@ -35,6 +36,8 @@ app.use('/', retrainRoutes);
 app.use('/', categoryRoutes);
 app.use('/api', inquiryRoutes);
 app.use('/', inquiryRoutes);
+app.use('/api', analyticsRoutes);
+app.use('/', analyticsRoutes);
 
 // Base route for testing
 app.get('/', (req, res) => {
