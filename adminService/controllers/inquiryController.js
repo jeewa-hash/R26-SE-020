@@ -1033,3 +1033,6 @@ exports.getProviderNotifications = async (req, res) => {
   }
 };
 
+exports.getCoordinationDb = () => coordinationDb;
+
+

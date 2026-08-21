@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { API_BASE_URL, AUTH_SERVICE_URL } from '../config';
-import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare, FiActivity, FiTrendingUp, FiBarChart2 } from 'react-icons/fi';
+import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare, FiActivity, FiTrendingUp, FiBarChart2, FiFileText, FiUser } from 'react-icons/fi';
 import { HiOutlineShieldCheck } from 'react-icons/hi';
 
 function Layout() {
@@ -226,12 +226,26 @@ function Layout() {
             <span className="sidebar-link-icon"><FiBarChart2 /></span>
             Analytics
           </NavLink>
+          <NavLink
+            to="/reports"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiFileText /></span>
+            Reports
+          </NavLink>
 
           <div className="sidebar-section-label">System</div>
           <div className="sidebar-link">
             <span className="sidebar-link-icon"><FiSettings /></span>
             Settings
           </div>
+          <NavLink
+            to="/profile"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiUser /></span>
+            Profile
+          </NavLink>
         </nav>
 
         <div className="sidebar-footer">
