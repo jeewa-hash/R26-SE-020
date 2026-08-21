@@ -8,6 +8,7 @@ import {
   updatePost,
   deletePost,
 } from "../controllers/adPostController.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ router.post("/generate/ml", generateFromMLResult); // ML portfolio-classificatio
 router.post("/:id/regenerate", regeneratePost); // regenerate an existing post
 
 // Management (FR-16)
-router.get("/provider/:providerId", listPostsByProvider);
+router.get("/provider", protect(["ServiceProvider"]), listPostsByProvider);
 router.get("/:id", getPostById);
 router.put("/:id", updatePost);
 router.delete("/:id", deletePost);
