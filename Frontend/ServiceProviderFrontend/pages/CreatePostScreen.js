@@ -1,23 +1,62 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, TextInput, Alert, ActivityIndicator } from 'react-native';
-import { Text, Button, Card, Chip, IconButton } from 'react-native-paper';
+import { Text, Button, Card, Chip, IconButton, Switch } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeContext } from '../context/ThemeContext';
-import axios from 'axios';
+import { CONFIG } from '../config';
 
 const TONES = ["professional", "friendly", "urgent", "promotional", "trustworthy"];
+const LANGUAGES = ["en", "si", "ta"];
+const CATEGORIES = ["home service", "plumbing", "electrical", "carpentry", "cleaning"];
 
 export default function CreatePostScreen({ navigation }) {
   const { isDark } = useContext(ThemeContext);
   const [loading, setLoading] = useState(false);
+  const [providerInfo, setProviderInfo] = useState({
+    providerId: '',
+    providerName: '',
+    location: '',
+    contact: '',
+  });
   const [form, setForm] = useState({
     serviceLabel: '',
-    location: 'Colombo, Sri Lanka', // Default
-    contact: '+94 77 123 4567',    // Default
+    specificLabel: '',
+    category: 'home service',
+    tags: [],
     tone: 'professional',
-    price: '',
+    language: 'en',
+    extraInfo: '',
+    generateImage: false,
   });
   const [result, setResult] = useState(null);
+  const [tagInput, setTagInput] = useState('');
+
+  useEffect(() => {
+    const fetchProviderInfo = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        const userId = await AsyncStorage.getItem('userId');
+        
+        const res = await fetch(`${CONFIG.AUTH_SERVICE_URL}/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        
+        if (data.provider) {
+          setProviderInfo({
+            providerId: userId || '',
+            providerName: data.provider.name || 'Unknown',
+            location: data.provider.location || 'Not specified',
+            contact: data.provider.telephone || 'Not specified',
+          });
+        }
+      } catch (err) {
+        console.log('Error fetching provider info:', err);
+      }
+    };
+    fetchProviderInfo();
+  }, []);
 
   const C = isDark 
     ? { bg: '#0f0f0f', card: '#1c1c1e', text: '#F2F2F7', input: '#2c2c2e' } 
@@ -29,7 +68,7 @@ export default function CreatePostScreen({ navigation }) {
     setLoading(true);
     try {
       // Replace with your local IP if testing on a physical device
-      const response = await axios.post('http://localhost:3002/api/ad/generate-post', {
+      const response = await axios.post(`${CONFIG.PROVIDER_SERVICE_URL}api/provider/ads/generate`, {
         providerName: "Kasun Perera", // Static for now
         serviceLabel: form.serviceLabel,
         location: form.location,
