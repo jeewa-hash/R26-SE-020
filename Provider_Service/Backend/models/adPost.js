@@ -57,10 +57,13 @@ const adPostSchema = new mongoose.Schema(
       enum: ["draft", "published", "archived"],
       default: "draft",
     },
+
+    priority: { type: Number, default: 0, index: true },
   },
   { timestamps: true }
 );
 
 adPostSchema.index({ providerId: 1, createdAt: -1 });
+adPostSchema.index({ priority: -1, createdAt: -1 });
 
 export default mongoose.model("AdPost", adPostSchema);

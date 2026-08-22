@@ -1,9 +1,10 @@
 import { Platform } from 'react-native';
 
-// Platform-specific IP address
-// For physical device testing on same network, replace with your PC IP:
-// export const IP_ADDRESS = '192.168.1.103';
-export const IP_ADDRESS = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+// Set EXPO_PUBLIC_API_HOST to your computer's LAN IP when testing on a
+// physical device (for example: 192.168.1.103). Android emulators use 10.0.2.2.
+export const IP_ADDRESS =
+  process.env.EXPO_PUBLIC_API_HOST ||
+  (Platform.OS === 'android' ? '10.0.2.2' : 'localhost');
 
 export const CONFIG = {
   API_BASE_URL: `http://${IP_ADDRESS}:6000`,

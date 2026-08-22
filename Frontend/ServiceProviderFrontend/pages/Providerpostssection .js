@@ -8,6 +8,7 @@
  *   import ProviderPostsSection from '../components/profile/ProviderPostsSection';
  *   <ProviderPostsSection navigation={navigation} isDark={isDark} />
  */
+// to d0 - remove hardcoded codes and want to Fetch posts error: [TypeError: Network request failed] fix this error. got related axio error
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -20,6 +21,7 @@ import {
   Modal,
   Pressable,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -28,40 +30,6 @@ import { Colors } from '../theme';
 import { CONFIG } from '../config';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-
-// ── Temporary mock data — replace with API call later ────────────
-const MOCK_POSTS = [
-  {
-    id: '1',
-    title: 'Emergency Pipe Repair — Same Day Service',
-    description: 'Fast and reliable pipe repair available 24/7. Serving Colombo and suburbs.',
-    image: null,
-    likes: 24,
-    comments: 8,
-    postedAt: '2026-08-10T08:30:00Z',
-    isLiked: false,
-  },
-  {
-    id: '2',
-    title: 'Water Tank Cleaning — Special Offer',
-    description: 'Complete tank cleaning with disinfection. Book now and get 20% off.',
-    image: null,
-    likes: 41,
-    comments: 15,
-    postedAt: '2026-08-05T14:00:00Z',
-    isLiked: true,
-  },
-  {
-    id: '3',
-    title: 'Full Plumbing Installation for New Homes',
-    description: 'Professional installation with 1-year warranty. Competitive pricing.',
-    image: null,
-    likes: 17,
-    comments: 5,
-    postedAt: '2026-07-28T10:00:00Z',
-    isLiked: false,
-  },
-];
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -80,7 +48,8 @@ function formatCount(n) {
 
 // ── Post Card ────────────────────────────────────────────────────
 
-function PostCard({ post, onLike, onComment, onOptions, isDark, C }) {
+function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C }) {
+  const isBoosted = (post.priority || 0) > 0;
   return (
     <View style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
 
@@ -91,6 +60,12 @@ function PostCard({ post, onLike, onComment, onOptions, isDark, C }) {
           <Text style={[styles.timeText, { color: C.textSub }]}>
             {timeAgo(post.postedAt)}
           </Text>
+          {isBoosted && (
+            <View style={styles.boostBadge}>
+              <MaterialCommunityIcons name="rocket-launch-outline" size={10} color="#fff" />
+              <Text style={styles.boostBadgeText}>Boosted Lv.{post.priority}</Text>
+            </View>
+          )}
         </View>
         <TouchableOpacity onPress={() => onOptions(post)} hitSlop={8}>
           <MaterialIcons name="more-vert" size={20} color={C.textSub} />
@@ -182,6 +157,32 @@ function PostCard({ post, onLike, onComment, onOptions, isDark, C }) {
         </TouchableOpacity>
 
       </View>
+
+      {/* Boost Ad Button */}
+      <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
+        <TouchableOpacity
+          style={[
+            styles.boostBtn,
+            { backgroundColor: isBoosted ? '#F59E0B' : Colors.primary },
+          ]}
+          onPress={() => onBoost(post)}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons
+            name={isBoosted ? 'rocket-launch' : 'trending-up'}
+            size={16}
+            color="#fff"
+          />
+          <Text style={styles.boostBtnText}>
+            {isBoosted ? 'Boost Again' : 'Boost Ad'}
+          </Text>
+          {isBoosted && (
+            <View style={styles.boostCounter}>
+              <Text style={styles.boostCounterText}>+{post.priority}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -223,8 +224,10 @@ function OptionsModal({ visible, onClose, onEdit, onDelete, isDark }) {
 
 export default function ProviderPostsSection({ navigation, isDark }) {
   const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState(null);
   const [showOptions, setShowOptions] = useState(false);
+  const [boostingId, setBoostingId] = useState(null);
 
   const C = isDark
     ? { card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e' }
@@ -233,30 +236,55 @@ export default function ProviderPostsSection({ navigation, isDark }) {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const token = await AsyncStorage.getItem('userToken');
+        const [token] = await AsyncStorage.multiGet(['userToken']);
+        const authToken = token[1];
         
-        if (!token) {
+        if (!authToken) {
           Alert.alert('Error', 'No authentication token found. Please login again.');
           return;
         }
 
-        const res = await fetch(`${CONFIG.PROVIDER_SERVICE_URL}api/provider/ads/provider`, {
+        const res = await fetch(
+          `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/provider`,
+          {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${authToken}`,
           },
-        });
+          }
+        );
 
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
         const data = await res.json();
         
-        if (data && data.posts) {
-          setPosts(data.posts);
+        if (data && Array.isArray(data.data)) {
+          setPosts(data.data.map((post) => {
+            const platformPost = post.posts?.[0] || {};
+            return {
+            id: post._id || post.id,
+            title: platformPost.title || post.serviceLabel || 'Service advertisement',
+            description: platformPost.caption || post.extraInfo || '',
+            image: post.image?.url || null,
+            likes: post.likes || 0,
+            comments: post.comments || 0,
+            postedAt: post.createdAt || post.postedAt,
+            isLiked: Boolean(post.isLiked),
+            priority: post.priority || 0,
+            };
+          }));
+        } else {
+          setPosts([]);
         }
       } catch (err) {
         console.log('Fetch posts error:', err);
-        Alert.alert('Error', `Failed to load posts\n${err.message}`);
+        Alert.alert(
+          'Unable to load posts',
+          'Check that the Provider Service is running and that the app is using a reachable server address.'
+        );
+        setPosts([]);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -284,14 +312,75 @@ export default function ProviderPostsSection({ navigation, isDark }) {
     setShowOptions(true);
   };
 
-  const handleDelete = () => {
-    setPosts(prev => prev.filter(p => p.id !== selectedPost.id));
-    setShowOptions(false);
+  const handleDelete = async () => {
+    if (!selectedPost) return;
+
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const res = await fetch(
+        `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/${selectedPost.id}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      setPosts(prev => prev.filter(p => p.id !== selectedPost.id));
+      setShowOptions(false);
+    } catch (err) {
+      Alert.alert('Unable to delete post', err.message);
+    }
   };
 
   const handleEdit = () => {
     setShowOptions(false);
     navigation.navigate('EditPost', { post: selectedPost });
+  };
+
+  // ── Boost Ad — increase priority and re-sort locally ─────────
+  const handleBoost = async (post) => {
+    if (boostingId) return;
+    setBoostingId(post.id);
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const res = await fetch(
+        `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/${post.id}/boost`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ amount: 1 }),
+        }
+      );
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      const result = await res.json();
+      if (!result.success) throw new Error(result.message || 'Boost failed');
+
+      const updatedPriority = result.data?.priority ?? (post.priority || 0) + 1;
+
+      setPosts(prev => {
+        const updated = prev.map(p =>
+          p.id === post.id
+            ? { ...p, priority: updatedPriority }
+            : p
+        );
+        updated.sort((a, b) => {
+          if ((b.priority || 0) !== (a.priority || 0)) {
+            return (b.priority || 0) - (a.priority || 0);
+          }
+          return new Date(b.postedAt) - new Date(a.postedAt);
+        });
+        return updated;
+      });
+
+      Alert.alert(
+        'Ad Boosted! 🚀',
+        `Your ad priority is now ${updatedPriority}. It will appear higher in the feed.`
+      );
+    } catch (err) {
+      Alert.alert('Unable to boost ad', err.message);
+    } finally {
+      setBoostingId(null);
+    }
   };
 
   // ── Section header ────────────────────────────────────────────
@@ -313,6 +402,17 @@ export default function ProviderPostsSection({ navigation, isDark }) {
       </TouchableOpacity>
     </View>
   );
+
+  if (loading) {
+    return (
+      <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
+        {header}
+        <View style={styles.loadingBox}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
+      </View>
+    );
+  }
 
   // ── Empty state ───────────────────────────────────────────────
   if (posts.length === 0) {
@@ -356,6 +456,7 @@ export default function ProviderPostsSection({ navigation, isDark }) {
             onLike={handleLike}
             onComment={handleComment}
             onOptions={handleOptions}
+            onBoost={handleBoost}
             isDark={isDark}
             C={C}
           />
@@ -473,6 +574,52 @@ const styles = StyleSheet.create({
   actionLabel: { fontSize: 12 },
   actionDivider: { width: 0.5, height: 20 },
 
+  // Boost Badge (shown in header when priority > 0)
+  boostBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 4,
+  },
+  boostBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+
+  // Boost Ad Button
+  boostBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 4,
+  },
+  boostBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  boostCounter: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 1,
+    borderRadius: 10,
+    marginLeft: 4,
+  },
+  boostCounterText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+
   // Options modal
   modalOverlay: {
     flex: 1,
@@ -506,6 +653,7 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     paddingHorizontal: 24,
   },
+  loadingBox: { alignItems: 'center', paddingVertical: 32 },
   emptyTitle: { fontSize: 15, fontWeight: '700', marginTop: 12, marginBottom: 6 },
   emptySub:   { fontSize: 13, textAlign: 'center', lineHeight: 19, marginBottom: 20 },
   emptyBtn: {
