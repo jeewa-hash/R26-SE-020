@@ -13,7 +13,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
-import { POSTS, CATEGORIES } from '../constants/feedData';       // ← use POSTS directly
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CATEGORIES } from '../constants/feedData';
 import { JOB_STATUS } from '../constants/jobStatus';
 import { useAppliedJobs } from '../context/AppliedJobsContext';
 import { IP_ADDRESS } from '../config';
@@ -21,6 +22,7 @@ import PostCard from '../components/feed/PostCard';
 import AnnouncementSlideshow from '../components/feed/AnnouncementSlideshow';
 import MidAnnouncementCard from '../components/feed/MidAnnouncementCard';
 import i18n from '../locales';
+import { CONFIG } from '../config';
 
 const { width } = Dimensions.get('window');
 
@@ -192,17 +194,74 @@ export default function NewsFeedScreen() {
     };
   }, []);
 
-  // ← use POSTS from feedData, NOT from context
+  const [posts, setPosts] = useState([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+
+  // Fetch posts from backend and map to UI shape
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        // Get token from AsyncStorage
+        const token = await AsyncStorage.getItem('userToken');
+        
+        if (!token) {
+          Alert.alert('Error', 'No authentication token. Please login again.');
+          setLoadingPosts(false);
+          return;
+        }
+
+        const res = await fetch(`${CONFIG.SEEKER_SERVICE_URL}/posts/`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        const data = await res.json();
+        if (!mounted) return;
+        if (data && data.posts) {
+          const mapped = data.posts.map((p) => ({
+            id: p._id,
+            customer: p.user?.name || 'Unknown',
+            location: p.location || '',
+            time: p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '',
+            category: p.category || 'Other',
+            description: p.description || '',
+            budget: p.budget || '',
+            applied: p.applied || 0,
+            views: p.views || 0,
+            urgent: (p.urgency || '').toLowerCase() === 'high',
+            aiMatch: p.aiMatch || null,
+            lang: 'en',
+          }));
+          setPosts(mapped);
+        } else {
+          setPosts([]);
+        }
+      } catch (err) {
+        Alert.alert('Error', `Failed to load posts\n${err.message}`);
+        setPosts([]);
+      } finally {
+        setLoadingPosts(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
   const filteredPosts = useMemo(() =>
-    POSTS.filter((post) => {
+    posts.filter((post) => {
       const matchCat = selectedCategory === 'All' || post.category === selectedCategory;
+      const lowerSearch = search.toLowerCase();
       const matchSearch =
-        post.description.toLowerCase().includes(search.toLowerCase()) ||
-        post.category.toLowerCase().includes(search.toLowerCase()) ||
-        post.location.toLowerCase().includes(search.toLowerCase());
+        (post.description || '').toLowerCase().includes(lowerSearch) ||
+        (post.category || '').toLowerCase().includes(lowerSearch) ||
+        (post.location || '').toLowerCase().includes(lowerSearch);
       return matchCat && matchSearch;
     }),
-    [search, selectedCategory]
+    [search, selectedCategory, posts]
   );
 
   const feedItems = useMemo(() => {

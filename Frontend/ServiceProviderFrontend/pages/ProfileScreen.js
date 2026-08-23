@@ -1,10 +1,11 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import {
-  View, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Dimensions
+  View, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Dimensions, Alert
 } from 'react-native';
 import { Text, FAB, Surface } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient'; // Ensure this is installed
+import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Ensure this is installed
 import { ThemeContext } from '../context/ThemeContext';
 import { usePortfolioUpload } from '../hooks/usePortfolioUpload';
 import AIProcessingModal from '../components/portfolio/AIProcessingModal';
@@ -12,6 +13,9 @@ import PortfolioTagScreen from '../components/portfolio/PortfolioTagScreen';
 import { usePortfolio } from '../context/PortfolioContext';
 import { Colors } from '../theme';
 import ProfileHeader from '../navigation/ProfileHeader';
+import { CONFIG } from '../config';
+import ProviderPostsSection from './Providerpostssection .js';
+
 
 const { width } = Dimensions.get('window');
 
@@ -44,6 +48,79 @@ export default function ProfileScreen({ navigation }) {
     showTagScreen, openGallery, cancelProcessing, resetAll,
   } = usePortfolioUpload();
 
+  // Profile data state
+  const [profile, setProfile] = useState({
+    name: 'Loading...',
+    email: '',
+    telephone: '',
+    category: '',
+    district: '',
+    address: '',
+    bio: 'Loading profile...',
+    gender: '',
+    profileImage: null,
+    isVerified: false,
+    jobs: '0',
+    rating: '4.9★',
+    completion: '98%',
+    earned: '45K',
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Fetch profile data
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        // Get token from AsyncStorage
+        const token = await AsyncStorage.getItem('userToken');
+        
+        if (!token) {
+          Alert.alert('Error', 'No authentication token found. Please login again.');
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(`${CONFIG.AUTH_SERVICE_URL}/profile`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        const data = await res.json();
+        
+        if (data && data.provider) {
+          const p = data.provider;
+          setProfile({
+            name: p.name || 'Unknown',
+            email: p.email || '',
+            telephone: p.telephone || '',
+            category: p.category || 'Not specified',
+            district: p.district || 'Not specified',
+            address: p.address || 'Not specified',
+            bio: p.bio || 'No bio added yet',
+            gender: p.gender || 'Not specified',
+            profileImage: p.profileImage || null,
+            isVerified: p.isVerified || false,
+            jobs: '124', // From hardcoded stats or backend if available
+            rating: '4.9★', // From hardcoded stats or backend if available
+            completion: '98%', // From hardcoded stats or backend if available
+            earned: '45K', // From hardcoded stats or backend if available
+          });
+        }
+      } catch (err) {
+        Alert.alert('Error', `Failed to load profile\n${err.message}`);
+        console.log('Profile fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
   const allTags       = getAllTags();
   const [showAddTooltip, setShowAddTooltip] = React.useState(false);
 
@@ -62,7 +139,7 @@ export default function ProfileScreen({ navigation }) {
   }));
 
   const CATEGORY_COLORS = ['#2563EB', '#7C3AED', '#059669', '#F59E0B', '#DC2626', '#0891B2'];
-
+  
   const handleAddPress = () => {
     setShowAddTooltip(true);
     openGallery();
@@ -90,13 +167,13 @@ export default function ProfileScreen({ navigation }) {
         <View style={[styles.heroCard, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.avatarRing}>
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitials}>KP</Text>
+              <Text style={styles.avatarInitials}>{profile.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}</Text>
             </View>
             <View style={[styles.onlineDot, { borderColor: C.card }]} />
           </View>
 
-          <Text style={[styles.profileName, { color: C.text }]}>Kasun Perera</Text>
-          <Text style={[styles.profileHandle, { color: C.textSub }]}>@kasunperera · Colombo, Sri Lanka</Text>
+          <Text style={[styles.profileName, { color: C.text }]}>{profile.name}</Text>
+          <Text style={[styles.profileHandle, { color: C.textSub }]}>{profile.category} · {profile.district}</Text>
 
           <View style={styles.badgeRow}>
             <View style={styles.goldBadge}>
@@ -116,10 +193,10 @@ export default function ProfileScreen({ navigation }) {
           {/* Stats strip */}
           <View style={[styles.statsStrip, { borderTopColor: C.border }]}>
             {[
-              { val: '124',   lbl: 'Jobs',       icon: 'work',                   color: '#2563EB' },
-              { val: '4.9★', lbl: 'Rating',      icon: 'star',                   color: '#F59E0B' },
-              { val: '98%',  lbl: 'Completion',   icon: 'check-circle',           color: '#16A34A' },
-              { val: '45K',  lbl: 'Earned',       icon: 'account-balance-wallet', color: '#7C3AED' },
+              { val: profile.jobs,       lbl: 'Jobs',       icon: 'work',                   color: '#2563EB' },
+              { val: profile.rating,     lbl: 'Rating',      icon: 'star',                   color: '#F59E0B' },
+              { val: profile.completion, lbl: 'Completion',   icon: 'check-circle',           color: '#16A34A' },
+              { val: profile.earned,     lbl: 'Earned',       icon: 'account-balance-wallet', color: '#7C3AED' },
             ].map((s, i, arr) => (
               <React.Fragment key={i}>
                 <View style={styles.statCell}>
@@ -137,13 +214,9 @@ export default function ProfileScreen({ navigation }) {
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <Text style={[styles.sectionTitle, { color: C.text }]}>About Me</Text>
           <Text style={[styles.bioText, { color: C.textSub }]}>
-            Professional plumber with 8+ years of experience in residential and commercial
-            plumbing. Specialized in emergency repairs, pipe installations, and water supply
-            systems. Serving Colombo and surrounding areas.
+            {profile.bio}
           </Text>
-          <Text style={[styles.bioTextSi, { color: isDark ? '#555' : '#C4C9D4' }]}>
-            වසර 8කට වැඩි පළපුරුද්දක් ඇති වෘත්තීය නළ සේවා ක්‍රියාකරු.
-          </Text>
+    
         </View>
 
         {/* ── Services ── */}
@@ -166,6 +239,7 @@ export default function ProfileScreen({ navigation }) {
             ))}
           </View>
         </View>
+        <ProviderPostsSection navigation={navigation} isDark={isDark} />
 
         {/* ── Skills ── */}
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
