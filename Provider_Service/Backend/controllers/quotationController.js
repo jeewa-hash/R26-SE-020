@@ -182,3 +182,30 @@ export const acceptQuotation = async (req, res) => {
     });
   }
 };
+
+export const getSeekerQuotations = async (req, res) => {
+  try {
+    const seekerId = req.user?.id;
+    if (!seekerId) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid seeker ID",
+      });
+    }
+
+    const quotations = await Quotation.find({ seekerId })
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: quotations.length,
+      data: quotations,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch seeker quotations.",
+      error: error.message,
+    });
+  }
+};
