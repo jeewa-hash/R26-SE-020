@@ -1,14 +1,17 @@
-/**
- * index.js
- * Main Entry Point
- */
-
 import express from "express";
-import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import cors from "cors";
+import dns from "node:dns";
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
+import http from "http";
+import { Server } from "socket.io";
 
-import adRoutes from "./routes/adPostRoute.js";
+import adPostRoutes from "./routes/adPostRoute.js";
+import jobStatusRoutes from "./routes/jobStatusRoute.js";
+import quotationRoutes from "./routes/quotationRoutes.js";
+import { initNotificationSocket } from "./sockets/notificationSocket.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 // ─────────────────────────────────────────────
 // Config
@@ -17,6 +20,14 @@ import adRoutes from "./routes/adPostRoute.js";
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
 
 // ─────────────────────────────────────────────
 // Middleware
@@ -32,22 +43,28 @@ app.use(express.urlencoded({
   extended: true
 }));
 
+// Pass `io` instance to Express app object for controllers
+app.set("io", io);
+
+// Start Socket.io connections
+initNotificationSocket(io);
+
 // ─────────────────────────────────────────────
 // MongoDB Connection
 // ─────────────────────────────────────────────
 
-mongoose.connect(process.env.MONGODB_URI)
-.then(() => {
-
-  console.log("✅ MongoDB Connected Successfully");
-
-})
-.catch((err) => {
-
-  console.error("❌ MongoDB Connection Error:");
-  console.error(err.message);
-
-});
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGODB_URI is not set. Check that .env exists in Provider_Service/Backend and is saved as UTF-8.");
+} else {
+  mongoose.connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("✅ MongoDB Connected Successfully");
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Error:");
+    console.error(err.message);
+  });
+}
 
 // ─────────────────────────────────────────────
 // Root Route
@@ -57,7 +74,7 @@ app.get("/", (req, res) => {
 
   res.status(200).json({
     success: true,
-    message: "AI Advertisement Generator API Running 🚀"
+    message: "Provider Service API Running 🚀"
   });
 
 });
@@ -80,7 +97,10 @@ app.get("/health", (req, res) => {
 // API Routes
 // ─────────────────────────────────────────────
 
-app.use("/api/ad", adRoutes);
+app.use("/api/provider/ads", adPostRoutes); // AI-assisted service post generation (FR-03)
+app.use("/api/provider/jobs", jobStatusRoutes);
+app.use("/api/provider/quotations", quotationRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // ─────────────────────────────────────────────
 // 404 Handler
@@ -122,7 +142,7 @@ app.listen(PORT, () => {
 
   console.log(`
 🚀 ===================================
- AI Advertisement Generator Running
+ Provider Service Running
 ===================================
 🌍 URL   : http://localhost:${PORT}
 📦 PORT  : ${PORT}
