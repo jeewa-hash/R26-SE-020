@@ -44,28 +44,44 @@ const postSchema = new mongoose.Schema(
       required: true,
     },
 
-      location: {
-    address: {
+    location: {
+      address: {
+        type: String,
+        default: "",
+      },
+      district: {
+        type: String,
+        default: "",
+      },
+      city: {
+        type: String,
+        default: "",
+      },
+      lat: {
+        type: Number,
+        default: null,
+      },
+      lng: {
+        type: Number,
+        default: null,
+      },
+    },
+
+    budget: {
       type: String,
       default: "",
     },
-    district: {
-      type: String,
-      default: "",
-    },
-    city: {
-      type: String,
-      default: "",
-    },
-    lat: {
+
+    appliedCount: {
       type: Number,
-      default: null,
+      default: 0,
+      index: true,
     },
-    lng: {
+
+    views: {
       type: Number,
-      default: null,
+      default: 0,
     },
-  },
 
     createdAt: {
       type: Date,
@@ -76,5 +92,8 @@ const postSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+postSchema.index({ createdAt: -1 });
+postSchema.index({ appliedCount: -1, createdAt: -1 });
 
 export default mongoose.model("Post", postSchema);

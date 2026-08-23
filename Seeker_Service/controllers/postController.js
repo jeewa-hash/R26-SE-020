@@ -88,7 +88,11 @@ export const getPosts = async (req, res) => {
 export const getPostById = async (req, res) => {
   try {
 
-    const post = await Post.findById(req.params.id).lean();
+    const post = await Post.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { views: 1 } },
+      { new: true }
+    ).lean();
 
     if (!post) {
       return res.status(404).json({
@@ -253,6 +257,8 @@ export const publishPost = async (req, res) => {
       tags,
       urgency,
       userId,
+      location,
+      budget,
     } = req.body;
 
 
@@ -284,6 +290,8 @@ export const publishPost = async (req, res) => {
       tags,
       urgency,
       userId,
+      location: location || {},
+      budget: budget || "",
     });
 
 
@@ -360,6 +368,14 @@ export const updatePost = async (req, res) => {
 
     if (req.body.image !== undefined) {
       post.image = req.body.image;
+    }
+
+    if (req.body.budget !== undefined) {
+      post.budget = req.body.budget;
+    }
+
+    if (req.body.location !== undefined) {
+      post.location = { ...post.location, ...req.body.location };
     }
 
 
@@ -441,6 +457,65 @@ export const deletePost = async (req, res) => {
   } catch (error) {
 
     console.error("DELETE POST ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+
+// =======================================================
+// 8. APPLY TO POST (INCREMENT appliedCount)
+// =======================================================
+
+export const applyPost = async (req, res) => {
+  try {
+
+    const { id } = req.params;
+    const { providerId, amount } = req.body;
+
+    const post = await Post.findById(id);
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        error: "Post not found",
+      });
+    }
+
+    const incrementAmount = amount && amount > 0 ? Number(amount) : 1;
+
+    const updatedPost = await Post.findByIdAndUpdate(
+      id,
+      { $inc: { appliedCount: incrementAmount } },
+      { new: true }
+    ).lean();
+
+    const user = await getUserById(updatedPost.userId);
+
+    const postResponse = {
+      ...updatedPost,
+
+      user: user
+        ? {
+            _id: user._id,
+            name: user.name,
+          }
+        : null,
+    };
+
+    res.status(200).json({
+      success: true,
+      message: "Applied successfully",
+      post: postResponse,
+      appliedCount: updatedPost.appliedCount,
+    });
+
+  } catch (error) {
+
+    console.error("APPLY POST ERROR:", error);
 
     res.status(500).json({
       success: false,

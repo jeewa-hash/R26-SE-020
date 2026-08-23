@@ -42,11 +42,11 @@ const getCategoryImage = (category) => {
   return images[category] || images.default;
 };
 
-export default function PostCard({ post }) {
+export default function PostCard({ post, onApply, applying }) {
   const { t } = useTranslation();
   const { displayText, handleTranslate, loading, isTranslated, targetLang } =
     useTranslatePost(post.lang);
-  const { applyToJob, isApplied, getJobStatus } = useAppliedJobs();
+  const { isApplied, getJobStatus } = useAppliedJobs();
 
   const applied = isApplied(post.id);
   const statusKey = getJobStatus(post.id);
@@ -56,6 +56,19 @@ export default function PostCard({ post }) {
   const avatarColor = getAvatarColor(post.customer);
   const initials = getInitials(post.customer);
   const categoryImage = getCategoryImage(post.category);
+
+  const urgencyStyles = {
+    low: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Low Priority' },
+    medium: { bg: '#FEF3C7', color: '#B45309', label: 'Medium' },
+    high: { bg: '#FEE2E2', color: '#DC2626', label: '🔥 High Priority' },
+  };
+  const urgency = urgencyStyles[post.urgency] || urgencyStyles.medium;
+
+  const doApply = () => {
+    if (onApply) {
+      onApply(post);
+    }
+  };
 
   return (
     <TouchableOpacity activeOpacity={0.9} style={styles.card}>
@@ -71,9 +84,19 @@ export default function PostCard({ post }) {
         
         {/* Badges */}
         <View style={styles.imageBadges}>
+          <View style={[styles.urgencyBadge, { backgroundColor: urgency.bg }]}>
+            <MaterialIcons
+              name={post.urgency === 'high' ? 'priority-high' : post.urgency === 'low' ? 'low-priority' : 'flag'}
+              size={12}
+              color={urgency.color}
+            />
+            <Text style={[styles.urgencyText, { color: urgency.color }]}>
+              {urgency.label}
+            </Text>
+          </View>
           {post.urgent && (
             <View style={styles.urgentBadge}>
-              <MaterialIcons name="priority-high" size={12} color="#DC2626" />
+              <MaterialIcons name="whatshot" size={12} color="#DC2626" />
               <Text style={styles.urgentText}>URGENT</Text>
             </View>
           )}
@@ -94,6 +117,11 @@ export default function PostCard({ post }) {
 
       {/* Content */}
       <View style={styles.contentContainer}>
+        {/* Post Title */}
+        {post.title ? (
+          <Text style={styles.postTitle}>{displayText(post.title)}</Text>
+        ) : null}
+
         {/* Header with Avatar and Customer Info */}
         <View style={styles.header}>
           <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
@@ -104,7 +132,9 @@ export default function PostCard({ post }) {
             <Text style={styles.customerName}>{post.customer}</Text>
             <View style={styles.locationTime}>
               <MaterialIcons name="location-on" size={12} color="#6B7280" />
-              <Text style={styles.metaText}>{post.location}</Text>
+              <Text style={styles.metaText} numberOfLines={1}>
+                {post.locationCity || post.locationDistrict || post.location || 'Unknown'}
+              </Text>
               <View style={styles.dot} />
               <MaterialIcons name="access-time" size={12} color="#6B7280" />
               <Text style={styles.metaText}>{post.time}</Text>
@@ -112,8 +142,50 @@ export default function PostCard({ post }) {
           </View>
         </View>
 
+        {/* Full Location Details */}
+        {(post.locationAddress || post.locationDistrict || post.locationCity) && (
+          <View style={styles.locationDetails}>
+            {post.locationAddress ? (
+              <View style={styles.locationRow}>
+                <MaterialIcons name="home" size={13} color="#6B7280" />
+                <Text style={styles.locationDetailText} numberOfLines={2}>
+                  {post.locationAddress}
+                </Text>
+              </View>
+            ) : null}
+            {(post.locationDistrict || post.locationCity) && (
+              <View style={styles.locationRow}>
+                <MaterialIcons name="place" size={13} color="#6B7280" />
+                <Text style={styles.locationDetailText}>
+                  {[post.locationDistrict, post.locationCity].filter(Boolean).join(', ')}
+                </Text>
+              </View>
+            )}
+            {(post.locationLat !== null && post.locationLat !== undefined) && (
+              <View style={styles.locationRow}>
+                <MaterialIcons name="my-location" size={13} color="#6B7280" />
+                <Text style={styles.locationDetailText}>
+                  {post.locationLat?.toFixed(4)}, {post.locationLng?.toFixed(4)}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Description */}
         <Text style={styles.description}>{displayText(post.description)}</Text>
+
+        {/* Tags */}
+        {post.tags && post.tags.length > 0 && (
+          <View style={styles.tagsContainer}>
+            {post.tags.slice(0, 6).map((tag, i) => (
+              <View key={`${tag}-${i}`} style={styles.tagChip}>
+                <MaterialIcons name="label" size={10} color="#7C3AED" />
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Translate Button */}
         <TouchableOpacity
@@ -188,18 +260,25 @@ export default function PostCard({ post }) {
           style={[
             styles.applyBtn,
             applied && { backgroundColor: status?.color || '#10B981' },
+            applying && { backgroundColor: '#A78BFA', opacity: 0.9 },
           ]}
-          onPress={() => applyToJob(post)}
-          disabled={applied}
+          onPress={doApply}
+          disabled={applied || applying}
           activeOpacity={applied ? 1 : 0.9}
         >
-          <MaterialIcons
-            name={applied ? 'check-circle' : 'send'}
-            size={18}
-            color="#FFFFFF"
-          />
+          {applying ? (
+            <ActivityIndicator size={18} color="#FFFFFF" />
+          ) : (
+            <MaterialIcons
+              name={applied ? 'check-circle' : 'send'}
+              size={18}
+              color="#FFFFFF"
+            />
+          )}
           <Text style={styles.applyBtnText}>
-            {applied
+            {applying
+              ? 'Applying...'
+              : applied
               ? (isSi ? status?.labelSi : status?.label)
               : t('applyNow')
             }
@@ -287,6 +366,24 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#DC2626',
     letterSpacing: 0.5,
+  },
+  urgencyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  urgencyText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   aiMatchBadge: {
     flexDirection: 'row',
@@ -473,5 +570,54 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  postTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+  locationDetails: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  locationDetailText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#4B5563',
+    lineHeight: 16,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 14,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+  },
+  tagText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6D28D9',
   },
 });

@@ -13,7 +13,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORIES } from '../constants/feedData';
 import { JOB_STATUS } from '../constants/jobStatus';
 import { useAppliedJobs } from '../context/AppliedJobsContext';
@@ -142,11 +141,12 @@ function AppliedJobsView() {
 export default function NewsFeedScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation();
-  const { appliedJobs } = useAppliedJobs(); // ← only what exists in context
+  const { appliedJobs, applyToJob, isApplied } = useAppliedJobs();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showApplied, setShowApplied] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [applyingId, setApplyingId] = useState(null);
 
   // Live real-time notification polling (every 3 seconds)
   useEffect(() => {
@@ -224,13 +224,29 @@ export default function NewsFeedScreen() {
         if (data && data.posts) {
           const mapped = data.posts.map((p) => ({
             id: p._id,
+            _id: p._id,
+            seekerId: p.seekerId,
+            userId: p.userId,
+            title: p.title || '',
             customer: p.user?.name || 'Unknown',
-            location: p.location || '',
+            customerId: p.user?._id || null,
+            image: p.image || '',
+            location: p.location?.city || p.location?.district || p.location?.address || '',
+            locationAddress: p.location?.address || '',
+            locationDistrict: p.location?.district || '',
+            locationCity: p.location?.city || '',
+            locationLat: p.location?.lat || null,
+            locationLng: p.location?.lng || null,
             time: p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '',
+            postedAt: p.createdAt || null,
+            updatedAt: p.updatedAt || null,
             category: p.category || 'Other',
             description: p.description || '',
+            tags: p.tags || [],
+            urgency: p.urgency || 'medium',
             budget: p.budget || '',
-            applied: p.applied || 0,
+            applied: p.appliedCount || 0,
+            appliedCount: p.appliedCount || 0,
             views: p.views || 0,
             urgent: (p.urgency || '').toLowerCase() === 'high',
             aiMatch: p.aiMatch || null,
@@ -274,6 +290,76 @@ export default function NewsFeedScreen() {
     });
     return items;
   }, [filteredPosts]);
+
+  const handleApply = async (post) => {
+    if (applyingId || isApplied(post.id)) return;
+
+    setApplyingId(post.id);
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const providerId = (await AsyncStorage.getItem('userId')) || null;
+
+      let backendUpdated = false;
+      let newAppliedCount = (post.appliedCount || 0) + 1;
+
+      try {
+        const res = await fetch(`${CONFIG.SEEKER_SERVICE_URL}/posts/${post.id}/apply`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            providerId,
+            amount: 1,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          backendUpdated = true;
+          if (data.appliedCount !== undefined) newAppliedCount = data.appliedCount;
+        }
+      } catch (apiErr) {
+        console.warn('Apply API failed, continuing local:', apiErr.message);
+      }
+
+      const contextOk = applyToJob({
+        ...post,
+        appliedCount: newAppliedCount,
+      });
+
+      setPosts((prev) =>
+        prev
+          .map((p) =>
+            p.id === post.id
+              ? { ...p, applied: newAppliedCount, appliedCount: newAppliedCount }
+              : p
+          )
+          .sort((a, b) => {
+            const pa = a.appliedCount || 0;
+            const pb = b.appliedCount || 0;
+            if (pb !== pa) return pb - pa;
+            const ta = a.postedAt ? new Date(a.postedAt).getTime() : 0;
+            const tb = b.postedAt ? new Date(b.postedAt).getTime() : 0;
+            return tb - ta;
+          })
+      );
+
+      if (contextOk) {
+        Alert.alert(
+          'Application Sent!',
+          backendUpdated
+            ? `Your application has been submitted. This job now has ${newAppliedCount} applicants.`
+            : `Your application was saved locally (offline mode). It has ${newAppliedCount} applicants.`,
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (err) {
+      Alert.alert('Error', `Failed to apply: ${err.message}`);
+    } finally {
+      setApplyingId(null);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -418,7 +504,14 @@ export default function NewsFeedScreen() {
               {feedItems.length > 0 ? (
                 feedItems.map((item, index) =>
                   item.type === 'post'
-                    ? <PostCard key={item.data.id} post={item.data} />
+                    ? (
+                      <PostCard
+                        key={item.data.id}
+                        post={item.data}
+                        onApply={handleApply}
+                        applying={applyingId === item.data.id}
+                      />
+                    )
                     : <MidAnnouncementCard key={`mid_${index}`} />
                 )
               ) : (
