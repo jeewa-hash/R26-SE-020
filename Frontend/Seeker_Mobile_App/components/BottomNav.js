@@ -30,10 +30,10 @@ const BottomNav = () => {
       onPress: () => navigation.navigate('CreatePostScreen'),
     },
     {
-      id: 'Bidding',
-      label: 'Bidding',
-      icon: 'gavel',
-      onPress: () => navigation.navigate('BiddingScreen'),
+      id: 'Bookings',
+      label: 'Bookings',
+      icon: 'calendar-today',
+      onPress: () => navigation.navigate('BookingsScreen'),
     },
     {
       id: 'Profile',
@@ -47,7 +47,7 @@ const BottomNav = () => {
     if (itemId === 'Home' && route.name === 'HomeScreen') return true;
     if (itemId === 'Feed' && route.name === 'FeedScreen') return true;
     if (itemId === 'Create' && route.name === 'CreatePostScreen') return true;
-    if (itemId === 'Bidding' && route.name === 'BiddingScreen') return true;
+    if (itemId === 'Bookings' && route.name === 'BookingsScreen') return true;
     if (itemId === 'Profile' && route.name === 'ProfileScreen') return true;
     return false;
   };

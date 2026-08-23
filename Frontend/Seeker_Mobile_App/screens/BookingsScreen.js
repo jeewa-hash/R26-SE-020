@@ -13,6 +13,7 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -204,12 +205,14 @@ export default function BookingsScreen({ navigation }) {
       if (normalized.startsWith('http')) return normalized;
       return `http://${IP_ADDRESS}:5000/${normalized}`;
     }
-    // Fallback avatar based on providerId
     const hash = providerId ? parseInt(providerId.slice(-2), 16) || 1 : 1;
     return `https://i.pravatar.cc/150?img=${hash % 70 + 1}`;
   };
 
-  // Navigation handlers
+  // ==========================================================
+  // NAVIGATION HANDLERS (FIXED)
+  // ==========================================================
+
   const handleMessage = (booking) => {
     navigation.navigate('ChatScreen', {
       providerId: booking.providerId,
@@ -222,8 +225,38 @@ export default function BookingsScreen({ navigation }) {
     navigation.navigate('RescheduleScreen', { booking });
   };
 
+  // 🔥 FIXED: Navigate to ProviderProfile (not ProviderProfileScreen)
   const handleViewDetails = (booking) => {
-    navigation.navigate('BookingDetailScreen', { booking });
+    const provider = getProvider(booking.providerId);
+    if (!provider) {
+      Alert.alert('Error', 'Provider information not found.');
+      return;
+    }
+
+    // Build providerItem exactly like ProvidersScreen does
+    const providerItem = {
+      provider: provider,
+      portfolio: provider.portfolio || {},
+      match: {
+        category_match: true,
+        district_match: true,
+        priority: 'HIGH',
+      },
+    };
+
+    navigation.navigate('ProviderProfile', {
+      providerItem: providerItem,
+      finalDecision: null, // no summary available here
+    });
+  };
+
+  // Navigate to quotations for this request
+  const handleViewQuotes = (booking) => {
+    navigation.navigate('RequestQuotationDetails', {
+      requestId: booking._id,
+      request: booking,
+      providerId: booking.providerId,
+    });
   };
 
   // Loading state
@@ -364,20 +397,30 @@ export default function BookingsScreen({ navigation }) {
                     </View>
                   </View>
 
+                  {/* Action Buttons */}
                   <View style={styles.actionButtons}>
                     <TouchableOpacity
-                      style={styles.messageBtn}
+                      style={[styles.actionBtn, styles.messageBtn]}
                       onPress={() => handleMessage(booking)}
                     >
                       <Ionicons name="chatbubble-outline" size={18} color="#667eea" />
                       <Text style={styles.messageBtnText}>Message</Text>
                     </TouchableOpacity>
+
                     <TouchableOpacity
-                      style={styles.rescheduleBtn}
+                      style={[styles.actionBtn, styles.rescheduleBtn]}
                       onPress={() => handleReschedule(booking)}
                     >
                       <Ionicons name="calendar-outline" size={18} color="#fff" />
                       <Text style={styles.rescheduleBtnText}>Reschedule</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.viewQuoteBtn]}
+                      onPress={() => handleViewQuotes(booking)}
+                    >
+                      <Ionicons name="document-text-outline" size={18} color="#8B5CF6" />
+                      <Text style={styles.viewQuoteBtnText}>View Quote</Text>
                     </TouchableOpacity>
                   </View>
                 </LinearGradient>
@@ -534,38 +577,43 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
+    gap: 8,
+    marginTop: 12,
   },
-  messageBtn: {
+  actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
     paddingVertical: 10,
     borderRadius: 12,
+    gap: 5,
+  },
+  messageBtn: {
     backgroundColor: '#F3F4F6',
   },
   messageBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#667eea',
   },
   rescheduleBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 12,
     backgroundColor: '#667eea',
   },
   rescheduleBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '600',
     color: '#fff',
+  },
+  viewQuoteBtn: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#8B5CF6',
+  },
+  viewQuoteBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8B5CF6',
   },
   loadingContainer: {
     flex: 1,

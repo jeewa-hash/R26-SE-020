@@ -82,68 +82,73 @@ export default function FeedScreen({ navigation }) {
   };
 
   // ======================================================
-  // GET USER NAME FROM POST
+  // GET USER NAME FROM POST (FIXED)
   // ======================================================
   const getPostUserName = (post, loggedInUser) => {
-    /*
-     * We check the possible locations where your backend
-     * might return the user's name.
-     */
+    // Helper to reject placeholder names and empty strings
+    const isValidName = (name) => {
+      if (!name || typeof name !== 'string') return false;
+      const trimmed = name.trim();
+      if (trimmed === '') return false;
+      // Add any placeholder values your backend might return
+      const placeholders = ['Test Seeker', 'Customer', 'Unknown', 'Anonymous'];
+      return !placeholders.includes(trimmed);
+    };
 
     // 1. post.user.name
     if (
       post.user &&
       typeof post.user === 'object' &&
-      post.user.name
+      isValidName(post.user.name)
     ) {
-      return post.user.name;
+      return post.user.name.trim();
     }
 
     // 2. post.user.fullName
     if (
       post.user &&
       typeof post.user === 'object' &&
-      post.user.fullName
+      isValidName(post.user.fullName)
     ) {
-      return post.user.fullName;
+      return post.user.fullName.trim();
     }
 
     // 3. post.userName
     if (
       typeof post.userName === 'string' &&
-      post.userName.trim() !== ''
+      isValidName(post.userName)
     ) {
-      return post.userName;
+      return post.userName.trim();
     }
 
     // 4. post.name
     if (
       typeof post.name === 'string' &&
-      post.name.trim() !== ''
+      isValidName(post.name)
     ) {
-      return post.name;
+      return post.name.trim();
     }
 
     // 5. post.createdBy.name
     if (
       post.createdBy &&
       typeof post.createdBy === 'object' &&
-      post.createdBy.name
+      isValidName(post.createdBy.name)
     ) {
-      return post.createdBy.name;
+      return post.createdBy.name.trim();
     }
 
     // 6. post.seeker.name
     if (
       post.seeker &&
       typeof post.seeker === 'object' &&
-      post.seeker.name
+      isValidName(post.seeker.name)
     ) {
-      return post.seeker.name;
+      return post.seeker.name.trim();
     }
 
     // 7. If this post belongs to the currently logged-in user,
-    // use the logged-in user's name.
+    // use the logged-in user's name (even if it's a placeholder in the DB)
     if (loggedInUser) {
       const loggedInUserId =
         loggedInUser._id ||
@@ -164,18 +169,18 @@ export default function FeedScreen({ navigation }) {
         postUserId &&
         String(loggedInUserId) === String(postUserId)
       ) {
-        return (
-          loggedInUser.name ||
+        // Use the logged-in user's name from storage (should be correct)
+        const localName = loggedInUser.name ||
           loggedInUser.fullName ||
           loggedInUser.userName ||
-          loggedInUser.username ||
-          'Unknown User'
-        );
+          loggedInUser.username;
+        if (isValidName(localName)) {
+          return localName.trim();
+        }
       }
     }
 
-    // IMPORTANT:
-    // Do NOT use "Customer" or "Test Seeker" here.
+    // 8. Final fallback
     return 'Unknown User';
   };
 

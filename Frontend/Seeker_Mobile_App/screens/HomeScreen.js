@@ -14,12 +14,15 @@ import { getSlideshowData } from '../data/seasonalData';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '../context/AuthContext';
+import { IP_ADDRESS } from '../config'; // ✅ ADDED
 
-// Safe check for Legacy Architecture on Android to avoid New Architecture warnings
+const API_URL = `http://${IP_ADDRESS}:4003/seeker`; // ✅ ADDED
+
+// Safe check for Legacy Architecture on Android
 if (
   Platform.OS === 'android' && 
   UIManager.setLayoutAnimationEnabledExperimental &&
-  !global.nativeFabricUIManager // Prevents running in New Architecture
+  !global.nativeFabricUIManager
 ) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -257,13 +260,30 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // ✅ Fetch real unread notification count
   const fetchUnreadCount = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      if (!token) return;
-      setUnreadCount(3);
+      if (!token) {
+        setUnreadCount(0);
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const notifications = Array.isArray(data) ? data : (data.data || []);
+        const unread = notifications.filter((n) => !n.isRead).length;
+        setUnreadCount(unread);
+      } else {
+        setUnreadCount(0);
+      }
     } catch (err) {
       console.log('Error fetching notifications count:', err);
+      setUnreadCount(0);
     }
   }, []);
 
@@ -303,105 +323,134 @@ export default function HomeScreen() {
   };
 
   const handleSearch = async () => {
-    if (searchQuery.trim().length > 0) {
-      try {
-        const appLanguage = language === 'si' ? 'si' : 'en';
-        const res = await fetch("http://10.0.2.2:5002/text-predict", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: searchQuery, app_lan: appLanguage }),
-        });
-        const data = await res.json();
+    if (searchQuery.trim().length === 0) return;
 
-        navigation.navigate("FollowUpScreen", {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      console.log('🔑 Token for text search:', token);
+
+      if (!token) {
+        Alert.alert('Error', 'You are not logged in. Please log in again.');
+        return;
+      }
+
+      const appLanguage = language === 'si' ? 'si' : 'en';
+
+      const url = `http://10.0.2.2:5002/text-predict`;
+      console.log('🌐 URL:', url);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          text: searchQuery,
+          app_lan: appLanguage,
+        }),
+      });
+
+      console.log('📡 Response status:', response.status);
+
+      if (response.status === 401) {
+        Alert.alert('Session Expired', 'Please log in again.');
+        return;
+      }
+
+      const data = await response.json();
+      console.log('📦 Response data:', data);
+
+      if (data.session_id) {
+        navigation.navigate('FollowUpScreen', {
           initialMessage: searchQuery,
           backendResponse: data,
+          source: 'text',
         });
-      } catch (err) {
-        console.error("Error calling backend:", err);
+      } else {
+        Alert.alert('Error', data.error || 'Unable to process your request.');
       }
+    } catch (error) {
+      console.error('Search error:', error);
+      Alert.alert('Network Error', 'Could not connect to the service.');
     }
   };
-const handleImageUpload = async () => {
-  try {
-    // 1. Get the token from storage
-    const token = await AsyncStorage.getItem('userToken');
-    if (!token) {
-      Alert.alert('Error', 'You are not logged in. Please log in again.');
-      return;
-    }
 
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(t('common_error'), t('home_permission_gallery'));
-      return;
-    }
+  const handleImageUpload = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        Alert.alert('Error', 'You are not logged in. Please log in again.');
+        return;
+      }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(t('common_error'), t('home_permission_gallery'));
+        return;
+      }
 
-    if (result.canceled) return;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
 
-    const imageUri = result.assets[0].uri;
-    const formData = new FormData();
+      if (result.canceled) return;
 
-    formData.append('file', {
-      uri: imageUri,
-      type: 'image/jpeg',
-      name: 'photo.jpg',
-    });
-    formData.append('app_lan', language === 'si' ? 'si' : 'en');
+      const imageUri = result.assets[0].uri;
+      const formData = new FormData();
 
-    // 2. Add the Authorization header
-    const response = await fetch('http://10.0.2.2:8000/predict', {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${token}`,   // <-- CRUCIAL
-        // DO NOT set 'Content-Type' manually; fetch will add the correct boundary for FormData
-      },
-    });
+      formData.append('file', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'photo.jpg',
+      });
+      formData.append('app_lan', language === 'si' ? 'si' : 'en');
 
-    // 3. Check response status
-    if (response.status === 401) {
-      Alert.alert('Session Expired', 'Please log in again.');
-      // Optionally navigate to Login screen
-      return;
-    }
+      const response = await fetch('http://10.0.2.2:8000/predict', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
-    const data = await response.json();
+      if (response.status === 401) {
+        Alert.alert('Session Expired', 'Please log in again.');
+        return;
+      }
 
-    if (data.session_id) {
-      Alert.alert(
-        t('home_detection_result'),
-        `${data.agent_speech}`,
-        [
-          {
-            text: t('common_ok'),
-            onPress: () => {
-              navigation.navigate('FollowUpScreen', {
-                session_id: data.session_id,
-                initialQuestion: data.next_question,
-                category: data.category,
-                source: 'image',
-              });
+      const data = await response.json();
+
+      if (data.session_id) {
+        Alert.alert(
+          t('home_detection_result'),
+          `${data.agent_speech}`,
+          [
+            {
+              text: t('common_ok'),
+              onPress: () => {
+                navigation.navigate('FollowUpScreen', {
+                  session_id: data.session_id,
+                  initialQuestion: data.next_question,
+                  category: data.category,
+                  source: 'image',
+                });
+              }
             }
-          }
-        ]
-      );
-    } else {
-      Alert.alert(t('common_error'), t('home_no_object_detected'));
+          ]
+        );
+      } else {
+        Alert.alert(t('common_error'), t('home_no_object_detected'));
+      }
+    } catch (error) {
+      console.log('UPLOAD ERROR:', error);
+      Alert.alert(t('common_error'), 'Server connection failed. Please check if the backend is running.');
     }
+  };
 
-  } catch (error) {
-    console.log('UPLOAD ERROR:', error);
-    Alert.alert(t('common_error'), 'Server connection failed. Please check if the backend is running.');
-  }
-};
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#667eea" />
@@ -412,7 +461,7 @@ const handleImageUpload = async () => {
       >
         {/* Header with Gradient */}
         <LinearGradient
-          colors={['#667eea', '#764ba2', '#f093fb']}
+          colors={['#4765eb', '#926ee7', '#9d6aa3']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
@@ -506,8 +555,8 @@ const handleImageUpload = async () => {
           )}
         </View>
 
-        {/* Bidding Banner */}
-        <TouchableOpacity onPress={handleStartBidding} activeOpacity={0.9}>
+        {/* Unlock New Feature Banner */}
+        <TouchableOpacity onPress={() => toggleExpand(1)} activeOpacity={0.9}>
           <LinearGradient
             colors={['#FF6B6B', '#FF8E53']}
             start={{ x: 0, y: 0 }}
@@ -516,14 +565,14 @@ const handleImageUpload = async () => {
           >
             <View style={styles.biddingContent}>
               <View style={styles.biddingIconContainer}>
-                <MaterialIcons name="gavel" size={32} color="#fff" />
+                <MaterialIcons name="image-search" size={32} color="#fff" />
               </View>
               <View style={styles.biddingTextContainer}>
-                <Text style={styles.biddingTitle}>Start Bidding Now</Text>
-                <Text style={styles.biddingSubtitle}>Get the best price for your service</Text>
+                <Text style={styles.biddingTitle}>🔓 Unlock New Feature</Text>
+                <Text style={styles.biddingSubtitle}>Search repairs by uploading a photo</Text>
               </View>
               <View style={styles.biddingArrow}>
-                <Feather name="arrow-right" size={24} color="#fff" />
+                <Feather name={expandedId === 1 ? 'chevron-up' : 'chevron-down'} size={24} color="#fff" />
               </View>
             </View>
           </LinearGradient>

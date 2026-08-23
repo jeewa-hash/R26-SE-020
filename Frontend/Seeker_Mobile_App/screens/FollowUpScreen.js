@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LanguageContext } from "../context/LanguageContext";
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get("window");
 
@@ -80,19 +81,31 @@ export default function FollowUpScreen({ route, navigation }) {
         // TEXT FLOW
         // =================================================
 
-        const res = await fetch(
-          "http://10.0.2.2:5002/text-predict",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              text: initialMessage,
-              app_lan: language === "si" ? "si" : "en",
-            }),
-          }
-        );
+     // =================================================
+// TEXT FLOW – with token
+// =================================================
+
+const token = await AsyncStorage.getItem('userToken');
+if (!token) {
+  Alert.alert('Error', 'You are not logged in.');
+  setLoading(false);
+  return;
+}
+
+const res = await fetch(
+  "http://10.0.2.2:5002/text-predict",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,   // ← added
+    },
+    body: JSON.stringify({
+      text: initialMessage,
+      app_lan: language === "si" ? "si" : "en",
+    }),
+  }
+);
 
         const data = await res.json();
 
@@ -369,18 +382,27 @@ export default function FollowUpScreen({ route, navigation }) {
       // SELECT ENDPOINT
       // =================================================
 
-      const endpoint =
-        source === "image"
-          ? "http://10.0.2.2:8000/flow/next"
-          : "http://10.0.2.2:5002/text-chat";
+     // ✅ Get token
+const token = await AsyncStorage.getItem('userToken');
+if (!token) {
+  Alert.alert('Error', 'You are not logged in.');
+  setLoading(false);
+  return;
+}
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+const endpoint =
+  source === "image"
+    ? "http://10.0.2.2:8000/flow/next"
+    : "http://10.0.2.2:5002/text-chat";
+
+const response = await fetch(endpoint, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`,   // ← added
+  },
+  body: JSON.stringify(payload),
+});
 
       // =================================================
       // RESPONSE
