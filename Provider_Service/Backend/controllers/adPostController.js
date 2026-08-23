@@ -135,10 +135,18 @@ export const regeneratePost = async (req, res) => {
   }
 };
 
-// ── GET /api/ad/provider/:providerId ────────────────────────────────────
+// ── GET /api/provider/ads/provider ─────────────────────────────────────
 export const listPostsByProvider = async (req, res) => {
   try {
-    const posts = await AdPost.find({ providerId: req.params.providerId }).sort({
+    const providerId = req.user?.id;
+    if (!providerId) {
+      return res.status(401).json({
+        success: false,
+        message: "Provider authentication required.",
+      });
+    }
+
+    const posts = await AdPost.find({ providerId }).sort({
       createdAt: -1,
     });
     res.json({ success: true, count: posts.length, data: posts });
