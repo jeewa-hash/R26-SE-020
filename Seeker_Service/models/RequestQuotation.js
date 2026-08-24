@@ -80,6 +80,34 @@ const requestQuotationSchema = new mongoose.Schema(
       trim: true,
     },
 
+    preferredStartTime: { // Chaw - Added seeker preferred start time for the job
+      type: Date,
+      default: null,
+    },
+
+    preferredEndTime: { // Chaw - Added seeker preferred end time/window for the job
+      type: Date,
+      default: null,
+    },
+
+    preferredTimeLabel: { // Chaw - Added readable time preference like "Tomorrow morning" or "Within 24 hours"
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    seekerEstimatedDurationHours: { // Chaw - Added optional seeker-estimated duration for comparison with provider and ML estimates
+      type: Number,
+      default: null,
+      min: 0.25,
+    },
+
+    seekerBudgetAmount: { // Chaw - Added optional seeker budget for guided bidding and price comparison
+      type: Number,
+      default: null,
+      min: 0,
+    },
+
     status: {
       type: String,
       enum: ["pending", "confirmed", "cancelled"],
