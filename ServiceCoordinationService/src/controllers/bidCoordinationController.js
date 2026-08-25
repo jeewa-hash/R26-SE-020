@@ -13,6 +13,8 @@ import {
 import { evaluateBidPrice } from "../services/pricingService.js";
 import { evaluateBidSchedule } from "../services/scheduleEvaluationService.js";
 import { decideBidCoordination } from "../services/bidDecisionService.js";
+import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
+import { generateSuggestedSlots } from "../services/suggestedSlotService.js";
 
 export const checkBidCoordination = async (req, res) => {
   try {
@@ -167,6 +169,32 @@ export const checkBidCoordination = async (req, res) => {
       }
     ); // Chaw: save schedule evaluation separately
 
+    let suggestedSlots = [];
+
+    await BidSuggestedSlot.deleteMany({
+    bidCoordinationId: coordination._id,
+    }); // Chaw: clear old suggestions before regenerating
+
+    if (decisionData.finalDecision === "RESCHEDULE_REQUIRED") {
+    const generatedSlots = await generateSuggestedSlots({
+        providerId: providerQuotation.providerId,
+        originalStartTime: scheduleEvaluationData.requiredWindowStart,
+        finalSchedulingDurationHours:
+        scheduleEvaluationData.finalSchedulingDurationHours,
+        bufferMinutes: scheduleEvaluationData.bufferMinutes,
+        maxSuggestions: 3,
+    }); // Chaw: generate alternative available time slots
+
+    if (generatedSlots.length > 0) {
+        suggestedSlots = await BidSuggestedSlot.insertMany(
+        generatedSlots.map((slot) => ({
+            bidCoordinationId: coordination._id,
+            ...slot,
+        }))
+        ); // Chaw: save suggested slots for seeker review
+    }
+    }
+
     let providerQuotationUpdate = null;
     let providerQuotationUpdateWarning = null;
 
@@ -187,6 +215,7 @@ export const checkBidCoordination = async (req, res) => {
         coordination,
         priceEvaluation,
         scheduleEvaluation,
+        suggestedSlots,
         providerQuotationUpdate,
         providerQuotationUpdateWarning,
       },
