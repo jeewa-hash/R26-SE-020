@@ -20,11 +20,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
 import BottomNav from '../components/BottomNav';
+import { useTheme } from '../hooks/useTheme';
 
 const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
 
 export default function BookingsScreen({ navigation }) {
+  const { isDarkMode } = useTheme();
   const [bookings, setBookings] = useState([]);
   const [providersMap, setProvidersMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -169,13 +171,33 @@ export default function BookingsScreen({ navigation }) {
   const getStatusStyle = (status) => {
     switch (status) {
       case 'confirmed':
-        return { bg: '#D1FAE5', color: '#10B981', icon: 'checkmark-circle', text: 'Confirmed' };
+        return {
+          bg: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5',
+          color: '#10B981',
+          icon: 'checkmark-circle',
+          text: 'Confirmed',
+        };
       case 'pending':
-        return { bg: '#FEF3C7', color: '#F59E0B', icon: 'time-outline', text: 'Pending' };
+        return {
+          bg: isDarkMode ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7',
+          color: '#F59E0B',
+          icon: 'time-outline',
+          text: 'Pending',
+        };
       case 'cancelled':
-        return { bg: '#FEE2E2', color: '#EF4444', icon: 'close-circle', text: 'Cancelled' };
+        return {
+          bg: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2',
+          color: '#EF4444',
+          icon: 'close-circle',
+          text: 'Cancelled',
+        };
       default:
-        return { bg: '#F3F4F6', color: '#6B7280', icon: 'help-circle-outline', text: status };
+        return {
+          bg: isDarkMode ? '#242f4d' : '#F3F4F6',
+          color: isDarkMode ? '#94A3B8' : '#6B7280',
+          icon: 'help-circle-outline',
+          text: status,
+        };
     }
   };
 
@@ -206,7 +228,7 @@ export default function BookingsScreen({ navigation }) {
       return `http://${IP_ADDRESS}:5000/${normalized}`;
     }
     const hash = providerId ? parseInt(providerId.slice(-2), 16) || 1 : 1;
-    return `https://i.pravatar.cc/150?img=${hash % 70 + 1}`;
+    return `https://i.pravatar.cc/150?img=${(hash % 70) + 1}`;
   };
 
   // ==========================================================
@@ -262,73 +284,101 @@ export default function BookingsScreen({ navigation }) {
   // Loading state
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+      <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        />
         <LinearGradient
-          colors={['#667eea', '#764ba2']}
+          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.header}
         >
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={[styles.backButton, isDarkMode && styles.headerButtonDark]}
+          >
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Bookings</Text>
-          <TouchableOpacity style={styles.filterButton}>
+          <TouchableOpacity style={[styles.filterButton, isDarkMode && styles.headerButtonDark]}>
             <Ionicons name="options-outline" size={22} color="#fff" />
           </TouchableOpacity>
         </LinearGradient>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#667eea" />
-          <Text style={styles.loadingText}>Loading your bookings...</Text>
+          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#667eea'} />
+          <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
+            Loading your bookings...
+          </Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+      />
 
       {/* Header */}
       <LinearGradient
-        colors={['#667eea', '#764ba2']}
+        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={[styles.backButton, isDarkMode && styles.headerButtonDark]}
+        >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Bookings</Text>
-        <TouchableOpacity style={styles.filterButton}>
+        <TouchableOpacity style={[styles.filterButton, isDarkMode && styles.headerButtonDark]}>
           <Ionicons name="options-outline" size={22} color="#fff" />
         </TouchableOpacity>
       </LinearGradient>
 
       {/* Stats Cards */}
-      <View style={styles.statsContainer}>
+      <View style={[styles.statsContainer, isDarkMode && styles.statsContainerDark]}>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{totalBookings}</Text>
-          <Text style={styles.statLabel}>Total Bookings</Text>
+          <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>
+            {totalBookings}
+          </Text>
+          <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
+            Total Bookings
+          </Text>
         </View>
-        <View style={styles.statDivider} />
+        <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{completedBookings}</Text>
-          <Text style={styles.statLabel}>Completed</Text>
+          <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>
+            {completedBookings}
+          </Text>
+          <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
+            Completed
+          </Text>
         </View>
-        <View style={styles.statDivider} />
+        <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{upcomingBookings}</Text>
-          <Text style={styles.statLabel}>Upcoming</Text>
+          <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>
+            {upcomingBookings}
+          </Text>
+          <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
+            Upcoming
+          </Text>
         </View>
       </View>
 
       {/* Section Title */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Recent Requests</Text>
+        <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
+          Recent Requests
+        </Text>
         <TouchableOpacity onPress={onRefresh}>
-          <Ionicons name="refresh-outline" size={22} color="#667eea" />
+          <Ionicons name="refresh-outline" size={22} color={isDarkMode ? '#818cf8' : '#667eea'} />
         </TouchableOpacity>
       </View>
 
@@ -337,22 +387,32 @@ export default function BookingsScreen({ navigation }) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[isDarkMode ? '#818cf8' : '#667eea']}
+          />
         }
       >
         {error ? (
           <View style={styles.errorContainer}>
             <Ionicons name="alert-circle-outline" size={40} color="#EF4444" />
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={[styles.errorText, isDarkMode && styles.textMutedDark]}>{error}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
         ) : bookings.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="calendar-outline" size={60} color="#D1D5DB" />
-            <Text style={styles.emptyTitle}>No bookings yet</Text>
-            <Text style={styles.emptyText}>
+            <Ionicons
+              name="calendar-outline"
+              size={60}
+              color={isDarkMode ? '#475569' : '#D1D5DB'}
+            />
+            <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
+              No bookings yet
+            </Text>
+            <Text style={[styles.emptyText, isDarkMode && styles.textMutedDark]}>
               Your bookings will appear here once you request a service.
             </Text>
           </View>
@@ -368,47 +428,89 @@ export default function BookingsScreen({ navigation }) {
             return (
               <TouchableOpacity
                 key={booking._id}
-                style={styles.bookingCard}
+                style={[styles.bookingCard, isDarkMode && styles.bookingCardDark]}
                 activeOpacity={0.9}
                 onPress={() => handleViewDetails(booking)}
               >
                 <LinearGradient
-                  colors={['#ffffff', '#f8f9fa']}
+                  colors={isDarkMode ? ['#16213e', '#1a2238'] : ['#ffffff', '#f8f9fa']}
                   style={styles.cardGradient}
                 >
                   <View style={styles.cardHeader}>
-                    <Image source={{ uri: providerImage }} style={styles.bookingImage} />
+                    <Image
+                      source={{ uri: providerImage }}
+                      style={[styles.bookingImage, isDarkMode && styles.bookingImageDark]}
+                    />
                     <View style={styles.bookingInfo}>
-                      <Text style={styles.bookingTitle}>{title}</Text>
-                      <View style={styles.providerRow}>
-                        <Ionicons name="person-outline" size={14} color="#6B7280" />
-                        <Text style={styles.bookingProvider}>{providerName}</Text>
-                      </View>
-                      <View style={styles.providerRow}>
-                        <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                        <Text style={styles.bookingProvider}>{date} at {time}</Text>
-                      </View>
-                    </View>
-                    <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
-                      <Ionicons name={status.icon} size={14} color={status.color} />
-                      <Text style={[styles.statusText, { color: status.color }]}>
-                        {status.text}
+                      <Text style={[styles.bookingTitle, isDarkMode && styles.textDark]}>
+                        {title}
                       </Text>
+                      <View style={styles.providerRow}>
+                        <Ionicons
+                          name="person-outline"
+                          size={14}
+                          color={isDarkMode ? '#94A3B8' : '#6B7280'}
+                        />
+                        <Text
+                          style={[styles.bookingProvider, isDarkMode && styles.textMutedDark]}
+                        >
+                          {providerName}
+                        </Text>
+                      </View>
+                      <View style={styles.providerRow}>
+                        <Ionicons
+                          name="calendar-outline"
+                          size={14}
+                          color={isDarkMode ? '#94A3B8' : '#6B7280'}
+                        />
+                        <Text
+                          style={[styles.bookingProvider, isDarkMode && styles.textMutedDark]}
+                        >
+                          {date} at {time}
+                        </Text>
+                      </View>
                     </View>
+                    {booking.status?.toLowerCase() !== 'pending' && (
+                      <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
+                        <Ionicons name={status.icon} size={14} color={status.color} />
+                        <Text style={[styles.statusText, { color: status.color }]}>
+                          {status.text}
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
                   {/* Action Buttons */}
                   <View style={styles.actionButtons}>
                     <TouchableOpacity
-                      style={[styles.actionBtn, styles.messageBtn]}
+                      style={[
+                        styles.actionBtn,
+                        styles.messageBtn,
+                        isDarkMode && styles.messageBtnDark,
+                      ]}
                       onPress={() => handleMessage(booking)}
                     >
-                      <Ionicons name="chatbubble-outline" size={18} color="#667eea" />
-                      <Text style={styles.messageBtnText}>Message</Text>
+                      <Ionicons
+                        name="chatbubble-outline"
+                        size={18}
+                        color={isDarkMode ? '#818cf8' : '#667eea'}
+                      />
+                      <Text
+                        style={[
+                          styles.messageBtnText,
+                          isDarkMode && styles.messageBtnTextDark,
+                        ]}
+                      >
+                        Message
+                      </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.actionBtn, styles.rescheduleBtn]}
+                      style={[
+                        styles.actionBtn,
+                        styles.rescheduleBtn,
+                        isDarkMode && styles.rescheduleBtnDark,
+                      ]}
                       onPress={() => handleReschedule(booking)}
                     >
                       <Ionicons name="calendar-outline" size={18} color="#fff" />
@@ -416,11 +518,26 @@ export default function BookingsScreen({ navigation }) {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.actionBtn, styles.viewQuoteBtn]}
+                      style={[
+                        styles.actionBtn,
+                        styles.viewQuoteBtn,
+                        isDarkMode && styles.viewQuoteBtnDark,
+                      ]}
                       onPress={() => handleViewQuotes(booking)}
                     >
-                      <Ionicons name="document-text-outline" size={18} color="#8B5CF6" />
-                      <Text style={styles.viewQuoteBtnText}>View Quote</Text>
+                      <Ionicons
+                        name="document-text-outline"
+                        size={18}
+                        color={isDarkMode ? '#a78bfa' : '#8B5CF6'}
+                      />
+                      <Text
+                        style={[
+                          styles.viewQuoteBtnText,
+                          isDarkMode && styles.viewQuoteBtnTextDark,
+                        ]}
+                      >
+                        View Quote
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </LinearGradient>
@@ -440,6 +557,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
+  containerDark: {
+    backgroundColor: '#1a1a2e',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -456,11 +576,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-  },
   filterButton: {
     width: 40,
     height: 40,
@@ -468,6 +583,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff20',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerButtonDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -482,6 +605,13 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 3,
   },
+  statsContainerDark: {
+    backgroundColor: '#16213e',
+    borderColor: '#2d3561',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+  },
   statCard: {
     flex: 1,
     alignItems: 'center',
@@ -492,13 +622,22 @@ const styles = StyleSheet.create({
     color: '#667eea',
     marginBottom: 4,
   },
+  statNumberDark: {
+    color: '#818cf8',
+  },
   statLabel: {
     fontSize: 12,
     color: '#6B7280',
   },
+  statLabelDark: {
+    color: '#94A3B8',
+  },
   statDivider: {
     width: 1,
     backgroundColor: '#E5E7EB',
+  },
+  statDividerDark: {
+    backgroundColor: '#2d3561',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -527,6 +666,12 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
+  bookingCardDark: {
+    borderColor: '#2d3561',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+  },
   cardGradient: {
     padding: 16,
     borderRadius: 20,
@@ -542,6 +687,9 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderWidth: 2,
     borderColor: '#667eea',
+  },
+  bookingImageDark: {
+    borderColor: '#818cf8',
   },
   bookingInfo: {
     flex: 1,
@@ -592,13 +740,22 @@ const styles = StyleSheet.create({
   messageBtn: {
     backgroundColor: '#F3F4F6',
   },
+  messageBtnDark: {
+    backgroundColor: '#242f4d',
+  },
   messageBtnText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#667eea',
   },
+  messageBtnTextDark: {
+    color: '#818cf8',
+  },
   rescheduleBtn: {
     backgroundColor: '#667eea',
+  },
+  rescheduleBtnDark: {
+    backgroundColor: '#4f46e5',
   },
   rescheduleBtnText: {
     fontSize: 12,
@@ -610,10 +767,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#8B5CF6',
   },
+  viewQuoteBtnDark: {
+    backgroundColor: '#242f4d',
+    borderColor: '#8B5CF6',
+  },
   viewQuoteBtnText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#8B5CF6',
+  },
+  viewQuoteBtnTextDark: {
+    color: '#a78bfa',
   },
   loadingContainer: {
     flex: 1,
@@ -667,5 +831,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     paddingHorizontal: 30,
+  },
+  textDark: {
+    color: '#F8FAFC',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
   },
 });

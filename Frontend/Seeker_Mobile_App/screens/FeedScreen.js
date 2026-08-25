@@ -10,6 +10,9 @@ import {
   Alert,
   StatusBar,
   RefreshControl,
+  Modal,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -17,369 +20,149 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import BottomNav from '../components/BottomNav';
+import { IP_ADDRESS } from '../config';
+import { useTheme } from '../hooks/useTheme';
 
 // ======================================================
-// API BASE URL
+// API BASE URLS
 // ======================================================
-const API_BASE_URL = 'http://10.0.2.2:6000';
+const hostIp = IP_ADDRESS || '10.0.2.2';
+const API_BASE_URL = `http://${hostIp}:3002`;
+const QUOTATION_API_URL = `http://${hostIp}:6000/request-quotations`;
 
 // ======================================================
-// FEED SCREEN
+// FEED SCREEN – SHOWS PROVIDER ADS WITH LIKE & REQUEST QUOTE
 // ======================================================
 export default function FeedScreen({ navigation }) {
-  const [posts, setPosts] = useState([]);
+  const { isDarkMode } = useTheme();
+  const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [interestedPosts, setInterestedPosts] = useState({});
+  const [likedAds, setLikedAds] = useState({});
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  // Quotation Request Modal State
+  const [quoteModalVisible, setQuoteModalVisible] = useState(false);
+  const [selectedAdForQuote, setSelectedAdForQuote] = useState(null);
+  const [quoteNotes, setQuoteNotes] = useState('');
+  const [quoteLocation, setQuoteLocation] = useState('');
+  const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
 
   // ======================================================
   // FORMAT TIME
   // ======================================================
   const formatTimeAgo = timestamp => {
     if (!timestamp) return 'Just now';
-
     const date = new Date(timestamp);
     const now = new Date();
-
     const diff = Math.floor((now - date) / 1000);
 
-    if (diff < 60) {
-      return `${diff}s ago`;
-    }
-
-    if (diff < 3600) {
-      return `${Math.floor(diff / 60)}m ago`;
-    }
-
-    if (diff < 86400) {
-      return `${Math.floor(diff / 3600)}h ago`;
-    }
-
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return `${Math.floor(diff / 86400)}d ago`;
   };
 
   // ======================================================
-  // GET LOGGED-IN USER
+  // GET LOGGED-IN USER ID
   // ======================================================
-  const getLoggedInUser = async () => {
+  const getCurrentUserId = async () => {
     try {
+      let uid = await AsyncStorage.getItem('userId');
+      if (uid) return uid;
+
       const storedUser = await AsyncStorage.getItem('user');
-
-      if (!storedUser) {
-        console.log('No logged-in user found in AsyncStorage');
-        return null;
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        return parsed.id || parsed._id || parsed.userId || null;
       }
-
-      const user = JSON.parse(storedUser);
-
-      console.log('LOGGED IN USER:', user);
-
-      return user;
-    } catch (error) {
-      console.log('GET LOGGED USER ERROR:', error);
+      return null;
+    } catch (e) {
+      console.log('Error getting current user ID:', e);
       return null;
     }
   };
 
   // ======================================================
-  // GET USER NAME FROM POST (FIXED)
+  // FETCH PROVIDER ADS (PUBLIC)
   // ======================================================
-  const getPostUserName = (post, loggedInUser) => {
-    // Helper to reject placeholder names and empty strings
-    const isValidName = (name) => {
-      if (!name || typeof name !== 'string') return false;
-      const trimmed = name.trim();
-      if (trimmed === '') return false;
-      // Add any placeholder values your backend might return
-      const placeholders = ['Test Seeker', 'Customer', 'Unknown', 'Anonymous'];
-      return !placeholders.includes(trimmed);
-    };
-
-    // 1. post.user.name
-    if (
-      post.user &&
-      typeof post.user === 'object' &&
-      isValidName(post.user.name)
-    ) {
-      return post.user.name.trim();
-    }
-
-    // 2. post.user.fullName
-    if (
-      post.user &&
-      typeof post.user === 'object' &&
-      isValidName(post.user.fullName)
-    ) {
-      return post.user.fullName.trim();
-    }
-
-    // 3. post.userName
-    if (
-      typeof post.userName === 'string' &&
-      isValidName(post.userName)
-    ) {
-      return post.userName.trim();
-    }
-
-    // 4. post.name
-    if (
-      typeof post.name === 'string' &&
-      isValidName(post.name)
-    ) {
-      return post.name.trim();
-    }
-
-    // 5. post.createdBy.name
-    if (
-      post.createdBy &&
-      typeof post.createdBy === 'object' &&
-      isValidName(post.createdBy.name)
-    ) {
-      return post.createdBy.name.trim();
-    }
-
-    // 6. post.seeker.name
-    if (
-      post.seeker &&
-      typeof post.seeker === 'object' &&
-      isValidName(post.seeker.name)
-    ) {
-      return post.seeker.name.trim();
-    }
-
-    // 7. If this post belongs to the currently logged-in user,
-    // use the logged-in user's name (even if it's a placeholder in the DB)
-    if (loggedInUser) {
-      const loggedInUserId =
-        loggedInUser._id ||
-        loggedInUser.id ||
-        loggedInUser.userId;
-
-      const postUserId =
-        typeof post.user === 'string'
-          ? post.user
-          : post.user?._id ||
-            post.user?.id ||
-            post.userId ||
-            post.createdBy?._id ||
-            post.createdBy?.id;
-
-      if (
-        loggedInUserId &&
-        postUserId &&
-        String(loggedInUserId) === String(postUserId)
-      ) {
-        // Use the logged-in user's name from storage (should be correct)
-        const localName = loggedInUser.name ||
-          loggedInUser.fullName ||
-          loggedInUser.userName ||
-          loggedInUser.username;
-        if (isValidName(localName)) {
-          return localName.trim();
-        }
-      }
-    }
-
-    // 8. Final fallback
-    return 'Unknown User';
-  };
-
-  // ======================================================
-  // GET USER AVATAR
-  // ======================================================
-  const getPostUserAvatar = (post, loggedInUser) => {
-    if (
-      post.user &&
-      typeof post.user === 'object' &&
-      post.user.profileImage
-    ) {
-      return post.user.profileImage;
-    }
-
-    if (
-      post.user &&
-      typeof post.user === 'object' &&
-      post.user.avatar
-    ) {
-      return post.user.avatar;
-    }
-
-    if (post.userAvatar) {
-      return post.userAvatar;
-    }
-
-    if (post.profileImage) {
-      return post.profileImage;
-    }
-
-    if (post.avatar) {
-      return post.avatar;
-    }
-
-    // If current logged-in user made this post
-    if (loggedInUser) {
-      const loggedInUserId =
-        loggedInUser._id ||
-        loggedInUser.id ||
-        loggedInUser.userId;
-
-      const postUserId =
-        typeof post.user === 'string'
-          ? post.user
-          : post.user?._id ||
-            post.user?.id ||
-            post.userId ||
-            post.createdBy?._id ||
-            post.createdBy?.id;
-
-      if (
-        loggedInUserId &&
-        postUserId &&
-        String(loggedInUserId) === String(postUserId)
-      ) {
-        return (
-          loggedInUser.profileImage ||
-          loggedInUser.avatar ||
-          'https://randomuser.me/api/portraits/lego/1.jpg'
-        );
-      }
-    }
-
-    return 'https://randomuser.me/api/portraits/lego/1.jpg';
-  };
-
-  // ======================================================
-  // FETCH POSTS
-  // ======================================================
-  const fetchPosts = async () => {
+  const fetchAds = async () => {
     try {
       setLoading(true);
 
-      const loggedInUser = await getLoggedInUser();
+      const userId = await getCurrentUserId();
+      setCurrentUserId(userId);
 
-      const token = await AsyncStorage.getItem('token');
+      const token =
+        (await AsyncStorage.getItem('token')) ||
+        (await AsyncStorage.getItem('userToken'));
 
-      console.log('TOKEN EXISTS:', !!token);
-
-      const headers = {
-        'Content-Type': 'application/json',
-      };
-
+      const headers = { 'Content-Type': 'application/json' };
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
 
       const response = await fetch(
-        `${API_BASE_URL}/posts`,
-        {
-          method: 'GET',
-          headers,
-        }
-      );
-
-      console.log(
-        'POST RESPONSE STATUS:',
-        response.status
+        `${API_BASE_URL}/api/provider/ads/public/all`,
+        { method: 'GET', headers }
       );
 
       const data = await response.json();
 
-      console.log(
-        'POSTS RESPONSE:',
-        JSON.stringify(data, null, 2)
-      );
-
       if (!data.success) {
-        Alert.alert(
-          'Error',
-          data.message ||
-            data.error ||
-            'Failed to load posts'
-        );
-
-        setPosts([]);
+        Alert.alert('Error', data.message || data.error || 'Failed to load ads');
+        setAds([]);
         return;
       }
 
-      const postsArray = data.posts || [];
+      const adsArray = data.data || [];
+      const initialLikesMap = {};
 
-      // ==================================================
-      // FORMAT POSTS
-      // ==================================================
-      const formattedPosts = postsArray.map(post => {
-        const postUserName = getPostUserName(
-          post,
-          loggedInUser
-        );
+      const formattedAds = adsArray.map(ad => {
+        let title = ad.serviceLabel || 'Service';
+        if (ad.specificLabel) {
+          title += ` - ${ad.specificLabel}`;
+        }
 
-        const postUserAvatar = getPostUserAvatar(
-          post,
-          loggedInUser
-        );
+        const description =
+          (ad.posts && ad.posts.length > 0 && ad.posts[0].caption) ||
+          ad.extraInfo ||
+          '';
 
-        console.log(
-          'POST:',
-          post._id,
-          'USER NAME:',
-          postUserName
-        );
+        const imageUrl = ad.image?.url || '';
+        const avatar = 'https://randomuser.me/api/portraits/lego/1.jpg';
+
+        const likesArray = Array.isArray(ad.likes) ? ad.likes : [];
+        if (userId && likesArray.includes(userId)) {
+          initialLikesMap[ad._id] = true;
+        }
 
         return {
-          id: post._id,
-
-          userName: postUserName,
-
-          userAvatar: postUserAvatar,
-
-          timeAgo: formatTimeAgo(
-            post.createdAt
-          ),
-
-          title:
-            post.title ||
-            'Untitled Service',
-
-          description:
-            post.description ||
-            '',
-
-          image:
-            post.image ||
-            '',
-
-          category:
-            post.category ||
-            'General',
-
-          urgency:
-            post.urgency ||
-            'medium',
-
-          tags:
-            Array.isArray(post.tags)
-              ? post.tags
-              : [],
-
-          interestedCount:
-            Number(
-              post.interestedCount || 0
-            ),
+          id: ad._id,
+          providerId: ad.providerId || ad._id,
+          providerName: ad.providerName || 'Provider',
+          userName: ad.providerName || 'Provider',
+          userAvatar: avatar,
+          location: ad.location || '',
+          contact: ad.contact || '',
+          timeAgo: formatTimeAgo(ad.createdAt),
+          title: title,
+          description: description,
+          image: imageUrl,
+          category: ad.category || 'General',
+          tags: Array.isArray(ad.tags) ? ad.tags : [],
+          urgency: ad.priority > 5 ? 'high' : ad.priority > 2 ? 'medium' : 'low',
+          likeCount: likesArray.length,
+          likes: likesArray,
         };
       });
 
-      setPosts(formattedPosts);
+      setLikedAds(initialLikesMap);
+      setAds(formattedAds);
     } catch (error) {
-      console.log(
-        'FETCH POSTS ERROR:',
-        error
-      );
-
-      Alert.alert(
-        'Error',
-        'Could not fetch posts. Please check your connection.'
-      );
-
-      setPosts([]);
+      console.log('FETCH ADS ERROR:', error);
+      Alert.alert('Error', 'Could not fetch ads. Please check your connection.');
+      setAds([]);
     } finally {
       setLoading(false);
     }
@@ -390,76 +173,183 @@ export default function FeedScreen({ navigation }) {
   // ======================================================
   const onRefresh = async () => {
     setRefreshing(true);
-
-    await fetchPosts();
-
+    await fetchAds();
     setRefreshing(false);
   };
 
   // ======================================================
-  // LOAD POSTS
+  // LOAD ADS ON SCREEN FOCUS
   // ======================================================
   useEffect(() => {
-    fetchPosts();
-
-    const unsubscribe =
-      navigation.addListener(
-        'focus',
-        () => {
-          fetchPosts();
-        }
-      );
-
+    fetchAds();
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchAds();
+    });
     return unsubscribe;
   }, [navigation]);
 
   // ======================================================
-  // INTERESTED BUTTON
+  // HANDLE LIKE TOGGLE (PERSISTED TO BACKEND)
   // ======================================================
-  const handleInterested = postId => {
-    const currentlyInterested =
-      !!interestedPosts[postId];
+  const handleLike = async (adId) => {
+    const isLiked = !!likedAds[adId];
+    const userId = currentUserId || (await getCurrentUserId());
 
-    setInterestedPosts(prev => ({
-      ...prev,
-      [postId]: !currentlyInterested,
-    }));
+    if (!userId) {
+      Alert.alert('Sign in required', 'Please sign in to like this ad.');
+      return;
+    }
 
-    setPosts(prevPosts =>
-      prevPosts.map(post =>
-        post.id === postId
+    // 1. Optimistic UI update
+    setLikedAds(prev => ({ ...prev, [adId]: !isLiked }));
+    setAds(prevAds =>
+      prevAds.map(ad =>
+        ad.id === adId
           ? {
-              ...post,
-              interestedCount:
-                Math.max(
-                  0,
-                  post.interestedCount +
-                    (currentlyInterested
-                      ? -1
-                      : 1)
-                ),
+              ...ad,
+              likeCount: Math.max(0, ad.likeCount + (isLiked ? -1 : 1)),
             }
-          : post
+          : ad
       )
     );
 
-    Alert.alert(
-      currentlyInterested
-        ? 'Removed'
-        : 'Interested',
-      currentlyInterested
-        ? 'Interest removed'
-        : 'You are interested in this service'
-    );
+    // 2. Persist to Backend API
+    try {
+      const token =
+        (await AsyncStorage.getItem('token')) ||
+        (await AsyncStorage.getItem('userToken'));
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`${API_BASE_URL}/api/provider/ads/${adId}/like`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ userId }),
+      });
+
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to update like');
+      }
+
+      // Sync exact server count
+      setAds(prevAds =>
+        prevAds.map(ad =>
+          ad.id === adId
+            ? { ...ad, likeCount: result.likeCount }
+            : ad
+        )
+      );
+    } catch (err) {
+      console.log('LIKE TOGGLE ERROR:', err);
+      // Revert optimistic update on failure
+      setLikedAds(prev => ({ ...prev, [adId]: isLiked }));
+      setAds(prevAds =>
+        prevAds.map(ad =>
+          ad.id === adId
+            ? {
+                ...ad,
+                likeCount: Math.max(0, ad.likeCount + (isLiked ? 1 : -1)),
+              }
+            : ad
+        )
+      );
+      Alert.alert('Error', 'Could not like this post. Please try again.');
+    }
   };
 
   // ======================================================
-  // CREATE POST
+  // OPEN REQUEST QUOTE MODAL
   // ======================================================
-  const handleCreatePost = () => {
-    navigation.navigate(
-      'CreatePostScreen'
-    );
+  const handleOpenQuoteModal = ad => {
+    setSelectedAdForQuote(ad);
+    setQuoteNotes(`I would like to request a quote for ${ad.title}.`);
+    setQuoteLocation(ad.location || '');
+    setQuoteModalVisible(true);
+  };
+
+  // ======================================================
+  // SUBMIT REQUEST QUOTATION
+  // ======================================================
+  const handleSubmitQuote = async () => {
+    if (!selectedAdForQuote) return;
+
+    const seekerId = await getCurrentUserId();
+    const token =
+      (await AsyncStorage.getItem('userToken')) ||
+      (await AsyncStorage.getItem('token'));
+
+    if (!token) {
+      Alert.alert('Error', 'You must be logged in to request a quotation.');
+      return;
+    }
+
+    const payload = {
+      seekerId: seekerId || 'seeker_user',
+      providerId: selectedAdForQuote.providerId,
+      sessionId: `FEED-${Date.now()}`,
+      detectedCategory: selectedAdForQuote.category || 'General',
+      detectedObject: selectedAdForQuote.title || 'Service',
+      modelConfidence: null,
+      stepBreakdown: [],
+      briefDescription:
+        quoteNotes.trim() ||
+        selectedAdForQuote.description ||
+        selectedAdForQuote.title,
+      urgencyLevel:
+        selectedAdForQuote.urgency === 'high'
+          ? 'High'
+          : selectedAdForQuote.urgency === 'medium'
+          ? 'Medium'
+          : 'Normal',
+      serviceLocation:
+        quoteLocation.trim() || selectedAdForQuote.location || '',
+    };
+
+    setIsSubmittingQuote(true);
+
+    try {
+      const response = await fetch(QUOTATION_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 201 || response.status === 200 || data.success) {
+        Alert.alert(
+          'Quotation Request Sent',
+          `Your quotation request has been sent to ${selectedAdForQuote.providerName}.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setQuoteModalVisible(false);
+                setSelectedAdForQuote(null);
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Failed to Send',
+          data.message || 'Unable to send quotation request. Please try again.'
+        );
+      }
+    } catch (error) {
+      console.error('QUOTATION REQUEST ERROR:', error);
+      Alert.alert(
+        'Network Error',
+        `Could not connect to the quotation server at ${QUOTATION_API_URL}.\nMake sure the backend is running.`
+      );
+    } finally {
+      setIsSubmittingQuote(false);
+    }
   };
 
   // ======================================================
@@ -468,267 +358,160 @@ export default function FeedScreen({ navigation }) {
   const getUrgencyStyle = urgency => {
     switch (urgency) {
       case 'high':
-        return {
-          bg: '#FEE2E2',
-          color: '#EF4444',
-          text: 'Urgent',
-        };
-
+        return { bg: '#FEE2E2', color: '#EF4444', text: 'High Priority' };
       case 'medium':
-        return {
-          bg: '#FEF3C7',
-          color: '#F59E0B',
-          text: 'Medium',
-        };
-
+        return { bg: '#FEF3C7', color: '#F59E0B', text: 'Medium' };
       case 'low':
-        return {
-          bg: '#D1FAE5',
-          color: '#10B981',
-          text: 'Low',
-        };
-
+        return { bg: '#D1FAE5', color: '#10B981', text: 'Low' };
       default:
         return {
-          bg: '#F3F4F6',
-          color: '#6B7280',
+          bg: isDarkMode ? '#242f4d' : '#F3F4F6',
+          color: isDarkMode ? '#94A3B8' : '#6B7280',
           text: 'Normal',
         };
     }
   };
 
   // ======================================================
-  // RENDER POST
+  // RENDER AD CARD
   // ======================================================
-  const renderPost = post => {
-    const urgency =
-      getUrgencyStyle(
-        post.urgency
-      );
-
-    const isInterested =
-      !!interestedPosts[post.id];
+  const renderAd = ad => {
+    const urgency = getUrgencyStyle(ad.urgency);
+    const isLiked = !!likedAds[ad.id];
 
     return (
-      <View
-        key={post.id}
-        style={styles.postCard}
-      >
-        {/* ================= HEADER ================= */}
-        <View
-          style={styles.postHeader}
-        >
-          <Image
-            source={{
-              uri: post.userAvatar,
-            }}
-            style={styles.avatar}
-          />
-
-          <View
-            style={
-              styles.postHeaderInfo
-            }
-          >
-            <Text
-              style={
-                styles.userName
-              }
-            >
-              {post.userName}
+      <View key={ad.id} style={[styles.postCard, isDarkMode && styles.postCardDark]}>
+        {/* Header */}
+        <View style={styles.postHeader}>
+          <Image source={{ uri: ad.userAvatar }} style={styles.avatar} />
+          <View style={styles.postHeaderInfo}>
+            <Text style={[styles.userName, isDarkMode && styles.textDark]}>
+              {ad.userName}
             </Text>
-
-            <Text
-              style={
-                styles.timeAgo
-              }
-            >
-              {post.timeAgo}
+            <Text style={[styles.timeAgo, isDarkMode && styles.textMutedDark]}>
+              {ad.timeAgo}
             </Text>
           </View>
-
           <TouchableOpacity>
             <Ionicons
               name="ellipsis-horizontal"
               size={20}
-              color="#9CA3AF"
+              color={isDarkMode ? '#94A3B8' : '#9CA3AF'}
             />
           </TouchableOpacity>
         </View>
 
-        {/* ================= BADGES ================= */}
-        <View
-          style={styles.badgeRow}
-        >
-          <View
-            style={[
-              styles.urgencyBadge,
-              {
-                backgroundColor:
-                  urgency.bg,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.urgencyText,
-                {
-                  color:
-                    urgency.color,
-                },
-              ]}
-            >
+        {/* Badges */}
+        <View style={styles.badgeRow}>
+          <View style={[styles.urgencyBadge, { backgroundColor: urgency.bg }]}>
+            <Text style={[styles.urgencyText, { color: urgency.color }]}>
               {urgency.text}
             </Text>
           </View>
-
           <View
-            style={
-              styles.categoryBadge
-            }
+            style={[styles.categoryBadge, isDarkMode && styles.categoryBadgeDark]}
           >
-            <Text
-              style={
-                styles.categoryText
-              }
-            >
-              {post.category}
+            <Text style={[styles.categoryText, isDarkMode && styles.textMutedDark]}>
+              {ad.category}
             </Text>
           </View>
         </View>
 
-        {/* ================= TITLE ================= */}
+        {/* Title & Description */}
+        <Text style={[styles.postTitle, isDarkMode && styles.textDark]}>
+          {ad.title}
+        </Text>
         <Text
-          style={styles.postTitle}
+          style={[styles.postDescription, isDarkMode && styles.textMutedDark]}
         >
-          {post.title}
+          {ad.description}
         </Text>
 
-        {/* ================= DESCRIPTION ================= */}
-        <Text
-          style={
-            styles.postDescription
-          }
-        >
-          {post.description}
-        </Text>
-
-        {/* ================= IMAGE ================= */}
-        {post.image ? (
+        {/* Image */}
+        {ad.image ? (
           <Image
             source={{
-              uri: post.image.startsWith(
-                'http'
-              )
-                ? post.image
-                : `${API_BASE_URL}/${post.image.replace(
-                    /\\/g,
-                    '/'
-                  )}`,
+              uri: ad.image.startsWith('http')
+                ? ad.image
+                : `${API_BASE_URL}/${ad.image.replace(/\\/g, '/')}`,
             }}
             style={styles.postImage}
           />
         ) : null}
 
-        {/* ================= TAGS ================= */}
-        {post.tags?.length > 0 && (
+        {/* Tags */}
+        {ad.tags?.length > 0 && (
           <ScrollView
             horizontal
-            showsHorizontalScrollIndicator={
-              false
-            }
-            style={
-              styles.tagsContainer
-            }
+            showsHorizontalScrollIndicator={false}
+            style={styles.tagsContainer}
           >
-            {post.tags.map(
-              (tag, index) => (
-                <View
-                  key={index}
-                  style={
-                    styles.tagChip
-                  }
+            {ad.tags.map((tag, index) => (
+              <View
+                key={index}
+                style={[styles.tagChip, isDarkMode && styles.tagChipDark]}
+              >
+                <Text
+                  style={[styles.tagText, isDarkMode && styles.tagTextDark]}
                 >
-                  <Text
-                    style={
-                      styles.tagText
-                    }
-                  >
-                    #{tag}
-                  </Text>
-                </View>
-              )
-            )}
+                  #{tag}
+                </Text>
+              </View>
+            ))}
           </ScrollView>
         )}
 
-        {/* ================= INTERESTED ================= */}
-        <TouchableOpacity
-          style={
-            styles.interestedButton
-          }
-          onPress={() =>
-            handleInterested(
-              post.id
-            )
-          }
+        {/* ========== CARD ACTION BAR (LIKE & REQUEST QUOTE) ========== */}
+        <View
+          style={[styles.cardActions, isDarkMode && styles.cardActionsDark]}
         >
-          <LinearGradient
-            colors={
-              isInterested
-                ? [
-                    '#10B981',
-                    '#059669',
-                  ]
-                : [
-                    '#667eea',
-                    '#764ba2',
-                  ]
-            }
-            style={
-              styles.interestedGradient
-            }
+          {/* Like / Facebook-style Thumbs Up */}
+          <TouchableOpacity
+            style={[
+              styles.likeButton,
+              isDarkMode && styles.likeButtonDark,
+              isLiked && styles.likedButtonActive,
+            ]}
+            onPress={() => handleLike(ad.id)}
+            activeOpacity={0.6}
           >
             <Ionicons
-              name={
-                isInterested
-                  ? 'checkmark-circle'
-                  : 'hand-right-outline'
-              }
-              size={22}
-              color="#fff"
+              name={isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
+              size={18}
+              color={isLiked ? '#1877F2' : isDarkMode ? '#94A3B8' : '#6B7280'}
             />
-
             <Text
-              style={
-                styles.interestedButtonText
-              }
+              style={[
+                styles.likeText,
+                isDarkMode && styles.textMutedDark,
+                isLiked && styles.likedText,
+              ]}
             >
-              {isInterested
-                ? 'Interested ✓'
-                : "I'm Interested"}
+              {ad.likeCount > 0
+                ? `${ad.likeCount} ${ad.likeCount === 1 ? 'Like' : 'Likes'}`
+                : 'Like'}
             </Text>
+          </TouchableOpacity>
 
-            {post.interestedCount >
-              0 && (
-              <View
-                style={
-                  styles.interestedCount
-                }
-              >
-                <Text
-                  style={
-                    styles.interestedCountText
-                  }
-                >
-                  {
-                    post.interestedCount
-                  }
-                </Text>
-              </View>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
+          {/* REQUEST QUOTE BUTTON */}
+          <TouchableOpacity
+            style={styles.requestQuoteButton}
+            onPress={() => handleOpenQuoteModal(ad)}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={
+                isDarkMode ? ['#818cf8', '#6366f1'] : ['#6366F1', '#4F46E5']
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.requestQuoteGradient}
+            >
+              <Ionicons name="document-text-outline" size={16} color="#fff" />
+              <Text style={styles.requestQuoteText}>Request Quote</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -738,23 +521,13 @@ export default function FeedScreen({ navigation }) {
   // ======================================================
   if (loading) {
     return (
-      <SafeAreaView
-        style={styles.container}
-      >
-        <View
-          style={
-            styles.loadingContainer
-          }
-        >
-          <Text
-            style={
-              styles.loadingText
-            }
-          >
-            Loading posts...
+      <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#667eea'} />
+          <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
+            Loading ads...
           </Text>
         </View>
-
         <BottomNav />
       </SafeAreaView>
     );
@@ -764,126 +537,182 @@ export default function FeedScreen({ navigation }) {
   // MAIN UI
   // ======================================================
   return (
-    <SafeAreaView
-      style={styles.container}
-    >
+    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle="light-content"
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
       />
 
-      {/* ================= HEADER ================= */}
       <LinearGradient
-        colors={[
-          '#667eea',
-          '#764ba2',
-        ]}
-        style={
-          styles.headerGradient
-        }
+        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
+        style={styles.headerGradient}
       >
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() =>
-              navigation.goBack()
-            }
-          >
-            <Ionicons
-              name="arrow-back"
-              size={24}
-              color="#fff"
-            />
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-
-          <Text
-            style={
-              styles.headerTitle
-            }
-          >
-            Service Feed
-          </Text>
-
-          <TouchableOpacity
-            onPress={
-              handleCreatePost
-            }
-          >
-            <Ionicons
-              name="create-outline"
-              size={24}
-              color="#fff"
-            />
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Provider Ads</Text>
+          <View style={{ width: 24 }} />
         </View>
       </LinearGradient>
 
-      {/* ================= POSTS ================= */}
       <ScrollView
-        style={
-          styles.feedContainer
-        }
+        style={styles.feedContainer}
         refreshControl={
           <RefreshControl
-            refreshing={
-              refreshing
-            }
-            onRefresh={
-              onRefresh
-            }
-            colors={[
-              '#667eea',
-            ]}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[isDarkMode ? '#818cf8' : '#667eea']}
           />
         }
       >
-        <View
-          style={
-            styles.feedContent
-          }
-        >
-          {posts.length === 0 ? (
-            <View
-              style={
-                styles.emptyContainer
-              }
-            >
+        <View style={styles.feedContent}>
+          {ads.length === 0 ? (
+            <View style={styles.emptyContainer}>
               <Ionicons
                 name="newspaper-outline"
                 size={60}
-                color="#D1D5DB"
+                color={isDarkMode ? '#475569' : '#D1D5DB'}
               />
-
-              <Text
-                style={
-                  styles.emptyText
-                }
-              >
-                No posts found
+              <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>
+                No ads found
               </Text>
-
-              <TouchableOpacity
-                style={
-                  styles.emptyCreateBtn
-                }
-                onPress={
-                  handleCreatePost
-                }
-              >
-                <Text
-                  style={
-                    styles.emptyCreateBtnText
-                  }
-                >
-                  Create Post
-                </Text>
-              </TouchableOpacity>
             </View>
           ) : (
-            posts.map(
-              renderPost
-            )
+            ads.map(renderAd)
           )}
         </View>
       </ScrollView>
+
+      {/* ====================================================== */}
+      {/* REQUEST QUOTATION MODAL                                 */}
+      {/* ====================================================== */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={quoteModalVisible}
+        onRequestClose={() => setQuoteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, isDarkMode && styles.modalContainerDark]}>
+            {/* Modal Header */}
+            <View style={[styles.modalHeader, isDarkMode && styles.modalHeaderDark]}>
+              <View>
+                <Text style={[styles.modalTitle, isDarkMode && styles.textDark]}>
+                  Request Quotation
+                </Text>
+                <Text style={[styles.modalSubtitle, isDarkMode && styles.textMutedDark]}>
+                  To: {selectedAdForQuote?.providerName || 'Provider'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setQuoteModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons
+                  name="close"
+                  size={22}
+                  color={isDarkMode ? '#94A3B8' : '#6B7280'}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Body */}
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {/* Selected Ad Summary */}
+              <View
+                style={[
+                  styles.selectedAdSummary,
+                  isDarkMode && styles.selectedAdSummaryDark,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.summaryAdTitle,
+                    isDarkMode && styles.summaryAdTitleDark,
+                  ]}
+                >
+                  {selectedAdForQuote?.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.summaryAdCategory,
+                    isDarkMode && styles.summaryAdCategoryDark,
+                  ]}
+                >
+                  Category: {selectedAdForQuote?.category}
+                </Text>
+              </View>
+
+              {/* Requirements / Notes */}
+              <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>
+                Requirements & Details
+              </Text>
+              <TextInput
+                style={[styles.textAreaInput, isDarkMode && styles.inputDark]}
+                multiline
+                numberOfLines={4}
+                value={quoteNotes}
+                onChangeText={setQuoteNotes}
+                placeholder="Describe what work needs to be done..."
+                placeholderTextColor={isDarkMode ? '#94A3B8' : '#9CA3AF'}
+              />
+
+              {/* Service Location */}
+              <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>
+                Service Location
+              </Text>
+              <TextInput
+                style={[styles.textInput, isDarkMode && styles.inputDark]}
+                value={quoteLocation}
+                onChangeText={setQuoteLocation}
+                placeholder="Enter your address or city..."
+                placeholderTextColor={isDarkMode ? '#94A3B8' : '#9CA3AF'}
+              />
+
+              {/* Action Buttons */}
+              <View style={styles.modalButtonsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.modalCancelButton,
+                    isDarkMode && styles.modalCancelButtonDark,
+                  ]}
+                  onPress={() => setQuoteModalVisible(false)}
+                  disabled={isSubmittingQuote}
+                >
+                  <Text
+                    style={[
+                      styles.modalCancelText,
+                      isDarkMode && styles.textMutedDark,
+                    ]}
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.modalSubmitButton,
+                    isSubmittingQuote && styles.disabledButton,
+                  ]}
+                  onPress={handleSubmitQuote}
+                  disabled={isSubmittingQuote}
+                  activeOpacity={0.8}
+                >
+                  {isSubmittingQuote ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="send" size={16} color="#fff" />
+                      <Text style={styles.modalSubmitText}>Send Request</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <BottomNav />
     </SafeAreaView>
@@ -896,195 +725,206 @@ export default function FeedScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor:
-      '#F8F9FC',
+    backgroundColor: '#F8F9FC',
   },
-
+  containerDark: {
+    backgroundColor: '#1a1a2e',
+  },
   headerGradient: {
     paddingTop: 14,
     paddingBottom: 14,
   },
-
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent:
-      'space-between',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
-
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#fff',
   },
-
   feedContainer: {
     flex: 1,
   },
-
   feedContent: {
     padding: 16,
     paddingBottom: 100,
   },
-
   postCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
-
+  postCardDark: {
+    backgroundColor: '#16213e',
+    borderColor: '#2d3561',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+  },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
   },
-
   avatar: {
     width: 45,
     height: 45,
     borderRadius: 22,
     marginRight: 12,
   },
-
   postHeaderInfo: {
     flex: 1,
   },
-
   userName: {
     fontSize: 15,
     fontWeight: '700',
     color: '#111827',
   },
-
   timeAgo: {
     fontSize: 12,
     color: '#9CA3AF',
   },
-
   badgeRow: {
     flexDirection: 'row',
     gap: 8,
     marginBottom: 10,
   },
-
   urgencyBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
-
   urgencyText: {
     fontSize: 11,
     fontWeight: '600',
   },
-
   categoryBadge: {
-    backgroundColor:
-      '#F3F4F6',
+    backgroundColor: '#F3F4F6',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
-
+  categoryBadgeDark: {
+    backgroundColor: '#242f4d',
+  },
   categoryText: {
     fontSize: 11,
     color: '#6B7280',
   },
-
   postTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 8,
   },
-
   postDescription: {
     fontSize: 14,
     color: '#6B7280',
     lineHeight: 20,
     marginBottom: 12,
   },
-
   postImage: {
     width: '100%',
     height: 220,
     borderRadius: 14,
     marginBottom: 12,
   },
-
   tagsContainer: {
     marginBottom: 12,
   },
-
   tagChip: {
-    backgroundColor:
-      '#EEF2FF',
+    backgroundColor: '#EEF2FF',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
     marginRight: 8,
   },
-
+  tagChipDark: {
+    backgroundColor: '#242f4d',
+  },
   tagText: {
     color: '#4F46E5',
     fontSize: 11,
   },
-
-  interestedButton: {
-    borderRadius: 14,
+  tagTextDark: {
+    color: '#818cf8',
+  },
+  // Card Actions (Like + Request Quote)
+  cardActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  cardActionsDark: {
+    borderTopColor: '#2d3561',
+  },
+  likeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    gap: 6,
+  },
+  likeButtonDark: {
+    backgroundColor: '#242f4d',
+  },
+  likedButtonActive: {
+    backgroundColor: '#EBF5FF',
+  },
+  likeText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  likedText: {
+    color: '#1877F2',
+    fontWeight: '700',
+  },
+  requestQuoteButton: {
+    borderRadius: 20,
     overflow: 'hidden',
   },
-
-  interestedGradient: {
-    paddingVertical: 14,
+  requestQuoteGradient: {
     flexDirection: 'row',
-    justifyContent:
-      'center',
     alignItems: 'center',
-    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    gap: 6,
   },
-
-  interestedButtonText: {
+  requestQuoteText: {
     color: '#fff',
+    fontSize: 13,
     fontWeight: '700',
-    fontSize: 15,
   },
-
-  interestedCount: {
-    position: 'absolute',
-    right: 16,
-    backgroundColor:
-      '#ffffff30',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-
-  interestedCountText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 12,
-  },
-
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   loadingText: {
     fontSize: 16,
     color: '#6B7280',
+    marginTop: 12,
   },
-
   emptyContainer: {
     alignItems: 'center',
     marginTop: 100,
   },
-
   emptyText: {
     marginTop: 16,
     fontSize: 18,
@@ -1092,17 +932,163 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
 
-  emptyCreateBtn: {
-    marginTop: 20,
-    backgroundColor:
-      '#667eea',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 30,
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-
-  emptyCreateBtnText: {
-    color: '#fff',
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: '100%',
+    maxHeight: '85%',
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalContainerDark: {
+    backgroundColor: '#16213e',
+    borderColor: '#2d3561',
+    borderWidth: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    paddingBottom: 14,
+    marginBottom: 14,
+  },
+  modalHeaderDark: {
+    borderBottomColor: '#2d3561',
+  },
+  modalTitle: {
+    fontSize: 18,
     fontWeight: '700',
+    color: '#111827',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalBody: {
+    maxHeight: 400,
+  },
+  selectedAdSummary: {
+    backgroundColor: '#EEF2FF',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  selectedAdSummaryDark: {
+    backgroundColor: '#242f4d',
+  },
+  summaryAdTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#3730A3',
+    marginBottom: 2,
+  },
+  summaryAdTitleDark: {
+    color: '#F8FAFC',
+  },
+  summaryAdCategory: {
+    fontSize: 12,
+    color: '#6366F1',
+  },
+  summaryAdCategoryDark: {
+    color: '#818cf8',
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  textAreaInput: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: '#111827',
+    textAlignVertical: 'top',
+    minHeight: 90,
+    marginBottom: 14,
+  },
+  textInput: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+    marginBottom: 18,
+  },
+  inputDark: {
+    backgroundColor: '#242f4d',
+    borderColor: '#2d3561',
+    color: '#F8FAFC',
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  modalCancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancelButtonDark: {
+    backgroundColor: '#242f4d',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  modalSubmitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: '#4F46E5',
+    justifyContent: 'center',
+  },
+  modalSubmitText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  textDark: {
+    color: '#F8FAFC',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
   },
 });

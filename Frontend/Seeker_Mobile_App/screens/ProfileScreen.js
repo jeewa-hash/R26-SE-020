@@ -63,9 +63,7 @@ export default function ProfileScreen() {
     { id: 'myposts', title: 'My Posts', icon: 'newspaper', color: '#45B7D1', screen: 'MyPostsScreen' },
     { id: 'history', title: 'Service History', icon: 'time', color: '#96CEB4', screen: 'HistoryScreen' },
     { id: 'starpoints', title: 'Star Points', icon: 'star', color: '#FBBF24', screen: 'StarPointsScreen' },
-    { id: 'payment', title: 'Payment Methods', icon: 'card', color: '#FF6B6B', screen: 'PaymentScreen' },
     { id: 'settings', title: 'Settings', icon: 'settings', color: '#6B7280', screen: 'SettingsScreen' },
-    { id: 'help', title: 'Help Center', icon: 'help-circle', color: '#667eea', screen: 'HelpScreen' },
   ];
 
   const handleMenuPress = (screen) => {
