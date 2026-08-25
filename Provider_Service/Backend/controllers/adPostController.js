@@ -2,7 +2,7 @@
  * controllers/adPostController.js
  * AI-assisted service post generation (FR-03) + post management (FR-16).
  */
-
+import jwt from "jsonwebtoken";
 import AdPost from "../models/AdPost.js";
 import { generateAIContent, generateFallbackContent } from "../services/geminiServices.js";
 import {
@@ -185,7 +185,7 @@ export const listPostsByProvider = async (req, res) => {
 // Used by seekers/feed views so boosted posts and newly created ones appear first.
 export const listAllPublicPosts = async (req, res) => {
   try {
-    const posts = await AdPost.find({ status: "published" }).sort({
+    const posts = await AdPost.find({ status: "draft" }).sort({
       priority: -1,
       createdAt: -1,
     });
@@ -273,5 +273,41 @@ export const deletePost = async (req, res) => {
     res.json({ success: true, message: "Post deleted" });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+};
+// POST /api/provider/ads/:id/like
+export const toggleLikePost = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id || req.body?.userId;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+
+    const post = await AdPost.findById(id);
+    if (!post) {
+      return res.status(404).json({ success: false, message: "Post not found" });
+    }
+
+    const hasLiked = post.likes && post.likes.includes(userId);
+
+    // Atomic update: remove if already liked, add if not liked
+    const updatedPost = await AdPost.findByIdAndUpdate(
+      id,
+      hasLiked 
+        ? { $pull: { likes: userId } }       // Unlike
+        : { $addToSet: { likes: userId } },   // Like (prevents duplicates)
+      { new: true }
+    );
+
+    return res.json({
+      success: true,
+      isLiked: !hasLiked,
+      likeCount: updatedPost.likes.length,
+      likes: updatedPost.likes,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
   }
 };

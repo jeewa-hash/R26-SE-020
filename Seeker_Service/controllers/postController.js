@@ -137,7 +137,7 @@ export const getPostsByUserId = async (req, res) => {
     const { userId } = req.params;
 
     const posts = await Post.find({
-      userId: userId,
+      $or: [{ userId: userId }, { seekerId: userId }],
     })
       .sort({ createdAt: -1 })
       .lean();
@@ -253,19 +253,23 @@ export const publishPost = async (req, res) => {
       tags,
       urgency,
       userId,
+      seekerId,
+      location,
+      preferredSchedule,
     } = req.body;
 
+    const actualId = seekerId || userId;
 
-    if (!userId) {
+    if (!actualId) {
       return res.status(400).json({
         success: false,
-        error: "User ID is required",
+        error: "Seeker ID is required",
       });
     }
 
 
     // Check whether user exists
-    const user = await getUserById(userId);
+    const user = await getUserById(actualId);
 
     if (!user) {
       return res.status(404).json({
@@ -277,13 +281,16 @@ export const publishPost = async (req, res) => {
 
     // Create post
     const newPost = new Post({
+      seekerId: actualId,
+      userId: actualId,
       title,
       description,
       image,
       category,
       tags,
       urgency,
-      userId,
+      ...(location && { location }),
+      ...(preferredSchedule && { preferredSchedule }),
     });
 
 

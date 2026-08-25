@@ -9,6 +9,7 @@ import {
   getPostById,
   updatePost,
   deletePost,
+   toggleLikePost,
 } from "../controllers/adPostController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -26,5 +27,7 @@ router.get("/:id", getPostById);
 router.put("/:id", updatePost);
 router.delete("/:id", deletePost);
 router.post("/:id/boost", protect(["ServiceProvider"]), boostPost); // boost ad priority
+router.post("/:id/like", toggleLikePost); // toggle like on ad post
+
 
 export default router;
