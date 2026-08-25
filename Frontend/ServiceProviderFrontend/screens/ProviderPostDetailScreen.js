@@ -8,6 +8,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { postsAPI, providerRequestsAPI } from '../services/api';
 import { getStoredUserId } from '../utils/jwtHelpers';
+import { IP_ADDRESS } from '../config';
+
+const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
 
 export default function ProviderPostDetailScreen({ navigation, route }) {
   const { post } = route.params;
@@ -68,6 +71,23 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
 
     setLoading(true);
     try {
+      // 1. Check governance & penalty restriction status from adminService
+      try {
+        const checkRes = await fetch(`${ADMIN_API_URL}/api/inquiries/missed-bookings/${providerId}`);
+        const checkData = await checkRes.json();
+        if (checkRes.ok && checkData.isRestricted) {
+          Alert.alert(
+            'Account Restricted',
+            checkData.restrictionMessage || 'You cannot submit proposals due to 3 or more unaddressed service cancellations. Please submit inquiries or contact admin at nethmiumaya5@gmail.com.',
+            [{ text: 'OK' }]
+          );
+          setLoading(false);
+          return;
+        }
+      } catch (checkErr) {
+        console.log('Restriction check error (continuing):', checkErr.message);
+      }
+
       const requestPayload = {
         postId: post.id,
         providerId: providerId,

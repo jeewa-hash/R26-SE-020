@@ -1,10 +1,16 @@
-import React, { useContext } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import React, { useContext, useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Platform, Alert, TouchableOpacity } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack'; // Added Stack
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
 
 import { ThemeContext } from '../context/ThemeContext';
+import { IP_ADDRESS } from '../config';
+import { clearCredentials } from '../utils/biometricAuth';
+
+const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
 
 // Import Screens
 import NewsFeedScreen from '../pages/NewsFeedScreen';
@@ -101,41 +107,193 @@ function TabItem({ label, icon, iconActive, focused, C, hasNotif }) {
 export default function BottomTabNavigator() {
   const { isDark } = useContext(ThemeContext);
   const C = isDark ? DARK : LIGHT;
+  const navigation = useNavigation();
+  const isLoggingOutRef = useRef(false);
+  const [activeAlertBanner, setActiveAlertBanner] = useState(null);
+  const seenNotificationIdsRef = useRef(new Set());
+
+  // Security Watchdog: Periodically check suspension & new approval/rejection notifications without refresh
+  useEffect(() => {
+    const checkStatusAndNotifications = async () => {
+      if (isLoggingOutRef.current) return;
+      try {
+        const userId = (await AsyncStorage.getItem('userId')) || '69fc31f3cfe41c4d62e6f9ee';
+        if (!userId) return;
+
+        // 1. Check Suspension Status
+        const response = await fetch(`${ADMIN_API_URL}/api/inquiries/provider-status/${userId}`);
+        const data = await response.json();
+
+        if (response.ok && data.isBlocked) {
+          isLoggingOutRef.current = true;
+          const untilDate = data.blockedUntil ? new Date(data.blockedUntil).toLocaleDateString() : 'Admin unlocks';
+
+          await AsyncStorage.removeItem('userToken');
+          await AsyncStorage.removeItem('userRole');
+          await AsyncStorage.removeItem('userId');
+          await clearCredentials();
+
+          Alert.alert(
+            '⚠️ Account Suspended',
+            `Your account has been suspended for 1 Month (30 Days) due to 3 consecutive inquiry rejections. Access is restricted until ${untilDate}.\n\nYou have been logged out.`,
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Login' }],
+                  });
+                },
+              },
+            ],
+            { cancelable: false }
+          );
+
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+          return;
+        }
+
+        // 2. Check for New Unread Approval & Rejection Notifications (Real-time without refresh)
+        const notifRes = await fetch(`${ADMIN_API_URL}/api/inquiries/notifications/${userId}`);
+        const notifData = await notifRes.json();
+        if (notifRes.ok && Array.isArray(notifData.data)) {
+          const unreadNotifs = notifData.data.filter(
+            (n) =>
+              !n.isRead &&
+              (n.type === 'inquiry_rejected' || n.type === 'inquiry_approved') &&
+              !seenNotificationIdsRef.current.has(n._id)
+          );
+          if (unreadNotifs.length > 0) {
+            const latestNotif = unreadNotifs[0];
+            seenNotificationIdsRef.current.add(latestNotif._id);
+            setActiveAlertBanner(latestNotif);
+          }
+        }
+      } catch (err) {
+        // silent
+      }
+    };
+
+    checkStatusAndNotifications();
+    const interval = setInterval(checkStatusAndNotifications, 2500); // 2.5s fast real-time poll
+    return () => clearInterval(interval);
+  }, [navigation]);
 
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarShowLabel: false,
-        tabBarStyle: [
-          styles.tabBar,
-          {
-            backgroundColor: C.bar,
-            borderTopColor: C.border,
-          },
-        ],
-      }}
-    >
-      {TABS.map((tab) => (
-        <Tab.Screen
-          key={tab.name}
-          name={tab.name}
-          component={SCREENS[tab.name]}
-          options={{
-            tabBarIcon: ({ focused }) => (
-              <TabItem
-                label={tab.label}
-                icon={tab.icon}
-                iconActive={tab.iconActive}
-                focused={focused}
-                C={C}
-                hasNotif={tab.name === 'Earnings'}
+    <View style={{ flex: 1 }}>
+      {/* Real-Time Floating In-App Alert Banner (Approved or Rejected) */}
+      {activeAlertBanner && (
+        <View style={styles.floatingBannerContainer}>
+          <View
+            style={[
+              styles.floatingBannerCard,
+              activeAlertBanner.type === 'inquiry_approved'
+                ? styles.floatingBannerCardApproved
+                : styles.floatingBannerCardRejected,
+            ]}
+          >
+            <View
+              style={[
+                styles.floatingBannerIconWrap,
+                activeAlertBanner.type === 'inquiry_approved'
+                  ? styles.floatingBannerIconWrapApproved
+                  : styles.floatingBannerIconWrapRejected,
+              ]}
+            >
+              <MaterialIcons
+                name={activeAlertBanner.type === 'inquiry_approved' ? 'check-circle' : 'error-outline'}
+                size={24}
+                color={activeAlertBanner.type === 'inquiry_approved' ? '#059669' : '#dc2626'}
               />
-            ),
-          }}
-        />
-      ))}
-    </Tab.Navigator>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.floatingBannerTitle,
+                  activeAlertBanner.type === 'inquiry_approved' && { color: '#065f46' },
+                ]}
+              >
+                {activeAlertBanner.title}
+              </Text>
+              <Text style={styles.floatingBannerMessage} numberOfLines={2}>
+                {activeAlertBanner.message}
+              </Text>
+              <View style={styles.floatingBannerActions}>
+                <TouchableOpacity
+                  style={[
+                    styles.floatingBannerActionBtn,
+                    activeAlertBanner.type === 'inquiry_approved' && { backgroundColor: '#059669' },
+                  ]}
+                  onPress={() => {
+                    setActiveAlertBanner(null);
+                    navigation.navigate('SubmitInquiry');
+                  }}
+                >
+                  <MaterialIcons
+                    name={activeAlertBanner.type === 'inquiry_approved' ? 'verified' : 'replay'}
+                    size={14}
+                    color="#ffffff"
+                  />
+                  <Text style={styles.floatingBannerActionBtnText}>
+                    {activeAlertBanner.type === 'inquiry_approved' ? 'View Status' : 'Re-submit Now'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.floatingBannerDismissBtn}
+                  onPress={() => setActiveAlertBanner(null)}
+                >
+                  <Text style={styles.floatingBannerDismissBtnText}>Dismiss</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.floatingBannerCloseIcon}
+              onPress={() => setActiveAlertBanner(null)}
+            >
+              <MaterialIcons name="close" size={18} color="#9ca3af" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarShowLabel: false,
+          tabBarStyle: [
+            styles.tabBar,
+            {
+              backgroundColor: C.bar,
+              borderTopColor: C.border,
+            },
+          ],
+        }}
+      >
+        {TABS.map((tab) => (
+          <Tab.Screen
+            key={tab.name}
+            name={tab.name}
+            component={SCREENS[tab.name]}
+            options={{
+              tabBarIcon: ({ focused }) => (
+                <TabItem
+                  label={tab.label}
+                  icon={tab.icon}
+                  iconActive={tab.iconActive}
+                  focused={focused}
+                  C={C}
+                  hasNotif={tab.name === 'Earnings'}
+                />
+              ),
+            }}
+          />
+        ))}
+      </Tab.Navigator>
+    </View>
   );
 }
 
@@ -180,13 +338,96 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#FFF',
   },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    letterSpacing: 0.2,
-    marginTop: 2,
-  },
   tabLabelActive: {
     fontWeight: '700',
+  },
+  floatingBannerContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 44 : 20,
+    left: 12,
+    right: 12,
+    zIndex: 99999,
+    elevation: 999,
+  },
+  floatingBannerCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderLeftWidth: 5,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 12,
+    gap: 10,
+  },
+  floatingBannerCardRejected: {
+    borderLeftColor: '#dc2626',
+    borderColor: '#fee2e2',
+    shadowColor: '#dc2626',
+  },
+  floatingBannerCardApproved: {
+    borderLeftColor: '#059669',
+    borderColor: '#d1fae5',
+    shadowColor: '#059669',
+  },
+  floatingBannerIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  floatingBannerIconWrapRejected: {
+    backgroundColor: '#fee2e2',
+  },
+  floatingBannerIconWrapApproved: {
+    backgroundColor: '#d1fae5',
+  },
+  floatingBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#991b1b',
+    marginBottom: 2,
+  },
+  floatingBannerMessage: {
+    fontSize: 12,
+    color: '#4b5563',
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  floatingBannerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  floatingBannerActionBtn: {
+    backgroundColor: '#dc2626',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  floatingBannerActionBtnText: {
+    color: '#ffffff',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  floatingBannerDismissBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  floatingBannerDismissBtnText: {
+    color: '#6b7280',
+    fontSize: 11.5,
+    fontWeight: '500',
+  },
+  floatingBannerCloseIcon: {
+    padding: 4,
   },
 });

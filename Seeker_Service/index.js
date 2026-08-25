@@ -9,6 +9,8 @@ import postRoutes from "./routes/postRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import chatSocket from "./sockets/chatSocket.js";
 import feedbackRoutes from "./routes/feedbackRoutes.js";
+import requestQuotationRoutes from "./routes/requestQuotationRoutes.js";
+
 dotenv.config();
 
 const app = express();
@@ -25,6 +27,8 @@ app.use("/uploads", express.static("uploads"));
 app.use("/posts", postRoutes);
 app.use("/chat", chatRoutes);
 app.use("/feedback", feedbackRoutes);
+app.use("/request-quotations", requestQuotationRoutes);
+
 
 // HTTP + SOCKET SERVER
 const httpServer = createServer(app);
@@ -41,12 +45,30 @@ chatSocket(io);
 // DB connection
 const PORT = process.env.PORT || 6000;
 
-mongoose.connect(process.env.MONGO_URI)
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("MongoDB Connected");
-
     httpServer.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+      console.log("");
+      console.log("================================================");
+      console.log("       🚀 SEEKER SERVICE BACKEND");
+      console.log("================================================");
+      console.log("       ✅ MongoDB   : Connected");
+      console.log("       🌐 Server    : Running");
+      console.log(`       🔌 Port      : ${PORT}`);
+      console.log("       💬 Socket.IO : Enabled");
+      console.log("================================================");
+      console.log("       ✨ Seeker Service is ready!");
+      console.log("================================================");
+      console.log("");
     });
   })
-  .catch((err) => console.log(err));
+  .catch((err) => {
+    console.log("");
+    console.log("================================================");
+    console.log("       ❌ SEEKER SERVICE STARTUP FAILED");
+    console.log("================================================");
+    console.log(`       MongoDB Error: ${err.message}`);
+    console.log("================================================");
+    console.log("");
+  });

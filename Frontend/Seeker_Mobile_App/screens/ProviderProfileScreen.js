@@ -1,0 +1,562 @@
+// screens/ProviderProfileScreen.js
+
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  StatusBar,
+  Dimensions,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CONFIG, IP_ADDRESS } from '../config';
+import { useAuth } from '../context/AuthContext';
+
+const { width } = Dimensions.get('window');
+const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
+
+export default function ProviderProfileScreen({ route, navigation }) {
+  const { providerItem, finalDecision } = route.params || {};
+  const { user } = useAuth();
+
+  // 🔍 Debug log to verify we received finalDecision
+  console.log('🟢 ProviderProfileScreen received:', {
+    providerId: providerItem?.provider?.id,
+    finalDecision: finalDecision ? '✅ yes' : '❌ no',
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const provider = providerItem?.provider || {};
+  const portfolio = providerItem?.portfolio || {};
+  const match = providerItem?.match || {};
+
+  const getProfileImage = (profileImage) => {
+    if (!profileImage) return null;
+    const normalized = profileImage.replace(/\\/g, '/');
+    if (normalized.startsWith('http')) return normalized;
+    return `${CONFIG.API_BASE_URL}/${normalized}`;
+  };
+
+  const imageUrl = getProfileImage(provider.profileImage);
+  const providerName = provider.name || 'Service Provider';
+  const category = provider.category || 'Not specified';
+  const district = provider.district || 'Not specified';
+  const email = provider.email || 'Not available';
+  const isVerified = provider.isVerified || false;
+  const totalImages = portfolio.total_images || 0;
+  const categories = portfolio.categories || [];
+  const specificLabels = portfolio.specific_labels || [];
+  const portfolioImages = portfolio.images || [];
+
+  /*
+   * ==========================================================
+   * REQUEST QUOTATION
+   * ==========================================================
+   */
+  const handleRequestQuotation = async () => {
+    if (!finalDecision) {
+      Alert.alert('Error', 'No service summary available. Please go back and try again.');
+      return;
+    }
+
+    const summary = finalDecision?.summary || {};
+    const sessionId = summary.session_id || null;
+    if (!sessionId) {
+      Alert.alert('Error', 'Session information is missing. Please try again.');
+      return;
+    }
+
+    if (!provider.id) {
+      Alert.alert('Error', 'Provider information is unavailable.');
+      return;
+    }
+
+    let seekerId = user?.id;
+    if (!seekerId) {
+      try {
+        seekerId = await AsyncStorage.getItem('userId');
+      } catch (e) {
+        console.log('Error getting seeker ID:', e);
+      }
+    }
+    if (!seekerId) {
+      Alert.alert('Error', 'You must be logged in to request a quotation.');
+      return;
+    }
+
+    const stepBreakdown = summary.step_breakdown || [];
+    const briefDescription = summary.brief_description || 'Service request';
+
+    const payload = {
+      seekerId: seekerId,
+      providerId: provider.id,
+      sessionId: sessionId,
+      detectedCategory: summary.detected_category || 'unknown',
+      detectedObject: summary.detected_object || 'unknown',
+      modelConfidence: summary.model_confidence || null,
+      stepBreakdown: stepBreakdown,
+      briefDescription: briefDescription,
+      urgencyLevel: summary.urgency_level || 'Normal',
+      serviceLocation: summary.provider_matching?.criteria?.service_location || '',
+    };
+
+    setIsSubmitting(true);
+
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        Alert.alert('Error', 'You are not authenticated. Please log in again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const response = await fetch(QUOTATION_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 201) {
+        Alert.alert(
+          'Quotation Request Sent',
+          `Your quotation request has been sent to ${providerName}.`,
+          [{ text: 'OK', onPress: () => setIsSubmitting(false) }]
+        );
+      } else {
+        Alert.alert(
+          'Failed to Send',
+          data.message || 'Unable to send quotation request. Please try again.'
+        );
+        setIsSubmitting(false);
+      }
+    } catch (error) {
+      console.error('QUOTATION REQUEST ERROR:', error);
+      Alert.alert(
+        'Network Error',
+        `Could not connect to the server at ${QUOTATION_API_URL}.\nMake sure the backend is running and the IP/port is correct.`
+      );
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleChat = () => {
+    Alert.alert('Chat', `Start a conversation with ${providerName}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Start Chat', onPress: () => alert(`Chat with ${providerName} started!`) },
+    ]);
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Profile card */}
+        <View style={styles.profileCard}>
+          <View style={styles.avatarSection}>
+            {imageUrl ? (
+              <Image source={{ uri: imageUrl }} style={styles.avatar} />
+            ) : (
+              <View style={styles.defaultAvatar}>
+                <Ionicons name="person" size={50} color="#6366F1" />
+              </View>
+            )}
+            <View style={styles.verificationBadge}>
+              <Ionicons
+                name={isVerified ? 'checkmark-circle' : 'close-circle'}
+                size={24}
+                color={isVerified ? '#10B981' : '#EF4444'}
+              />
+              <Text style={[styles.verificationText, { color: isVerified ? '#065F46' : '#991B1B' }]}>
+                {isVerified ? 'Verified' : 'Unverified'}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.providerName}>{providerName}</Text>
+          <View style={styles.categoryRow}>
+            <Ionicons name="briefcase-outline" size={16} color="#6B7280" />
+            <Text style={styles.categoryText}>{category}</Text>
+          </View>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={16} color="#6B7280" />
+            <Text style={styles.locationText}>{district}</Text>
+          </View>
+        </View>
+
+        {/* Contact */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Contact Information</Text>
+          <View style={styles.contactRow}>
+            <Ionicons name="mail-outline" size={20} color="#6366F1" />
+            <Text style={styles.contactText}>{email}</Text>
+          </View>
+        </View>
+
+        {/* Match details */}
+        {Object.keys(match).length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Match Details</Text>
+            <View style={styles.matchChips}>
+              {match.category_match && (
+                <View style={styles.matchChip}>
+                  <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                  <Text style={styles.matchChipText}>Category match</Text>
+                </View>
+              )}
+              {match.district_match && (
+                <View style={styles.matchChip}>
+                  <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                  <Text style={styles.matchChipText}>Location match</Text>
+                </View>
+              )}
+              {match.priority && (
+                <View style={[styles.matchChip, styles.priorityChip]}>
+                  <Text style={styles.priorityChipText}>Priority: {match.priority}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Portfolio categories */}
+        {categories.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Portfolio Categories</Text>
+            <View style={styles.tagContainer}>
+              {categories.map((cat, idx) => (
+                <View key={idx} style={styles.tag}>
+                  <Text style={styles.tagText}>{cat}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Specializations */}
+        {specificLabels.length > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Specializations</Text>
+            <View style={styles.tagContainer}>
+              {specificLabels.map((label, idx) => (
+                <View key={idx} style={[styles.tag, styles.specialTag]}>
+                  <Text style={styles.specialTagText}>{label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Portfolio images */}
+        {totalImages > 0 && (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>
+              Portfolio ({totalImages} image{totalImages > 1 ? 's' : ''})
+            </Text>
+            {portfolioImages.length > 0 ? (
+              <View style={styles.imageGrid}>
+                {portfolioImages.map((img, idx) => (
+                  <Image
+                    key={idx}
+                    source={{ uri: `${CONFIG.API_BASE_URL}/${img}` }}
+                    style={styles.portfolioImage}
+                  />
+                ))}
+              </View>
+            ) : (
+              <View style={styles.placeholderImages}>
+                <Ionicons name="images-outline" size={40} color="#9CA3AF" />
+                <Text style={styles.placeholderText}>Images not available</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Action buttons */}
+        <View style={styles.actionContainer}>
+          <TouchableOpacity style={styles.chatButtonLarge} onPress={handleChat}>
+            <Ionicons name="chatbubble-outline" size={20} color="#fff" />
+            <Text style={styles.chatButtonTextLarge}>Chat</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quoteButtonLarge, isSubmitting && styles.disabledButton]}
+            onPress={handleRequestQuotation}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator color="#6366F1" size="small" />
+            ) : (
+              <>
+                <Ionicons name="document-text-outline" size={20} color="#6366F1" />
+                <Text style={styles.quoteButtonTextLarge}>Get Quote</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+/* ============================================================
+   STYLES
+============================================================ */
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8F9FC',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  backButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  container: {
+    flex: 1,
+    padding: 16,
+  },
+  profileCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  avatarSection: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: '#6366F1',
+  },
+  defaultAvatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  verificationBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: -10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  verificationText: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  providerName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginTop: 8,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  categoryText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginLeft: 6,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  locationText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginLeft: 6,
+  },
+  sectionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  contactText: {
+    fontSize: 14,
+    color: '#374151',
+    marginLeft: 12,
+  },
+  matchChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  matchChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  matchChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#059669',
+    marginLeft: 4,
+  },
+  priorityChip: {
+    backgroundColor: '#EEF2FF',
+  },
+  priorityChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6366F1',
+  },
+  tagContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tag: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  tagText: {
+    fontSize: 12,
+    color: '#4B5563',
+  },
+  specialTag: {
+    backgroundColor: '#EEF2FF',
+  },
+  specialTagText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6366F1',
+  },
+  imageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  portfolioImage: {
+    width: (width - 64) / 3,
+    height: (width - 64) / 3,
+    borderRadius: 12,
+    resizeMode: 'cover',
+  },
+  placeholderImages: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 8,
+  },
+  actionContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  chatButtonLarge: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6366F1',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+  },
+  chatButtonTextLarge: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  quoteButtonLarge: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF2FF',
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#6366F1',
+    gap: 8,
+  },
+  quoteButtonTextLarge: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6366F1',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+});
