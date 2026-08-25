@@ -23,24 +23,28 @@ export const getProviderQuotationById = async (quotationId) => {
 export const updateProviderQuotationCoordination = async (
   quotationId,
   coordinationStatus,
-  coordinationId
+  coordinationId,
+  coordinatedStartTime = null,
+  coordinatedEndTime = null
 ) => {
   try {
     const response = await axios.patch(
-      `${PROVIDER_SERVICE_BASE_URL}/api/provider/quotations/${quotationId}/coordination`, // Chaw - Update quotation coordination status after validation
+      `${PROVIDER_SERVICE_BASE_URL}/api/provider/quotations/${quotationId}/coordination`, // Chaw: update quotation coordination status after validation
       {
         coordinationStatus,
         coordinationId,
-      }
+        coordinatedStartTime,
+        coordinatedEndTime,
+      } // Chaw: send final selected slot time when available
     );
 
-    return response.data?.data || response.data?.quotation || response.data; // Chaw - Return updated quotation response
+    return response.data?.data || response.data?.quotation || response.data; // Chaw: return updated quotation response
   } catch (error) {
     console.error(
       "PROVIDER SERVICE COORDINATION UPDATE ERROR:",
       error.response?.data || error.message
-    ); // Chaw - Log update failure but controller can decide whether to continue
+    );
 
-    throw new Error("Unable to update provider quotation coordination status"); // Chaw - Clean error for controller
+    throw new Error("Unable to update provider quotation coordination status");
   }
 };

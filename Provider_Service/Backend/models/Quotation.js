@@ -44,6 +44,16 @@ const quotationSchema = new mongoose.Schema(
       required: true,
     },
 
+    coordinatedStartTime: {
+      type: Date,
+      default: null,
+    }, // Chaw: final selected start time after bid coordination/reschedule
+    
+    coordinatedEndTime: {
+      type: Date,
+      default: null,
+    }, // Chaw: final selected end time after bid coordination/reschedule
+
     estimatedDurationHours: { // Chaw: numeric duration used for scheduling/conflict calculation
       type: Number,
       required: true,

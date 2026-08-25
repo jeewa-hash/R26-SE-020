@@ -450,10 +450,12 @@ export const selectSuggestedSlot = async (req, res) => {
   
       try {
         providerQuotationUpdate = await updateProviderQuotationCoordination(
-          coordination.externalQuotationId,
-          decisionData.finalDecision,
-          coordination._id.toString()
-        ); // Chaw: update Provider Service with new coordination decision
+        coordination.externalQuotationId,
+        decisionData.finalDecision,
+        coordination._id.toString(),
+        updatedScheduleEvaluation.requiredWindowStart,
+        updatedScheduleEvaluation.requiredWindowEnd
+        ); // Chaw: update Provider Quotation with final coordinated selected slot
       } catch (updateError) {
         providerQuotationUpdateWarning = updateError.message;
       }

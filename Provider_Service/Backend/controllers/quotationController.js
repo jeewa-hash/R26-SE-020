@@ -238,8 +238,8 @@ export const acceptQuotation = async (req, res) => {
 export const updateQuotationCoordination = async (req, res) => { // Chaw: added endpoint for Coordination Service to update quotation result
   try {
     const { id } = req.params;
-    const { coordinationStatus, coordinationId } = req.body;
-
+    const { coordinationStatus, coordinationId, coordinatedStartTime, coordinatedEndTime, } = req.body;
+    // Chaw: allow Coordination Service to send final selected slot time
     const allowedStatuses = [ // Chaw: allowed coordination states from scheduling engine
       "NOT_CHECKED",
       "CHECKING",
@@ -261,6 +261,8 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw: added 
       {
         coordinationStatus, // Chaw: save final coordination decision
         coordinationId: coordinationId || null, // Chaw: link to BidCoordination record in Coordination Service
+        coordinatedStartTime: coordinatedStartTime || null, // Chaw: save final coordinated start time when selected
+        coordinatedEndTime: coordinatedEndTime || null, // Chaw: save final coordinated end time when selected
       },
       { new: true }
     );
