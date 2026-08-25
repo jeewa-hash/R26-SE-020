@@ -319,3 +319,164 @@ export const getBidCoordinationsBySession = async (req, res) => {
     });
   }
 };
+
+
+//select suggested slot 
+
+export const selectSuggestedSlot = async (req, res) => {
+    try {
+      const { coordinationId, slotId } = req.params;
+  
+      if (
+        !mongoose.Types.ObjectId.isValid(coordinationId) ||
+        !mongoose.Types.ObjectId.isValid(slotId)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid coordination ID or suggested slot ID.",
+        });
+      }
+  
+      const coordination = await BidCoordination.findById(coordinationId);
+  
+      if (!coordination) {
+        return res.status(404).json({
+          success: false,
+          message: "Bid coordination not found.",
+        });
+      }
+  
+      const selectedSlot = await BidSuggestedSlot.findOne({
+        _id: slotId,
+        bidCoordinationId: coordinationId,
+        status: "AVAILABLE",
+      });
+  
+      if (!selectedSlot) {
+        return res.status(404).json({
+          success: false,
+          message: "Available suggested slot not found.",
+        });
+      }
+  
+      const priceEvaluation = await BidPriceEvaluation.findOne({
+        bidCoordinationId: coordination._id,
+      });
+  
+      if (!priceEvaluation) {
+        return res.status(404).json({
+          success: false,
+          message: "Price evaluation not found for this coordination.",
+        });
+      }
+  
+      const scheduleEvaluation = await BidScheduleEvaluation.findOne({
+        bidCoordinationId: coordination._id,
+      });
+  
+      if (!scheduleEvaluation) {
+        return res.status(404).json({
+          success: false,
+          message: "Schedule evaluation not found for this coordination.",
+        });
+      }
+  
+      const selectedDurationHours =
+        scheduleEvaluation.finalSchedulingDurationHours;
+  
+      const updatedScheduleData = {
+        proposedStartTime: selectedSlot.startTime,
+        requiredWindowStart: selectedSlot.startTime,
+        requiredWindowEnd: selectedSlot.endTime,
+        finalSchedulingDurationHours: selectedDurationHours,
+        conflictDetected: false,
+        conflictReason: "",
+      }; // Chaw: selected suggested slot becomes the new valid schedule window
+  
+      const updatedScheduleEvaluation =
+        await BidScheduleEvaluation.findOneAndUpdate(
+          {
+            bidCoordinationId: coordination._id,
+          },
+          updatedScheduleData,
+          {
+            new: true,
+            runValidators: true,
+          }
+        );
+  
+      const decisionData = decideBidCoordination({
+        priceEvaluation,
+        scheduleEvaluation: updatedScheduleEvaluation,
+      }); // Chaw: recalculate decision after seeker selects available slot
+  
+      const updatedCoordination = await BidCoordination.findByIdAndUpdate(
+        coordination._id,
+        {
+          finalDecision: decisionData.finalDecision,
+          recommendedAction: decisionData.recommendedAction,
+          status: "ready_for_seeker_review",
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+  
+      await BidSuggestedSlot.updateMany(
+        {
+          bidCoordinationId: coordination._id,
+          _id: { $ne: selectedSlot._id },
+        },
+        {
+          status: "EXPIRED",
+        }
+      ); // Chaw: expire other suggestions once seeker selects one
+  
+      const updatedSelectedSlot = await BidSuggestedSlot.findByIdAndUpdate(
+        selectedSlot._id,
+        {
+          status: "SELECTED",
+          selectedAt: new Date(),
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
+      ); // Chaw: mark chosen slot as selected
+  
+      let providerQuotationUpdate = null;
+      let providerQuotationUpdateWarning = null;
+  
+      try {
+        providerQuotationUpdate = await updateProviderQuotationCoordination(
+          coordination.externalQuotationId,
+          decisionData.finalDecision,
+          coordination._id.toString()
+        ); // Chaw: update Provider Service with new coordination decision
+      } catch (updateError) {
+        providerQuotationUpdateWarning = updateError.message;
+      }
+  
+      return res.status(200).json({
+        success: true,
+        message: "Suggested slot selected successfully.",
+        data: {
+          coordination: updatedCoordination,
+          priceEvaluation,
+          scheduleEvaluation: updatedScheduleEvaluation,
+          selectedSlot: updatedSelectedSlot,
+          providerQuotationUpdate,
+          providerQuotationUpdateWarning,
+        },
+      });
+    } catch (error) {
+      console.error("SELECT SUGGESTED SLOT ERROR:", error);
+  
+      return res.status(500).json({
+        success: false,
+        message: "Failed to select suggested slot.",
+        error: error.message,
+      });
+    }
+  };

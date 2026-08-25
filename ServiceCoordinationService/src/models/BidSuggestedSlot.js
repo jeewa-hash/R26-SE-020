@@ -37,11 +37,16 @@ const bidSuggestedSlotSchema = new mongoose.Schema(
     }, // Chaw: explains why this slot was suggested
 
     status: {
-      type: String,
-      enum: ["AVAILABLE", "SELECTED", "EXPIRED"],
-      default: "AVAILABLE",
-      index: true,
+    type: String,
+    enum: ["AVAILABLE", "SELECTED", "EXPIRED"],
+    default: "AVAILABLE",
+    index: true,
     }, // Chaw: later seeker can select one slot
+
+    selectedAt: {
+    type: Date,
+    default: null,
+    }, // Chaw: time when seeker selected this suggested slot
   },
   {
     timestamps: true,
