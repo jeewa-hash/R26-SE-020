@@ -11,6 +11,7 @@ import durationRoutes from "./routes/durationRoutes.js";
 import providerCalendarRoutes from "./routes/providerCalendarRoutes.js";
 import rescheduleRoutes from "./routes/rescheduleRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
+import bidCoordinationRoutes from "./routes/bidCoordinationRoutes.js"; // Chaw: added bid coordination routes
 import integrationTestRoutes from "./routes/integrationTestRoutes.js"; // Chaw - Added temporary integration test routes
 dotenv.config();
 
@@ -36,6 +37,7 @@ app.use("/calendar", providerCalendarRoutes);
 app.use("/reschedules", rescheduleRoutes);
 app.use("/posts", postRoutes);
 app.use("/test", integrationTestRoutes); // Chaw - Temporary route for Phase 2 validation
+app.use("/bid-coordinations", bidCoordinationRoutes); // Chaw: added bid coordination routes
 
 const PORT = process.env.PORT || 5010;
 
