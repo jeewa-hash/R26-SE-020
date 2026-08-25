@@ -4,10 +4,9 @@ const quotationSchema = new mongoose.Schema(
   {
     providerRequestId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "ProviderRequest",
       required: true,
       index: true,
-    },
+    }, // Chaw: external RequestQuotation ID from Seeker Service; do not populate inside Provider Service
 
     externalSessionId: { // Chaw: links quotation to Member 2 ServiceSession, e.g. REPAIR-476B
       type: String,
@@ -24,17 +23,15 @@ const quotationSchema = new mongoose.Schema(
 
     seekerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
       required: true,
       index: true,
-    },
+    }, // Chaw: removed User ref because user data belongs to Auth/User Service
 
     providerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
       required: true,
       index: true,
-    },
+    }, // Chaw: removed User ref because user data belongs to Auth/User Service
 
     price: {
       type: Number,

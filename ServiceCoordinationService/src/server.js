@@ -11,6 +11,7 @@ import durationRoutes from "./routes/durationRoutes.js";
 import providerCalendarRoutes from "./routes/providerCalendarRoutes.js";
 import rescheduleRoutes from "./routes/rescheduleRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
+import integrationTestRoutes from "./routes/integrationTestRoutes.js"; // Chaw - Added temporary integration test routes
 dotenv.config();
 
 const app = express();
@@ -27,13 +28,14 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.use("/api/coordination/requests", providerRequestRoutes);
-app.use("/api/coordination/bookings", bookingRoutes);
-app.use("/api/coordination/availability", providerAvailabilityRoutes);
-app.use("/api/coordination/duration", durationRoutes);
-app.use("/api/coordination/calendar", providerCalendarRoutes);
-app.use("/api/coordination/reschedules", rescheduleRoutes);
-app.use("/api/coordination/posts", postRoutes);
+app.use("/requests", providerRequestRoutes);
+app.use("/bookings", bookingRoutes);
+app.use("/availability", providerAvailabilityRoutes);
+app.use("/duration", durationRoutes);
+app.use("/calendar", providerCalendarRoutes);
+app.use("/reschedules", rescheduleRoutes);
+app.use("/posts", postRoutes);
+app.use("/test", integrationTestRoutes); // Chaw - Temporary route for Phase 2 validation
 
 const PORT = process.env.PORT || 5010;
 

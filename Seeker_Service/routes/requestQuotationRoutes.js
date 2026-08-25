@@ -21,6 +21,7 @@ router.patch("/:id/status", updateRequestStatus);
 
 router.delete("/:id", deleteRequestQuotation);
 
-router.get("/:id", getSingleRequest);
+//router.get("/:id", getSingleRequest);
+router.get("/:id", getSingleRequest); // Chaw - Temporarily open for service-to-service local testing
 
 export default router;

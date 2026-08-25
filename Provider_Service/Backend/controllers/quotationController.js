@@ -15,12 +15,12 @@ export const createQuotation = async (req, res) => {
 
     const {
       providerRequestId,
-      externalSessionId, // Chaw - Added ServiceSession ID from seeker/request flow
+      externalSessionId, // Chaw: added ServiceSession ID from seeker/request flow
       seekerId,
       postId = null,
       price,
-      proposedStartTime, // Chaw - Added provider proposed job start date/time
-      estimatedDurationHours, // Chaw - Added numeric duration for coordination calculation
+      proposedStartTime, // Chaw: added provider proposed job start date/time
+      estimatedDurationHours, // Chaw: added numeric duration for coordination calculation
       durationText = "",
       notes = "",
     } = req.body;
@@ -28,33 +28,54 @@ export const createQuotation = async (req, res) => {
     // Validate essential parameters from the Seeker's request payload
     if (
       !providerRequestId ||
-      !externalSessionId || // Chaw - Required to link quotation to ServiceSession
+      !externalSessionId || // Chaw: required to link quotation to ServiceSession
       !seekerId ||
       price == null ||
-      !proposedStartTime || // Chaw - Required for scheduling/conflict validation
-      estimatedDurationHours == null // Chaw - Required to calculate proposed end time
+      !proposedStartTime || // Chaw: required for scheduling/conflict validation
+      estimatedDurationHours == null // Chaw: required to calculate proposed end time
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "providerRequestId, externalSessionId, seekerId, price, proposedStartTime, and estimatedDurationHours are required.", // Chaw - Updated validation message
+          "providerRequestId, externalSessionId, seekerId, price, proposedStartTime, and estimatedDurationHours are required.", // Chaw: updated validation message
+      });
+    }
+
+    if (Number(price) < 0) { // Chaw: validate quotation amount
+      return res.status(400).json({
+        success: false,
+        message: "price cannot be negative.",
+      });
+    }
+
+    if (Number(estimatedDurationHours) <= 0) { // Chaw: validate numeric duration
+      return res.status(400).json({
+        success: false,
+        message: "estimatedDurationHours must be greater than 0.",
+      });
+    }
+
+    if (Number.isNaN(new Date(proposedStartTime).getTime())) { // Chaw: validate proposed start time
+      return res.status(400).json({
+        success: false,
+        message: "Invalid proposedStartTime.",
       });
     }
 
     // 1. Create Quotation in Database
     const quotation = await Quotation.create({
       providerRequestId,
-      externalSessionId, // Chaw - Save ServiceSession reference
+      externalSessionId, // Chaw: save ServiceSession reference
       seekerId,
       postId,
       providerId,
       price,
-      proposedStartTime, // Chaw - Save provider proposed job start time
-      estimatedDurationHours, // Chaw - Save numeric duration for coordination
-      durationText: durationText || `${estimatedDurationHours} Hours`, // Chaw - Auto-generate display text if missing
+      proposedStartTime, // Chaw: save provider proposed job start time
+      estimatedDurationHours, // Chaw: save numeric duration for coordination
+      durationText: durationText || `${estimatedDurationHours} Hours`, // Chaw: auto-generate display text if missing
       notes,
       status: "SENT",
-      coordinationStatus: "NOT_CHECKED", // Chaw - New quotation must be checked by coordination service
+      coordinationStatus: "NOT_CHECKED", // Chaw: new quotation must be checked by Coordination Service
     });
 
     // 2. Persistent Notification for Seeker
@@ -67,7 +88,7 @@ export const createQuotation = async (req, res) => {
       metadata: {
         quotationId: quotation._id,
         providerRequestId: providerRequestId,
-        externalSessionId: externalSessionId, // Chaw - Include session reference in notification metadata
+        externalSessionId: externalSessionId, // Chaw: include session reference in notification metadata
       },
     });
 
@@ -83,6 +104,8 @@ export const createQuotation = async (req, res) => {
       data: quotation,
     });
   } catch (error) {
+    console.error("CREATE QUOTATION ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: "Failed to create quotation.",
@@ -104,9 +127,7 @@ export const getProviderQuotations = async (req, res) => {
 
     // Populate the providerRequestId to view Seeker's problem breakdown directly
     const quotations = await Quotation.find({ providerId })
-      .populate("providerRequestId")
-      .populate("seekerId", "name email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 }); // Chaw: removed populate because related request/user data belongs to other services
 
     return res.status(200).json({
       success: true,
@@ -114,6 +135,8 @@ export const getProviderQuotations = async (req, res) => {
       data: quotations,
     });
   } catch (error) {
+    console.error("GET PROVIDER QUOTATIONS ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: "Failed to fetch provider quotations.",
@@ -124,10 +147,7 @@ export const getProviderQuotations = async (req, res) => {
 
 export const getQuotationById = async (req, res) => {
   try {
-    const quotation = await Quotation.findById(req.params.id)
-      .populate("providerRequestId")
-      .populate("providerId", "name email")
-      .populate("seekerId", "name email");
+    const quotation = await Quotation.findById(req.params.id); // Chaw: removed populate because related request/user data belongs to other services
 
     if (!quotation) {
       return res.status(404).json({
@@ -141,6 +161,8 @@ export const getQuotationById = async (req, res) => {
       data: quotation,
     });
   } catch (error) {
+    console.error("GET QUOTATION BY ID ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: "Failed to fetch quotation.",
@@ -167,7 +189,7 @@ export const acceptQuotation = async (req, res) => {
       });
     }
 
-    if ( // Chaw - Prevent accepting quotation before coordination validation
+    if ( // Chaw: prevent accepting quotation before coordination validation
       !["CAN_ACCEPT", "AVAILABLE_WITH_CAUTION"].includes(
         quotation.coordinationStatus
       )
@@ -175,7 +197,7 @@ export const acceptQuotation = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Quotation must pass coordination before acceptance. Please run bid coordination first.", // Chaw - Acceptance now depends on coordination result
+          "Quotation must pass coordination before acceptance. Please run bid coordination first.", // Chaw: acceptance now depends on coordination result
       });
     }
 
@@ -203,6 +225,8 @@ export const acceptQuotation = async (req, res) => {
       data: quotation,
     });
   } catch (error) {
+    console.error("ACCEPT QUOTATION ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: "Failed to accept quotation.",
@@ -211,12 +235,12 @@ export const acceptQuotation = async (req, res) => {
   }
 };
 
-export const updateQuotationCoordination = async (req, res) => { // Chaw - Added endpoint for coordination service to update quotation result
+export const updateQuotationCoordination = async (req, res) => { // Chaw: added endpoint for Coordination Service to update quotation result
   try {
     const { id } = req.params;
     const { coordinationStatus, coordinationId } = req.body;
 
-    const allowedStatuses = [ // Chaw - Allowed coordination states from our scheduling engine
+    const allowedStatuses = [ // Chaw: allowed coordination states from scheduling engine
       "NOT_CHECKED",
       "CHECKING",
       "CAN_ACCEPT",
@@ -225,7 +249,7 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw - Added
       "REJECTED_DUE_TO_CONFLICT",
     ];
 
-    if (!allowedStatuses.includes(coordinationStatus)) { // Chaw - Validate coordination status before saving
+    if (!allowedStatuses.includes(coordinationStatus)) { // Chaw: validate coordination status before saving
       return res.status(400).json({
         success: false,
         message: "Invalid coordination status.",
@@ -235,8 +259,8 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw - Added
     const quotation = await Quotation.findByIdAndUpdate(
       id,
       {
-        coordinationStatus, // Chaw - Save final coordination decision
-        coordinationId: coordinationId || null, // Chaw - Link to BidCoordination record in coordination service
+        coordinationStatus, // Chaw: save final coordination decision
+        coordinationId: coordinationId || null, // Chaw: link to BidCoordination record in Coordination Service
       },
       { new: true }
     );
@@ -254,6 +278,8 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw - Added
       data: quotation,
     });
   } catch (error) {
+    console.error("UPDATE QUOTATION COORDINATION ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: "Failed to update quotation coordination.",
@@ -265,6 +291,7 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw - Added
 export const getSeekerQuotations = async (req, res) => {
   try {
     const seekerId = req.user?.id;
+
     if (!seekerId) {
       return res.status(401).json({
         success: false,
@@ -282,6 +309,8 @@ export const getSeekerQuotations = async (req, res) => {
       data: quotations,
     });
   } catch (error) {
+    console.error("GET SEEKER QUOTATIONS ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: "Failed to fetch seeker quotations.",
