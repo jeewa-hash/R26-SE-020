@@ -95,17 +95,18 @@ export const checkBidCoordination = async (req, res) => {
       providerEstimatedDurationHours: providerQuotation.estimatedDurationHours,
     }); // Chaw: rule-based price and budget evaluation
 
-    const scheduleEvaluationData = evaluateBidSchedule({
-      proposedStartTime: providerQuotation.proposedStartTime,
-      preferredStartTime: requestQuotation.preferredStartTime,
-      preferredEndTime: requestQuotation.preferredEndTime,
-      providerEstimatedDurationHours:
+    const scheduleEvaluationData = await evaluateBidSchedule({
+    providerId: providerQuotation.providerId, // Chaw: needed to validate provider availability and existing bookings
+    proposedStartTime: providerQuotation.proposedStartTime,
+    preferredStartTime: requestQuotation.preferredStartTime,
+    preferredEndTime: requestQuotation.preferredEndTime,
+    providerEstimatedDurationHours:
         providerQuotation.estimatedDurationHours,
-      seekerEstimatedDurationHours:
+    seekerEstimatedDurationHours:
         requestQuotation.seekerEstimatedDurationHours,
-      mlPredictedDurationHours: null,
-      bufferMinutes,
-    }); // Chaw: first schedule evaluation without booking conflict check
+    mlPredictedDurationHours: null,
+    bufferMinutes,
+    }); // Chaw: schedule evaluation now checks ProviderAvailability and Booking conflicts
 
     const decisionData = decideBidCoordination({
       priceEvaluation: priceEvaluationData,
