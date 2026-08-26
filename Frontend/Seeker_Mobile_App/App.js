@@ -38,6 +38,8 @@ import PaymentScreen from './screens/PaymentScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import HelpScreen from './screens/HelpScreen';
 import SpendAnalyticsScreen from './screens/SpendAnalyticsScreen';
+import RequestQuotationDetailsScreen from './screens/RequestQuotationDetailsScreen';
+import PostResponsesScreen from './screens/PostResponsesScreen';
 
 // Chat Screens
 import { ChatProvider } from './context/ChatContext';
@@ -227,6 +229,18 @@ function AppNavigator({ initialRouteName }) {
         component={SpendAnalyticsScreen} 
         options={{ headerShown: false }} 
       />
+
+      <Stack.Screen 
+     name="RequestQuotationDetails" 
+     component={RequestQuotationDetailsScreen} 
+     options={{ headerShown: false }} 
+     />
+
+     <Stack.Screen 
+    name="PostResponsesScreen" 
+    component={PostResponsesScreen} 
+    options={{ headerShown: false }} 
+    />
 
       <Stack.Screen 
       name="ProviderProfile" 

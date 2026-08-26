@@ -108,6 +108,7 @@ export default function FeedScreen({ navigation }) {
             }
           ),
           timeAgo: formatTimeAgo(post.createdAt),
+          // Keep responseCount if you still need it for something else
           responseCount: post.comments || 0,
         }));
 
@@ -215,6 +216,14 @@ export default function FeedScreen({ navigation }) {
       console.log('Delete Error:', error);
       Alert.alert('Error', 'Network error while deleting post');
     }
+  };
+
+  // =======================================================
+  // VIEW RESPONSES
+  // =======================================================
+  const handleViewResponses = (postId) => {
+    // Navigate to a screen that shows the providers who responded
+    navigation.navigate('PostResponsesScreen', { postId });
   };
 
   // =======================================================
@@ -470,7 +479,7 @@ export default function FeedScreen({ navigation }) {
                   />
                 )}
 
-                {/* FOOTER */}
+                {/* FOOTER - Removed bids count, kept date/time */}
                 <View style={styles.postFooter}>
                   <View style={styles.footerItem}>
                     <Ionicons
@@ -505,26 +514,9 @@ export default function FeedScreen({ navigation }) {
                       {post.timeAgo}
                     </Text>
                   </View>
-
-                  <View style={styles.footerItem}>
-                    <Ionicons
-                      name="chatbubble-outline"
-                      size={14}
-                      color="#667eea"
-                    />
-
-                    <Text
-                      style={[
-                        styles.responseText,
-                        isDarkMode && styles.textDark,
-                      ]}
-                    >
-                      {post.responseCount} bids
-                    </Text>
-                  </View>
                 </View>
 
-                {/* ACTION BUTTONS */}
+                {/* ACTION BUTTONS - Now includes View Responses */}
                 <View style={styles.actionButtons}>
                   {/* EDIT */}
                   <TouchableOpacity
@@ -552,6 +544,20 @@ export default function FeedScreen({ navigation }) {
                     />
 
                     <Text style={styles.deleteButtonText}>Delete</Text>
+                  </TouchableOpacity>
+
+                  {/* VIEW RESPONSES (NEW) */}
+                  <TouchableOpacity
+                    style={styles.responsesButton}
+                    onPress={() => handleViewResponses(post.id)}
+                  >
+                    <Ionicons
+                      name="people-outline"
+                      size={18}
+                      color="#10B981"
+                    />
+
+                    <Text style={styles.responsesButtonText}>Responses</Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -753,11 +759,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 
-  responseText: {
-    fontSize: 11,
-    color: '#667eea',
-    fontWeight: '500',
-  },
+  // Removed responseText style
 
   actionButtons: {
     flexDirection: 'row',
@@ -801,6 +803,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: '#EF4444',
+  },
+
+  // New "Responses" button style
+  responsesButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+    backgroundColor: '#fff',
+  },
+
+  responsesButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#10B981',
   },
 
   emptyContainer: {
