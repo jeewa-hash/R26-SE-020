@@ -151,6 +151,31 @@ const bookingSchema = new mongoose.Schema(
       ],
       default: "CONFIRMED",
     },
+
+    cancellationInfo: {
+      cancelledBy: {
+        type: String,
+        enum: ["PROVIDER", "SEEKER", "ADMIN", ""],
+        default: "",
+      },
+      cancellationReason: {
+        type: String,
+        default: "",
+      },
+      cancelledAt: {
+        type: Date,
+        default: null,
+      },
+      inquiryStatus: {
+        type: String,
+        enum: ["NOT_REQUIRED", "NOT_SUBMITTED", "PENDING", "APPROVED", "REJECTED"],
+        default: "NOT_REQUIRED",
+      },
+      inquiryId: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null,
+      },
+    },
   },
   { timestamps: true }
 );

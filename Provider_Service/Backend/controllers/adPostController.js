@@ -12,6 +12,7 @@ import {
   buildAdDataFromML,
 } from "../utils/adPostHelpers.js";
 
+
 // Shared helper: runs content generation and returns { posts, generatedBy }
 const runContentGeneration = async (adData) => {
   try {
@@ -185,7 +186,7 @@ export const listPostsByProvider = async (req, res) => {
 // Used by seekers/feed views so boosted posts and newly created ones appear first.
 export const listAllPublicPosts = async (req, res) => {
   try {
-    const posts = await AdPost.find({ status: "published" }).sort({
+    const posts = await AdPost.find({ status: "draft" }).sort({
       priority: -1,
       createdAt: -1,
     });
@@ -198,28 +199,69 @@ export const listAllPublicPosts = async (req, res) => {
 // ── POST /api/provider/ads/:id/boost ────────────────────────────────────
 // Increases the ad priority by 1 (or by a custom amount via body.amount)
 // so the post ranks higher in sorted feeds.
+// Helper function to calculate boost fee based on step amount
+const calculateBoostFee = (amount) => {
+  const baseRatePerStep = 100; // Rs 100 per step
+  const rawTotal = amount * baseRatePerStep;
+
+  // Calculate 5% discount for every full 5-step increment
+  const discountTier = Math.floor(amount / 5);
+  const discountPercentage = discountTier * 0.05; // e.g., 5 steps = 0.05 (5%)
+
+  const discountAmount = rawTotal * discountPercentage;
+  const finalFee = rawTotal - discountAmount;
+
+  return {
+    rawTotal,
+    discountPercentage: discountPercentage * 100, // percentage integer
+    discountAmount,
+    finalFee,
+  };
+};
+
+// ── POST /api/provider/ads/:id/boost ────────────────────────────────────
+// Increases ad priority and returns payment/fee calculation breakdown.
 export const boostPost = async (req, res) => {
   try {
     const boostAmount = Number(req.body?.amount) || 1;
-    if (boostAmount <= 0) {
+    if (boostAmount <= 0 || !Number.isInteger(boostAmount)) {
       return res
         .status(400)
-        .json({ success: false, message: "Boost amount must be positive." });
+        .json({ success: false, message: "Boost amount must be a positive integer." });
     }
 
-    const post = await AdPost.findByIdAndUpdate(
-      req.params.id,
-      { $inc: { priority: boostAmount } },
-      { new: true, runValidators: true }
-    );
+    // 1. Calculate pricing
+    const feeDetails = calculateBoostFee(boostAmount);
 
-    if (!post) {
+    // 2. Fetch post to ensure existence
+    const postToBoost = await AdPost.findById(req.params.id);
+    if (!postToBoost) {
       return res
         .status(404)
         .json({ success: false, message: "Post not found" });
     }
 
-    res.json({ success: true, data: post });
+    // Optional: Payment Verification Check
+    // e.g., if (req.body.paymentStatus !== "COMPLETED") { return handlePaymentPending(); }
+
+    // 3. Update Priority
+    postToBoost.priority += boostAmount;
+    await postToBoost.save();
+
+    // 4. Return Updated Post along with Payment Summary
+    res.json({
+      success: true,
+      data: postToBoost,
+      paymentSummary: {
+        boostAmount,
+        costPerStep: 100,
+        subtotal: feeDetails.rawTotal,
+        discountPercentage: `${feeDetails.discountPercentage}%`,
+        discountAmount: feeDetails.discountAmount,
+        totalCharged: feeDetails.finalFee,
+        currency: "LKR",
+      },
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

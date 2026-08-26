@@ -288,3 +288,174 @@ export const getBookingById = async (req, res) => {
     });
   }
 };
+
+/**
+ * Cancel a booking
+ * Records whether cancelled by PROVIDER or SEEKER.
+ * Seeker cancellations are marked as NOT_REQUIRED so they NEVER penalize the provider!
+ */
+export const cancelBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { reason = "" } = req.body;
+
+    const booking = await Booking.findById(bookingId);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (!canAccessBooking(req, booking)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied for this booking",
+      });
+    }
+
+    if (["COMPLETED", "CANCELLED"].includes(booking.bookingStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Booking cannot be cancelled because it is already ${booking.bookingStatus.toLowerCase()}`,
+      });
+    }
+
+    const cancelledBy =
+      req.user.role === "ServiceProvider"
+        ? "PROVIDER"
+        : req.user.role === "Seeker"
+        ? "SEEKER"
+        : "ADMIN";
+
+    // If cancelled by Seeker, inquiry is NOT_REQUIRED (Provider will not be penalized!)
+    const inquiryStatus = cancelledBy === "PROVIDER" ? "NOT_SUBMITTED" : "NOT_REQUIRED";
+
+    booking.bookingStatus = "CANCELLED";
+    booking.cancellationInfo = {
+      cancelledBy,
+      cancellationReason: reason,
+      cancelledAt: new Date(),
+      inquiryStatus,
+    };
+
+    await booking.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Booking cancelled successfully by ${cancelledBy.toLowerCase()}`,
+      data: booking,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to cancel booking",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Helper to check if booking is 24 hours overdue past scheduled end time
+ */
+const isBookingOverdue24Hours = (b) => {
+  try {
+    if (!b.scheduledDate) return false;
+    let dateTimeStr = b.scheduledDate;
+    if (b.startTime) {
+      dateTimeStr += " " + b.startTime;
+    } else {
+      dateTimeStr += " 00:00";
+    }
+    const startTimeMs = new Date(dateTimeStr).getTime();
+    if (isNaN(startTimeMs)) {
+      if (b.createdAt) {
+        return Date.now() - new Date(b.createdAt).getTime() > 24 * 60 * 60 * 1000;
+      }
+      return false;
+    }
+    const durationHours = b.estimatedDurationHours || 1;
+    const deadlineMs = startTimeMs + durationHours * 60 * 60 * 1000 + 24 * 60 * 60 * 1000;
+    return Date.now() >= deadlineMs;
+  } catch (e) {
+    return false;
+  }
+};
+
+/**
+ * Get provider cancelled bookings requiring inquiry
+ * Includes:
+ * 1. Normal cancellations by provider
+ * 2. Bookings that were rescheduled and then cancelled
+ * 3. Rescheduled bookings where provider ignored / did not attend (past 24h of rescheduled duration)
+ * 4. Bookings left uncompleted (CONFIRMED, DELAY_REPORTED, IN_PROGRESS, RESCHEDULING_REQUIRED) after 24h past duration
+ * Excludes: Seeker cancellations, approved inquiries, and upcoming active rescheduled bookings
+ */
+export const getProviderMissedInquiries = async (req, res) => {
+  try {
+    const providerId = req.user?.id;
+
+    if (!providerId) {
+      return res.status(401).json({
+        success: false,
+        message: "Provider authentication required",
+      });
+    }
+
+    const allProviderBookings = await Booking.find({
+      providerId,
+      bookingStatus: {
+        $in: [
+          "CANCELLED",
+          "CONFIRMED",
+          "DELAY_REPORTED",
+          "IN_PROGRESS",
+          "RESCHEDULING_REQUIRED",
+          "RESCHEDULED",
+        ],
+      },
+      "cancellationInfo.cancelledBy": { $ne: "SEEKER" },
+      "cancellationInfo.inquiryStatus": { $ne: "APPROVED" },
+    }).sort({ scheduledDate: -1, createdAt: -1 });
+
+    const missedBookings = [];
+
+    for (const b of allProviderBookings) {
+      if (b.bookingStatus === "CANCELLED") {
+        if (b.cancellationInfo?.cancelledBy === "PROVIDER" || !b.cancellationInfo?.cancelledBy) {
+          missedBookings.push(b);
+        }
+      } else {
+        // Check if 24 hours overdue past duration
+        if (isBookingOverdue24Hours(b)) {
+          // Auto-mark as CANCELLED in DB
+          b.bookingStatus = "CANCELLED";
+          b.cancellationInfo = {
+            cancelledBy: "PROVIDER",
+            cancellationReason:
+              b.bookingStatus === "RESCHEDULED"
+                ? "Rescheduled booking not attended / ignored (Auto-cancelled after 24h past rescheduled duration)"
+                : `Booking not completed within 24h past duration (Provider No-show - was ${b.bookingStatus})`,
+            cancelledAt: new Date(),
+            inquiryStatus: "NOT_SUBMITTED",
+          };
+          await b.save();
+          missedBookings.push(b);
+        }
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      count: missedBookings.length,
+      data: missedBookings,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to get provider missed inquiries",
+      error: error.message,
+    });
+  }
+};

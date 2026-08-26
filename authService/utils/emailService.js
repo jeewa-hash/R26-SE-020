@@ -143,9 +143,63 @@ async function sendHighDemandEmail(to, providerName, category, district, avgDema
   }
 }
 
+/**
+ * Send Account Suspension Email when 3 consecutive inquiries are rejected
+ */
+async function sendConsecutiveRejectionPenaltyEmail(to, providerName, adminNote) {
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || 'Work Wave <noreply@workwave.com>',
+    to,
+    subject: '⚠️ Account Suspended: 3 Consecutive Inquiries Rejected - Work Wave',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #333; border: 1px solid #fee2e2; border-radius: 12px;">
+        <h2 style="color: #ef4444; margin-top: 0;">Account Temporarily Suspended</h2>
+        <p>Dear <strong>${providerName || 'Service Provider'}</strong>,</p>
+        <p>This is an automated notice regarding your Work Wave service provider account.</p>
+        <p>Your recent service cancellation inquiries (3 consecutive inquiries) have been <strong>REJECTED</strong> by the Administration due to insufficient or invalid justification for missed/cancelled services.</p>
+        
+        <div style="background-color: #fee2e2; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #ef4444;">
+          <strong>Latest Admin Note:</strong><br/>
+          <span>${adminNote || 'No valid proof or acceptable explanation was submitted for consecutive service cancellations.'}</span>
+        </div>
+
+        <h3 style="color: #b91c1c; margin-bottom: 8px;">Suspension Policy Enforcement:</h3>
+        <ul style="padding-left: 20px; line-height: 1.6;">
+          <li>Your account has been <strong>automatically suspended for 1 Month (30 Days)</strong>.</li>
+          <li>You cannot send new proposals or accept new bookings during this suspension.</li>
+        </ul>
+
+        <div style="background-color: #f3f4f6; padding: 18px; border-radius: 8px; margin: 20px 0; border: 1px dashed #d1d5db;">
+          <h4 style="margin-top: 0; color: #111827;">Action Required to Appeal Suspension:</h4>
+          <p style="margin-bottom: 8px;">If you have valid justifications, official medical documentation, or emergency evidence to appeal this suspension, please email your explanation and evidence directly to our governance team:</p>
+          <p style="font-size: 16px; font-weight: bold; color: #4f46e5; margin: 10px 0;">
+            📧 nethmiumaya5@gmail.com
+          </p>
+          <p style="font-size: 13px; color: #6b7280; margin-bottom: 0;">The administration will review your appeal and may manually reinstate your account if your justification is valid.</p>
+        </div>
+
+        <p style="font-size: 13px; color: #6b7280;">If no appeal is approved, your account will automatically be reinstated after the 1-month penalty period expires.</p>
+        <br/>
+        <p>Best regards,<br/><strong>Work Wave Governance & Reliability Team</strong></p>
+      </div>
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('[Email] Consecutive rejection penalty email sent:', info.messageId);
+    return info;
+  } catch (err) {
+    console.error('[Email] Failed to send consecutive rejection penalty email:', err.message);
+    throw err;
+  }
+}
+
 module.exports = {
   sendVerificationPendingEmail,
   sendApprovalEmail,
   sendRejectionEmail,
   sendHighDemandEmail,
+  sendConsecutiveRejectionPenaltyEmail,
+  transporter,
 };

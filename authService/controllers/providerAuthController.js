@@ -152,7 +152,22 @@ exports.login = async (req, res) => {
     }
 
     if (user.isBlocked) {
-      return res.status(403).json({ message: 'Your account has been blocked by the Administrator.' });
+      if (user.blockedUntil && new Date() >= new Date(user.blockedUntil)) {
+        // 1-month suspension period has expired -> auto unblock with clean slate
+        user.isBlocked = false;
+        user.blockedUntil = null;
+        user.consecutiveRejections = 0;
+        user.blockReason = '';
+        user.lastUnblockedAt = new Date();
+        await user.save();
+        console.log(`[ProviderAuth] Auto-unblocked provider ${user.email} after 1 month suspension expired. Clean slate applied.`);
+      } else {
+        const untilDate = user.blockedUntil ? new Date(user.blockedUntil).toLocaleDateString() : null;
+        const msg = untilDate
+          ? `Your account is suspended until ${untilDate} due to consecutive inquiry rejections. To appeal, please email your reasons and evidence to nethmiumaya5@gmail.com.`
+          : 'Your account has been blocked by the Administrator. To appeal, please email your reasons and evidence to nethmiumaya5@gmail.com.';
+        return res.status(403).json({ message: msg, isBlocked: true, blockedUntil: user.blockedUntil });
+      }
     }
 
     // Check Verification Status
