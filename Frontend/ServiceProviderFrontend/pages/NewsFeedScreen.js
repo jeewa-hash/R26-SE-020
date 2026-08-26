@@ -22,6 +22,7 @@ import AnnouncementSlideshow from '../components/feed/AnnouncementSlideshow';
 import MidAnnouncementCard from '../components/feed/MidAnnouncementCard';
 import i18n from '../locales';
 import { CONFIG } from '../config';
+import ProviderPostDetailScreen from '../screens/ProviderPostDetailScreen';
 
 const { width } = Dimensions.get('window');
 
@@ -196,22 +197,26 @@ export default function NewsFeedScreen() {
 
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [viewerId, setViewerId] = useState(null);
 
   // Fetch posts from backend and map to UI shape
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
-        // Get token from AsyncStorage
+        // Get token + viewerId from AsyncStorage
         const token = await AsyncStorage.getItem('userToken');
-        
+        const storedProviderId = (await AsyncStorage.getItem('userId')) || null;
+        if (mounted) setViewerId(storedProviderId);
+
         if (!token) {
           Alert.alert('Error', 'No authentication token. Please login again.');
           setLoadingPosts(false);
           return;
         }
 
-        const res = await fetch(`${CONFIG.SEEKER_SERVICE_URL}/posts/`, {
+        const url = `${CONFIG.SEEKER_SERVICE_URL}/posts/${storedProviderId ? `?viewerId=${storedProviderId}` : ''}`;
+        const res = await fetch(url, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -225,15 +230,24 @@ export default function NewsFeedScreen() {
           const mapped = data.posts.map((p) => ({
             id: p._id,
             _id: p._id,
-            seekerId: p.seekerId,
-            userId: p.userId,
+            seekerId: p.seekerId || p.userId,
+            userId: p.userId || p.seekerId,
             title: p.title || '',
-            customer: p.user?.name || 'Unknown',
-            customerId: p.user?._id || null,
+            customer: p.user?.name || p.poster?.name || 'Unknown',
+            customerId: p.user?._id || p.seekerId || p.userId || null,
+            poster: p.poster || null,
+            user: p.user || null,
+            postImage: p.image || null,
             image: p.image || '',
-            location: p.location?.city || p.location?.district || p.location?.address || '',
+            location:
+              (typeof p.location === 'string' ? p.location : '') ||
+              p.location?.city ||
+              p.location?.district ||
+              p.location?.address ||
+              p.poster?.district ||
+              '',
             locationAddress: p.location?.address || '',
-            locationDistrict: p.location?.district || '',
+            locationDistrict: p.location?.district || p.poster?.district || '',
             locationCity: p.location?.city || '',
             locationLat: p.location?.lat || null,
             locationLng: p.location?.lng || null,
@@ -245,8 +259,10 @@ export default function NewsFeedScreen() {
             tags: p.tags || [],
             urgency: p.urgency || 'medium',
             budget: p.budget || '',
-            applied: p.appliedCount || 0,
-            appliedCount: p.appliedCount || 0,
+            applied: Number(p.appliedCount ?? 0),
+            appliedCount: Number(p.appliedCount ?? 0),
+            applicants: p.applicants || p.appliedBy || [],
+            isOwner: p.isOwner || false,
             views: p.views || 0,
             urgent: (p.urgency || '').toLowerCase() === 'high',
             aiMatch: p.aiMatch || null,
@@ -292,7 +308,12 @@ export default function NewsFeedScreen() {
   }, [filteredPosts]);
 
   const handleApply = async (post) => {
-    if (applyingId || isApplied(post.id)) return;
+    if (applyingId || isApplied(post.id)) {
+      navigation.navigate('ProviderPostDetail', { post: { ...post, _id: post._id || post.id } });
+      return;
+    }
+    navigation.navigate('ProviderPostDetail', { post: { ...post, _id: post._id || post.id } });
+    return;
 
     setApplyingId(post.id);
     try {
@@ -311,6 +332,7 @@ export default function NewsFeedScreen() {
           },
           body: JSON.stringify({
             providerId,
+            applicantId: providerId,
             amount: 1,
           }),
         });
