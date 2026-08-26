@@ -80,6 +80,22 @@ const providerSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    consecutiveRejections: {
+      type: Number,
+      default: 0,
+    },
+    blockedUntil: {
+      type: Date,
+      default: null,
+    },
+    blockReason: {
+      type: String,
+      default: '',
+    },
+    lastUnblockedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

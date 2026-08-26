@@ -21,6 +21,7 @@ import ProfileScreen from './screens/ProfileScreen';
 import CreatePostScreen from './screens/CreatePostScreen';
 import LanguageScreen from './screens/LanguageScreen';
 import OnboardingScreen from './screens/OnboardingScreen'; 
+import ProviderProfileScreen from './screens/ProviderProfileScreen';
 
 import FeedbackScreen from './screens/FeedbackScreen';
 import BiddingScreen from './screens/BiddingScreen';
@@ -37,6 +38,8 @@ import PaymentScreen from './screens/PaymentScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import HelpScreen from './screens/HelpScreen';
 import SpendAnalyticsScreen from './screens/SpendAnalyticsScreen';
+import RequestQuotationDetailsScreen from './screens/RequestQuotationDetailsScreen';
+import PostResponsesScreen from './screens/PostResponsesScreen';
 
 // Chat Screens
 import { ChatProvider } from './context/ChatContext';
@@ -226,6 +229,22 @@ function AppNavigator({ initialRouteName }) {
         component={SpendAnalyticsScreen} 
         options={{ headerShown: false }} 
       />
+
+      <Stack.Screen 
+     name="RequestQuotationDetails" 
+     component={RequestQuotationDetailsScreen} 
+     options={{ headerShown: false }} 
+     />
+
+     <Stack.Screen 
+    name="PostResponsesScreen" 
+    component={PostResponsesScreen} 
+    options={{ headerShown: false }} 
+    />
+
+      <Stack.Screen 
+      name="ProviderProfile" 
+      component={ProviderProfileScreen} />
       
       <Stack.Screen 
         name="RescheduleScreen" 

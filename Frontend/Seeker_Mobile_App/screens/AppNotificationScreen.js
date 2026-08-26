@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,14 +8,26 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { IP_ADDRESS } from '../config'; // adjust path if needed
+
+// Use the proxy endpoint from the seeker service
+const API_BASE = `http://${IP_ADDRESS}:6000`;
+const QUOTATIONS_URL = `${API_BASE}/request-quotations/seeker/me`;
 
 export default function NotificationsScreen() {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState('all');
-  const [notifications, setNotifications] = useState([
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Hardcoded sample notifications (non‑quote types remain static)
+  const staticNotifications = [
     {
       id: 1,
       type: 'booking',
@@ -93,51 +105,73 @@ export default function NotificationsScreen() {
       iconColor: '#FF6B6B',
       action: 'Claim Offer',
     },
-    // ========== QUOTE NOTIFICATIONS ==========
-    {
-      id: 8,
-      type: 'quote',
-      title: 'New Quote Received',
-      message: 'John Miller sent you a quote for HVAC Repair: $180.',
-      time: '5 minutes ago',
-      read: false,
-      icon: 'document-text',
-      iconColor: '#8B5CF6',
-      action: 'View Quote',
-      postId: 'post_456',
-      quoteId: 'quote_123',
-    },
-    {
-      id: 9,
-      type: 'quote',
-      title: 'Quote Accepted',
-      message: 'Your quote for Kitchen Plumbing has been accepted by the customer.',
-      time: '1 hour ago',
-      read: true,
-      icon: 'checkmark-circle',
-      iconColor: '#10B981',
-      action: 'View Quote',
-      postId: 'post_457',
-      quoteId: 'quote_124',
-    },
-    {
-      id: 10,
-      type: 'quote',
-      title: 'Quote Declined',
-      message: 'Your quote for Garden Maintenance was declined.',
-      time: '3 hours ago',
-      read: true,
-      icon: 'close-circle',
-      iconColor: '#EF4444',
-      action: 'See Details',
-      postId: 'post_458',
-      quoteId: 'quote_125',
-    },
-  ]);
+  ];
+
+  // Fetch quotations from the provider service (via proxy)
+  const fetchQuotations = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        console.warn('No token found – skipping quote fetch');
+        return;
+      }
+
+      const response = await fetch(QUOTATIONS_URL, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        // Transform quote data into notification format
+        const quoteNotifications = result.data.map((quote) => ({
+          id: `quote_${quote._id}`,
+          type: 'quote',
+          title: `Quote from ${quote.providerId?.name || 'Provider'}`,
+          message: `LKR ${quote.price} – ${quote.durationText || '1 day'}. ${quote.notes || ''}`,
+          time: new Date(quote.createdAt).toLocaleString(),
+          read: false, // you can store read status separately if needed
+          icon: 'document-text',
+          iconColor: '#8B5CF6',
+          action: 'View Quote',
+          postId: quote.postId,
+          quoteId: quote._id,
+          providerId: quote.providerId?._id,
+          providerName: quote.providerId?.name,
+          price: quote.price,
+          duration: quote.durationText,
+          status: quote.status,
+        }));
+
+        // Merge with static notifications, keeping quotes separate
+        setNotifications([...staticNotifications, ...quoteNotifications]);
+      } else {
+        console.warn('No quotes or error:', result.message);
+        setNotifications(staticNotifications);
+      }
+    } catch (error) {
+      console.error('Fetch quotes error:', error);
+      setNotifications(staticNotifications);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchQuotations();
+  }, [fetchQuotations]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchQuotations();
+  }, [fetchQuotations]);
 
   const handleMarkAsRead = (id) => {
-    setNotifications(prev =>
-      prev.map(notif =>
+    setNotifications((prev) =>
+      prev.map((notif) =>
         notif.id === id ? { ...notif, read: true } : notif
       )
     );
@@ -152,8 +186,8 @@ export default function NotificationsScreen() {
         {
           text: 'Mark All',
           onPress: () => {
-            setNotifications(prev =>
-              prev.map(notif => ({ ...notif, read: true }))
+            setNotifications((prev) =>
+              prev.map((notif) => ({ ...notif, read: true }))
             );
           },
         },
@@ -181,7 +215,6 @@ export default function NotificationsScreen() {
   const handleNotificationPress = (notification) => {
     handleMarkAsRead(notification.id);
 
-    // Navigate based on notification type
     switch (notification.type) {
       case 'booking':
         navigation.navigate('ProfileScreen', { tab: 'bookings' });
@@ -196,8 +229,13 @@ export default function NotificationsScreen() {
         navigation.navigate('ProfileScreen', { tab: 'history' });
         break;
       case 'quote':
-        // Navigate to the quotes screen (customer view)
-        navigation.navigate('UserQuotesScreen');
+        // Navigate to a quote details screen, or show an alert
+        Alert.alert(
+          'Quote Details',
+          `Provider: ${notification.providerName || 'Unknown'}\nPrice: LKR ${notification.price}\nDuration: ${notification.duration}\nStatus: ${notification.status || 'SENT'}`
+        );
+        // Alternatively, navigate to a dedicated screen
+        // navigation.navigate('QuoteDetailScreen', { quoteId: notification.quoteId });
         break;
       default:
         Alert.alert(notification.title, notification.message);
@@ -206,26 +244,37 @@ export default function NotificationsScreen() {
 
   const getFilteredNotifications = () => {
     if (activeTab === 'all') return notifications;
-    if (activeTab === 'unread') return notifications.filter(n => !n.read);
-    return notifications.filter(n => n.type === activeTab);
+    if (activeTab === 'unread') return notifications.filter((n) => !n.read);
+    return notifications.filter((n) => n.type === activeTab);
   };
 
   const getIconName = (iconName) => {
-    switch (iconName) {
-      case 'checkmark-circle': return 'checkmark-circle';
-      case 'chatbubble': return 'chatbubble-outline';
-      case 'gavel': return 'gavel';
-      case 'star': return 'star-outline';
-      case 'card': return 'card-outline';
-      case 'time': return 'time-outline';
-      case 'pricetag': return 'pricetag-outline';
-      case 'document-text': return 'document-text-outline';
-      case 'close-circle': return 'close-circle-outline';
-      default: return 'notifications-outline';
-    }
+    const map = {
+      'checkmark-circle': 'checkmark-circle',
+      chatbubble: 'chatbubble-outline',
+      gavel: 'gavel',
+      star: 'star-outline',
+      card: 'card-outline',
+      time: 'time-outline',
+      pricetag: 'pricetag-outline',
+      'document-text': 'document-text-outline',
+      'close-circle': 'close-circle-outline',
+    };
+    return map[iconName] || 'notifications-outline';
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <View style={styles.centerContainer}>
+          <Text style={styles.loadingText}>Loading notifications...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -328,7 +377,13 @@ export default function NotificationsScreen() {
 
       {/* Notifications List */}
       {getFilteredNotifications().length > 0 ? (
-        <ScrollView style={styles.notificationsList} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.notificationsList}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
           {getFilteredNotifications().map((notification) => (
             <TouchableOpacity
               key={notification.id}
@@ -538,5 +593,14 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
   },
 });

@@ -14,12 +14,16 @@ import { getSlideshowData } from '../data/seasonalData';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../hooks/useTheme';
+import { IP_ADDRESS } from '../config'; // ✅ ADDED
 
-// Safe check for Legacy Architecture on Android to avoid New Architecture warnings
+const API_URL = `http://${IP_ADDRESS}:4003/seeker`; // ✅ ADDED
+
+// Safe check for Legacy Architecture on Android
 if (
   Platform.OS === 'android' && 
   UIManager.setLayoutAnimationEnabledExperimental &&
-  !global.nativeFabricUIManager // Prevents running in New Architecture
+  !global.nativeFabricUIManager
 ) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -169,9 +173,9 @@ const Slideshow = () => {
 };
 
 // Service Card Component
-const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload }) => {
+const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload, isDarkMode }) => {
   return (
-    <View style={styles.accordionContainer}>
+    <View style={[styles.accordionContainer, isDarkMode && styles.accordionContainerDark]}>
       <TouchableOpacity 
         style={styles.mainCategory} 
         onPress={onPress}
@@ -185,38 +189,38 @@ const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload })
             <MaterialIcons name={category.icon} size={22} color="#fff" />
           </LinearGradient>
           <View>
-            <Text style={styles.mainTitle}>{category.title}</Text>
-            <Text style={styles.subtitleCount}>{category.subcategories.length} services available</Text>
+            <Text style={[styles.mainTitle, isDarkMode && styles.textDark]}>{category.title}</Text>
+            <Text style={[styles.subtitleCount, isDarkMode && styles.textMutedDark]}>{category.subcategories.length} services available</Text>
           </View>
         </View>
-        <View style={[styles.expandIcon, expanded && styles.expandIconActive]}>
+        <View style={[styles.expandIcon, isDarkMode && styles.expandIconDark, expanded && styles.expandIconActive]}>
           <MaterialIcons 
             name={expanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
             size={24} 
-            color="#667eea" 
+            color={isDarkMode ? "#818cf8" : "#667eea"} 
           />
         </View>
       </TouchableOpacity>
 
       {expanded && (
-        <View style={styles.subGrid}>
+        <View style={[styles.subGrid, isDarkMode && styles.subGridDark]}>
           {category.subcategories.map((sub, index) => (
             <TouchableOpacity 
               key={index} 
-              style={styles.subThumbnail}
+              style={[styles.subThumbnail, isDarkMode && styles.subThumbnailDark]}
               onPress={() => onSubPress(sub)}
             >
               <View style={[styles.subIconCircle, { backgroundColor: `${category.color}15` }]}>
                 <MaterialIcons name="check-circle" size={14} color={category.color} />
               </View>
-              <Text style={styles.subText}>{sub}</Text>
+              <Text style={[styles.subText, isDarkMode && styles.textDark]}>{sub}</Text>
             </TouchableOpacity>
           ))}
 
           {category.id === 1 && (
             <TouchableOpacity style={styles.specialUploadBtn} activeOpacity={0.8} onPress={onImageUpload}>
               <LinearGradient
-                colors={['#667eea', '#764ba2']}
+                colors={isDarkMode ? ['#6366f1', '#4f46e5'] : ['#667eea', '#764ba2']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientButton}
@@ -236,6 +240,7 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { language } = useContext(LanguageContext);
   const { user } = useAuth();
+  const { isDarkMode } = useTheme();
 
   const [userState, setUserState] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
@@ -257,13 +262,30 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // ✅ Fetch real unread notification count
   const fetchUnreadCount = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      if (!token) return;
-      setUnreadCount(3);
+      if (!token) {
+        setUnreadCount(0);
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const notifications = Array.isArray(data) ? data : (data.data || []);
+        const unread = notifications.filter((n) => !n.isRead).length;
+        setUnreadCount(unread);
+      } else {
+        setUnreadCount(0);
+      }
     } catch (err) {
       console.log('Error fetching notifications count:', err);
+      setUnreadCount(0);
     }
   }, []);
 
@@ -303,30 +325,68 @@ export default function HomeScreen() {
   };
 
   const handleSearch = async () => {
-    if (searchQuery.trim().length > 0) {
-      try {
-        const appLanguage = language === 'si' ? 'si' : 'en';
-        const res = await fetch("http://10.0.2.2:5002/text-predict", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: searchQuery, app_lan: appLanguage }),
-        });
-        const data = await res.json();
+    if (searchQuery.trim().length === 0) return;
 
-        navigation.navigate("FollowUpScreen", {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      console.log('🔑 Token for text search:', token);
+
+      if (!token) {
+        Alert.alert('Error', 'You are not logged in. Please log in again.');
+        return;
+      }
+
+      const appLanguage = language === 'si' ? 'si' : 'en';
+
+      const url = `http://10.0.2.2:5002/text-predict`;
+      console.log('🌐 URL:', url);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          text: searchQuery,
+          app_lan: appLanguage,
+        }),
+      });
+
+      console.log('📡 Response status:', response.status);
+
+      if (response.status === 401) {
+        Alert.alert('Session Expired', 'Please log in again.');
+        return;
+      }
+
+      const data = await response.json();
+      console.log('📦 Response data:', data);
+
+      if (data.session_id) {
+        navigation.navigate('FollowUpScreen', {
           initialMessage: searchQuery,
           backendResponse: data,
+          source: 'text',
         });
-      } catch (err) {
-        console.error("Error calling backend:", err);
+      } else {
+        Alert.alert('Error', data.error || 'Unable to process your request.');
       }
+    } catch (error) {
+      console.error('Search error:', error);
+      Alert.alert('Network Error', 'Could not connect to the service.');
     }
   };
 
   const handleImageUpload = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        Alert.alert('Error', 'You are not logged in. Please log in again.');
+        return;
+      }
 
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(t('common_error'), t('home_permission_gallery'));
         return;
@@ -348,7 +408,6 @@ export default function HomeScreen() {
         type: 'image/jpeg',
         name: 'photo.jpg',
       });
-      
       formData.append('app_lan', language === 'si' ? 'si' : 'en');
 
       const response = await fetch('http://10.0.2.2:8000/predict', {
@@ -356,9 +415,14 @@ export default function HomeScreen() {
         body: formData,
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`,
         },
       });
+
+      if (response.status === 401) {
+        Alert.alert('Session Expired', 'Please log in again.');
+        return;
+      }
 
       const data = await response.json();
 
@@ -370,11 +434,11 @@ export default function HomeScreen() {
             {
               text: t('common_ok'),
               onPress: () => {
-                navigation.navigate("FollowUpScreen", {
+                navigation.navigate('FollowUpScreen', {
                   session_id: data.session_id,
                   initialQuestion: data.next_question,
                   category: data.category,
-                  source: "image", 
+                  source: 'image',
                 });
               }
             }
@@ -383,16 +447,18 @@ export default function HomeScreen() {
       } else {
         Alert.alert(t('common_error'), t('home_no_object_detected'));
       }
-
     } catch (error) {
-      console.log("UPLOAD ERROR:", error);
-      Alert.alert(t('common_error'), "Server connection failed. Please check if the backend is running.");
+      console.log('UPLOAD ERROR:', error);
+      Alert.alert(t('common_error'), 'Server connection failed. Please check if the backend is running.');
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+      <StatusBar 
+        barStyle="light-content" 
+        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"} 
+      />
       
       <ScrollView 
         showsVerticalScrollIndicator={false} 
@@ -400,7 +466,7 @@ export default function HomeScreen() {
       >
         {/* Header with Gradient */}
         <LinearGradient
-          colors={['#667eea', '#764ba2', '#f093fb']}
+          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#4765eb', '#926ee7', '#9d6aa3']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
@@ -445,12 +511,16 @@ export default function HomeScreen() {
 
         {/* Search Bar */}
         <View style={styles.searchWrapper}>
-          <View style={[styles.searchContainer, isSearchFocused && styles.searchContainerFocused]}>
-            <Feather name="search" size={20} color="#667eea" />
+          <View style={[
+            styles.searchContainer, 
+            isDarkMode && styles.searchContainerDark,
+            isSearchFocused && styles.searchContainerFocused
+          ]}>
+            <Feather name="search" size={20} color={isDarkMode ? "#818cf8" : "#667eea"} />
             <TextInput 
               placeholder={t('search_placeholder')}
-              placeholderTextColor="#999"
-              style={styles.searchInput}
+              placeholderTextColor={isDarkMode ? "#94A3B8" : "#999"}
+              style={[styles.searchInput, isDarkMode && styles.textDark]}
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
@@ -460,11 +530,11 @@ export default function HomeScreen() {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-                <Feather name="x" size={18} color="#999" />
+                <Feather name="x" size={18} color={isDarkMode ? "#94A3B8" : "#999"} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={() => setShowFilters(!showFilters)} style={styles.filterIcon}>
-              <Feather name="sliders" size={20} color="#667eea" />
+            <TouchableOpacity onPress={() => setShowFilters(!showFilters)} style={[styles.filterIcon, isDarkMode && styles.filterIconDark]}>
+              <Feather name="sliders" size={20} color={isDarkMode ? "#818cf8" : "#667eea"} />
             </TouchableOpacity>
           </View>
           
@@ -478,24 +548,24 @@ export default function HomeScreen() {
               <TouchableOpacity style={styles.filterChipActive}>
                 <Text style={styles.filterChipTextActive}>Nearby</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>Top Rated</Text>
+              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
+                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>Top Rated</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>Lowest Price</Text>
+              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
+                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>Lowest Price</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>Available Now</Text>
+              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
+                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>Available Now</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.filterChip}>
-                <Text style={styles.filterChipText}>24/7 Support</Text>
+              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
+                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>24/7 Support</Text>
               </TouchableOpacity>
             </ScrollView>
           )}
         </View>
 
-        {/* Bidding Banner */}
-        <TouchableOpacity onPress={handleStartBidding} activeOpacity={0.9}>
+        {/* Unlock New Feature Banner */}
+        <TouchableOpacity onPress={() => toggleExpand(1)} activeOpacity={0.9}>
           <LinearGradient
             colors={['#FF6B6B', '#FF8E53']}
             start={{ x: 0, y: 0 }}
@@ -504,14 +574,14 @@ export default function HomeScreen() {
           >
             <View style={styles.biddingContent}>
               <View style={styles.biddingIconContainer}>
-                <MaterialIcons name="gavel" size={32} color="#fff" />
+                <MaterialIcons name="image-search" size={32} color="#fff" />
               </View>
               <View style={styles.biddingTextContainer}>
-                <Text style={styles.biddingTitle}>Start Bidding Now</Text>
-                <Text style={styles.biddingSubtitle}>Get the best price for your service</Text>
+                <Text style={styles.biddingTitle}>🔓 Unlock New Feature</Text>
+                <Text style={styles.biddingSubtitle}>Search repairs by uploading a photo</Text>
               </View>
               <View style={styles.biddingArrow}>
-                <Feather name="arrow-right" size={24} color="#fff" />
+                <Feather name={expandedId === 1 ? 'chevron-up' : 'chevron-down'} size={24} color="#fff" />
               </View>
             </View>
           </LinearGradient>
@@ -523,12 +593,12 @@ export default function HomeScreen() {
         {/* Section Header */}
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={styles.sectionTitle}>{t('all_services')}</Text>
-            <Text style={styles.sectionSubtitle}>Browse by category</Text>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>{t('all_services')}</Text>
+            <Text style={[styles.sectionSubtitle, isDarkMode && styles.textMutedDark]}>Browse by category</Text>
           </View>
           <TouchableOpacity style={styles.seeAllBtn}>
-            <Text style={styles.seeAllText}>{t('home_see_all')}</Text>
-            <Feather name="arrow-right" size={14} color="#667eea" />
+            <Text style={[styles.seeAllText, isDarkMode && styles.seeAllTextDark]}>{t('home_see_all')}</Text>
+            <Feather name="arrow-right" size={14} color={isDarkMode ? "#818cf8" : "#667eea"} />
           </TouchableOpacity>
         </View>
         
@@ -541,6 +611,7 @@ export default function HomeScreen() {
             onPress={() => toggleExpand(cat.id)}
             onSubPress={handleSubCategoryPress}
             onImageUpload={handleImageUpload}
+            isDarkMode={isDarkMode}
           />
         ))}
 
@@ -976,5 +1047,48 @@ const styles = StyleSheet.create({
     color: '#fff', 
     fontWeight: '600', 
     fontSize: 13,
+  },
+  
+  // Dark Mode Styles
+  containerDark: {
+    backgroundColor: '#1a1a2e',
+  },
+  textDark: {
+    color: '#F8FAFC',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
+  },
+  searchContainerDark: {
+    backgroundColor: '#16213e',
+    borderColor: '#2d3561',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+  },
+  filterIconDark: {
+    borderLeftColor: '#2d3561',
+  },
+  filterChipDark: {
+    backgroundColor: '#242f4d',
+  },
+  accordionContainerDark: {
+    backgroundColor: '#16213e',
+    borderColor: '#2d3561',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+  },
+  expandIconDark: {
+    backgroundColor: '#242f4d',
+  },
+  subGridDark: {
+    borderColor: '#2d3561',
+  },
+  subThumbnailDark: {
+    backgroundColor: '#242f4d',
+    borderColor: '#2d3561',
+  },
+  seeAllTextDark: {
+    color: '#818cf8',
   },
 });

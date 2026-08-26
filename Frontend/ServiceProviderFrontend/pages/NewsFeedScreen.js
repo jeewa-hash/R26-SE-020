@@ -10,12 +10,14 @@ import {
 } from 'react-native';
 import { Text, Searchbar } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CATEGORIES } from '../constants/feedData';
 import { JOB_STATUS } from '../constants/jobStatus';
 import { useAppliedJobs } from '../context/AppliedJobsContext';
+import { IP_ADDRESS } from '../config';
 import PostCard from '../components/feed/PostCard';
 import AnnouncementSlideshow from '../components/feed/AnnouncementSlideshow';
 import MidAnnouncementCard from '../components/feed/MidAnnouncementCard';
@@ -144,6 +146,53 @@ export default function NewsFeedScreen() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showApplied, setShowApplied] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Live real-time notification polling (every 3 seconds)
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchNotificationsCount = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        const userId = (await AsyncStorage.getItem('userId')) || '69fc31f3cfe41c4d62e6f9ee';
+
+        let count = 0;
+        try {
+          const res = await fetch(`http://${IP_ADDRESS}:5001/api/inquiries/notifications/${userId}`);
+          const d = await res.json();
+          if (res.ok && d.data) {
+            count = d.data.filter((n) => !n.isRead).length;
+          }
+        } catch (e) {}
+
+        if (count === 0 && token) {
+          try {
+            const authRes = await fetch(`http://${IP_ADDRESS}:4003/notifications`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const authD = await authRes.json();
+            if (authRes.ok && Array.isArray(authD)) {
+              count = authD.filter((n) => !n.isRead).length;
+            }
+          } catch (e) {}
+        }
+
+        if (isMounted) {
+          setUnreadCount(count);
+        }
+      } catch (err) {
+        // silent
+      }
+    };
+
+    fetchNotificationsCount();
+    const interval = setInterval(fetchNotificationsCount, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
@@ -243,23 +292,31 @@ export default function NewsFeedScreen() {
             </View>
           
             {/* Inbox / Chat Button */}
-    <TouchableOpacity 
-      style={styles.actionBtn}
-      onPress={() => navigation.navigate('InboxScreen')}
-    >
-      <View style={styles.iconWrapper}>
-        <MaterialIcons name="chat-bubble-outline" size={24} color="#1F2937" />
-        <View style={styles.unreadBadge}>
-          <Text style={styles.badgeText}></Text>
-        </View>
-      </View>
-    </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.actionBtn}
+              onPress={() => navigation.navigate('InboxScreen')}
+            >
+              <View style={styles.iconWrapper}>
+                <MaterialIcons name="chat-bubble-outline" size={24} color="#1F2937" />
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.badgeText}></Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* Notification Bell Button with live Badge */}
             <TouchableOpacity
               style={styles.notificationBtn}
               onPress={() => navigation.navigate('Notifications')}
             >
               <MaterialIcons name="notifications-none" size={24} color="#1F2937" />
-              <View style={styles.notificationDot} />
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -408,10 +465,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     justifyContent: 'center', alignItems: 'center', position: 'relative',
   },
-  notificationDot: {
-    position: 'absolute', top: 8, right: 8,
-    width: 8, height: 8, borderRadius: 4,
-    backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#fff',
+  notificationBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    elevation: 4,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
 
   // Toggle
