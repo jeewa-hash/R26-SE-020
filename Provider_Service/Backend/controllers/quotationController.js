@@ -235,12 +235,19 @@ export const acceptQuotation = async (req, res) => {
   }
 };
 
-export const updateQuotationCoordination = async (req, res) => { // Chaw: added endpoint for Coordination Service to update quotation result
+export const updateQuotationCoordination = async (req, res) => { // Chaw: endpoint for Coordination Service to update quotation coordination result
   try {
     const { id } = req.params;
-    const { coordinationStatus, coordinationId, coordinatedStartTime, coordinatedEndTime, } = req.body;
-    // Chaw: allow Coordination Service to send final selected slot time
-    const allowedStatuses = [ // Chaw: allowed coordination states from scheduling engine
+
+    const {
+      coordinationStatus,
+      coordinationId,
+      coordinatedStartTime,
+      coordinatedEndTime,
+      quotationStatus,
+    } = req.body; // Chaw: allow Coordination Service to update final time and quotation lifecycle status
+
+    const allowedCoordinationStatuses = [
       "NOT_CHECKED",
       "CHECKING",
       "CAN_ACCEPT",
@@ -249,21 +256,45 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw: added 
       "REJECTED_DUE_TO_CONFLICT",
     ];
 
-    if (!allowedStatuses.includes(coordinationStatus)) { // Chaw: validate coordination status before saving
+    const allowedQuotationStatuses = [
+      "SENT",
+      "COUNTER_OFFERED",
+      "ACCEPTED",
+      "REJECTED",
+      "EXPIRED",
+    ];
+
+    if (!allowedCoordinationStatuses.includes(coordinationStatus)) {
       return res.status(400).json({
         success: false,
         message: "Invalid coordination status.",
       });
     }
 
+    if (
+      quotationStatus &&
+      !allowedQuotationStatuses.includes(quotationStatus)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid quotation status.",
+      });
+    }
+
+    const updateData = {
+      coordinationStatus,
+      coordinationId: coordinationId || null,
+      coordinatedStartTime: coordinatedStartTime || null,
+      coordinatedEndTime: coordinatedEndTime || null,
+    };
+
+    if (quotationStatus) {
+      updateData.status = quotationStatus; // Chaw: mark quotation ACCEPTED after booking is created
+    }
+
     const quotation = await Quotation.findByIdAndUpdate(
       id,
-      {
-        coordinationStatus, // Chaw: save final coordination decision
-        coordinationId: coordinationId || null, // Chaw: link to BidCoordination record in Coordination Service
-        coordinatedStartTime: coordinatedStartTime || null, // Chaw: save final coordinated start time when selected
-        coordinatedEndTime: coordinatedEndTime || null, // Chaw: save final coordinated end time when selected
-      },
+      updateData,
       { new: true }
     );
 

@@ -25,20 +25,22 @@ export const updateProviderQuotationCoordination = async (
   coordinationStatus,
   coordinationId,
   coordinatedStartTime = null,
-  coordinatedEndTime = null
+  coordinatedEndTime = null,
+  quotationStatus = null
 ) => {
   try {
     const response = await axios.patch(
-      `${PROVIDER_SERVICE_BASE_URL}/api/provider/quotations/${quotationId}/coordination`, // Chaw: update quotation coordination status after validation
+      `${PROVIDER_SERVICE_BASE_URL}/api/provider/quotations/${quotationId}/coordination`,
       {
         coordinationStatus,
         coordinationId,
         coordinatedStartTime,
         coordinatedEndTime,
-      } // Chaw: send final selected slot time when available
+        quotationStatus,
+      } // Chaw: optionally update quotation status to ACCEPTED after booking creation
     );
 
-    return response.data?.data || response.data?.quotation || response.data; // Chaw: return updated quotation response
+    return response.data?.data || response.data?.quotation || response.data;
   } catch (error) {
     console.error(
       "PROVIDER SERVICE COORDINATION UPDATE ERROR:",
