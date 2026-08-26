@@ -24,6 +24,7 @@ export const evaluateBidSchedule = async ({
   providerEstimatedDurationHours,
   seekerEstimatedDurationHours,
   mlPredictedDurationHours = null,
+  delayRiskLevel = "NOT_CHECKED",
   bufferMinutes = 30,
 }) => {
   const proposedStart = new Date(proposedStartTime);
@@ -114,6 +115,7 @@ export const evaluateBidSchedule = async ({
     requiredWindowEnd,
     conflictDetected: !validation.isValid, // Chaw: mark conflict if schedule validator fails
     conflictReason: validation.isValid ? "" : validation.message, // Chaw: store readable conflict reason
-    delayRiskLevel: "NOT_CHECKED",
+    delayRiskLevel,
+    providerBookingsToday: validation.providerBookingsToday || 0,
   };
 };

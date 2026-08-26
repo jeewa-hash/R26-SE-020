@@ -15,6 +15,11 @@ import { evaluateBidSchedule } from "../services/scheduleEvaluationService.js";
 import { decideBidCoordination } from "../services/bidDecisionService.js";
 import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
 import { generateSuggestedSlots } from "../services/suggestedSlotService.js";
+import { predictDelayRisk } from "../clients/mlPredictionClient.js";
+import {
+  buildDelayRiskPayload,
+  normalizeDelayRiskLevel,
+} from "../services/mlPayloadBuilderService.js";
 
 export const checkBidCoordination = async (req, res) => {
   try {
@@ -49,6 +54,31 @@ export const checkBidCoordination = async (req, res) => {
     const providerQuotation = await getProviderQuotationById(
       externalQuotationId
     ); // Chaw: fetch provider bid details from Provider Service
+
+    if (providerQuotation.status === "ACCEPTED") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This provider quotation is already accepted. Coordination check cannot be rerun.",
+        currentQuotationStatus: providerQuotation.status,
+        coordinationStatus: providerQuotation.coordinationStatus,
+      });
+    }
+
+    const existingAcceptedCoordination = await BidCoordination.findOne({
+      externalQuotationId,
+      status: "accepted",
+    }); // Chaw: prevent accepted coordination from being recalculated and overwritten
+
+    if (existingAcceptedCoordination) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This bid coordination is already accepted. It cannot be checked again.",
+        coordinationId: existingAcceptedCoordination._id,
+        currentStatus: existingAcceptedCoordination.status,
+      });
+    }
 
     if (
       String(requestQuotation._id) !== String(providerQuotation.providerRequestId)
@@ -97,18 +127,32 @@ export const checkBidCoordination = async (req, res) => {
       providerEstimatedDurationHours: providerQuotation.estimatedDurationHours,
     }); // Chaw: rule-based price and budget evaluation
 
-    const scheduleEvaluationData = await evaluateBidSchedule({
-    providerId: providerQuotation.providerId, // Chaw: needed to validate provider availability and existing bookings
-    proposedStartTime: providerQuotation.proposedStartTime,
-    preferredStartTime: requestQuotation.preferredStartTime,
-    preferredEndTime: requestQuotation.preferredEndTime,
-    providerEstimatedDurationHours:
-        providerQuotation.estimatedDurationHours,
-    seekerEstimatedDurationHours:
-        requestQuotation.seekerEstimatedDurationHours,
-    mlPredictedDurationHours: null,
-    bufferMinutes,
-    }); // Chaw: schedule evaluation now checks ProviderAvailability and Booking conflicts
+    let scheduleEvaluationData = await evaluateBidSchedule({
+      providerId: providerQuotation.providerId,
+      proposedStartTime: providerQuotation.proposedStartTime,
+      preferredStartTime: requestQuotation.preferredStartTime,
+      preferredEndTime: requestQuotation.preferredEndTime,
+      providerEstimatedDurationHours: providerQuotation.estimatedDurationHours,
+      seekerEstimatedDurationHours: requestQuotation.seekerEstimatedDurationHours,
+      mlPredictedDurationHours: null,
+      delayRiskLevel: "NOT_CHECKED",
+      bufferMinutes,
+    }); // Chaw: first calculate schedule window and booking conflict
+
+    const delayRiskPayload = buildDelayRiskPayload({
+      requestQuotation,
+      providerQuotation,
+      scheduleEvaluation: scheduleEvaluationData,
+    }); // Chaw: build ML request payload from coordinated bid data
+
+    const delayRiskPrediction = await predictDelayRisk(delayRiskPayload);
+
+    const mlDelayRiskLevel = normalizeDelayRiskLevel(delayRiskPrediction);
+
+    scheduleEvaluationData = {
+      ...scheduleEvaluationData,
+      delayRiskLevel: mlDelayRiskLevel,
+    }; // Chaw: attach ML risk level to schedule evaluation before saving
 
     const decisionData = decideBidCoordination({
       priceEvaluation: priceEvaluationData,
@@ -172,27 +216,27 @@ export const checkBidCoordination = async (req, res) => {
     let suggestedSlots = [];
 
     await BidSuggestedSlot.deleteMany({
-    bidCoordinationId: coordination._id,
+      bidCoordinationId: coordination._id,
     }); // Chaw: clear old suggestions before regenerating
 
     if (decisionData.finalDecision === "RESCHEDULE_REQUIRED") {
-    const generatedSlots = await generateSuggestedSlots({
+      const generatedSlots = await generateSuggestedSlots({
         providerId: providerQuotation.providerId,
         originalStartTime: scheduleEvaluationData.requiredWindowStart,
         finalSchedulingDurationHours:
-        scheduleEvaluationData.finalSchedulingDurationHours,
+          scheduleEvaluationData.finalSchedulingDurationHours,
         bufferMinutes: scheduleEvaluationData.bufferMinutes,
         maxSuggestions: 3,
-    }); // Chaw: generate alternative available time slots
+      }); // Chaw: generate alternative available time slots
 
-    if (generatedSlots.length > 0) {
+      if (generatedSlots.length > 0) {
         suggestedSlots = await BidSuggestedSlot.insertMany(
-        generatedSlots.map((slot) => ({
+          generatedSlots.map((slot) => ({
             bidCoordinationId: coordination._id,
             ...slot,
-        }))
+          }))
         ); // Chaw: save suggested slots for seeker review
-    }
+      }
     }
 
     let providerQuotationUpdate = null;
@@ -345,6 +389,14 @@ export const selectSuggestedSlot = async (req, res) => {
           message: "Bid coordination not found.",
         });
       }
+
+      if (coordination.status !== "ready_for_seeker_review") {
+        return res.status(400).json({
+          success: false,
+          message: "Suggested slot cannot be selected because this coordination is no longer open for review.",
+          currentStatus: coordination.status,
+        });
+      } // Chaw: prevent slot changes after booking is accepted/rejected/expired
   
       const selectedSlot = await BidSuggestedSlot.findOne({
         _id: slotId,
