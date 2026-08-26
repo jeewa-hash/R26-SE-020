@@ -1,5 +1,5 @@
+import "dotenv/config";
 import express from "express";
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
 import dns from "node:dns";
@@ -12,12 +12,11 @@ import jobStatusRoutes from "./routes/jobStatusRoute.js";
 import quotationRoutes from "./routes/quotationRoutes.js";
 import { initNotificationSocket } from "./sockets/notificationSocket.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import webhookRoutes from "./routes/webhookRoutes.js";
 
 // ─────────────────────────────────────────────
 // Config
 // ─────────────────────────────────────────────
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
@@ -32,7 +31,7 @@ const io = new Server(server, {
 // ─────────────────────────────────────────────
 // Middleware
 // ─────────────────────────────────────────────
-
+app.use("/api/webhooks", webhookRoutes);
 app.use(cors());
 
 app.use(express.json({
