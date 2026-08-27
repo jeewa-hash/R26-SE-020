@@ -1,8 +1,8 @@
 import React, { useContext, useState, useRef, useEffect, useCallback } from 'react';
-import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  ScrollView, Image, SafeAreaView, LayoutAnimation, Platform, 
-  UIManager, Dimensions, Alert, FlatList, StatusBar 
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ScrollView, Image, SafeAreaView, LayoutAnimation, Platform,
+  UIManager, Dimensions, Alert, FlatList, StatusBar
 } from 'react-native';
 import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,13 +15,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
-import { IP_ADDRESS } from '../config'; // ✅ ADDED
+import { IP_ADDRESS } from '../config';
+import { useChat } from '../context/ChatContext'; // ✅ For real chat unread count
 
-const API_URL = `http://${IP_ADDRESS}:4003/seeker`; // ✅ ADDED
+const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 
-// Safe check for Legacy Architecture on Android
+// Android layout animation fix
 if (
-  Platform.OS === 'android' && 
+  Platform.OS === 'android' &&
   UIManager.setLayoutAnimationEnabledExperimental &&
   !global.nativeFabricUIManager
 ) {
@@ -96,7 +97,7 @@ const CATEGORIES = [
   }
 ];
 
-// Slideshow Component
+// ─── Slideshow Component ────────────────────────────────
 const Slideshow = () => {
   const navigation = useNavigation();
   const flatListRef = useRef();
@@ -115,7 +116,7 @@ const Slideshow = () => {
   }, [currentIndex, slideshowData.length]);
 
   const renderSlide = ({ item }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.slideCard}
       onPress={() => navigation.navigate("SeasonalDemandsScreen")}
       activeOpacity={0.95}
@@ -172,12 +173,12 @@ const Slideshow = () => {
   );
 };
 
-// Service Card Component
+// ─── Service Card Component ──────────────────────────────
 const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload, isDarkMode }) => {
   return (
     <View style={[styles.accordionContainer, isDarkMode && styles.accordionContainerDark]}>
-      <TouchableOpacity 
-        style={styles.mainCategory} 
+      <TouchableOpacity
+        style={styles.mainCategory}
         onPress={onPress}
         activeOpacity={0.7}
       >
@@ -194,10 +195,10 @@ const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload, i
           </View>
         </View>
         <View style={[styles.expandIcon, isDarkMode && styles.expandIconDark, expanded && styles.expandIconActive]}>
-          <MaterialIcons 
-            name={expanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} 
-            size={24} 
-            color={isDarkMode ? "#818cf8" : "#667eea"} 
+          <MaterialIcons
+            name={expanded ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+            size={24}
+            color={isDarkMode ? "#818cf8" : "#667eea"}
           />
         </View>
       </TouchableOpacity>
@@ -205,8 +206,8 @@ const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload, i
       {expanded && (
         <View style={[styles.subGrid, isDarkMode && styles.subGridDark]}>
           {category.subcategories.map((sub, index) => (
-            <TouchableOpacity 
-              key={index} 
+            <TouchableOpacity
+              key={index}
               style={[styles.subThumbnail, isDarkMode && styles.subThumbnailDark]}
               onPress={() => onSubPress(sub)}
             >
@@ -236,19 +237,27 @@ const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload, i
   );
 };
 
+// ─── Main Component ──────────────────────────────────────
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { language } = useContext(LanguageContext);
   const { user } = useAuth();
   const { isDarkMode } = useTheme();
+  const { unreadCount } = useChat(); // ✅ Get unread message counts
 
   const [userState, setUserState] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const navigation = useNavigation();
+
+  // ✅ Total unread messages across all chats
+  const totalUnreadMessages = Object.values(unreadCount).reduce(
+    (sum, count) => sum + count,
+    0
+  );
 
   const loadUserDetails = useCallback(async () => {
     try {
@@ -262,37 +271,33 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // ✅ Fetch real unread notification count
   const fetchUnreadCount = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) {
-        setUnreadCount(0);
+        setNotificationUnreadCount(0);
         return;
       }
-
       const response = await fetch(`${API_URL}/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       if (response.ok) {
         const data = await response.json();
         const notifications = Array.isArray(data) ? data : (data.data || []);
         const unread = notifications.filter((n) => !n.isRead).length;
-        setUnreadCount(unread);
+        setNotificationUnreadCount(unread);
       } else {
-        setUnreadCount(0);
+        setNotificationUnreadCount(0);
       }
     } catch (err) {
       console.log('Error fetching notifications count:', err);
-      setUnreadCount(0);
+      setNotificationUnreadCount(0);
     }
   }, []);
 
   useEffect(() => {
     loadUserDetails();
     fetchUnreadCount();
-
     const intervalId = setInterval(fetchUnreadCount, 15000);
     return () => clearInterval(intervalId);
   }, [loadUserDetails, fetchUnreadCount]);
@@ -320,10 +325,6 @@ export default function HomeScreen() {
     Alert.alert('Service Selected', `${subcategory} service will be available soon`);
   };
 
-  const handleStartBidding = () => {
-    navigation.navigate("BiddingScreen");
-  };
-
   const handleSearch = async () => {
     if (searchQuery.trim().length === 0) return;
 
@@ -337,7 +338,6 @@ export default function HomeScreen() {
       }
 
       const appLanguage = language === 'si' ? 'si' : 'en';
-
       const url = `http://10.0.2.2:5002/text-predict`;
       console.log('🌐 URL:', url);
 
@@ -455,16 +455,16 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      <StatusBar 
-        barStyle="light-content" 
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"} 
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"}
       />
-      
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header with Gradient */}
+        {/* ─── Header ─── */}
         <LinearGradient
           colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#4765eb', '#926ee7', '#9d6aa3']}
           start={{ x: 0, y: 0 }}
@@ -480,22 +480,31 @@ export default function HomeScreen() {
               <Text style={styles.subGreeting}>{t('what_help_today')}</Text>
             </View>
             <View style={styles.headerActions}>
+              {/* ── Chat Icon with real unread count ── */}
               <TouchableOpacity style={styles.iconBtn} onPress={handleChatPress}>
                 <Ionicons name="chatbubbles-outline" size={22} color="#fff" />
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>2</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.iconBtn} onPress={handleNotifications}>
-                <Ionicons name="notifications-outline" size={22} color="#fff" />
-                {unreadCount > 0 && (
+                {totalUnreadMessages > 0 && (
                   <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{unreadCount}</Text>
+                    <Text style={styles.badgeText}>
+                      {totalUnreadMessages > 99 ? '99+' : totalUnreadMessages}
+                    </Text>
                   </View>
                 )}
               </TouchableOpacity>
-              
+
+              {/* ── Notification Icon ── */}
+              <TouchableOpacity style={styles.iconBtn} onPress={handleNotifications}>
+                <Ionicons name="notifications-outline" size={22} color="#fff" />
+                {notificationUnreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* ── Profile ── */}
               <TouchableOpacity style={styles.profileBtn} onPress={handleProfilePress}>
                 <Image
                   source={{
@@ -509,15 +518,15 @@ export default function HomeScreen() {
           </View>
         </LinearGradient>
 
-        {/* Search Bar */}
+        {/* ─── Search Bar ─── */}
         <View style={styles.searchWrapper}>
           <View style={[
-            styles.searchContainer, 
+            styles.searchContainer,
             isDarkMode && styles.searchContainerDark,
             isSearchFocused && styles.searchContainerFocused
           ]}>
             <Feather name="search" size={20} color={isDarkMode ? "#818cf8" : "#667eea"} />
-            <TextInput 
+            <TextInput
               placeholder={t('search_placeholder')}
               placeholderTextColor={isDarkMode ? "#94A3B8" : "#999"}
               style={[styles.searchInput, isDarkMode && styles.textDark]}
@@ -537,11 +546,11 @@ export default function HomeScreen() {
               <Feather name="sliders" size={20} color={isDarkMode ? "#818cf8" : "#667eea"} />
             </TouchableOpacity>
           </View>
-          
+
           {showFilters && (
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
               style={styles.filterChips}
               contentContainerStyle={styles.filterChipsContent}
             >
@@ -564,7 +573,7 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* Unlock New Feature Banner */}
+        {/* ─── Unlock New Feature Banner ─── */}
         <TouchableOpacity onPress={() => toggleExpand(1)} activeOpacity={0.9}>
           <LinearGradient
             colors={['#FF6B6B', '#FF8E53']}
@@ -587,10 +596,10 @@ export default function HomeScreen() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Slideshow */}
+        {/* ─── Slideshow ─── */}
         <Slideshow />
 
-        {/* Section Header */}
+        {/* ─── Service Section ─── */}
         <View style={styles.sectionHeader}>
           <View>
             <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>{t('all_services')}</Text>
@@ -601,8 +610,8 @@ export default function HomeScreen() {
             <Feather name="arrow-right" size={14} color={isDarkMode ? "#818cf8" : "#667eea"} />
           </TouchableOpacity>
         </View>
-        
-        {/* Expandable Service List */}
+
+        {/* ─── Expandable Categories ─── */}
         {CATEGORIES.map((cat) => (
           <ServiceCard
             key={cat.id}
@@ -615,62 +624,61 @@ export default function HomeScreen() {
           />
         ))}
 
-        {/* Extra padding for bottom nav */}
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* Bottom Navigation */}
       <BottomNav />
     </SafeAreaView>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: '#F8F9FA',
   },
   scrollContent: {
     paddingBottom: 80,
   },
-  
-  // Header Styles
-  headerGradient: { 
+
+  // Header
+  headerGradient: {
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingBottom: 40,
     paddingTop: 10,
   },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 20, 
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
   headerLeft: {
     flex: 1,
   },
-  greeting: { 
-    fontSize: 12, 
-    color: '#ffffffCC', 
+  greeting: {
+    fontSize: 12,
+    color: '#ffffffCC',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     fontWeight: '500',
   },
-  userName: { 
-    fontSize: 26, 
-    fontWeight: '700', 
-    color: '#fff', 
-    marginTop: 4, 
+  userName: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#fff',
+    marginTop: 4,
     marginBottom: 4,
   },
-  subGreeting: { 
-    color: '#ffffffCC', 
+  subGreeting: {
+    color: '#ffffffCC',
     fontSize: 13,
   },
-  headerActions: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
   iconBtn: {
@@ -698,39 +706,39 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  profileBtn: { 
+  profileBtn: {
     position: 'relative',
   },
-  profilePic: { 
-    width: 48, 
-    height: 48, 
-    borderRadius: 24, 
-    borderWidth: 3, 
+  profilePic: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 3,
     borderColor: '#fff',
   },
-  onlineDot: { 
-    position: 'absolute', 
-    bottom: 2, 
-    right: 2, 
-    width: 12, 
-    height: 12, 
-    borderRadius: 6, 
-    backgroundColor: '#4CD964', 
-    borderWidth: 2, 
+  onlineDot: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4CD964',
+    borderWidth: 2,
     borderColor: '#fff',
   },
-  
-  // Search Styles
-  searchWrapper: { 
-    paddingHorizontal: 20, 
+
+  // Search
+  searchWrapper: {
+    paddingHorizontal: 20,
     marginTop: -20,
   },
-  searchContainer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#fff', 
-    borderRadius: 16, 
-    paddingHorizontal: 16, 
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: 16,
     paddingVertical: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -745,52 +753,52 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#667eea20',
   },
-  searchInput: { 
-    flex: 1, 
-    fontSize: 15, 
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
     color: '#333',
     paddingVertical: 0,
   },
   clearBtn: {
     padding: 2,
   },
-  filterIcon: { 
-    paddingLeft: 8, 
-    borderLeftWidth: 1, 
+  filterIcon: {
+    paddingLeft: 8,
+    borderLeftWidth: 1,
     borderLeftColor: '#E5E7EB',
   },
-  filterChips: { 
+  filterChips: {
     marginTop: 12,
   },
   filterChipsContent: {
     paddingRight: 20,
   },
-  filterChip: { 
-    backgroundColor: '#F3F4F6', 
-    paddingHorizontal: 16, 
-    paddingVertical: 8, 
-    borderRadius: 20, 
+  filterChip: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     marginRight: 8,
   },
-  filterChipActive: { 
-    backgroundColor: '#667eea', 
-    paddingHorizontal: 16, 
-    paddingVertical: 8, 
-    borderRadius: 20, 
+  filterChipActive: {
+    backgroundColor: '#667eea',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     marginRight: 8,
   },
-  filterChipText: { 
-    fontSize: 13, 
+  filterChipText: {
+    fontSize: 13,
     color: '#6B7280',
     fontWeight: '500',
   },
-  filterChipTextActive: { 
-    fontSize: 13, 
+  filterChipTextActive: {
+    fontSize: 13,
     color: '#fff',
     fontWeight: '500',
   },
-  
-  // Bidding Banner Styles
+
+  // Bidding Banner
   biddingBanner: {
     marginHorizontal: 20,
     marginTop: 20,
@@ -837,18 +845,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
-  // Slideshow Styles
-  slideshowContainer: { 
-    marginTop: 20, 
+
+  // Slideshow
+  slideshowContainer: {
+    marginTop: 20,
     marginBottom: 10,
   },
-  slideCard: { 
-    width: width - 32, 
-    height: 180, 
-    marginHorizontal: 16, 
-    borderRadius: 20, 
-    overflow: 'hidden', 
+  slideCard: {
+    width: width - 32,
+    height: 180,
+    marginHorizontal: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
     backgroundColor: '#fff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -856,66 +864,66 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 5,
   },
-  slideImage: { 
-    width: '100%', 
+  slideImage: {
+    width: '100%',
     height: '100%',
   },
-  slideOverlay: { 
-    position: 'absolute', 
-    bottom: 0, 
-    left: 0, 
-    right: 0, 
-    height: '100%', 
-    justifyContent: 'flex-end', 
+  slideOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '100%',
+    justifyContent: 'flex-end',
     padding: 16,
   },
-  slideContent: { 
+  slideContent: {
     marginBottom: 16,
   },
-  slideTitle: { 
-    fontSize: 20, 
-    fontWeight: '700', 
-    color: '#fff', 
+  slideTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
     marginBottom: 4,
   },
-  slideSubtitle: { 
-    fontSize: 12, 
-    color: '#ffffffCC', 
+  slideSubtitle: {
+    fontSize: 12,
+    color: '#ffffffCC',
     marginBottom: 12,
   },
-  slideButton: { 
-    alignSelf: 'flex-start', 
-    backgroundColor: 'rgba(255,255,255,0.2)', 
-    paddingHorizontal: 16, 
-    paddingVertical: 8, 
+  slideButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
   },
-  slideButtonText: { 
-    fontSize: 12, 
-    fontWeight: '500', 
+  slideButtonText: {
+    fontSize: 12,
+    fontWeight: '500',
     color: '#fff',
   },
-  dotContainer: { 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  dotContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 12,
   },
-  dot: { 
-    width: 6, 
-    height: 6, 
-    borderRadius: 3, 
-    backgroundColor: '#D1D5DB', 
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#D1D5DB',
     marginHorizontal: 4,
   },
-  activeDot: { 
-    width: 20, 
+  activeDot: {
+    width: 20,
     backgroundColor: '#667eea',
   },
-  
-  // Section Header Styles
+
+  // Section Header
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -945,13 +953,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  
-  // Accordion Styles
-  accordionContainer: { 
-    backgroundColor: '#fff', 
-    borderRadius: 16, 
-    marginHorizontal: 20, 
-    marginBottom: 12, 
+
+  // Accordion
+  accordionContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginHorizontal: 20,
+    marginBottom: 12,
     padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -959,14 +967,14 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  mainCategory: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  mainCategory: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  mainCategoryLeft: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
+  mainCategoryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
     gap: 14,
   },
@@ -977,9 +985,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  mainTitle: { 
-    fontSize: 16, 
-    fontWeight: '600', 
+  mainTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#1a1a2e',
     marginBottom: 2,
   },
@@ -987,27 +995,27 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#999',
   },
-  expandIcon: { 
-    padding: 4, 
-    borderRadius: 12, 
+  expandIcon: {
+    padding: 4,
+    borderRadius: 12,
     backgroundColor: '#f0f0f0',
   },
-  expandIconActive: { 
+  expandIconActive: {
     backgroundColor: '#667eea15',
   },
-  subGrid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    marginTop: 16, 
-    borderTopWidth: 1, 
-    borderColor: '#E8ECF0', 
-    paddingTop: 16, 
+  subGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderColor: '#E8ECF0',
+    paddingTop: 16,
     justifyContent: 'space-between',
     gap: 10,
   },
-  subThumbnail: { 
+  subThumbnail: {
     width: (width - 104) / 2,
-    backgroundColor: '#F8F9FA', 
+    backgroundColor: '#F8F9FA',
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 12,
@@ -1025,31 +1033,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  subText: { 
-    fontSize: 12, 
-    color: '#555', 
+  subText: {
+    fontSize: 12,
+    color: '#555',
     fontWeight: '500',
   },
-  specialUploadBtn: { 
-    width: '100%', 
-    marginTop: 8, 
-    borderRadius: 12, 
+  specialUploadBtn: {
+    width: '100%',
+    marginTop: 8,
+    borderRadius: 12,
     overflow: 'hidden',
   },
-  gradientButton: { 
-    flexDirection: 'row', 
-    paddingVertical: 12, 
-    justifyContent: 'center', 
+  gradientButton: {
+    flexDirection: 'row',
+    paddingVertical: 12,
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
   },
-  uploadText: { 
-    color: '#fff', 
-    fontWeight: '600', 
+  uploadText: {
+    color: '#fff',
+    fontWeight: '600',
     fontSize: 13,
   },
-  
-  // Dark Mode Styles
+
+  // Dark Mode
   containerDark: {
     backgroundColor: '#1a1a2e',
   },

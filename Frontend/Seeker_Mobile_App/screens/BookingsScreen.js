@@ -21,56 +21,82 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
+import { useChat } from '../context/ChatContext'; // <-- Added import
 
 const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
 
+// ─────────────────────────────────────────────────────────────
+// Helper: group flat request array by sessionId
+// ─────────────────────────────────────────────────────────────
+const groupBySession = (requests) => {
+  const map = new Map();
+  requests.forEach((req) => {
+    const key = req.sessionId || req._id;
+    if (!map.has(key)) {
+      map.set(key, {
+        sessionId: key,
+        detectedCategory: req.detectedCategory,
+        detectedObject: req.detectedObject,
+        briefDescription: req.briefDescription,
+        urgencyLevel: req.urgencyLevel,
+        serviceLocation: req.serviceLocation,
+        createdAt: req.createdAt,
+        requests: [],
+      });
+    }
+    map.get(key).requests.push(req);
+  });
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
+};
+
 export default function BookingsScreen({ navigation }) {
   const { isDarkMode } = useTheme();
-  const [bookings, setBookings] = useState([]);
+  const { createOrGetChat } = useChat(); // <-- Destructure from useChat
+
+  const [groupedBookings, setGroupedBookings] = useState([]);
   const [providersMap, setProvidersMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [expandedSessions, setExpandedSessions] = useState({});
 
-  // Stats
-  const [totalBookings, setTotalBookings] = useState(0);
-  const [completedBookings, setCompletedBookings] = useState(0);
-  const [upcomingBookings, setUpcomingBookings] = useState(0);
+  const [totalSessions, setTotalSessions] = useState(0);
+  const [confirmedSessions, setConfirmedSessions] = useState(0);
+  const [pendingSessions, setPendingSessions] = useState(0);
 
-  // Fetch all providers
+  // ─────────────────────────────────────────────────────────────
+  // Fetch all providers into a map keyed by provider id
+  // ─────────────────────────────────────────────────────────────
   const fetchProviders = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(PROVIDER_SERVICE_URL, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!response.ok) {
-        console.warn('Failed to fetch providers');
-        return {};
-      }
+      if (!response.ok) return {};
       const data = await response.json();
       if (data.success && data.providers) {
         const map = {};
         data.providers.forEach((item) => {
           const provider = item.provider || {};
           if (provider.id) {
-            map[provider.id] = {
-              ...provider,
-              portfolio: item.portfolio || {},
-            };
+            map[provider.id] = { ...provider, portfolio: item.portfolio || {} };
           }
         });
         return map;
       }
       return {};
-    } catch (err) {
-      console.warn('Error fetching providers:', err);
+    } catch {
       return {};
     }
   }, []);
 
-  // Fetch bookings from API
+  // ─────────────────────────────────────────────────────────────
+  // Fetch bookings and group by session
+  // ─────────────────────────────────────────────────────────────
   const fetchBookings = useCallback(async () => {
     try {
       setError(null);
@@ -85,11 +111,7 @@ export default function BookingsScreen({ navigation }) {
 
       const response = await fetch(
         `${API_BASE_URL}/request-quotations/seeker/${userId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (!response.ok) {
@@ -102,17 +124,21 @@ export default function BookingsScreen({ navigation }) {
         const sorted = data.requests.sort(
           (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
-        setBookings(sorted);
+        const groups = groupBySession(sorted);
+        setGroupedBookings(groups);
 
-        const total = sorted.length;
-        const completed = sorted.filter((b) => b.status === 'confirmed').length;
-        const upcoming = sorted.filter((b) => b.status === 'pending').length;
+        const total = groups.length;
+        const confirmed = groups.filter((g) =>
+          g.requests.some((r) => r.status === 'confirmed')
+        ).length;
+        const pending = groups.filter((g) =>
+          g.requests.every((r) => r.status === 'pending')
+        ).length;
 
-        setTotalBookings(total);
-        setCompletedBookings(completed);
-        setUpcomingBookings(upcoming);
+        setTotalSessions(total);
+        setConfirmedSessions(confirmed);
+        setPendingSessions(pending);
 
-        // Fetch providers after getting bookings
         const providerMap = await fetchProviders();
         setProvidersMap(providerMap);
       } else {
@@ -127,47 +153,38 @@ export default function BookingsScreen({ navigation }) {
     }
   }, [fetchProviders]);
 
-  // Initial load
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
 
-  // Pull-to-refresh
   const onRefresh = () => {
     setRefreshing(true);
     fetchBookings();
   };
 
-  // Helper: format date
+  // ─────────────────────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────────────────────
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    } else if (date.toDateString() === tomorrow.toDateString()) {
-      return 'Tomorrow';
-    } else {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
-    }
-  };
-
-  // Helper: format time
-  const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
+    if (date.toDateString() === today.toDateString()) return 'Today';
+    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
     });
   };
 
-  // Get status style
+  const formatTime = (dateString) =>
+    new Date(dateString).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
   const getStatusStyle = (status) => {
     switch (status) {
       case 'confirmed':
@@ -179,7 +196,7 @@ export default function BookingsScreen({ navigation }) {
         };
       case 'pending':
         return {
-          bg: isDarkMode ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7',
+          bg: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7',
           color: '#F59E0B',
           icon: 'time-outline',
           text: 'Pending',
@@ -201,87 +218,108 @@ export default function BookingsScreen({ navigation }) {
     }
   };
 
-  // Build title from request data
-  const getBookingTitle = (request) => {
-    const category = request.detectedCategory || 'Service';
-    const object = request.detectedObject || '';
-    return object ? `${category} - ${object}` : category;
+  const getServiceTitle = (group) => {
+    const cat = group.detectedCategory || 'Service';
+    const obj = group.detectedObject || '';
+    return obj ? `${cat} – ${obj}` : cat;
   };
 
-  // Get provider details from map
-  const getProvider = (providerId) => {
-    return providersMap[providerId] || null;
-  };
+  const getProvider = (providerId) => providersMap[providerId] || null;
 
-  // Get provider name
   const getProviderName = (providerId) => {
-    const provider = getProvider(providerId);
-    return provider?.name || `Provider #${providerId?.slice(-4) || 'Unknown'}`;
+    const p = getProvider(providerId);
+    return p?.name || `Provider #${String(providerId).slice(-4)}`;
   };
 
-  // Get provider profile image
   const getProviderImage = (providerId) => {
-    const provider = getProvider(providerId);
-    if (provider?.profileImage) {
-      const normalized = provider.profileImage.replace(/\\/g, '/');
-      if (normalized.startsWith('http')) return normalized;
-      return `http://${IP_ADDRESS}:5000/${normalized}`;
+    const p = getProvider(providerId);
+    if (p?.profileImage) {
+      const norm = p.profileImage.replace(/\\/g, '/');
+      if (norm.startsWith('http')) return norm;
+      return `http://${IP_ADDRESS}:5000/${norm}`;
     }
-    const hash = providerId ? parseInt(providerId.slice(-2), 16) || 1 : 1;
+    const hash = providerId ? parseInt(String(providerId).slice(-2), 16) || 1 : 1;
     return `https://i.pravatar.cc/150?img=${(hash % 70) + 1}`;
   };
 
-  // ==========================================================
-  // NAVIGATION HANDLERS (FIXED)
-  // ==========================================================
+  const getSessionOverallStatus = (group) => {
+    const statuses = group.requests.map((r) => r.status);
+    if (statuses.some((s) => s === 'confirmed')) return 'confirmed';
+    if (statuses.some((s) => s === 'cancelled') && statuses.every((s) => s === 'cancelled'))
+      return 'cancelled';
+    return 'pending';
+  };
 
-  const handleMessage = (booking) => {
-    navigation.navigate('ChatScreen', {
-      providerId: booking.providerId,
-      bookingId: booking._id,
-      title: getBookingTitle(booking),
+  const toggleExpand = (sessionId) => {
+    setExpandedSessions((prev) => ({
+      ...prev,
+      [sessionId]: !prev[sessionId],
+    }));
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  //  FIXED: handleMessage – creates/gets chat and navigates correctly
+  // ─────────────────────────────────────────────────────────────
+  const handleMessage = async (request) => {
+    try {
+      const currentUserId = await AsyncStorage.getItem('userId');
+      if (!currentUserId) {
+        Alert.alert('Error', 'Please log in to send a message.');
+        return;
+      }
+
+      const receiverId = request.providerId;
+      const chatId = await createOrGetChat(currentUserId, receiverId);
+
+      if (!chatId) {
+        Alert.alert('Error', 'Could not start chat. Please try again.');
+        return;
+      }
+
+      const provider = getProvider(receiverId);
+      const name = provider?.name || `Provider ${String(receiverId).slice(-4)}`;
+      const avatar = getProviderImage(receiverId);
+
+      navigation.navigate('ChatScreen', {
+        chatId,
+        userId: receiverId,
+        userName: name,
+        userAvatar: avatar,
+        userRole: 'Provider',
+      });
+    } catch (error) {
+      console.error('Error starting chat:', error);
+      Alert.alert('Error', 'Could not open chat.');
+    }
+  };
+
+  const handleViewQuote = (request) => {
+    navigation.navigate('RequestQuotationDetails', {
+      requestId: request._id,
+      request,
+      providerId: request.providerId,
     });
   };
 
-  const handleReschedule = (booking) => {
-    navigation.navigate('RescheduleScreen', { booking });
-  };
-
-  // 🔥 FIXED: Navigate to ProviderProfile (not ProviderProfileScreen)
-  const handleViewDetails = (booking) => {
-    const provider = getProvider(booking.providerId);
+  const handleViewProviderProfile = (providerId) => {
+    const provider = getProvider(providerId);
     if (!provider) {
       Alert.alert('Error', 'Provider information not found.');
       return;
     }
-
-    // Build providerItem exactly like ProvidersScreen does
-    const providerItem = {
-      provider: provider,
-      portfolio: provider.portfolio || {},
-      match: {
-        category_match: true,
-        district_match: true,
-        priority: 'HIGH',
-      },
-    };
-
     navigation.navigate('ProviderProfile', {
-      providerItem: providerItem,
-      finalDecision: null, // no summary available here
+      providerItem: {
+        provider,
+        portfolio: provider.portfolio || {},
+        match: { category_match: true, district_match: true, priority: 'HIGH' },
+      },
+      finalDecision: null,
     });
   };
 
-  // Navigate to quotations for this request
-  const handleViewQuotes = (booking) => {
-    navigation.navigate('RequestQuotationDetails', {
-      requestId: booking._id,
-      request: booking,
-      providerId: booking.providerId,
-    });
-  };
-
+  // ─────────────────────────────────────────────────────────────
   // Loading state
+  // ─────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -297,25 +335,26 @@ export default function BookingsScreen({ navigation }) {
         >
           <TouchableOpacity
             onPress={() => navigation.goBack()}
-            style={[styles.backButton, isDarkMode && styles.headerButtonDark]}
+            style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My Bookings</Text>
-          <TouchableOpacity style={[styles.filterButton, isDarkMode && styles.headerButtonDark]}>
-            <Ionicons name="options-outline" size={22} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.headerBtn} />
         </LinearGradient>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#667eea'} />
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
-            Loading your bookings...
+            Loading your bookings…
           </Text>
         </View>
       </SafeAreaView>
     );
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // Main render
+  // ─────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
@@ -323,7 +362,6 @@ export default function BookingsScreen({ navigation }) {
         backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
       />
 
-      {/* Header */}
       <LinearGradient
         colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
         start={{ x: 0, y: 0 }}
@@ -332,57 +370,57 @@ export default function BookingsScreen({ navigation }) {
       >
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={[styles.backButton, isDarkMode && styles.headerButtonDark]}
+          style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Bookings</Text>
-        <TouchableOpacity style={[styles.filterButton, isDarkMode && styles.headerButtonDark]}>
-          <Ionicons name="options-outline" size={22} color="#fff" />
+        <TouchableOpacity
+          style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
+          onPress={onRefresh}
+        >
+          <Ionicons name="refresh-outline" size={22} color="#fff" />
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Stats Cards */}
       <View style={[styles.statsContainer, isDarkMode && styles.statsContainerDark]}>
         <View style={styles.statCard}>
           <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>
-            {totalBookings}
+            {totalSessions}
           </Text>
           <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
-            Total Bookings
+            Total
           </Text>
         </View>
         <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
         <View style={styles.statCard}>
-          <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>
-            {completedBookings}
+          <Text style={[styles.statNumber, { color: '#10B981' }]}>
+            {confirmedSessions}
           </Text>
           <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
-            Completed
+            Confirmed
           </Text>
         </View>
         <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
         <View style={styles.statCard}>
-          <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>
-            {upcomingBookings}
+          <Text style={[styles.statNumber, { color: '#F59E0B' }]}>
+            {pendingSessions}
           </Text>
           <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
-            Upcoming
+            Pending
           </Text>
         </View>
       </View>
 
-      {/* Section Title */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
-          Recent Requests
+          Service Requests
         </Text>
-        <TouchableOpacity onPress={onRefresh}>
-          <Ionicons name="refresh-outline" size={22} color={isDarkMode ? '#818cf8' : '#667eea'} />
-        </TouchableOpacity>
+        <Text style={[styles.sectionCount, isDarkMode && styles.textMutedDark]}>
+          {totalSessions} {totalSessions === 1 ? 'request' : 'requests'}
+        </Text>
       </View>
 
-      {/* Bookings List */}
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -395,153 +433,194 @@ export default function BookingsScreen({ navigation }) {
         }
       >
         {error ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle-outline" size={40} color="#EF4444" />
+          <View style={styles.centerBox}>
+            <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
             <Text style={[styles.errorText, isDarkMode && styles.textMutedDark]}>{error}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
-        ) : bookings.length === 0 ? (
-          <View style={styles.emptyContainer}>
+        ) : groupedBookings.length === 0 ? (
+          <View style={styles.centerBox}>
             <Ionicons
               name="calendar-outline"
-              size={60}
-              color={isDarkMode ? '#475569' : '#D1D5DB'}
+              size={64}
+              color={isDarkMode ? '#334155' : '#D1D5DB'}
             />
             <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
               No bookings yet
             </Text>
             <Text style={[styles.emptyText, isDarkMode && styles.textMutedDark]}>
-              Your bookings will appear here once you request a service.
+              Your service requests will appear here once you request a quote from a provider.
             </Text>
           </View>
         ) : (
-          bookings.map((booking) => {
-            const status = getStatusStyle(booking.status);
-            const title = getBookingTitle(booking);
-            const providerName = getProviderName(booking.providerId);
-            const providerImage = getProviderImage(booking.providerId);
-            const date = formatDate(booking.createdAt);
-            const time = formatTime(booking.createdAt);
+          groupedBookings.map((group) => {
+            const overallStatus = getSessionOverallStatus(group);
+            const overallStyle = getStatusStyle(overallStatus);
+            const title = getServiceTitle(group);
+            const date = formatDate(group.createdAt);
+            const time = formatTime(group.createdAt);
+            const providerCount = group.requests.length;
+            const isExpanded = expandedSessions[group.sessionId] ?? true;
 
             return (
-              <TouchableOpacity
-                key={booking._id}
-                style={[styles.bookingCard, isDarkMode && styles.bookingCardDark]}
-                activeOpacity={0.9}
-                onPress={() => handleViewDetails(booking)}
+              <View
+                key={group.sessionId}
+                style={[styles.sessionCard, isDarkMode && styles.sessionCardDark]}
               >
                 <LinearGradient
-                  colors={isDarkMode ? ['#16213e', '#1a2238'] : ['#ffffff', '#f8f9fa']}
+                  colors={isDarkMode ? ['#16213e', '#1a2238'] : ['#ffffff', '#f8f9ff']}
                   style={styles.cardGradient}
                 >
-                  <View style={styles.cardHeader}>
-                    <Image
-                      source={{ uri: providerImage }}
-                      style={[styles.bookingImage, isDarkMode && styles.bookingImageDark]}
-                    />
-                    <View style={styles.bookingInfo}>
-                      <Text style={[styles.bookingTitle, isDarkMode && styles.textDark]}>
+                  <View style={styles.cardTop}>
+                    <LinearGradient
+                      colors={['#667eea', '#764ba2']}
+                      style={styles.serviceIconBubble}
+                    >
+                      <Ionicons name="construct-outline" size={20} color="#fff" />
+                    </LinearGradient>
+
+                    <View style={styles.cardTopInfo}>
+                      <Text
+                        style={[styles.serviceTitle, isDarkMode && styles.textDark]}
+                        numberOfLines={1}
+                      >
                         {title}
                       </Text>
-                      <View style={styles.providerRow}>
-                        <Ionicons
-                          name="person-outline"
-                          size={14}
-                          color={isDarkMode ? '#94A3B8' : '#6B7280'}
-                        />
-                        <Text
-                          style={[styles.bookingProvider, isDarkMode && styles.textMutedDark]}
-                        >
-                          {providerName}
-                        </Text>
-                      </View>
-                      <View style={styles.providerRow}>
+                      <View style={styles.metaRow}>
                         <Ionicons
                           name="calendar-outline"
-                          size={14}
-                          color={isDarkMode ? '#94A3B8' : '#6B7280'}
+                          size={12}
+                          color={isDarkMode ? '#94A3B8' : '#9CA3AF'}
                         />
-                        <Text
-                          style={[styles.bookingProvider, isDarkMode && styles.textMutedDark]}
-                        >
+                        <Text style={[styles.metaText, isDarkMode && styles.textMutedDark]}>
                           {date} at {time}
                         </Text>
                       </View>
+                      {group.urgencyLevel ? (
+                        <View style={styles.metaRow}>
+                          <Ionicons
+                            name="flash-outline"
+                            size={12}
+                            color={isDarkMode ? '#94A3B8' : '#9CA3AF'}
+                          />
+                          <Text style={[styles.metaText, isDarkMode && styles.textMutedDark]}>
+                            {group.urgencyLevel} urgency
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
-                    {booking.status?.toLowerCase() !== 'pending' && (
-                      <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
-                        <Ionicons name={status.icon} size={14} color={status.color} />
-                        <Text style={[styles.statusText, { color: status.color }]}>
-                          {status.text}
+
+                    {overallStatus !== 'pending' && (
+                      <View style={[styles.statusBadge, { backgroundColor: overallStyle.bg }]}>
+                        <Ionicons name={overallStyle.icon} size={13} color={overallStyle.color} />
+                        <Text style={[styles.statusText, { color: overallStyle.color }]}>
+                          {overallStyle.text}
                         </Text>
                       </View>
                     )}
                   </View>
 
-                  {/* Action Buttons */}
-                  <View style={styles.actionButtons}>
-                    <TouchableOpacity
-                      style={[
-                        styles.actionBtn,
-                        styles.messageBtn,
-                        isDarkMode && styles.messageBtnDark,
-                      ]}
-                      onPress={() => handleMessage(booking)}
-                    >
+                  <View style={[styles.divider, isDarkMode && styles.dividerDark]} />
+
+                  <TouchableOpacity
+                    style={styles.providersHeader}
+                    onPress={() => toggleExpand(group.sessionId)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.providersHeaderLeft}>
                       <Ionicons
-                        name="chatbubble-outline"
-                        size={18}
+                        name="people-outline"
+                        size={15}
                         color={isDarkMode ? '#818cf8' : '#667eea'}
                       />
-                      <Text
-                        style={[
-                          styles.messageBtnText,
-                          isDarkMode && styles.messageBtnTextDark,
-                        ]}
-                      >
-                        Message
+                      <Text style={[styles.providersLabel, isDarkMode && styles.providersLabelDark]}>
+                        {providerCount} Provider{providerCount !== 1 ? 's' : ''} Contacted
                       </Text>
-                    </TouchableOpacity>
+                    </View>
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={isDarkMode ? '#94A3B8' : '#9CA3AF'}
+                    />
+                  </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={[
-                        styles.actionBtn,
-                        styles.rescheduleBtn,
-                        isDarkMode && styles.rescheduleBtnDark,
-                      ]}
-                      onPress={() => handleReschedule(booking)}
-                    >
-                      <Ionicons name="calendar-outline" size={18} color="#fff" />
-                      <Text style={styles.rescheduleBtnText}>Reschedule</Text>
-                    </TouchableOpacity>
+                  {isExpanded &&
+                    group.requests.map((req, idx) => {
+                      const pId = String(req.providerId);
+                      const pName = getProviderName(pId);
+                      const pImage = getProviderImage(pId);
+                      const pStatus = getStatusStyle(req.status);
+                      const isLast = idx === group.requests.length - 1;
 
-                    <TouchableOpacity
-                      style={[
-                        styles.actionBtn,
-                        styles.viewQuoteBtn,
-                        isDarkMode && styles.viewQuoteBtnDark,
-                      ]}
-                      onPress={() => handleViewQuotes(booking)}
-                    >
-                      <Ionicons
-                        name="document-text-outline"
-                        size={18}
-                        color={isDarkMode ? '#a78bfa' : '#8B5CF6'}
-                      />
-                      <Text
-                        style={[
-                          styles.viewQuoteBtnText,
-                          isDarkMode && styles.viewQuoteBtnTextDark,
-                        ]}
-                      >
-                        View Quote
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                      return (
+                        <View key={req._id}>
+                          <View style={styles.providerRow}>
+                            <TouchableOpacity
+                              onPress={() => handleViewProviderProfile(pId)}
+                              activeOpacity={0.8}
+                            >
+                              <Image source={{ uri: pImage }} style={styles.providerAvatar} />
+                            </TouchableOpacity>
+
+                            <View style={styles.providerInfo}>
+                              <TouchableOpacity onPress={() => handleViewProviderProfile(pId)}>
+                                <Text
+                                  style={[styles.providerName, isDarkMode && styles.textDark]}
+                                  numberOfLines={1}
+                                >
+                                  {pName}
+                                </Text>
+                              </TouchableOpacity>
+                              <View style={[styles.providerStatusChip, { backgroundColor: pStatus.bg }]}>
+                                <Ionicons name={pStatus.icon} size={11} color={pStatus.color} />
+                                <Text style={[styles.providerStatusText, { color: pStatus.color }]}>
+                                  {pStatus.text}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <View style={styles.providerActions}>
+                              <TouchableOpacity
+                                style={[styles.iconBtn, isDarkMode && styles.iconBtnDark]}
+                                onPress={() => handleMessage(req)}
+                              >
+                                <Ionicons
+                                  name="chatbubble-outline"
+                                  size={16}
+                                  color={isDarkMode ? '#818cf8' : '#667eea'}
+                                />
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[styles.viewQuoteBtn, isDarkMode && styles.viewQuoteBtnDark]}
+                                onPress={() => handleViewQuote(req)}
+                              >
+                                <Ionicons
+                                  name="document-text-outline"
+                                  size={14}
+                                  color={isDarkMode ? '#a78bfa' : '#8B5CF6'}
+                                />
+                                <Text
+                                  style={[
+                                    styles.viewQuoteBtnText,
+                                    isDarkMode && styles.viewQuoteBtnTextDark,
+                                  ]}
+                                >
+                                  Quote
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+
+                          {!isLast && (
+                            <View style={[styles.rowSeparator, isDarkMode && styles.rowSeparatorDark]} />
+                          )}
+                        </View>
+                      );
+                    })}
                 </LinearGradient>
-              </TouchableOpacity>
+              </View>
             );
           })
         )}
@@ -552,13 +631,16 @@ export default function BookingsScreen({ navigation }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// Styles (unchanged – keep your existing styles)
+// ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F0F4FF',
   },
   containerDark: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#0f1121',
   },
   header: {
     flexDirection: 'row',
@@ -568,29 +650,22 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingTop: Platform.OS === 'ios' ? 12 : 16,
   },
-  backButton: {
+  headerBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#ffffff20',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  filterButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff20',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerButtonDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  headerBtnDark: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#fff',
+    letterSpacing: 0.3,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -598,12 +673,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 20,
     borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
+    padding: 18,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   statsContainerDark: {
     backgroundColor: '#16213e',
@@ -617,17 +692,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: '#667eea',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statNumberDark: {
     color: '#818cf8',
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6B7280',
+    fontWeight: '500',
   },
   statLabelDark: {
     color: '#94A3B8',
@@ -635,6 +711,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     backgroundColor: '#E5E7EB',
+    marginVertical: 4,
   },
   statDividerDark: {
     backgroundColor: '#2d3561',
@@ -645,179 +722,251 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     marginTop: 24,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#1F2937',
+  },
+  sectionCount: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '500',
   },
   content: {
     paddingHorizontal: 16,
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
-  bookingCard: {
+  sessionCard: {
     marginBottom: 16,
-    borderRadius: 20,
+    borderRadius: 22,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowColor: '#6366f1',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 5,
   },
-  bookingCardDark: {
+  sessionCardDark: {
     borderColor: '#2d3561',
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
   },
   cardGradient: {
     padding: 16,
-    borderRadius: 20,
+    borderRadius: 22,
   },
-  cardHeader: {
+  cardTop: {
     flexDirection: 'row',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: 14,
   },
-  bookingImage: {
-    width: 55,
-    height: 55,
-    borderRadius: 27.5,
+  serviceIconBubble: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
-    borderWidth: 2,
-    borderColor: '#667eea',
+    flexShrink: 0,
   },
-  bookingImageDark: {
-    borderColor: '#818cf8',
-  },
-  bookingInfo: {
+  cardTopInfo: {
     flex: 1,
   },
-  bookingTitle: {
+  serviceTitle: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1F2937',
     marginBottom: 4,
   },
-  providerRow: {
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginTop: 2,
   },
-  bookingProvider: {
+  metaText: {
     fontSize: 12,
     color: '#6B7280',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 12,
-    alignSelf: 'flex-start',
     gap: 4,
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+    marginLeft: 8,
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 12,
   },
-  actionBtn: {
-    flex: 1,
+  dividerDark: {
+    backgroundColor: '#2d3561',
+  },
+  providersHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
-    gap: 5,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  messageBtn: {
-    backgroundColor: '#F3F4F6',
+  providersHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  messageBtnDark: {
-    backgroundColor: '#242f4d',
-  },
-  messageBtnText: {
-    fontSize: 12,
+  providersLabel: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#667eea',
   },
-  messageBtnTextDark: {
+  providersLabelDark: {
     color: '#818cf8',
   },
-  rescheduleBtn: {
-    backgroundColor: '#667eea',
+  providerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
   },
-  rescheduleBtnDark: {
-    backgroundColor: '#4f46e5',
+  providerAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 2,
+    borderColor: '#667eea',
+    marginRight: 10,
   },
-  rescheduleBtnText: {
-    fontSize: 12,
+  providerInfo: {
+    flex: 1,
+  },
+  providerName: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  providerStatusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  providerStatusText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  providerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 8,
+  },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconBtnDark: {
+    backgroundColor: '#242f4d',
   },
   viewQuoteBtn: {
-    backgroundColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#F5F3FF',
     borderWidth: 1,
     borderColor: '#8B5CF6',
   },
   viewQuoteBtnDark: {
-    backgroundColor: '#242f4d',
-    borderColor: '#8B5CF6',
+    backgroundColor: '#1e1b4b',
+    borderColor: '#7c3aed',
   },
   viewQuoteBtnText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#8B5CF6',
   },
   viewQuoteBtnTextDark: {
     color: '#a78bfa',
   },
+  rowSeparator: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginLeft: 52,
+  },
+  rowSeparatorDark: {
+    backgroundColor: '#1e2a45',
+  },
+  descriptionBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: '#F8F9FF',
+    borderRadius: 10,
+    padding: 10,
+  },
+  descriptionBoxDark: {
+    backgroundColor: '#0f172a',
+  },
+  descriptionText: {
+    fontSize: 12,
+    color: '#6B7280',
+    flex: 1,
+    lineHeight: 18,
+  },
+  centerBox: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 30,
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: 14,
     fontSize: 14,
     color: '#6B7280',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
   },
   errorText: {
     fontSize: 14,
     color: '#EF4444',
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: 12,
     marginBottom: 16,
+    paddingHorizontal: 20,
   },
   retryButton: {
     backgroundColor: '#667eea',
     paddingHorizontal: 24,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   retryButtonText: {
     color: '#fff',
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
+    fontWeight: '700',
+    fontSize: 14,
   },
   emptyTitle: {
     fontSize: 20,
@@ -831,6 +980,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     paddingHorizontal: 30,
+    lineHeight: 20,
   },
   textDark: {
     color: '#F8FAFC',

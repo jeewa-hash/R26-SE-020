@@ -37,6 +37,10 @@ export default function ProvidersScreen({ route, navigation }) {
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [quotationModalVisible, setQuotationModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requestedProviderIds, setRequestedProviderIds] = useState(new Set());
+
+  const summary = finalDecision?.summary || {};
+  const sessionId = summary.session_id || finalDecision?.session_id || null;
 
   // Load seeker ID
   useEffect(() => {
@@ -54,6 +58,32 @@ export default function ProvidersScreen({ route, navigation }) {
     };
     getSeekerId();
   }, [user]);
+
+  // Fetch existing requests for this seeker to know which providers have already been requested
+  useEffect(() => {
+    const fetchExistingRequests = async () => {
+      if (!seekerId) return;
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        const response = await fetch(`${QUOTATION_API_URL}/seeker/${seekerId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = await response.json();
+        if (data.success && Array.isArray(data.requests)) {
+          const sessionRequests = data.requests.filter(
+            (r) => !sessionId || r.sessionId === sessionId
+          );
+          const ids = new Set(
+            sessionRequests.map((r) => String(r.providerId?._id || r.providerId))
+          );
+          setRequestedProviderIds(ids);
+        }
+      } catch (error) {
+        console.log("Error fetching existing quotation requests:", error);
+      }
+    };
+    fetchExistingRequests();
+  }, [seekerId, sessionId]);
 
   /*
    * ==========================================================
@@ -95,26 +125,30 @@ export default function ProvidersScreen({ route, navigation }) {
     }
 
     const provider = selectedProvider?.provider;
-    if (!provider || !provider.id) {
+    const providerId = provider?.id || provider?._id;
+    if (!provider || !providerId) {
       Alert.alert("Error", "Provider information is unavailable.");
       return;
     }
 
-    const summary = finalDecision?.summary || {};
-    const stepBreakdown = summary.step_breakdown || [];
-    const sessionId = summary.session_id || null;
-
-    if (!sessionId) {
-      Alert.alert("Error", "Session information is missing. Please try again.");
+    if (requestedProviderIds.has(String(providerId))) {
+      Alert.alert(
+        "Already Requested",
+        `You have already requested a quotation from ${getProviderName(provider)} for this service request.`
+      );
+      setQuotationModalVisible(false);
       return;
     }
 
+    const currentSessionId = sessionId || `SESSION-${Date.now()}`;
+
+    const stepBreakdown = summary.step_breakdown || [];
     const briefDescription = summary.brief_description || "Service request";
 
     const payload = {
       seekerId: seekerId,
-      providerId: provider.id,
-      sessionId: sessionId,
+      providerId: providerId,
+      sessionId: currentSessionId,
       detectedCategory: summary.detected_category || "unknown",
       detectedObject: summary.detected_object || "unknown",
       modelConfidence: summary.model_confidence || null,
@@ -145,10 +179,11 @@ export default function ProvidersScreen({ route, navigation }) {
 
       const data = await response.json();
 
-      if (response.status === 201) {
+      if (response.status === 201 || (response.status === 200 && data.success)) {
+        setRequestedProviderIds((prev) => new Set([...prev, String(providerId)]));
         Alert.alert(
           "Quotation Request Sent",
-          `Your quotation request has been sent to ${getProviderName(provider)}.`,
+          `Your quotation request has been sent to ${getProviderName(provider)}.\n\nYou can also request quotations from other providers in the list.`,
           [
             {
               text: "OK",
@@ -159,6 +194,14 @@ export default function ProvidersScreen({ route, navigation }) {
             },
           ]
         );
+      } else if (response.status === 409) {
+        setRequestedProviderIds((prev) => new Set([...prev, String(providerId)]));
+        Alert.alert(
+          "Already Requested",
+          data.message || "A quotation request has already been sent to this provider for this session."
+        );
+        setQuotationModalVisible(false);
+        setIsSubmitting(false);
       } else {
         Alert.alert(
           "Failed to Send",
@@ -181,12 +224,16 @@ export default function ProvidersScreen({ route, navigation }) {
    * OTHER HANDLERS
    * ==========================================================
    */
-  // 🔥 FIXED: Pass finalDecision to ProviderProfileScreen
   const handleViewProfile = (item) => {
+    const pId = String(item?.provider?.id || item?.provider?._id);
     console.log("🔵 Navigating to ProviderProfile with finalDecision:", finalDecision);
     navigation.navigate("ProviderProfile", {
       providerItem: item,
-      finalDecision: finalDecision,   // ← crucial
+      finalDecision: finalDecision,
+      isRequested: requestedProviderIds.has(pId),
+      onQuotationRequested: (requestedId) => {
+        setRequestedProviderIds((prev) => new Set([...prev, String(requestedId)]));
+      },
     });
   };
 
@@ -398,16 +445,31 @@ export default function ProvidersScreen({ route, navigation }) {
                     <Text style={styles.profileButtonText}>Profile</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.quotationButton}
-                    onPress={() => {
-                      setSelectedProvider(item);
-                      setQuotationModalVisible(true);
-                    }}
-                  >
-                    <Ionicons name="document-text-outline" size={18} color="#6366F1" />
-                    <Text style={styles.quotationButtonText}>Get Quote</Text>
-                  </TouchableOpacity>
+                  {requestedProviderIds.has(String(provider.id || provider._id)) ? (
+                    <TouchableOpacity
+                      style={styles.quotationButtonRequested}
+                      onPress={() =>
+                        Alert.alert(
+                          "Quotation Requested",
+                          `You have already requested a quotation from ${providerName}. Only 1 quotation request is allowed per provider for this service requirement.`
+                        )
+                      }
+                    >
+                      <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                      <Text style={styles.quotationButtonTextRequested}>Requested</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.quotationButton}
+                      onPress={() => {
+                        setSelectedProvider(item);
+                        setQuotationModalVisible(true);
+                      }}
+                    >
+                      <Ionicons name="document-text-outline" size={18} color="#6366F1" />
+                      <Text style={styles.quotationButtonText}>Get Quote</Text>
+                    </TouchableOpacity>
+                  )}
 
                   <TouchableOpacity style={styles.chatButton} onPress={() => handleChat(item)}>
                     <Ionicons name="chatbubble-outline" size={18} color="#fff" />
@@ -822,6 +884,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#6366F1",
+  },
+
+  quotationButtonRequested: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ECFDF5",
+    paddingVertical: 11,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: "#10B981",
+    gap: 5,
+  },
+
+  quotationButtonTextRequested: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#059669",
   },
 
   chatButton: {
