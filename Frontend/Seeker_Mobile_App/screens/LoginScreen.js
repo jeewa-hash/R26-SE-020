@@ -220,16 +220,11 @@ export default function LoginScreen({ navigation }) {
       // SUCCESS
       // ---------------------------------------------------
 
-      Alert.alert(
-        'Success',
-        'Logged in successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.replace('Home'),
-          },
-        ]
-      );
+      Alert.alert('Success', 'Logged in successfully!');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }],
+      });
 
     } catch (error) {
       console.error('LOGIN ERROR:', {

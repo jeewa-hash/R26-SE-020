@@ -3,10 +3,19 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
-import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import { IP_ADDRESS } from '../config';
+
+let MapView = null;
+let Marker = null;
+
+if (Platform.OS !== 'web') {
+  const dynamicRequire = new Function('moduleName', 'return require(moduleName);');
+  const Maps = dynamicRequire('react-native-maps');
+  MapView = Maps.default || Maps;
+  Marker = Maps.Marker;
+}
 
 const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 

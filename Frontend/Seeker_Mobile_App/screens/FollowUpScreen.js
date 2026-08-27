@@ -11,14 +11,24 @@ import {
   Alert,
   Modal,
   Dimensions,
+  Platform,
   useColorScheme,
 } from "react-native";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { Ionicons } from "@expo/vector-icons";
 import { LanguageContext } from "../context/LanguageContext";
-import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+let MapView = null;
+let Marker = null;
+
+if (Platform.OS !== 'web') {
+  const dynamicRequire = new Function('moduleName', 'return require(moduleName);');
+  const Maps = dynamicRequire('react-native-maps');
+  MapView = Maps.default || Maps;
+  Marker = Maps.Marker;
+}
 
 const { width, height } = Dimensions.get("window");
 
@@ -1720,55 +1730,63 @@ const response = await fetch(endpoint, {
 
               {/* MAP */}
 
-              <MapView
-                ref={mapRef}
-                style={styles.map}
-                region={currentRegion}
-                onPress={
-                  handleMapPress
+              {MapView ? (
+                <MapView
+                  ref={mapRef}
+                  style={styles.map}
+                  region={currentRegion}
+                  onPress={
+                    handleMapPress
+                  }
+                  showsUserLocation={
+                    true
+                  }
+                  showsMyLocationButton={
+                    true
                 }
-                showsUserLocation={
-                  true
-                }
-                showsMyLocationButton={
-                  true
-              }
-              >
-                {selectedLocation && (
-                  <Marker
-                    coordinate={
-                      selectedLocation
-                    }
-                    draggable
-                    onDragEnd={(e) => {
-                      const {
-                        coordinate,
-                      } =
-                        e.nativeEvent;
-
-                      setSelectedLocation(
-                        coordinate
-                      );
-
-                      reverseGeocode(
-                        coordinate
-                      );
-                    }}
-                  >
-                    <View
-                      style={
-                        styles.markerContainer
+                >
+                  {selectedLocation && (
+                    <Marker
+                      coordinate={
+                        selectedLocation
                       }
+                      draggable
+                      onDragEnd={(e) => {
+                        const {
+                          coordinate,
+                        } =
+                          e.nativeEvent;
+
+                        setSelectedLocation(
+                          coordinate
+                        );
+
+                        reverseGeocode(
+                          coordinate
+                        );
+                      }}
                     >
-                      <Ionicons
-                        name="location"
-                        size={38}
-                        color="#6366F1"
-                      />
-                    </View>
-                  </Marker>
-                )}
-              </MapView>
+                      <View
+                        style={
+                          styles.markerContainer
+                        }
+                      >
+                        <Ionicons
+                          name="location"
+                          size={38}
+                          color="#6366F1"
+                        />
+                      </View>
+                    </Marker>
+                  )}
+                </MapView>
+              ) : (
+                <View style={[styles.map, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6' }]}>
+                  <Text style={{ fontSize: 16, color: '#374151', textAlign: 'center', paddingHorizontal: 24 }}>
+                    The map picker is not available in the web browser. Please use the mobile app for location selection.
+                  </Text>
+                </View>
+              )}
 
               {/* MY LOCATION */}
 
