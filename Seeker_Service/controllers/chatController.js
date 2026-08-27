@@ -17,11 +17,11 @@ export const createChat = async (req, res) => {
 
     const newChat = new Chat({
       members: [senderId, receiverId],
+      lastMessage: { text: "", senderId: "" },
     });
 
     const savedChat = await newChat.save();
     res.status(200).json(savedChat);
-
   } catch (err) {
     res.status(500).json(err);
   }
@@ -32,21 +32,9 @@ export const getUserChats = async (req, res) => {
   try {
     const chats = await Chat.find({
       members: { $in: [req.params.userId] },
-    });
+    }).sort({ updatedAt: -1 }); // newest first
 
     res.status(200).json(chats);
-  } catch (err) {
-    res.status(500).json(err);
-  }
-};
-
-// ================= SEND MESSAGE =================
-export const sendMessage = async (req, res) => {
-  try {
-    const message = new Message(req.body);
-    const savedMessage = await message.save();
-
-    res.status(200).json(savedMessage);
   } catch (err) {
     res.status(500).json(err);
   }
@@ -57,7 +45,7 @@ export const getMessages = async (req, res) => {
   try {
     const messages = await Message.find({
       chatId: req.params.chatId,
-    });
+    }).sort({ createdAt: 1 }); // oldest first
 
     res.status(200).json(messages);
   } catch (err) {

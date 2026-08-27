@@ -6,8 +6,13 @@ const chatSchema = new mongoose.Schema(
       type: [String],
       required: true,
     },
+    // Store the last message directly (text + sender) for quick display
+    lastMessage: {
+      text: { type: String, default: "" },
+      senderId: { type: String, default: "" },
+    },
   },
-  { timestamps: true }
+  { timestamps: true } // updatedAt will auto‑update on save
 );
 
 export default mongoose.model("Chat", chatSchema);
