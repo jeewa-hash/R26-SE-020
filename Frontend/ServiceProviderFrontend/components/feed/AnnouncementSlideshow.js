@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, FlatList, StyleSheet, Dimensions } from 'react-native';
-import AnnouncementCard, { ANNOUNCEMENTS, CARD_WIDTH } from './AnnouncementCard';
+import AnnouncementCard, { ANNOUNCEMENTS } from './AnnouncementCard';
 
-const { width } = Dimensions.get('window');
-const ITEM_WIDTH = CARD_WIDTH + 16; // card + marginRight
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export default function AnnouncementSlideshow({ onPressItem }) {
+export default function AnnouncementSlideshow() {
   const [activeIndex, setActiveIndex] = useState(0);
   const flatRef = useRef(null);
 
@@ -19,38 +18,27 @@ export default function AnnouncementSlideshow({ onPressItem }) {
   }, [activeIndex]);
 
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.container}>
       <FlatList
         ref={flatRef}
         data={ANNOUNCEMENTS}
         horizontal
-        pagingEnabled={false}
-        snapToInterval={ITEM_WIDTH}
-        snapToAlignment="start"
-        decelerationRate="fast"
+        pagingEnabled
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
-          <View style={styles.itemWrap}>
-            <AnnouncementCard
-              item={item}
-              onPress={() => onPressItem?.(item)}
-            />
-          </View>
-        )}
+        renderItem={({ item }) => <AnnouncementCard item={item} />}
         onMomentumScrollEnd={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / ITEM_WIDTH);
+          const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
           setActiveIndex(index);
         }}
         getItemLayout={(_, index) => ({
-          length: ITEM_WIDTH,
-          offset: ITEM_WIDTH * index,
+          length: SCREEN_WIDTH,
+          offset: SCREEN_WIDTH * index,
           index,
         })}
       />
 
-      {/* ── Dot indicators ── */}
+      {/* ── Dots overlay ── */}
       <View style={styles.dotsRow}>
         {ANNOUNCEMENTS.map((_, i) => (
           <View
@@ -67,32 +55,30 @@ export default function AnnouncementSlideshow({ onPressItem }) {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginBottom: 8,
-  },
-  listContent: {
-    paddingHorizontal: 16,
-  },
-  itemWrap: {
-    marginRight: 16,
+  container: {
+    flex: 1,
+    backgroundColor: '#000000',
   },
   dotsRow: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 5,
-    marginTop: 12,
+    gap: 6,
   },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
   dotActive: {
     width: 20,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#b80bb8',
+    backgroundColor: '#FFFFFF',
   },
 });

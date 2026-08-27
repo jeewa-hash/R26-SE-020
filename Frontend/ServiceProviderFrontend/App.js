@@ -1,6 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, AppState, useColorScheme } from 'react-native';
-import { NavigationContainer, useNavigationContainerRef, CommonActions } from '@react-navigation/native';
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  AppState,
+} from 'react-native';
+import {
+  NavigationContainer,
+  useNavigationContainerRef,
+  CommonActions,
+} from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -10,8 +21,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from './theme';
 import './locales';
 
-// Context Providers
-import { ThemeProvider } from './context/ThemeContext';
+// Context Providers & Hooks
+import { ThemeProvider, ThemeContext } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { PortfolioProvider } from './context/PortfolioContext';
 import { AppliedJobsProvider } from './context/AppliedJobsContext';
@@ -29,85 +40,27 @@ import {
 // Screens
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
-import BottomTabNavigator from './navigation/BottomTabNavigator'; 
+import BottomTabNavigator from './navigation/BottomTabNavigator';
 import PortfolioGalleryScreen from './pages/PortfolioGalleryScreen';
 import CreatePostScreen from './pages/CreatePostScreen';
 import SubmitInquiryScreen from './screens/SubmitInquiryScreen';
+import ProviderPostDetailScreen from './screens/ProviderPostDetailScreen';
+import AppliedJobsScreen from './pages/AppliedJobsScreen';
 
 const Stack = createStackNavigator();
 
-// ─── Lock Screen ─────────────────────────────────────────────────────
-function LockScreen({ onUnlock, onPasswordFallback }) {
-  const [unlocking, setUnlocking] = useState(false);
-  const [showFallback, setShowFallback] = useState(false);
-
-  useEffect(() => {
-    attemptUnlock();
-  }, []);
-
-  const attemptUnlock = async () => {
-    setUnlocking(true);
-    const bioAvailable = await isBiometricAvailable();
-    if (!bioAvailable) {
-      setUnlocking(false);
-      setShowFallback(true);
-      return;
-    }
-    const result = await promptBiometric();
-    setUnlocking(false);
-    if (result.success) {
-      onUnlock();
-    } else {
-      setShowFallback(true);
-    }
-  };
-
-  return (
-    <View style={styles.lockOverlay}>
-      <View style={styles.lockContent}>
-        <View style={styles.lockIconCircle}>
-          <MaterialIcons name="lock" size={48} color="#fff" />
-        </View>
-        <Text style={styles.lockTitle}>App Locked</Text>
-        <Text style={styles.lockSubtitle}>Unlock to continue</Text>
-
-        {!showFallback ? (
-          <TouchableOpacity
-            style={styles.unlockButton}
-            onPress={attemptUnlock}
-            disabled={unlocking}
-            activeOpacity={0.8}
-          >
-            {unlocking ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <MaterialIcons name="fingerprint" size={24} color="#fff" />
-                <Text style={styles.unlockButtonText}>Unlock with Fingerprint</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.fallbackContainer}>
-            <Text style={styles.fallbackText}>Biometric authentication failed or unavailable</Text>
-            <TouchableOpacity style={styles.passwordButton} onPress={onPasswordFallback}>
-              <Text style={styles.passwordButtonText}>Login with Password</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    </View>
-  );
-}
-
-export default function App() {
-  const colorScheme = useColorScheme();
-  const theme = colorScheme === 'dark' ? DarkTheme : LightTheme;
+// ─── App Content Wrapper (Connects ThemeContext to Navigation & Paper) ───
+function AppContent() {
+  const themeContext = useContext(ThemeContext);
+  
+  // Fallback to light/dark themes from ./theme if context theme properties aren't directly available
+  const isDark = themeContext?.isDark ?? false;
+  const theme = themeContext?.theme || (isDark ? DarkTheme : LightTheme);
 
   const [initialRoute, setInitialRoute] = useState(null);
   const [appLockEnabled, setAppLockEnabled] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
-  const [hasToken, setHasToken] = useState(false);
+  const [, setHasToken] = useState(false);
   const appState = useRef(AppState.currentState);
   const navigationRef = useNavigationContainerRef();
 
@@ -174,49 +127,122 @@ export default function App() {
   }
 
   return (
+    <PaperProvider theme={theme}>
+      <View style={{ flex: 1 }}>
+        <NavigationContainer ref={navigationRef} theme={theme}>
+          <Stack.Navigator
+            initialRouteName={initialRoute}
+            screenOptions={{ headerShown: false }}
+          >
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="Main" component={BottomTabNavigator} />
+            <Stack.Screen name="PortfolioGallery" component={PortfolioGalleryScreen} />
+            <Stack.Screen
+              name="PostGeneration"
+              component={CreatePostScreen}
+              options={{ headerShown: true, title: 'Generate AI Post' }}
+            />
+            <Stack.Screen
+              name="SubmitInquiry"
+              component={SubmitInquiryScreen}
+              options={{ headerShown: true, title: 'Submit Inquiry' }}
+            />
+            <Stack.Screen name="ProviderPostDetail" component={ProviderPostDetailScreen} />
+            <Stack.Screen name="AppliedJobs" component={AppliedJobsScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+
+        {appLockEnabled && isLocked && (
+          <LockScreen
+            onUnlock={handleUnlock}
+            onPasswordFallback={handlePasswordFallback}
+          />
+        )}
+      </View>
+    </PaperProvider>
+  );
+}
+
+// ─── Lock Screen ─────────────────────────────────────────────────────
+function LockScreen({ onUnlock, onPasswordFallback }) {
+  const [unlocking, setUnlocking] = useState(false);
+  const [showFallback, setShowFallback] = useState(false);
+
+  useEffect(() => {
+    attemptUnlock();
+  }, []);
+
+  const attemptUnlock = async () => {
+    setUnlocking(true);
+    const bioAvailable = await isBiometricAvailable();
+    if (!bioAvailable) {
+      setUnlocking(false);
+      setShowFallback(true);
+      return;
+    }
+    const result = await promptBiometric();
+    setUnlocking(false);
+    if (result.success) {
+      onUnlock();
+    } else {
+      setShowFallback(true);
+    }
+  };
+
+  return (
+    <View style={styles.lockOverlay}>
+      <View style={styles.lockContent}>
+        <View style={styles.lockIconCircle}>
+          <MaterialIcons name="lock" size={48} color="#fff" />
+        </View>
+        <Text style={styles.lockTitle}>App Locked</Text>
+        <Text style={styles.lockSubtitle}>Unlock to continue</Text>
+
+        {!showFallback ? (
+          <TouchableOpacity
+            style={styles.unlockButton}
+            onPress={attemptUnlock}
+            disabled={unlocking}
+            activeOpacity={0.8}
+          >
+            {unlocking ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <MaterialIcons name="fingerprint" size={24} color="#fff" />
+                <Text style={styles.unlockButtonText}>Unlock with Fingerprint</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.fallbackContainer}>
+            <Text style={styles.fallbackText}>
+              Biometric authentication failed or unavailable
+            </Text>
+            <TouchableOpacity
+              style={styles.passwordButton}
+              onPress={onPasswordFallback}
+            >
+              <Text style={styles.passwordButtonText}>Login with Password</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ─── Main App Entry Point ───────────────────────────────────────────
+export default function App() {
+  return (
     <SafeAreaProvider>
       <ThemeProvider>
         <LanguageProvider>
           <PortfolioProvider>
             <AppliedJobsProvider>
               <NotificationsProvider>
-                <PaperProvider theme={theme}>
-                  <View style={{ flex: 1 }}>
-                    <NavigationContainer ref={navigationRef}>
-                      <Stack.Navigator
-                        initialRouteName={initialRoute}
-                        screenOptions={{ headerShown: false }}
-                      >
-                        <Stack.Screen name="Login" component={LoginScreen} />
-                        <Stack.Screen name="Register" component={RegisterScreen} />
-
-                        {/* Bottom tab bar — NewsFeedScreen already replaces Home inside it */}
-                        <Stack.Screen name="Main" component={BottomTabNavigator} />
-
-                        {/* Full-screen modals (no bottom bar) */}
-                        <Stack.Screen name="PortfolioGallery" component={PortfolioGalleryScreen} />
-                        <Stack.Screen
-                          name="PostGeneration"
-                          component={CreatePostScreen}
-                          options={{ headerShown: true, title: 'Generate AI Post' }}
-                        />
-                        <Stack.Screen
-                          name="SubmitInquiry"
-                          component={SubmitInquiryScreen}
-                          options={{ headerShown: true, title: 'Submit Inquiry' }}
-                        />
-                        
-                      </Stack.Navigator>
-                    </NavigationContainer>
-
-                    {appLockEnabled && isLocked && (
-                      <LockScreen
-                        onUnlock={handleUnlock}
-                        onPasswordFallback={handlePasswordFallback}
-                      />
-                    )}
-                  </View>
-                </PaperProvider>
+                <AppContent />
               </NotificationsProvider>
             </AppliedJobsProvider>
           </PortfolioProvider>
@@ -229,29 +255,54 @@ export default function App() {
 const styles = StyleSheet.create({
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
   lockOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(99, 102, 241, 0.97)',
-    justifyContent: 'center', alignItems: 'center', zIndex: 999,
+    justify: 'center',
+    alignItems: 'center',
+    zIndex: 999,
   },
   lockContent: { alignItems: 'center', padding: 32 },
   lockIconCircle: {
-    width: 90, height: 90, borderRadius: 45,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center', alignItems: 'center', marginBottom: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   lockTitle: { fontSize: 26, fontWeight: 'bold', color: '#fff', marginBottom: 6 },
   lockSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.85)', marginBottom: 32 },
   unlockButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)', paddingVertical: 14,
-    paddingHorizontal: 28, borderRadius: 8, gap: 8, minWidth: 240,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 8,
+    gap: 8,
+    minWidth: 240,
   },
   unlockButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   fallbackContainer: { alignItems: 'center' },
-  fallbackText: { color: 'rgba(255,255,255,0.85)', fontSize: 14, textAlign: 'center', marginBottom: 16 },
+  fallbackText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
   passwordButton: {
-    backgroundColor: '#fff', paddingVertical: 14, paddingHorizontal: 28,
-    borderRadius: 8, minWidth: 240, alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 8,
+    minWidth: 240,
+    alignItems: 'center',
   },
   passwordButtonText: { color: '#6366f1', fontSize: 15, fontWeight: '700' },
 });

@@ -13,6 +13,8 @@ import InquiriesPage from './pages/InquiriesPage';
 import AuditLogPage from './pages/AuditLogPage';
 import DemandForecastingPage from './pages/DemandForecastingPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import ReportsPage from './pages/ReportsPage';
+import ProfilePage from './pages/ProfilePage';
 import UserLocationsPage from './pages/UserLocationsPage';
 import './App.css';
 
@@ -43,6 +45,8 @@ function App() {
           <Route path="audit-logs" element={<AuditLogPage />} />
           <Route path="demand-forecasting" element={<DemandForecastingPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
           <Route path="user-locations" element={<UserLocationsPage />} />
         </Route>
 

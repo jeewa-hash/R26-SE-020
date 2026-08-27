@@ -56,6 +56,21 @@ export const createProviderRequest = async (req, res) => {
       });
     }
 
+    // Governance restriction check: If provider has 3 or more active unapproved cancellations, block new proposals
+    const activeUnapproved = await Booking.countDocuments({
+      providerId,
+      bookingStatus: "CANCELLED",
+      "cancellationInfo.cancelledBy": "PROVIDER",
+      "cancellationInfo.inquiryStatus": { $ne: "APPROVED" },
+    });
+
+    if (activeUnapproved >= 3) {
+      return res.status(403).json({
+        success: false,
+        message: `Your account is temporarily restricted from submitting proposals due to 3 or more active missed service cancellations (Penalty score: ${activeUnapproved}/3). Please submit inquiries to restore access.`,
+      });
+    }
+
     const post = await Post.findById(postId);
 
     if (!post) {
@@ -371,6 +386,21 @@ export const acceptProviderRequest = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Only pending requests can be accepted",
+      });
+    }
+
+    // Check if provider is restricted due to 3 or more active unapproved cancellations
+    const providerActiveMissed = await Booking.countDocuments({
+      providerId: providerRequest.providerId,
+      bookingStatus: "CANCELLED",
+      "cancellationInfo.cancelledBy": "PROVIDER",
+      "cancellationInfo.inquiryStatus": { $ne: "APPROVED" },
+    });
+
+    if (providerActiveMissed >= 3) {
+      return res.status(403).json({
+        success: false,
+        message: `This service provider currently has ${providerActiveMissed} active missed/cancelled services and cannot be booked until inquiries are reviewed and approved by Administration.`,
       });
     }
 

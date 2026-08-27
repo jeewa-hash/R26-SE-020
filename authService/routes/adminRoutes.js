@@ -9,6 +9,8 @@ router.post('/logout', adminController.logout);
 // Protected routes (only logged-in admin can access)
 router.post('/register', adminController.verifyAdmin, adminController.register);
 router.get('/profile', adminController.verifyAdmin, adminController.getProfile);
+router.put('/profile', adminController.verifyAdmin, adminController.updateProfile);
+router.put('/change-password', adminController.verifyAdmin, adminController.changePassword);
 router.get('/dashboard-stats', adminController.verifyAdmin, adminController.getDashboardStats);
 router.get('/user-growth', adminController.verifyAdmin, adminController.getUserGrowthData);
 router.get('/users', adminController.verifyAdmin, adminController.getAllUsers);
