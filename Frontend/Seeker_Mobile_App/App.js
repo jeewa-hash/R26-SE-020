@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import BottomNav from './components/BottomNav';
 
 
 //import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -260,6 +261,8 @@ export default function App() {
   // Default screen is set to Login
   const [bootstrapped, setBootstrapped] = useState(false);
   const [initialRouteName, setInitialRouteName] = useState('Login');
+  const [currentRouteName, setCurrentRouteName] = useState('Home');
+  const navigationRef = React.useRef(null);
 
   useEffect(() => {
     const bootstrapLanguage = async () => {
@@ -284,6 +287,13 @@ export default function App() {
     bootstrapLanguage();
   }, []);
 
+  const handleStateChange = (state) => {
+    const route = state?.routes?.[state.index];
+    if (route?.name) {
+      setCurrentRouteName(route.name);
+    }
+  };
+
   if (!bootstrapped) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -297,8 +307,24 @@ export default function App() {
       <ChatProvider>
         <ThemeProvider>
           <AuthProvider>
-            <NavigationContainer>
-              <AppNavigator initialRouteName={initialRouteName} />
+            <NavigationContainer
+              ref={navigationRef}
+              onReady={() => {
+                const route = navigationRef.current?.getCurrentRoute();
+                if (route?.name) {
+                  setCurrentRouteName(route.name);
+                }
+              }}
+              onStateChange={handleStateChange}
+            >
+              <View style={{ flex: 1 }}>
+                <AppNavigator initialRouteName={initialRouteName} />
+                <BottomNav
+                  navigationRef={navigationRef}
+                  currentRouteName={currentRouteName}
+                  isRootNav
+                />
+              </View>
             </NavigationContainer>
           </AuthProvider>
         </ThemeProvider>

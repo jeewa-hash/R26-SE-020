@@ -3,56 +3,101 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 
-const BottomNav = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
+const HIDDEN_ROUTES = new Set([
+  'Login',
+  'Register',
+  'VerifyOTP',
+  'Language',
+  'Onboarding',
+  'ProviderProfile',
+  'RequestQuotationDetails',
+  'BidCoordinationScreen',
+  'BidResponsesScreen',
+  'ChatScreen',
+  'ChatListScreen',
+  'NotificationScreen',
+  'FeedbackScreen',
+  'CreatePostScreen',
+  'SettingsScreen',
+  'HelpScreen',
+  'PaymentScreen',
+  'HistoryScreen',
+  'SpendAnalyticsScreen',
+  'StarPointsScreen',
+  'MyPostsScreen',
+  'MyBidsScreen',
+  'RescheduleScreen',
+]);
+
+const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
   const { isDarkMode } = useTheme();
+  const [selectedTab, setSelectedTab] = React.useState('Home');
+
+  React.useEffect(() => {
+    if (!currentRouteName) return;
+
+    if (currentRouteName === 'Home' || currentRouteName === 'HomeScreen') {
+      setSelectedTab('Home');
+      return;
+    }
+    if (currentRouteName === 'FeedScreen') setSelectedTab('Feed');
+    if (currentRouteName === 'CreatePostScreen') setSelectedTab('Create');
+    if (currentRouteName === 'BookingsScreen') setSelectedTab('Bookings');
+    if (currentRouteName === 'ProfileScreen') setSelectedTab('Profile');
+  }, [currentRouteName]);
+
+  if (!isRootNav) {
+    return null;
+  }
+
+  if (HIDDEN_ROUTES.has(currentRouteName)) {
+    return null;
+  }
 
   const navItems = [
     {
       id: 'Home',
       label: 'Home',
       icon: 'home',
-      onPress: () => navigation.navigate('Home'),
+      routeName: 'Home',
     },
     {
       id: 'Feed',
       label: 'Feed',
       icon: 'feed',
-      onPress: () => navigation.navigate('FeedScreen'),
+      routeName: 'FeedScreen',
     },
     {
       id: 'Create',
       label: 'Create',
       icon: 'add',
+      routeName: 'CreatePostScreen',
       isCreateButton: true,
-      onPress: () => navigation.navigate('CreatePostScreen'),
     },
     {
       id: 'Bookings',
       label: 'Bookings',
       icon: 'calendar-today',
-      onPress: () => navigation.navigate('BookingsScreen'),
+      routeName: 'BookingsScreen',
     },
     {
       id: 'Profile',
       label: 'Profile',
       icon: 'person',
-      onPress: () => navigation.navigate('ProfileScreen'),
+      routeName: 'ProfileScreen',
     },
   ];
 
-  const isActive = (itemId) => {
-    if (itemId === 'Home' && (route.name === 'Home' || route.name === 'HomeScreen')) return true;
-    if (itemId === 'Feed' && route.name === 'FeedScreen') return true;
-    if (itemId === 'Create' && route.name === 'CreatePostScreen') return true;
-    if (itemId === 'Bookings' && route.name === 'BookingsScreen') return true;
-    if (itemId === 'Profile' && route.name === 'ProfileScreen') return true;
-    return false;
+  const handlePress = (item) => {
+    setSelectedTab(item.id);
+    if (navigationRef?.current) {
+      navigationRef.current.navigate(item.routeName);
+    }
   };
+
+  const isActive = (itemId) => selectedTab === itemId;
 
   const inactiveColor = isDarkMode ? '#94A3B8' : '#999';
   const activeColor = isDarkMode ? '#818cf8' : '#667eea';
@@ -61,13 +106,13 @@ const BottomNav = () => {
     <View style={[styles.bottomNav, isDarkMode && styles.bottomNavDark]}>
       {navItems.map((item) => {
         const active = isActive(item.id);
-        
+
         if (item.isCreateButton) {
           return (
-            <TouchableOpacity 
+            <TouchableOpacity
               key={item.id}
-              style={styles.createNavItem} 
-              onPress={item.onPress}
+              style={styles.createNavItem}
+              onPress={() => handlePress(item)}
               activeOpacity={0.8}
             >
               <LinearGradient
@@ -88,18 +133,18 @@ const BottomNav = () => {
             </TouchableOpacity>
           );
         }
-        
+
         return (
-          <TouchableOpacity 
+          <TouchableOpacity
             key={item.id}
-            style={styles.navItem} 
-            onPress={item.onPress}
+            style={styles.navItem}
+            onPress={() => handlePress(item)}
             activeOpacity={0.7}
           >
-            <MaterialIcons 
-              name={item.icon} 
-              size={24} 
-              color={active ? activeColor : inactiveColor} 
+            <MaterialIcons
+              name={item.icon}
+              size={24}
+              color={active ? activeColor : inactiveColor}
             />
             <Text style={[
               styles.navLabel,
