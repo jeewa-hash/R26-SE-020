@@ -1,4 +1,4 @@
-export const IP_ADDRESS = '192.168.1.38';
+export const IP_ADDRESS = '172.20.10.13';   // Tashmi   172.28.31.225   192.168.1.22
 
 
 export const CONFIG = {

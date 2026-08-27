@@ -718,7 +718,8 @@ export default function CreatePostScreen() {
         return;
       }
 
-      const userId =
+      // We'll use this as seekerId
+      const seekerId =
         loggedUser.userId;
 
       // ===================================================
@@ -804,9 +805,12 @@ export default function CreatePostScreen() {
           previewData?.urgency ||
           'medium',
 
-        // IMPORTANT
+        // Include both seekerId and userId for backend compatibility
+        seekerId:
+          seekerId,
+
         userId:
-          userId,
+          seekerId,
       };
 
 
@@ -815,8 +819,8 @@ export default function CreatePostScreen() {
       );
 
       console.log(
-        'FINAL USER ID:',
-        userId
+        'FINAL SEEKER ID:',
+        seekerId
       );
 
       console.log(
