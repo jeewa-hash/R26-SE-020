@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Dimensions } from 'react-native';
 import { Text, Avatar } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { Colors } from '../../theme';
 import i18n from '../../locales';
 import { CONFIG } from '../../config';
 import { useNavigation } from '@react-navigation/native';
+import { ThemeContext } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -79,51 +80,122 @@ const getCategoryImage = (category) => {
   return images[category] || images.default;
 };
 
+// =======================================================
+// LOCATION HELPER
+// Extracts address, city, and district from post safely
+// =======================================================
+const resolveLocationDetails = (post) => {
+  if (!post) return { address: '', district: '', city: '', headerLocation: 'Unknown' };
+
+  let address = post.locationAddress || '';
+  let city = post.locationCity || '';
+  let district = post.locationDistrict || post.poster?.district || post.user?.district || '';
+
+  if (typeof post.location === 'object' && post.location !== null) {
+    address = address || post.location.address || post.location.formattedAddress || '';
+    city = city || post.location.city || post.location.town || '';
+    district = district || post.location.district || post.location.state || '';
+  } else if (typeof post.location === 'string' && post.location.trim().length > 0) {
+    address = address || post.location;
+  }
+
+  const headerLocation = district || city || address || 'Unknown';
+  const regionText = [district, city].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ');
+
+  return {
+    address,
+    regionText,
+    headerLocation,
+  };
+};
+
 export default function PostCard({ post, onApply, applying }) {
   const navigation = useNavigation();
   const { t } = useTranslation();
+  const { isDark } = useContext(ThemeContext);
   const { displayText, handleTranslate, loading, isTranslated, targetLang } =
-    useTranslatePost(post.lang);
+    useTranslatePost(post?.lang);
   const { isApplied, getJobStatus } = useAppliedJobs();
 
-  const applied = isApplied(post.id);
-  const statusKey = getJobStatus(post.id);
+  const postId = post?._id || post?.id;
+  const applied = isApplied(postId);
+  const statusKey = getJobStatus(postId);
   const status = statusKey ? Object.values(JOB_STATUS).find((s) => s.key === statusKey) : null;
-  const categoryColor = CATEGORY_COLORS[post.category] || Colors.primary;
+  const categoryColor = CATEGORY_COLORS[post?.category] || Colors.primary;
   const isSi = i18n.language === 'si';
+
+  // Theme colors
+  const C = isDark
+    ? { 
+        card: '#1C1C1E', 
+        text: '#F2F2F7', 
+        textSub: '#8E8E93', 
+        border: '#2C2C2E',
+        subCard: '#2A2A2A',
+        statsBg: '#2C2C2E',
+        locationBg: '#2A2A2A',
+        locationBorder: '#3A3A3C',
+        tagBg: '#2D1B3D',
+        tagBorder: '#3D2B4D',
+        tagText: '#A78BFA',
+        translateBg: '#2D1B3D',
+        statusBg: '#2A2A2A',
+        shadowColor: 'rgba(0,0,0,0.4)',
+      }
+    : { 
+        card: '#FFFFFF', 
+        text: '#1F2937', 
+        textSub: '#6B7280', 
+        border: '#E5E7EB',
+        subCard: '#F9FAFB',
+        statsBg: '#F9FAFB',
+        locationBg: '#F9FAFB',
+        locationBorder: '#F3F4F6',
+        tagBg: '#F3E8FF',
+        tagBorder: '#EDE9FE',
+        tagText: '#6D28D9',
+        translateBg: '#F3E8FF',
+        statusBg: '#F9FAFB',
+        shadowColor: 'rgba(0,0,0,0.08)',
+      };
 
   const posterName = resolvePosterName(post);
   const posterAvatar = resolvePosterAvatar(post);
   const avatarColor = getAvatarColor(posterName);
   const initials = getInitials(posterName);
 
-  const categoryImage = getCategoryImage(post.category);
+  const categoryImage = getCategoryImage(post?.category);
   const coverImage = resolveImage(post, categoryImage);
 
+  const locationData = resolveLocationDetails(post);
+
   const urgencyStyles = {
-    low: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Low Priority' },
-    medium: { bg: '#FEF3C7', color: '#B45309', label: 'Medium' },
-    high: { bg: '#FEE2E2', color: '#DC2626', label: '🔥 High Priority' },
+    low: { bg: isDark ? '#1A2A4A' : '#DBEAFE', color: isDark ? '#60A5FA' : '#1D4ED8', label: 'Low Priority' },
+    medium: { bg: isDark ? '#3D2A1A' : '#FEF3C7', color: isDark ? '#FBBF24' : '#B45309', label: 'Medium' },
+    high: { bg: isDark ? '#3D1A1A' : '#FEE2E2', color: isDark ? '#F87171' : '#DC2626', label: '🔥 High Priority' },
   };
-  const urgency = urgencyStyles[post.urgency] || urgencyStyles.medium;
+  const urgency = urgencyStyles[post?.urgency] || urgencyStyles.medium;
 
   const appliedCount = Number(
-    (post.appliedCount ?? 0) || (post.applied ?? 0) || 0
+    (post?.appliedCount ?? 0) || (post?.applied ?? 0) || 0
   );
 
   const openDetail = () => {
-    navigation.navigate('ProviderPostDetail', { post: { ...post, _id: post._id || post.id } });
+    navigation.navigate('ProviderPostDetail', { post: { ...post, _id: postId } });
   };
 
   const doApply = (e) => {
-    if (e) e.stopPropagation && e.stopPropagation();
+    if (e && e.stopPropagation) e.stopPropagation();
     if (onApply) onApply(post);
   };
 
   return (
     <TouchableOpacity
       activeOpacity={0.9}
-      style={styles.card}
+      style={[styles.card, { 
+        backgroundColor: C.card,
+        shadowColor: C.shadowColor,
+      }]}
       onPress={openDetail}
     >
       {/* Cover Image */}
@@ -137,14 +209,14 @@ export default function PostCard({ post, onApply, applying }) {
 
         {/* Category Badge on Image */}
         <View style={[styles.imageCategoryBadge, { backgroundColor: categoryColor }]}>
-          <Text style={styles.imageCategoryText}>{post.category}</Text>
+          <Text style={styles.imageCategoryText}>{post?.category}</Text>
         </View>
 
         {/* Badges */}
         <View style={styles.imageBadges}>
           <View style={[styles.urgencyBadge, { backgroundColor: urgency.bg }]}>
             <MaterialIcons
-              name={post.urgency === 'high' ? 'priority-high' : post.urgency === 'low' ? 'low-priority' : 'flag'}
+              name={post?.urgency === 'high' ? 'priority-high' : post?.urgency === 'low' ? 'low-priority' : 'flag'}
               size={12}
               color={urgency.color}
             />
@@ -153,18 +225,18 @@ export default function PostCard({ post, onApply, applying }) {
             </Text>
           </View>
           {appliedCount > 0 && (
-            <View style={styles.bidsBadge}>
+            <View style={[styles.bidsBadge, { backgroundColor: isDark ? '#1A1A3A' : '#EEF2FF' }]}>
               <MaterialIcons name="people" size={12} color="#6366F1" />
               <Text style={styles.bidsBadgeText}>{appliedCount} bids</Text>
             </View>
           )}
-          {post.urgent && (
+          {post?.urgent && (
             <View style={styles.urgentBadge}>
               <MaterialIcons name="whatshot" size={12} color="#DC2626" />
               <Text style={styles.urgentText}>URGENT</Text>
             </View>
           )}
-          {post.aiMatch && (
+          {post?.aiMatch && (
             <View style={styles.aiMatchBadge}>
               <MaterialIcons name="auto-awesome" size={12} color="#FF9800" />
               <Text style={styles.aiMatchText}>{post.aiMatch}% Match</Text>
@@ -175,15 +247,15 @@ export default function PostCard({ post, onApply, applying }) {
         {/* Budget Badge */}
         <View style={styles.budgetBadge}>
           <Text style={styles.budgetBadgeLabel}>Budget</Text>
-          <Text style={styles.budgetBadgeValue}>{post.budget || 'N/A'}</Text>
+          <Text style={styles.budgetBadgeValue}>{post?.budget || 'N/A'}</Text>
         </View>
       </View>
 
       {/* Content */}
       <View style={styles.contentContainer}>
         {/* Post Title */}
-        {post.title ? (
-          <Text style={styles.postTitle}>{displayText(post.title)}</Text>
+        {post?.title ? (
+          <Text style={[styles.postTitle, { color: C.text }]}>{displayText(post.title)}</Text>
         ) : null}
 
         {/* Header with Avatar and Customer Info */}
@@ -201,51 +273,59 @@ export default function PostCard({ post, onApply, applying }) {
           </View>
 
           <View style={styles.headerInfo}>
-            <Text style={styles.customerName}>{posterName}</Text>
+            <Text style={[styles.customerName, { color: C.text }]}>{posterName}</Text>
             <View style={styles.locationTime}>
-              <MaterialIcons name="location-on" size={12} color="#6B7280" />
-              <Text style={styles.metaText} numberOfLines={1}>
-                {post.poster?.district || post.locationCity || post.locationDistrict || post.location || 'Unknown'}
+              <MaterialIcons name="location-on" size={12} color={C.textSub} />
+              <Text style={[styles.metaText, { color: C.textSub }]} numberOfLines={1}>
+                {locationData.headerLocation}
               </Text>
-              <View style={styles.dot} />
-              <MaterialIcons name="access-time" size={12} color="#6B7280" />
-              <Text style={styles.metaText}>{post.time}</Text>
+              <View style={[styles.dot, { backgroundColor: C.border }]} />
+              <MaterialIcons name="access-time" size={12} color={C.textSub} />
+              <Text style={[styles.metaText, { color: C.textSub }]}>{post?.time || 'Recently'}</Text>
             </View>
           </View>
         </View>
 
         {/* Full Location Details */}
-        {(post.locationAddress || post.locationDistrict || post.locationCity) && (
-          <View style={styles.locationDetails}>
-            {post.locationAddress ? (
+        {(locationData.address || locationData.regionText) ? (
+          <View style={[styles.locationDetails, { 
+            backgroundColor: C.locationBg,
+            borderColor: C.locationBorder,
+          }]}>
+            {locationData.address ? (
               <View style={styles.locationRow}>
-                <MaterialIcons name="home" size={13} color="#6B7280" />
-                <Text style={styles.locationDetailText} numberOfLines={2}>
-                  {post.locationAddress}
+                <MaterialIcons name="home" size={13} color={C.textSub} />
+                <Text style={[styles.locationDetailText, { color: C.textSub }]} numberOfLines={2}>
+                  {locationData.address}
                 </Text>
               </View>
             ) : null}
-            {(post.locationDistrict || post.locationCity) && (
+            {locationData.regionText ? (
               <View style={styles.locationRow}>
-                <MaterialIcons name="place" size={13} color="#6B7280" />
-                <Text style={styles.locationDetailText}>
-                  {[post.locationDistrict, post.locationCity].filter(Boolean).join(', ')}
+                <MaterialIcons name="place" size={13} color={C.textSub} />
+                <Text style={[styles.locationDetailText, { color: C.textSub }]}>
+                  {locationData.regionText}
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
-        )}
+        ) : null}
 
         {/* Description */}
-        <Text style={styles.description} numberOfLines={3}>{displayText(post.description)}</Text>
+        <Text style={[styles.description, { color: C.textSub }]} numberOfLines={3}>
+          {displayText(post?.description)}
+        </Text>
 
         {/* Tags */}
-        {post.tags && post.tags.length > 0 && (
+        {post?.tags && post.tags.length > 0 && (
           <View style={styles.tagsContainer}>
             {post.tags.slice(0, 6).map((tag, i) => (
-              <View key={`${tag}-${i}`} style={styles.tagChip}>
-                <MaterialIcons name="label" size={10} color="#7C3AED" />
-                <Text style={styles.tagText}>{tag}</Text>
+              <View key={`${tag}-${i}`} style={[styles.tagChip, { 
+                backgroundColor: C.tagBg,
+                borderColor: C.tagBorder,
+              }]}>
+                <MaterialIcons name="label" size={10} color={C.tagText} />
+                <Text style={[styles.tagText, { color: C.tagText }]}>{tag}</Text>
               </View>
             ))}
           </View>
@@ -253,8 +333,8 @@ export default function PostCard({ post, onApply, applying }) {
 
         {/* Translate Button */}
         <TouchableOpacity
-          style={styles.translateBtn}
-          onPress={(e) => { e.stopPropagation && e.stopPropagation(); handleTranslate(post.description); }}
+          style={[styles.translateBtn, { backgroundColor: C.translateBg }]}
+          onPress={(e) => { if (e && e.stopPropagation) e.stopPropagation(); handleTranslate(post?.description); }}
           disabled={loading}
         >
           {loading ? (
@@ -267,51 +347,53 @@ export default function PostCard({ post, onApply, applying }) {
               ? t('translating')
               : isTranslated
               ? t('showOriginal')
-              : `${t('translateTo')} ${targetLang === 'si' ? 'සිංහල' : 'English'}`
-            }
+              : `${t('translateTo')} ${targetLang === 'si' ? 'සිංහල' : 'English'}`}
           </Text>
         </TouchableOpacity>
 
         {/* Stats Row */}
-        <View style={styles.statsContainer}>
+        <View style={[styles.statsContainer, { backgroundColor: C.statsBg }]}>
           <View style={styles.statItem}>
-            <View style={styles.statIconBg}>
+            <View style={[styles.statIconBg, { backgroundColor: isDark ? '#2D1B3D' : '#EDE9FE' }]}>
               <MaterialIcons name="people" size={14} color="#7C3AED" />
             </View>
             <View>
-              <Text style={styles.statValue}>{appliedCount + (applied ? 1 : 0)}</Text>
-              <Text style={styles.statLabel}>Applied</Text>
+              <Text style={[styles.statValue, { color: C.text }]}>{appliedCount + (applied ? 1 : 0)}</Text>
+              <Text style={[styles.statLabel, { color: C.textSub }]}>Applied</Text>
             </View>
           </View>
 
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: C.border }]} />
 
           <View style={styles.statItem}>
-            <View style={styles.statIconBg}>
+            <View style={[styles.statIconBg, { backgroundColor: isDark ? '#2D1B3D' : '#EDE9FE' }]}>
               <MaterialIcons name="visibility" size={14} color="#7C3AED" />
             </View>
             <View>
-              <Text style={styles.statValue}>{post.views || 0}</Text>
-              <Text style={styles.statLabel}>Views</Text>
+              <Text style={[styles.statValue, { color: C.text }]}>{post?.views || 0}</Text>
+              <Text style={[styles.statLabel, { color: C.textSub }]}>Views</Text>
             </View>
           </View>
 
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: C.border }]} />
 
           <View style={styles.statItem}>
-            <View style={styles.statIconBg}>
+            <View style={[styles.statIconBg, { backgroundColor: isDark ? '#2D1B3D' : '#EDE9FE' }]}>
               <MaterialIcons name="chat-bubble-outline" size={14} color="#7C3AED" />
             </View>
             <View>
-              <Text style={styles.statValue}>Open</Text>
-              <Text style={styles.statLabel}>Tap to View Details</Text>
+              <Text style={[styles.statValue, { color: C.text }]}>Open</Text>
+              <Text style={[styles.statLabel, { color: C.textSub }]}>Tap to View Details</Text>
             </View>
           </View>
         </View>
 
         {/* Status Banner */}
         {applied && status && (
-          <View style={[styles.statusBanner, { backgroundColor: status.bg, borderLeftColor: status.color }]}>
+          <View style={[styles.statusBanner, { 
+            backgroundColor: C.statusBg,
+            borderLeftColor: status.color,
+          }]}>
             <MaterialIcons name={status.icon} size={18} color={status.color} />
             <Text style={[styles.statusText, { color: status.color }]}>
               {isSi ? status.labelSi : status.label}
@@ -344,8 +426,7 @@ export default function PostCard({ post, onApply, applying }) {
               ? 'Applying...'
               : applied
               ? (isSi ? status?.labelSi : status?.label) || 'Applied'
-              : t('applyNow')
-            }
+              : t('applyNow')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -355,17 +436,14 @@ export default function PostCard({ post, onApply, applying }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     marginBottom: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
   },
-
   imageContainer: {
     position: 'relative',
     height: 200,
@@ -452,7 +530,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EEF2FF',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
@@ -495,7 +572,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 12,
     alignItems: 'center',
-    backdropFilter: 'blur(10px)',
   },
   budgetBadgeLabel: {
     fontSize: 10,
@@ -509,7 +585,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 2,
   },
-
   contentContainer: {
     padding: 16,
   },
@@ -533,18 +608,12 @@ const styles = StyleSheet.create({
     elevation: 2,
     overflow: 'hidden',
   },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
   headerInfo: {
     flex: 1,
   },
   customerName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 4,
   },
   locationTime: {
@@ -554,17 +623,14 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#6B7280',
   },
   dot: {
     width: 3,
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: '#D1D5DB',
   },
   description: {
     fontSize: 14,
-    color: '#4B5563',
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -577,7 +643,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#F3E8FF',
   },
   translateText: {
     fontSize: 12,
@@ -588,7 +653,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: '#F9FAFB',
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
@@ -602,24 +666,20 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#EDE9FE',
     justifyContent: 'center',
     alignItems: 'center',
   },
   statValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1F2937',
   },
   statLabel: {
     fontSize: 10,
-    color: '#6B7280',
     marginTop: 2,
   },
   statDivider: {
     width: 1,
     height: 30,
-    backgroundColor: '#E5E7EB',
   },
   statusBanner: {
     flexDirection: 'row',
@@ -629,7 +689,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 16,
     borderLeftWidth: 4,
-    backgroundColor: '#F9FAFB',
   },
   statusText: {
     fontSize: 13,
@@ -657,18 +716,15 @@ const styles = StyleSheet.create({
   postTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
     marginBottom: 12,
     lineHeight: 24,
   },
   locationDetails: {
-    backgroundColor: '#F9FAFB',
     borderRadius: 10,
     padding: 10,
     marginBottom: 12,
     gap: 6,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
   },
   locationRow: {
     flexDirection: 'row',
@@ -678,7 +734,6 @@ const styles = StyleSheet.create({
   locationDetailText: {
     flex: 1,
     fontSize: 12,
-    color: '#4B5563',
     lineHeight: 16,
   },
   tagsContainer: {
@@ -691,16 +746,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: '#F3E8FF',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EDE9FE',
   },
   tagText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6D28D9',
   },
 });

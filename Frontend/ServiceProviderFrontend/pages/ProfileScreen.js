@@ -12,7 +12,7 @@ import AIProcessingModal from '../components/portfolio/AIProcessingModal';
 import PortfolioTagScreen from '../components/portfolio/PortfolioTagScreen';
 import { usePortfolio } from '../context/PortfolioContext';
 import { Colors } from '../theme';
-import ProfileHeader from '../navigation/ProfileHeader';
+import HeaderSection from '../components/HeaderSection';
 import { CONFIG } from '../config';
 import ProviderPostsSection from './Providerpostssection .js';
 
@@ -153,9 +153,17 @@ export default function ProfileScreen({ navigation }) {
   return (
     <View style={[styles.root, { backgroundColor: C.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-
-      {/* ── Header + Sidebar ── */}
-      <ProfileHeader navigation={navigation} onLogout={() => { /* handle logout */ }} />
+        
+         <HeaderSection 
+              navigation={navigation}
+              //userName={userName}          // From your state: 'Kasun' or loaded from storage
+              //avatarUrl={userAvatar}       // From your state: null or loaded from storage
+              //search={search}              // Your search state
+              //onSearchChange={setSearch}   // Your search setter
+              //unreadCount={unreadCount}    // Your notification count
+              onInboxPress={() => navigation.navigate('Messages')}
+              // onMenuPress is optional - the HeaderSection now handles it internally
+            />
 
       {/* ── Scrollable body ── */}
       <ScrollView
