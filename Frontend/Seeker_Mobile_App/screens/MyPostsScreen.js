@@ -108,8 +108,7 @@ export default function FeedScreen({ navigation }) {
             }
           ),
           timeAgo: formatTimeAgo(post.createdAt),
-          // Keep responseCount if you still need it for something else
-          responseCount: post.comments || 0,
+          responseCount: post.appliedBy ? post.appliedBy.length : 0,
         }));
 
         setPosts(formattedPosts);
@@ -219,11 +218,20 @@ export default function FeedScreen({ navigation }) {
   };
 
   // =======================================================
-  // VIEW RESPONSES
+  // VIEW RESPONSES – Navigate to PostResponsesScreen with full post data
   // =======================================================
-  const handleViewResponses = (postId) => {
-    // Navigate to a screen that shows the providers who responded
-    navigation.navigate('PostResponsesScreen', { postId });
+  const handleViewResponses = (post) => {
+    navigation.navigate('PostResponsesScreen', {
+      postId: post.id,
+      post: {
+        title: post.title,
+        description: post.description,
+        image: post.image,
+        category: post.category,
+        urgency: post.urgency,
+        // Add any other fields you want to pass
+      },
+    });
   };
 
   // =======================================================
@@ -479,7 +487,7 @@ export default function FeedScreen({ navigation }) {
                   />
                 )}
 
-                {/* FOOTER - Removed bids count, kept date/time */}
+                {/* FOOTER */}
                 <View style={styles.postFooter}>
                   <View style={styles.footerItem}>
                     <Ionicons
@@ -516,7 +524,7 @@ export default function FeedScreen({ navigation }) {
                   </View>
                 </View>
 
-                {/* ACTION BUTTONS - Now includes View Responses */}
+                {/* ACTION BUTTONS */}
                 <View style={styles.actionButtons}>
                   {/* EDIT */}
                   <TouchableOpacity
@@ -546,10 +554,10 @@ export default function FeedScreen({ navigation }) {
                     <Text style={styles.deleteButtonText}>Delete</Text>
                   </TouchableOpacity>
 
-                  {/* VIEW RESPONSES (NEW) */}
+                  {/* VIEW RESPONSES – pass the entire post object */}
                   <TouchableOpacity
                     style={styles.responsesButton}
-                    onPress={() => handleViewResponses(post.id)}
+                    onPress={() => handleViewResponses(post)}
                   >
                     <Ionicons
                       name="people-outline"
@@ -557,7 +565,9 @@ export default function FeedScreen({ navigation }) {
                       color="#10B981"
                     />
 
-                    <Text style={styles.responsesButtonText}>Responses</Text>
+                    <Text style={styles.responsesButtonText}>
+                      Responses {post.responseCount > 0 ? `(${post.responseCount})` : ''}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -622,6 +632,7 @@ export default function FeedScreen({ navigation }) {
   );
 }
 
+// ─── Styles (unchanged) ──────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -759,8 +770,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 
-  // Removed responseText style
-
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
@@ -805,7 +814,6 @@ const styles = StyleSheet.create({
     color: '#EF4444',
   },
 
-  // New "Responses" button style
   responsesButton: {
     flex: 1,
     flexDirection: 'row',

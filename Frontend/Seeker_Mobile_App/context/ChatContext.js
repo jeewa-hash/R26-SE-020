@@ -4,6 +4,8 @@ import io from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_BASE_URL, SOCKET_URL } from '../config';
+import Toast from 'react-native-toast-message';
+import { navigate } from '../utils/navigationService';
 
 const ChatContext = createContext();
 
@@ -11,12 +13,13 @@ export const useChat = () => useContext(ChatContext);
 
 export const ChatProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
-  const [messages, setMessages] = useState({}); // { chatId: [messages] }
+  const [messages, setMessages] = useState({});
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [typingUsers, setTypingUsers] = useState({});
   const [unreadCount, setUnreadCount] = useState({});
   const [currentUserId, setCurrentUserId] = useState(null);
   const [chats, setChats] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(null);
 
   useEffect(() => {
     const initSocket = async () => {
@@ -32,20 +35,43 @@ export const ChatProvider = ({ children }) => {
         }
       });
 
+      // Receive message
       newSocket.on('receiveMessage', (savedMessage) => {
-        const { chatId, senderId } = savedMessage;
+        const { chatId, senderId, text, senderName } = savedMessage;
+
         setMessages(prev => ({
           ...prev,
           [chatId]: [...(prev[chatId] || []), savedMessage]
         }));
+
         if (senderId !== currentUserId) {
           setUnreadCount(prev => ({
             ...prev,
             [chatId]: (prev[chatId] || 0) + 1
           }));
         }
+
+        // ─── SHOW TOAST if not in this chat ──────────────────
+        if (chatId !== currentChatId) {
+          Toast.show({
+            type: 'message',
+            text1: senderName || 'New Message',
+            text2: text?.substring(0, 75) || 'You received a new message',
+            visibilityTime: 4500,
+            position: 'top',
+            topOffset: 45,
+            props: {
+              badge: 'Chat Message',
+              actionText: 'Reply now',
+            },
+            onPress: () => {
+              navigate('ChatScreen', { chatId });
+            },
+          });
+        }
       });
 
+      // Typing and online users (keep as they are)
       newSocket.on('user-typing', (data) => {
         setTypingUsers(prev => ({ ...prev, [data.userId]: data.isTyping }));
         setTimeout(() => {
@@ -83,7 +109,7 @@ export const ChatProvider = ({ children }) => {
   const createOrGetChat = async (senderId, receiverId) => {
     try {
       const res = await axios.post(`${API_BASE_URL}/chat`, { senderId, receiverId });
-      return res.data._id; // chatId
+      return res.data._id;
     } catch (error) {
       console.error('Error creating chat:', error);
       return null;
@@ -102,7 +128,6 @@ export const ChatProvider = ({ children }) => {
 
     socket.emit('sendMessage', messageData);
 
-    // Optimistic update
     setMessages(prev => ({
       ...prev,
       [chatId]: [...(prev[chatId] || []), { ...messageData, _id: Date.now().toString() }]
@@ -119,6 +144,11 @@ export const ChatProvider = ({ children }) => {
     setUnreadCount(prev => ({ ...prev, [chatId]: 0 }));
   };
 
+  // ─── Expose setActiveChat ──────────────────────────────────
+  const setActiveChat = (chatId) => {
+    setCurrentChatId(chatId);
+  };
+
   return (
     <ChatContext.Provider value={{
       socket,
@@ -133,6 +163,7 @@ export const ChatProvider = ({ children }) => {
       fetchChats,
       createOrGetChat,
       currentUserId,
+      setActiveChat,  // ← new
     }}>
       {children}
     </ChatContext.Provider>

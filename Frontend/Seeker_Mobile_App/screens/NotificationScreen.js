@@ -17,6 +17,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
+import { useTheme } from '../hooks/useTheme';
 
 const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:3002`;
@@ -24,6 +25,7 @@ const QUOTATIONS_URL = `${PROVIDER_SERVICE_URL}/api/provider/quotations/seeker/m
 const READ_QUOTES_KEY = 'readQuotes';
 
 export default function NotificationScreen({ navigation }) {
+  const { isDarkMode } = useTheme();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -253,7 +255,11 @@ export default function NotificationScreen({ navigation }) {
 
     return (
       <TouchableOpacity
-        style={[styles.card, !item.isRead && styles.unreadCard]}
+        style={[
+          styles.card,
+          isDarkMode && styles.cardDark,
+          !item.isRead && (isDarkMode ? styles.unreadCardDark : styles.unreadCard),
+        ]}
         onPress={() => {
           if (!item.isRead) markAsRead(item._id);
           if (item.type === 'quote') {
@@ -274,14 +280,20 @@ export default function NotificationScreen({ navigation }) {
         </View>
         <View style={styles.textContainer}>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, !item.isRead && styles.unreadText]}>
+            <Text
+              style={[
+                styles.title,
+                isDarkMode && styles.titleDark,
+                !item.isRead && (isDarkMode ? styles.unreadTextDark : styles.unreadText),
+              ]}
+            >
               {item.title}
             </Text>
             {!item.isRead && <View style={styles.unreadDot} />}
           </View>
-          <Text style={styles.message}>{item.message}</Text>
+          <Text style={[styles.message, isDarkMode && styles.messageDark]}>{item.message}</Text>
           <View style={styles.footerRow}>
-            <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
+            <Text style={[styles.date, isDarkMode && styles.dateDark]}>{formatDate(item.createdAt)}</Text>
             {item.action && <Text style={styles.actionLink}>{item.action}</Text>}
           </View>
         </View>
@@ -292,10 +304,13 @@ export default function NotificationScreen({ navigation }) {
   // ========== Loading state ==========
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+      <SafeAreaView style={[styles.safeArea, isDarkMode && styles.safeAreaDark]}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        />
         <LinearGradient
-          colors={['#667eea', '#764ba2']}
+          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
@@ -309,7 +324,7 @@ export default function NotificationScreen({ navigation }) {
           </View>
         </LinearGradient>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#007bff" />
+          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#007bff'} />
         </View>
       </SafeAreaView>
     );
@@ -317,12 +332,15 @@ export default function NotificationScreen({ navigation }) {
 
   // ========== Main UI ==========
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+    <SafeAreaView style={[styles.safeArea, isDarkMode && styles.safeAreaDark]}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+      />
 
       {/* ========== GRADIENT HEADER ========== */}
       <LinearGradient
-        colors={['#667eea', '#764ba2']}
+        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.headerGradient}
@@ -338,18 +356,30 @@ export default function NotificationScreen({ navigation }) {
 
       <View style={styles.container}>
         {/* Tabs – no border */}
-        <View style={styles.tabsContainer}>
+        <View style={[styles.tabsContainer, isDarkMode && styles.tabsContainerDark]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'all' && styles.activeTab]}
+              style={[
+                styles.tab,
+                isDarkMode && styles.tabDark,
+                activeTab === 'all' && styles.activeTab,
+              ]}
               onPress={() => setActiveTab('all')}
             >
-              <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  isDarkMode && styles.tabTextDark,
+                  activeTab === 'all' && styles.activeTabText,
+                ]}
+              >
                 All
               </Text>
               {notifications.length > 0 && (
-                <View style={styles.tabBadge}>
-                  <Text style={styles.tabBadgeText}>{notifications.length}</Text>
+                <View style={[styles.tabBadge, isDarkMode && styles.tabBadgeDark]}>
+                  <Text style={[styles.tabBadgeText, isDarkMode && styles.tabBadgeTextDark]}>
+                    {notifications.length}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -357,10 +387,20 @@ export default function NotificationScreen({ navigation }) {
             {['booking', 'message', 'bid', 'high_demand_alert', 'quote'].map((type) => (
               <TouchableOpacity
                 key={type}
-                style={[styles.tab, activeTab === type && styles.activeTab]}
+                style={[
+                  styles.tab,
+                  isDarkMode && styles.tabDark,
+                  activeTab === type && styles.activeTab,
+                ]}
                 onPress={() => setActiveTab(type)}
               >
-                <Text style={[styles.tabText, activeTab === type && styles.activeTabText]}>
+                <Text
+                  style={[
+                    styles.tabText,
+                    isDarkMode && styles.tabTextDark,
+                    activeTab === type && styles.activeTabText,
+                  ]}
+                >
                   {type.replace('_', ' ').charAt(0).toUpperCase() + type.replace('_', ' ').slice(1)}
                 </Text>
               </TouchableOpacity>
@@ -369,12 +409,12 @@ export default function NotificationScreen({ navigation }) {
         </View>
 
         {/* Action buttons – no border */}
-        <View style={styles.actionHeader}>
-          <TouchableOpacity onPress={markAllAsRead} style={styles.actionBtn}>
-            <MaterialIcons name="done-all" size={18} color="#007bff" />
-            <Text style={styles.actionBtnText}>Mark all read</Text>
+        <View style={[styles.actionHeader, isDarkMode && styles.actionHeaderDark]}>
+          <TouchableOpacity onPress={markAllAsRead} style={[styles.actionBtn, isDarkMode && styles.actionBtnDark]}>
+            <MaterialIcons name="done-all" size={18} color={isDarkMode ? '#818cf8' : '#007bff'} />
+            <Text style={[styles.actionBtnText, isDarkMode && { color: '#818cf8' }]}>Mark all read</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={clearAll} style={styles.actionBtn}>
+          <TouchableOpacity onPress={clearAll} style={[styles.actionBtn, isDarkMode && styles.actionBtnDark]}>
             <MaterialIcons name="delete-sweep" size={18} color="#ef4444" />
             <Text style={[styles.actionBtnText, { color: '#ef4444' }]}>Clear all</Text>
           </TouchableOpacity>
@@ -383,9 +423,13 @@ export default function NotificationScreen({ navigation }) {
         {/* Notification list */}
         {getFilteredNotifications().length === 0 ? (
           <View style={styles.center}>
-            <MaterialIcons name="notifications-off" size={60} color="#d1d5db" />
-            <Text style={styles.emptyTitle}>No notifications</Text>
-            <Text style={styles.emptySubtitle}>You're all caught up!</Text>
+            <MaterialIcons
+              name="notifications-off"
+              size={60}
+              color={isDarkMode ? '#334155' : '#d1d5db'}
+            />
+            <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>No notifications</Text>
+            <Text style={[styles.emptySubtitle, isDarkMode && styles.textMutedDark]}>You're all caught up!</Text>
           </View>
         ) : (
           <FlatList
@@ -400,7 +444,7 @@ export default function NotificationScreen({ navigation }) {
                   setRefreshing(true);
                   fetchAllNotifications(false);
                 }}
-                colors={['#007bff']}
+                colors={[isDarkMode ? '#818cf8' : '#007bff']}
               />
             }
           />
@@ -593,5 +637,60 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textAlign: 'center',
     marginTop: 5,
+  },
+
+  // ── Dark Theme Overrides ──
+  safeAreaDark: {
+    backgroundColor: '#0f1121',
+  },
+  tabsContainerDark: {
+    backgroundColor: '#16213e',
+  },
+  tabDark: {
+    backgroundColor: '#1f2b48',
+  },
+  tabTextDark: {
+    color: '#94A3B8',
+  },
+  tabBadgeDark: {
+    backgroundColor: '#2d3b5e',
+  },
+  tabBadgeTextDark: {
+    color: '#E2E8F0',
+  },
+  actionHeaderDark: {
+    backgroundColor: '#16213e',
+  },
+  actionBtnDark: {
+    backgroundColor: '#1f2b48',
+  },
+  cardDark: {
+    backgroundColor: '#16213e',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+  },
+  unreadCardDark: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#818cf8',
+    backgroundColor: '#1a2444',
+  },
+  titleDark: {
+    color: '#CBD5E1',
+  },
+  unreadTextDark: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  messageDark: {
+    color: '#94A3B8',
+  },
+  dateDark: {
+    color: '#64748B',
+  },
+  textDark: {
+    color: '#FFFFFF',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
   },
 });
