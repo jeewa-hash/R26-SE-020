@@ -245,7 +245,10 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
         `Your offer has been sent to ${posterName}. ${
           bidAmount ? `\nBid: LKR ${Number(bidAmount).toLocaleString()}` : ''
         }`,
-        [{ text: 'OK' }]
+        [{
+          text: 'View Applied Jobs',
+          onPress: () => navigation.navigate('AppliedJobs'),
+        }]
       );
     } catch (err) {
       console.warn(err);
@@ -347,7 +350,15 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
                 <View style={styles.posterMetaRow}>
                   <MaterialIcons name="place" size={13} color="#8B5CF6" />
                   <Text style={[styles.posterMeta, { color: C.textSub }]}>
-                    {post.poster?.district || post.locationDistrict || post.locationCity || post.location || 'Unknown location'}
+                    {post.poster?.district ||
+                        post.locationDistrict ||
+                        post.locationCity ||
+                        (typeof post.location === 'object'
+                          ? post.location.address ||
+                            post.location.city ||
+                            post.location.district
+                          : post.location) ||
+                        'Unknown location'}
                   </Text>
                 </View>
                 <View style={styles.posterMetaRow}>
