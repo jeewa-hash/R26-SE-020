@@ -12,7 +12,7 @@ let Marker = null;
 
 if (Platform.OS !== 'web') {
   try {
-    const loadMaps = () => eval('require')('react-native-maps');
+    const loadMaps = () => new Function('return require("react-native-maps")')();
     const Maps = loadMaps();
     MapView = Maps.default || Maps;
     Marker = Maps.Marker;
