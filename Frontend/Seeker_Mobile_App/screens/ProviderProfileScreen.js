@@ -23,20 +23,62 @@ const { width } = Dimensions.get('window');
 const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
 
 export default function ProviderProfileScreen({ route, navigation }) {
-  const { providerItem, finalDecision } = route.params || {};
+  const {
+    providerItem,
+    finalDecision,
+    isRequested: initialIsRequested = false,
+    onQuotationRequested,
+  } = route.params || {};
   const { user } = useAuth();
 
-  // 🔍 Debug log to verify we received finalDecision
-  console.log('🟢 ProviderProfileScreen received:', {
-    providerId: providerItem?.provider?.id,
-    finalDecision: finalDecision ? '✅ yes' : '❌ no',
-  });
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const provider = providerItem?.provider || {};
+  const providerId = provider.id || provider._id;
   const portfolio = providerItem?.portfolio || {};
   const match = providerItem?.match || {};
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRequested, setIsRequested] = useState(Boolean(initialIsRequested));
+
+  // Check if this provider has already been requested for this seeker & session
+  useEffect(() => {
+    const checkExistingRequest = async () => {
+      if (!providerId) return;
+
+      let seekerId = user?.id;
+      if (!seekerId) {
+        try {
+          seekerId = await AsyncStorage.getItem('userId');
+        } catch (e) {
+          console.log('Error getting seeker ID:', e);
+        }
+      }
+      if (!seekerId) return;
+
+      const sessionId = finalDecision?.summary?.session_id || null;
+
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        const response = await fetch(`${QUOTATION_API_URL}/seeker/${seekerId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = await response.json();
+        if (data.success && Array.isArray(data.requests)) {
+          const matchRequest = data.requests.some(
+            (r) =>
+              String(r.providerId?._id || r.providerId) === String(providerId) &&
+              (!sessionId || r.sessionId === sessionId)
+          );
+          if (matchRequest) {
+            setIsRequested(true);
+          }
+        }
+      } catch (err) {
+        console.log('Error checking provider quotation request:', err);
+      }
+    };
+
+    checkExistingRequest();
+  }, [providerId, user, finalDecision]);
 
   const getProfileImage = (profileImage) => {
     if (!profileImage) return null;
@@ -62,19 +104,23 @@ export default function ProviderProfileScreen({ route, navigation }) {
    * ==========================================================
    */
   const handleRequestQuotation = async () => {
+    if (isRequested) {
+      Alert.alert(
+        'Already Requested',
+        `You have already requested a quotation from ${providerName}. Only 1 quotation request is allowed per provider for this service request.`
+      );
+      return;
+    }
+
     if (!finalDecision) {
       Alert.alert('Error', 'No service summary available. Please go back and try again.');
       return;
     }
 
     const summary = finalDecision?.summary || {};
-    const sessionId = summary.session_id || null;
-    if (!sessionId) {
-      Alert.alert('Error', 'Session information is missing. Please try again.');
-      return;
-    }
+    const sessionId = summary.session_id || finalDecision?.session_id || `SESSION-${Date.now()}`;
 
-    if (!provider.id) {
+    if (!providerId) {
       Alert.alert('Error', 'Provider information is unavailable.');
       return;
     }
@@ -97,7 +143,7 @@ export default function ProviderProfileScreen({ route, navigation }) {
 
     const payload = {
       seekerId: seekerId,
-      providerId: provider.id,
+      providerId: providerId,
       sessionId: sessionId,
       detectedCategory: summary.detected_category || 'unknown',
       detectedObject: summary.detected_object || 'unknown',
@@ -129,12 +175,26 @@ export default function ProviderProfileScreen({ route, navigation }) {
 
       const data = await response.json();
 
-      if (response.status === 201) {
+      if (response.status === 201 || (response.status === 200 && data.success)) {
+        setIsRequested(true);
+        if (onQuotationRequested) {
+          onQuotationRequested(providerId);
+        }
         Alert.alert(
           'Quotation Request Sent',
-          `Your quotation request has been sent to ${providerName}.`,
+          `Your quotation request has been sent to ${providerName}.\n\nYou can also request quotations from other providers in the list.`,
           [{ text: 'OK', onPress: () => setIsSubmitting(false) }]
         );
+      } else if (response.status === 409) {
+        setIsRequested(true);
+        if (onQuotationRequested) {
+          onQuotationRequested(providerId);
+        }
+        Alert.alert(
+          'Already Requested',
+          data.message || 'A quotation request has already been sent to this provider for this session.'
+        );
+        setIsSubmitting(false);
       } else {
         Alert.alert(
           'Failed to Send',
@@ -292,20 +352,35 @@ export default function ProviderProfileScreen({ route, navigation }) {
             <Text style={styles.chatButtonTextLarge}>Chat</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.quoteButtonLarge, isSubmitting && styles.disabledButton]}
-            onPress={handleRequestQuotation}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#6366F1" size="small" />
-            ) : (
-              <>
-                <Ionicons name="document-text-outline" size={20} color="#6366F1" />
-                <Text style={styles.quoteButtonTextLarge}>Get Quote</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {isRequested ? (
+            <TouchableOpacity
+              style={styles.quoteButtonLargeRequested}
+              onPress={() =>
+                Alert.alert(
+                  'Quotation Requested',
+                  `You have already sent a quotation request to ${providerName}. Only 1 quotation request is allowed per provider for this service requirement.`
+                )
+              }
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+              <Text style={styles.quoteButtonTextLargeRequested}>Requested</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.quoteButtonLarge, isSubmitting && styles.disabledButton]}
+              onPress={handleRequestQuotation}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator color="#6366F1" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="document-text-outline" size={20} color="#6366F1" />
+                  <Text style={styles.quoteButtonTextLarge}>Get Quote</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -555,6 +630,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#6366F1',
+  },
+  quoteButtonLargeRequested: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#10B981',
+    gap: 8,
+  },
+  quoteButtonTextLargeRequested: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#059669',
   },
   disabledButton: {
     opacity: 0.6,

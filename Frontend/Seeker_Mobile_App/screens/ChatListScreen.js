@@ -1,136 +1,182 @@
 // screens/ChatListScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  FlatList,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  StatusBar,
-  TextInput,
-  Platform,
+  View, Text, StyleSheet, SafeAreaView, FlatList,
+  TouchableOpacity, Image, StatusBar, TextInput, Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
-
-const recentChats = [
-  {
-    id: '1',
-    name: "John Miller",
-    avatar: "https://randomuser.me/api/portraits/men/1.jpg",
-    lastMessage: "I'll be there tomorrow at 2 PM",
-    time: "2:30 PM",
-    unread: 2,
-    role: "Provider",
-  },
-  {
-    id: '2',
-    name: "Sarah Johnson",
-    avatar: "https://randomuser.me/api/portraits/women/2.jpg",
-    lastMessage: "Thank you for your service!",
-    time: "Yesterday",
-    unread: 0,
-    role: "Provider",
-  },
-  {
-    id: '3',
-    name: "Mike Wilson",
-    avatar: "https://randomuser.me/api/portraits/men/3.jpg",
-    lastMessage: "Can you send me the address?",
-    time: "Yesterday",
-    unread: 1,
-    role: "Customer",
-  },
-  {
-    id: '4',
-    name: "Emily Brown",
-    avatar: "https://randomuser.me/api/portraits/women/4.jpg",
-    lastMessage: "The repair is complete, thank you!",
-    time: "Dec 15",
-    unread: 0,
-    role: "Customer",
-  },
-];
+import { useChat } from '../context/ChatContext';
+import axios from 'axios';
+import { PROVIDER_API_BASE, AUTH_SERVICE_URL } from '../config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ChatListScreen() {
   const navigation = useNavigation();
   const { isDarkMode } = useTheme();
+  const { chats, currentUserId, fetchChats } = useChat();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [providerMap, setProviderMap] = useState({});
 
-  const filters = [
-    { id: 'all', label: 'All' },
-    { id: 'unread', label: 'Unread' },
-  ];
+  // Helper to build full image URL
+  const buildImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
+    // If relative, prepend auth service base (where images are stored)
+    return `${AUTH_SERVICE_URL}/${imagePath.replace(/^\/+/, '')}`;
+  };
 
-  const filteredChats = recentChats.filter(chat => {
-    const matchesSearch = chat.name.toLowerCase().includes(searchQuery.toLowerCase());
+  // Load all providers
+  useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        // Check cache
+        const cached = await AsyncStorage.getItem('all_providers');
+        if (cached) {
+          const data = JSON.parse(cached);
+          if (Date.now() - data.timestamp < 3600000) {
+            const map = {};
+            data.providers.forEach(item => {
+              const p = item.provider;
+              if (p && p.id) {
+                map[p.id] = {
+                  name: p.name || `Provider ${p.id.slice(-4)}`,
+                  avatar: buildImageUrl(p.profileImage) || `https://i.pravatar.cc/150?u=${p.id}`,
+                  role: 'ServiceProvider',
+                };
+              }
+            });
+            setProviderMap(map);
+            console.log(`📦 Loaded ${data.providers.length} providers from cache`);
+            return;
+          }
+        }
+
+        // Fetch from portfolio endpoint
+        const url = `${PROVIDER_API_BASE}/portfolio/all-providers`;
+        console.log(`📡 Fetching ${url}`);
+        const res = await axios.get(url);
+
+        if (res.data.success) {
+          const providerItems = res.data.providers || [];
+          const map = {};
+          providerItems.forEach(item => {
+            const p = item.provider;
+            if (p && p.id) {
+              map[p.id] = {
+                name: p.name || `Provider ${p.id.slice(-4)}`,
+                avatar: buildImageUrl(p.profileImage) || `https://i.pravatar.cc/150?u=${p.id}`,
+                role: 'ServiceProvider',
+              };
+            }
+          });
+          setProviderMap(map);
+          await AsyncStorage.setItem('all_providers', JSON.stringify({ 
+            providers: providerItems, 
+            timestamp: Date.now() 
+          }));
+          console.log(`✅ Loaded ${providerItems.length} providers from API`);
+        } else {
+          console.warn('API returned success: false');
+        }
+      } catch (error) {
+        console.error('Failed to load providers:', error.message);
+        // Fallback: generate from chats
+        const fallbackMap = {};
+        chats.forEach(chat => {
+          const otherId = chat.members.find(id => id !== currentUserId);
+          if (otherId && !fallbackMap[otherId]) {
+            fallbackMap[otherId] = {
+              name: `Provider ${otherId.slice(-4)}`,
+              avatar: `https://i.pravatar.cc/150?u=${otherId}`,
+              role: 'ServiceProvider',
+            };
+          }
+        });
+        setProviderMap(fallbackMap);
+      }
+    };
+
+    loadProviders();
+  }, []);
+
+  useEffect(() => {
+    if (currentUserId) {
+      fetchChats(currentUserId);
+    }
+  }, [currentUserId]);
+
+  // ─── Helpers ──────────────────────────────────────────────
+  const getOtherUser = (members) => {
+    return members.find(id => id !== currentUserId) || members[0];
+  };
+
+  const getProviderInfo = (providerId) => {
+    if (providerMap[providerId]) {
+      return providerMap[providerId];
+    }
+    return {
+      name: `Provider ${providerId.slice(-4)}`,
+      avatar: `https://i.pravatar.cc/150?u=${providerId}`,
+      role: 'ServiceProvider',
+    };
+  };
+
+  const filteredChats = chats.filter(chat => {
+    const otherId = getOtherUser(chat.members);
+    const info = getProviderInfo(otherId);
+    const matchesSearch = info.name.toLowerCase().includes(searchQuery.toLowerCase());
     if (selectedFilter === 'unread') {
-      return matchesSearch && chat.unread > 0;
+      return matchesSearch && (chat.unreadCount || 0) > 0;
     }
     return matchesSearch;
   });
 
-  const getTimeAgo = (time) => {
-    if (time === 'Yesterday') return 'Yesterday';
-    if (time.includes(':')) return time;
-    return time;
-  };
+  const renderChatItem = ({ item }) => {
+    const otherId = getOtherUser(item.members);
+    const info = getProviderInfo(otherId);
+    const lastMsg = item.lastMessage?.text || 'No messages yet';
+    const time = item.updatedAt ? new Date(item.updatedAt).toLocaleTimeString() : '';
 
-  const renderChatItem = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.chatItem, isDarkMode && styles.chatItemDark]}
-      onPress={() => navigation.navigate('ChatScreen', {
-        userId: item.id,
-        userName: item.name,
-        userAvatar: item.avatar,
-        userRole: item.role,
-        providerId: item.id,
-      })}
-      activeOpacity={0.7}
-    >
-      <Image source={{ uri: item.avatar }} style={styles.avatar} />
-      
-      <View style={styles.chatInfo}>
-        <View style={styles.chatHeader}>
-          <View style={styles.nameContainer}>
-            <Text style={[styles.userName, isDarkMode && styles.textDark]}>{item.name}</Text>
-            <View style={[styles.roleBadge, { backgroundColor: item.role === 'Provider' ? '#667eea15' : '#10B98115' }]}>
-              <Text style={[styles.roleText, { color: item.role === 'Provider' ? '#667eea' : '#10B981' }]}>
-                {item.role}
-              </Text>
-            </View>
+    return (
+      <TouchableOpacity
+        style={[styles.chatItem, isDarkMode && styles.chatItemDark]}
+        onPress={() => navigation.navigate('ChatScreen', {
+          chatId: item._id,
+          userId: otherId,
+          userName: info.name,
+          userAvatar: info.avatar,
+          userRole: info.role,
+        })}
+        activeOpacity={0.7}
+      >
+        <Image source={{ uri: info.avatar }} style={styles.avatar} />
+        <View style={styles.chatInfo}>
+          <View style={styles.chatHeader}>
+            <Text style={[styles.userName, isDarkMode && styles.textDark]}>{info.name}</Text>
+            <Text style={[styles.timeText, isDarkMode && styles.textMutedDark]}>{time}</Text>
           </View>
-          <Text style={[styles.timeText, isDarkMode && styles.textMutedDark]}>{getTimeAgo(item.time)}</Text>
+          <View style={styles.messageRow}>
+            <Text style={[styles.lastMessage, isDarkMode && styles.textMutedDark]} numberOfLines={1}>
+              {lastMsg}
+            </Text>
+            {(item.unreadCount || 0) > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadText}>{item.unreadCount}</Text>
+              </View>
+            )}
+          </View>
         </View>
-        
-        <View style={styles.messageRow}>
-          <Text style={[styles.lastMessage, isDarkMode && styles.textMutedDark]} numberOfLines={1}>
-            {item.lastMessage}
-          </Text>
-          {item.unread > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadText}>{item.unread}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      <StatusBar 
-        barStyle={isDarkMode ? "light-content" : "dark-content"} 
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#fff"} 
-      />
-      
-      {/* Header with Gradient */}
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
       <LinearGradient
         colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
         start={{ x: 0, y: 0 }}
@@ -148,7 +194,6 @@ export default function ChatListScreen() {
         </View>
       </LinearGradient>
 
-      {/* Search Bar */}
       <View style={[styles.searchContainer, isDarkMode && styles.searchContainerDark]}>
         <Ionicons name="search-outline" size={20} color={isDarkMode ? "#9CA3AF" : "#9CA3AF"} />
         <TextInput
@@ -158,56 +203,20 @@ export default function ChatListScreen() {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-        )}
       </View>
 
-      {/* Filter Chips */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
-        style={styles.filtersContainer}
-        contentContainerStyle={styles.filtersContent}
-      >
-        {filters.map((filter) => (
-          <TouchableOpacity
-            key={filter.id}
-            style={[
-              styles.filterChip,
-              selectedFilter === filter.id && styles.filterChipActive,
-              isDarkMode && selectedFilter !== filter.id && styles.filterChipDark
-            ]}
-            onPress={() => setSelectedFilter(filter.id)}
-          >
-            <Text style={[
-              styles.filterText,
-              selectedFilter === filter.id && styles.filterTextActive,
-              isDarkMode && selectedFilter !== filter.id && styles.filterTextDark
-            ]}>
-              {filter.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Chat List */}
       <FlatList
         data={filteredChats}
         renderItem={renderChatItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <View style={[styles.emptyIcon, isDarkMode && styles.emptyIconDark]}>
-              <Ionicons name="chatbubbles-outline" size={60} color={isDarkMode ? "#2d3561" : "#D1D5DB"} />
-            </View>
+            <Ionicons name="chatbubbles-outline" size={60} color={isDarkMode ? "#2d3561" : "#D1D5DB"} />
             <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>No messages yet</Text>
             <Text style={[styles.emptySubtext, isDarkMode && styles.textMutedDark]}>
-              {searchQuery ? "No results found" : "Start a conversation with a provider"}
+              Start a conversation with a provider
             </Text>
           </View>
         }
@@ -216,226 +225,33 @@ export default function ChatListScreen() {
   );
 }
 
+// ─── Styles (unchanged) ──────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  containerDark: {
-    backgroundColor: '#1a1a2e',
-  },
-  headerGradient: {
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
-    paddingBottom: 12,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff20',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  newChatButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff20',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  searchContainerDark: {
-    backgroundColor: '#16213e',
-    borderColor: '#2d3561',
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#1F2937',
-  },
-  filtersContainer: {
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  filtersContent: {
-    paddingHorizontal: 16,
-    gap: 10,
-  },
-  filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  filterChipDark: {
-    backgroundColor: '#16213e',
-    borderColor: '#2d3561',
-  },
-  filterChipActive: {
-    backgroundColor: '#667eea',
-    borderColor: '#667eea',
-  },
-  filterText: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  filterTextDark: {
-    color: '#9CA3AF',
-  },
-  filterTextActive: {
-    color: '#fff',
-  },
-  listContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 80,
-  },
-  chatItem: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  chatItemDark: {
-    backgroundColor: '#16213e',
-  },
-  avatar: {
-    width: 55,
-    height: 55,
-    borderRadius: 27.5,
-    marginRight: 14,
-  },
-  chatInfo: {
-    flex: 1,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  nameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  roleText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  timeText: {
-    fontSize: 11,
-    color: '#9CA3AF',
-  },
-  messageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  lastMessage: {
-    flex: 1,
-    fontSize: 13,
-    color: '#6B7280',
-    marginRight: 8,
-  },
-  unreadBadge: {
-    backgroundColor: '#667eea',
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  unreadText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 100,
-  },
-  emptyIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  emptyIconDark: {
-    backgroundColor: '#16213e',
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  textDark: {
-    color: '#fff',
-  },
-  textMutedDark: {
-    color: '#9CA3AF',
-  },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  containerDark: { backgroundColor: '#1a1a2e' },
+  headerGradient: { borderBottomLeftRadius: 25, borderBottomRightRadius: 25, paddingTop: Platform.OS === 'ios' ? 12 : 16, paddingBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
+  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ffffff20', justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
+  newChatButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ffffff20', justifyContent: 'center', alignItems: 'center' },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 16, marginTop: 16, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  searchContainerDark: { backgroundColor: '#16213e', borderColor: '#2d3561' },
+  searchInput: { flex: 1, fontSize: 15, color: '#1F2937' },
+  listContainer: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 80 },
+  chatItem: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  chatItemDark: { backgroundColor: '#16213e' },
+  avatar: { width: 55, height: 55, borderRadius: 27.5, marginRight: 14 },
+  chatInfo: { flex: 1 },
+  chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  userName: { fontSize: 16, fontWeight: '600', color: '#1F2937' },
+  timeText: { fontSize: 11, color: '#9CA3AF' },
+  messageRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  lastMessage: { flex: 1, fontSize: 13, color: '#6B7280', marginRight: 8 },
+  unreadBadge: { backgroundColor: '#667eea', minWidth: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
+  unreadText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingTop: 100 },
+  emptyText: { fontSize: 18, fontWeight: '600', color: '#1F2937', marginTop: 16 },
+  emptySubtext: { fontSize: 14, color: '#6B7280', marginTop: 8, textAlign: 'center' },
+  textDark: { color: '#fff' },
+  textMutedDark: { color: '#9CA3AF' },
 });

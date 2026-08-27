@@ -4,7 +4,7 @@ const bookingSchema = new mongoose.Schema(
   {
     postId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true,
+      default: null,
       index: true,
     },
 
@@ -22,10 +22,44 @@ const bookingSchema = new mongoose.Schema(
 
     providerRequestId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "ProviderRequest",
-      required: true,
-    },
-
+      default: null,
+    }, // Chaw: optional old-flow reference; no populate/ref because ProviderRequest is not used in new flow
+    bidCoordinationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    }, // Chaw: links booking to BidCoordination record
+    
+    externalSessionId: {
+      type: String,
+      default: "",
+      index: true,
+      trim: true,
+    }, // Chaw: links booking to ServiceSession
+    
+    externalRequestQuotationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    }, // Chaw: RequestQuotation ID from Seeker Service
+    
+    externalQuotationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    }, // Chaw: Provider Quotation ID from Provider Service
+    
+    finalAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    }, // Chaw: final accepted provider quote amount
+    
+    scheduleSource: {
+      type: String,
+      enum: ["PROVIDER_PROPOSED_TIME", "COORDINATED_SUGGESTED_SLOT"],
+      default: "PROVIDER_PROPOSED_TIME",
+    }, // Chaw: shows whether booking used original provider time or selected suggested slot
     initialSchedule: {
       date: {
         type: String,

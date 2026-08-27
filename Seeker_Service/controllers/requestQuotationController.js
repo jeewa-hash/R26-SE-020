@@ -14,6 +14,11 @@ export const createRequestQuotation = async (req, res) => {
       briefDescription,
       urgencyLevel,
       serviceLocation,
+      preferredStartTime, // Chaw - Added seeker preferred start time
+      preferredEndTime, // Chaw - Added seeker preferred end time/window
+      preferredTimeLabel, // Chaw - Added readable preferred time label
+      seekerEstimatedDurationHours, // Chaw - Added optional seeker duration estimate
+      seekerBudgetAmount, // Chaw - Added optional seeker budget amount
     } = req.body;
 
     if (
@@ -46,6 +51,51 @@ export const createRequestQuotation = async (req, res) => {
       });
     }
 
+    if (preferredStartTime && Number.isNaN(new Date(preferredStartTime).getTime())) { // Chaw - Validate optional preferred start time if provided
+      return res.status(400).json({
+        success: false,
+        message: "Invalid preferredStartTime",
+      });
+    }
+
+    if (preferredEndTime && Number.isNaN(new Date(preferredEndTime).getTime())) { // Chaw - Validate optional preferred end time if provided
+      return res.status(400).json({
+        success: false,
+        message: "Invalid preferredEndTime",
+      });
+    }
+
+    if (
+      preferredStartTime &&
+      preferredEndTime &&
+      new Date(preferredStartTime) >= new Date(preferredEndTime)
+    ) { // Chaw - Ensure seeker preferred time window is valid
+      return res.status(400).json({
+        success: false,
+        message: "preferredEndTime must be after preferredStartTime",
+      });
+    }
+
+    if (
+      seekerEstimatedDurationHours != null &&
+      Number(seekerEstimatedDurationHours) <= 0
+    ) { // Chaw - Validate optional seeker duration estimate
+      return res.status(400).json({
+        success: false,
+        message: "seekerEstimatedDurationHours must be greater than 0",
+      });
+    }
+
+    if (
+      seekerBudgetAmount != null &&
+      Number(seekerBudgetAmount) < 0
+    ) { // Chaw - Validate optional seeker budget amount
+      return res.status(400).json({
+        success: false,
+        message: "seekerBudgetAmount cannot be negative",
+      });
+    }
+
     const existingRequest = await RequestQuotation.findOne({
       seekerId,
       providerId,
@@ -72,6 +122,11 @@ export const createRequestQuotation = async (req, res) => {
       briefDescription,
       urgencyLevel,
       serviceLocation,
+      preferredStartTime: preferredStartTime || null, // Chaw - Save seeker preferred start time if provided
+      preferredEndTime: preferredEndTime || null, // Chaw - Save seeker preferred end time if provided
+      preferredTimeLabel: preferredTimeLabel || "", // Chaw - Save readable preferred time label
+      seekerEstimatedDurationHours: seekerEstimatedDurationHours ?? null, // Chaw - Save seeker duration estimate if provided
+      seekerBudgetAmount: seekerBudgetAmount ?? null, // Chaw - Save seeker budget if provided
       status: "pending",
     });
 
