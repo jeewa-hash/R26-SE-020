@@ -63,7 +63,7 @@ export default function ProfileScreen() {
     { id: 'myposts', title: 'My Posts', icon: 'newspaper', color: '#45B7D1', screen: 'MyPostsScreen' },
     { id: 'history', title: 'Service History', icon: 'time', color: '#96CEB4', screen: 'HistoryScreen' },
     { id: 'starpoints', title: 'Star Points', icon: 'star', color: '#FBBF24', screen: 'StarPointsScreen' },
-    { id: 'settings', title: 'Settings', icon: 'settings', color: '#6B7280', screen: 'SettingsScreen' },
+  
   ];
 
   const handleMenuPress = (screen) => {

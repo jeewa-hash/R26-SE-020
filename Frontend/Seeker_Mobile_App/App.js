@@ -4,9 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-
-//import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message'; // ✅ added
 
 import NotificationScreen from './screens/NotificationScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -55,7 +53,13 @@ import { LanguageProvider } from './context/LanguageContext';
 import { loadLanguage } from './i18n';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
+import customToastConfig from './components/CustomToast';
+
+import { navigationRef } from './utils/navigationService'; // ✅ added
+
 const Stack = createStackNavigator();
+
 function AppNavigator({ initialRouteName }) {
   const { t } = useTranslation();
 
@@ -297,9 +301,12 @@ export default function App() {
       <ChatProvider>
         <ThemeProvider>
           <AuthProvider>
-            <NavigationContainer>
-              <AppNavigator initialRouteName={initialRouteName} />
-            </NavigationContainer>
+            <NotificationProvider>
+              <NavigationContainer ref={navigationRef}>
+                <AppNavigator initialRouteName={initialRouteName} />
+                <Toast config={customToastConfig} /> {/* ✅ Rich custom Toast banner */}
+              </NavigationContainer>
+            </NotificationProvider>
           </AuthProvider>
         </ThemeProvider>
       </ChatProvider>

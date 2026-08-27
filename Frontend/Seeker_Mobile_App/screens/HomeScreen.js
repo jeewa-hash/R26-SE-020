@@ -16,7 +16,8 @@ import BottomNav from '../components/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { IP_ADDRESS } from '../config';
-import { useChat } from '../context/ChatContext'; // ✅ For real chat unread count
+import { useChat } from '../context/ChatContext';
+import { useNotification } from '../context/NotificationContext';
 
 const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 
@@ -98,7 +99,7 @@ const CATEGORIES = [
 ];
 
 // ─── Slideshow Component ────────────────────────────────
-const Slideshow = () => {
+const Slideshow = ({ isDarkMode }) => {
   const navigation = useNavigation();
   const flatListRef = useRef();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -117,7 +118,7 @@ const Slideshow = () => {
 
   const renderSlide = ({ item }) => (
     <TouchableOpacity
-      style={styles.slideCard}
+      style={[styles.slideCard, isDarkMode && styles.slideCardDark]}
       onPress={() => navigation.navigate("SeasonalDemandsScreen")}
       activeOpacity={0.95}
     >
@@ -242,18 +243,18 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { language } = useContext(LanguageContext);
   const { user } = useAuth();
-  const { isDarkMode } = useTheme();
-  const { unreadCount } = useChat(); // ✅ Get unread message counts
+  const { isDarkMode, toggleTheme } = useTheme();
+  const { unreadCount } = useChat();
+  const { unreadCount: notificationUnreadCount } = useNotification();
 
   const [userState, setUserState] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const navigation = useNavigation();
 
-  // ✅ Total unread messages across all chats
+  // Total unread messages across all chats
   const totalUnreadMessages = Object.values(unreadCount).reduce(
     (sum, count) => sum + count,
     0
@@ -271,36 +272,9 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        setNotificationUnreadCount(0);
-        return;
-      }
-      const response = await fetch(`${API_URL}/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const notifications = Array.isArray(data) ? data : (data.data || []);
-        const unread = notifications.filter((n) => !n.isRead).length;
-        setNotificationUnreadCount(unread);
-      } else {
-        setNotificationUnreadCount(0);
-      }
-    } catch (err) {
-      console.log('Error fetching notifications count:', err);
-      setNotificationUnreadCount(0);
-    }
-  }, []);
-
   useEffect(() => {
     loadUserDetails();
-    fetchUnreadCount();
-    const intervalId = setInterval(fetchUnreadCount, 15000);
-    return () => clearInterval(intervalId);
-  }, [loadUserDetails, fetchUnreadCount]);
+  }, [loadUserDetails]);
 
   const displayUser = user || userState;
 
@@ -457,7 +431,7 @@ export default function HomeScreen() {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"}
+        backgroundColor={isDarkMode ? "#0f1121" : "#667eea"}
       />
 
       <ScrollView
@@ -466,18 +440,44 @@ export default function HomeScreen() {
       >
         {/* ─── Header ─── */}
         <LinearGradient
-          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#4765eb', '#926ee7', '#9d6aa3']}
+          colors={isDarkMode ? ['#0f1121', '#1a1a2e', '#16213e'] : ['#4765eb', '#926ee7', '#9d6aa3']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
+          {/* ─── Upper Dashboard Bar: Badge & Theme Toggle ─── */}
+          <View style={styles.headerTopBar}>
+            <View style={[styles.dashboardBadge, isDarkMode && styles.dashboardBadgeDark]}>
+              <Ionicons name="sparkles" size={12} color="#FBBF24" />
+              <Text style={styles.dashboardBadgeText}>Seeker Dashboard</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.upperThemePill, isDarkMode && styles.upperThemePillDark]}
+              onPress={toggleTheme}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.themePillKnob, isDarkMode && styles.themePillKnobDark]}>
+                <Ionicons
+                  name={isDarkMode ? "moon" : "sunny"}
+                  size={12}
+                  color={isDarkMode ? "#818cf8" : "#F59E0B"}
+                />
+              </View>
+              <Text style={styles.themePillText}>
+                {isDarkMode ? "Dark" : "Light"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <Text style={styles.greeting}>{t('good_morning')}</Text>
               <Text style={styles.userName}>
                 {displayUser?.name ? `${displayUser.name} 👋` : "User 👋"}
               </Text>
-              <Text style={styles.subGreeting}>{t('what_help_today')}</Text>
+              <Text style={[styles.subGreeting, isDarkMode && styles.textMutedDark]}>
+                {t('what_help_today')}
+              </Text>
             </View>
             <View style={styles.headerActions}>
               {/* ── Chat Icon with real unread count ── */}
@@ -528,7 +528,7 @@ export default function HomeScreen() {
             <Feather name="search" size={20} color={isDarkMode ? "#818cf8" : "#667eea"} />
             <TextInput
               placeholder={t('search_placeholder')}
-              placeholderTextColor={isDarkMode ? "#94A3B8" : "#999"}
+              placeholderTextColor={isDarkMode ? "#6B7280" : "#999"}
               style={[styles.searchInput, isDarkMode && styles.textDark]}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -539,7 +539,7 @@ export default function HomeScreen() {
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-                <Feather name="x" size={18} color={isDarkMode ? "#94A3B8" : "#999"} />
+                <Feather name="x" size={18} color={isDarkMode ? "#6B7280" : "#999"} />
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => setShowFilters(!showFilters)} style={[styles.filterIcon, isDarkMode && styles.filterIconDark]}>
@@ -597,7 +597,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* ─── Slideshow ─── */}
-        <Slideshow />
+        <Slideshow isDarkMode={isDarkMode} />
 
         {/* ─── Service Section ─── */}
         <View style={styles.sectionHeader}>
@@ -647,7 +647,66 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingBottom: 40,
-    paddingTop: 10,
+    paddingTop: Platform.OS === 'android' ? 12 : 8,
+  },
+  headerTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  dashboardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    gap: 5,
+  },
+  dashboardBadgeDark: {
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+  },
+  dashboardBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
+  upperThemePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: 16,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    gap: 6,
+  },
+  upperThemePillDark: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  themePillKnob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  themePillKnobDark: {
+    backgroundColor: '#1e293b',
+  },
+  themePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+    paddingRight: 3,
   },
   header: {
     flexDirection: 'row',
@@ -657,13 +716,6 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
-  },
-  greeting: {
-    fontSize: 12,
-    color: '#ffffffCC',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    fontWeight: '500',
   },
   userName: {
     fontSize: 26,
@@ -1057,18 +1109,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // Dark Mode
+  // ─── DARK MODE STYLES ──────────────────────────────────────
+
+  // Main container
   containerDark: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#0f1121',
   },
+
+  // Text colors
   textDark: {
     color: '#F8FAFC',
   },
   textMutedDark: {
     color: '#94A3B8',
   },
+
+  // Search bar
   searchContainerDark: {
-    backgroundColor: '#16213e',
+    backgroundColor: '#1a1a2e',
     borderColor: '#2d3561',
     shadowColor: '#000',
     shadowOpacity: 0.25,
@@ -1076,15 +1134,22 @@ const styles = StyleSheet.create({
   filterIconDark: {
     borderLeftColor: '#2d3561',
   },
+
+  // Filter chips
   filterChipDark: {
     backgroundColor: '#242f4d',
   },
+
+  // Accordion / Service Cards
   accordionContainerDark: {
     backgroundColor: '#16213e',
     borderColor: '#2d3561',
     borderWidth: 1,
     shadowColor: '#000',
     shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 4,
   },
   expandIconDark: {
     backgroundColor: '#242f4d',
@@ -1092,11 +1157,31 @@ const styles = StyleSheet.create({
   subGridDark: {
     borderColor: '#2d3561',
   },
+
+  // Sub-thumbnails (category chips)
   subThumbnailDark: {
-    backgroundColor: '#242f4d',
+    backgroundColor: '#1a1a2e',
     borderColor: '#2d3561',
   },
+
+  // "See All" text
   seeAllTextDark: {
     color: '#818cf8',
+  },
+
+  // Slideshow card
+  slideCardDark: {
+    backgroundColor: '#16213e',
+    borderColor: '#2d3561',
+    borderWidth: 1,
+  },
+
+  // Dashboard badge dark
+  dashboardBadgeDark: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  // Theme pill dark
+  upperThemePillDark: {
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
 });

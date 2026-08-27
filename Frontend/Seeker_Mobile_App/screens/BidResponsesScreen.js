@@ -89,8 +89,8 @@ export default function BidResponsesScreen() {
 
   const confirmAccept = () => {
     setAcceptedResponse(selectedResponse);
-    setResponses(responses.map(r => 
-      r.id === selectedResponse.id 
+    setResponses(responses.map(r =>
+      r.id === selectedResponse.id
         ? { ...r, status: 'accepted' }
         : r.id !== selectedResponse.id ? { ...r, status: 'rejected' } : r
     ));
@@ -108,8 +108,8 @@ export default function BidResponsesScreen() {
   };
 
   const confirmReject = () => {
-    setResponses(responses.map(r => 
-      r.id === selectedResponse.id 
+    setResponses(responses.map(r =>
+      r.id === selectedResponse.id
         ? { ...r, status: 'rejected' }
         : r
     ));
@@ -119,7 +119,7 @@ export default function BidResponsesScreen() {
   };
 
   const handleChatWithProvider = (response) => {
-    navigation.navigate("ChatScreen", { 
+    navigation.navigate("ChatScreen", {
       providerName: response.providerName,
       providerId: response.id,
     });
@@ -150,7 +150,7 @@ export default function BidResponsesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -248,10 +248,10 @@ export default function BidResponsesScreen() {
                     <Text style={styles.messageText} numberOfLines={expandedResponse === response.id ? undefined : 2}>
                       {response.message}
                     </Text>
-                    <Ionicons 
-                      name={expandedResponse === response.id ? "chevron-up" : "chevron-down"} 
-                      size={16} 
-                      color="#9CA3AF" 
+                    <Ionicons
+                      name={expandedResponse === response.id ? "chevron-up" : "chevron-down"}
+                      size={16}
+                      color="#9CA3AF"
                     />
                   </View>
                 </TouchableOpacity>
@@ -260,20 +260,20 @@ export default function BidResponsesScreen() {
 
                 {/* Action Buttons */}
                 <View style={styles.actionRow}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.chatAction}
                     onPress={() => handleChatWithProvider(response)}
                   >
                     <Ionicons name="chatbubble-outline" size={18} color="#667eea" />
                     <Text style={styles.chatActionText}>Chat</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.declineAction}
                     onPress={() => handleRejectResponse(response)}
                   >
                     <Text style={styles.declineActionText}>Decline</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.acceptAction}
                     onPress={() => handleAcceptResponse(response)}
                   >
@@ -303,7 +303,7 @@ export default function BidResponsesScreen() {
                   <Text style={styles.acceptedName}>{response.providerName}</Text>
                   <Text style={styles.acceptedPrice}>Accepted at {response.quotedPrice}</Text>
                 </View>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.contactAction}
                   onPress={() => handleChatWithProvider(response)}
                 >

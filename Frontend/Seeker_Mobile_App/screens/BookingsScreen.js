@@ -21,7 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
-import { useChat } from '../context/ChatContext'; // <-- Added import
+import { useChat } from '../context/ChatContext';
 
 const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
@@ -54,7 +54,7 @@ const groupBySession = (requests) => {
 
 export default function BookingsScreen({ navigation }) {
   const { isDarkMode } = useTheme();
-  const { createOrGetChat } = useChat(); // <-- Destructure from useChat
+  const { createOrGetChat } = useChat();
 
   const [groupedBookings, setGroupedBookings] = useState([]);
   const [providersMap, setProvidersMap] = useState({});
@@ -258,9 +258,9 @@ export default function BookingsScreen({ navigation }) {
   };
 
   // ─────────────────────────────────────────────────────────────
-  //  FIXED: handleMessage – creates/gets chat and navigates correctly
+  //  UPDATED: handleMessage – now passes booking details to ChatScreen
   // ─────────────────────────────────────────────────────────────
-  const handleMessage = async (request) => {
+  const handleMessage = async (request, group = {}) => {
     try {
       const currentUserId = await AsyncStorage.getItem('userId');
       if (!currentUserId) {
@@ -280,12 +280,33 @@ export default function BookingsScreen({ navigation }) {
       const name = provider?.name || `Provider ${String(receiverId).slice(-4)}`;
       const avatar = getProviderImage(receiverId);
 
+      // ─── Extract booking request details ──────────────────
+      const postTitle = request.detectedObject || request.detectedCategory || group?.detectedObject || group?.detectedCategory || 'Service Request';
+      const postDescription = request.briefDescription || group?.briefDescription || '';
+      const postCategory = 'Service Request';
+      const postUrgency = request.urgencyLevel || group?.urgencyLevel || 'Normal';
+      const postImage = request.images?.[0] || request.photos?.[0] || request.image || group?.images?.[0] || null;
+
+      // ─── Clean initial prompt for FB/Insta post inquiry ───
+      const initialMessage = `Hi! I would like to discuss this service request with you.`;
+
       navigation.navigate('ChatScreen', {
         chatId,
         userId: receiverId,
         userName: name,
         userAvatar: avatar,
         userRole: 'Provider',
+        // ─── Pass booking details as post context ──────────
+        source: 'booking',
+        isBooking: true,
+        postId: request._id || request.sessionId || group?.sessionId,
+        requestId: request._id || request.sessionId || group?.sessionId,
+        postTitle: postTitle,
+        postDescription: postDescription,
+        postImage: postImage,
+        postCategory: postCategory,
+        postUrgency: postUrgency,
+        initialMessage: initialMessage,
       });
     } catch (error) {
       console.error('Error starting chat:', error);
@@ -584,7 +605,7 @@ export default function BookingsScreen({ navigation }) {
                             <View style={styles.providerActions}>
                               <TouchableOpacity
                                 style={[styles.iconBtn, isDarkMode && styles.iconBtnDark]}
-                                onPress={() => handleMessage(req)}
+                                onPress={() => handleMessage(req, group)}
                               >
                                 <Ionicons
                                   name="chatbubble-outline"
