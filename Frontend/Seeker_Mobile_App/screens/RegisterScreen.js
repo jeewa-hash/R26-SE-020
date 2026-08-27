@@ -11,10 +11,14 @@ let MapView = null;
 let Marker = null;
 
 if (Platform.OS !== 'web') {
-  const dynamicRequire = new Function('moduleName', 'return require(moduleName);');
-  const Maps = dynamicRequire('react-native-maps');
-  MapView = Maps.default || Maps;
-  Marker = Maps.Marker;
+  try {
+    const loadMaps = () => eval('require')('react-native-maps');
+    const Maps = loadMaps();
+    MapView = Maps.default || Maps;
+    Marker = Maps.Marker;
+  } catch (error) {
+    console.warn('react-native-maps unavailable on this platform:', error.message);
+  }
 }
 
 const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
