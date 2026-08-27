@@ -702,3 +702,28 @@ export const applyPost = async (req, res) => {
     });
   }
 };
+
+// =======================================================
+// GET POST RESPONSES (appliedBy array) – for the post owner
+// =======================================================
+export const getPostResponses = async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    // Find the post and select only appliedBy
+    const post = await Post.findById(postId).select('appliedBy');
+
+    if (!post) {
+      return res.status(404).json({ success: false, error: 'Post not found' });
+    }
+
+    // Return the appliedBy array (already sorted by createdAt in DB)
+    res.status(200).json({
+      success: true,
+      responses: post.appliedBy || [],
+    });
+  } catch (error) {
+    console.error('Get Post Responses Error:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to fetch responses' });
+  }
+};
