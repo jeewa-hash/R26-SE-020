@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, ActivityIndicator, Image, Dimensions } from 'react-native';
-import { Text } from 'react-native-paper';
+import { Text, Avatar } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTranslatePost } from '../../hooks/useTranslatePost';
@@ -9,24 +9,61 @@ import { CATEGORY_COLORS } from '../../constants/feedData';
 import { JOB_STATUS } from '../../constants/jobStatus';
 import { Colors } from '../../theme';
 import i18n from '../../locales';
+import { CONFIG } from '../../config';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
-// Generate consistent color from string
 const getAvatarColor = (name) => {
   const colors = [
     '#2563EB', '#7C3AED', '#059669', '#DC2626',
     '#D97706', '#0891B2', '#BE185D', '#4F46E5',
   ];
   let hash = 0;
-  for (let i = 0; i < name.length; i++) hash += name.charCodeAt(i);
+  for (let i = 0; i < (name || 'U').length; i++) hash += (name || 'U').charCodeAt(i);
   return colors[hash % colors.length];
 };
 
-const getInitials = (name) =>
-  name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+const getInitials = (name) => {
+  if (!name) return 'U';
+  return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+};
 
-// Category image mapping
+const resolveImage = (post, categoryImage) => {
+  if (!post) return categoryImage;
+  const raw = post.postImage || post.image;
+  if (!raw) return categoryImage;
+  if (raw.startsWith('http')) return raw;
+  return `${CONFIG.SEEKER_SERVICE_URL}/${String(raw).replace(/\\/g, '/')}`;
+};
+
+const resolvePosterName = (post) => {
+  if (!post) return 'Unknown User';
+  return (
+    post.poster?.name ||
+    post.user?.name ||
+    post.user?.fullName ||
+    post.user?.userName ||
+    post.user?.createdBy ||
+    post.customer ||
+    'Unknown User'
+  );
+};
+
+const resolvePosterAvatar = (post) => {
+  if (!post) return null;
+  const raw =
+    post.poster?.profilePicture ||
+    post.user?.profilePicture ||
+    post.user?.profileImage ||
+    post.user?.avatar ||
+    null;
+  if (!raw) return null;
+  if (raw.startsWith('http')) return raw;
+  if (raw.startsWith('data:')) return raw;
+  return `${CONFIG.AUTH_SERVICE_URL}/${String(raw).replace(/\\/g, '/')}`;
+};
+
 const getCategoryImage = (category) => {
   const images = {
     'Plumbing': 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=400',
@@ -42,38 +79,88 @@ const getCategoryImage = (category) => {
   return images[category] || images.default;
 };
 
-export default function PostCard({ post }) {
+export default function PostCard({ post, onApply, applying }) {
+  const navigation = useNavigation();
   const { t } = useTranslation();
   const { displayText, handleTranslate, loading, isTranslated, targetLang } =
     useTranslatePost(post.lang);
-  const { applyToJob, isApplied, getJobStatus } = useAppliedJobs();
+  const { isApplied, getJobStatus } = useAppliedJobs();
 
   const applied = isApplied(post.id);
   const statusKey = getJobStatus(post.id);
   const status = statusKey ? Object.values(JOB_STATUS).find((s) => s.key === statusKey) : null;
   const categoryColor = CATEGORY_COLORS[post.category] || Colors.primary;
   const isSi = i18n.language === 'si';
-  const avatarColor = getAvatarColor(post.customer);
-  const initials = getInitials(post.customer);
+
+  const posterName = resolvePosterName(post);
+  const posterAvatar = resolvePosterAvatar(post);
+  const avatarColor = getAvatarColor(posterName);
+  const initials = getInitials(posterName);
+
   const categoryImage = getCategoryImage(post.category);
+  const coverImage = resolveImage(post, categoryImage);
+
+  const urgencyStyles = {
+    low: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Low Priority' },
+    medium: { bg: '#FEF3C7', color: '#B45309', label: 'Medium' },
+    high: { bg: '#FEE2E2', color: '#DC2626', label: '🔥 High Priority' },
+  };
+  const urgency = urgencyStyles[post.urgency] || urgencyStyles.medium;
+
+  const appliedCount = Number(
+    (post.appliedCount ?? 0) || (post.applied ?? 0) || 0
+  );
+
+  const openDetail = () => {
+    navigation.navigate('ProviderPostDetail', { post: { ...post, _id: post._id || post.id } });
+  };
+
+  const doApply = (e) => {
+    if (e) e.stopPropagation && e.stopPropagation();
+    if (onApply) onApply(post);
+  };
 
   return (
-    <TouchableOpacity activeOpacity={0.9} style={styles.card}>
+    <TouchableOpacity
+      activeOpacity={0.9}
+      style={styles.card}
+      onPress={openDetail}
+    >
       {/* Cover Image */}
       <View style={styles.imageContainer}>
-        <Image source={{ uri: categoryImage }} style={styles.coverImage} />
+        <Image
+          source={{ uri: coverImage }}
+          style={styles.coverImage}
+          defaultSource={{ uri: categoryImage }}
+        />
         <View style={styles.imageOverlay} />
-        
+
         {/* Category Badge on Image */}
         <View style={[styles.imageCategoryBadge, { backgroundColor: categoryColor }]}>
           <Text style={styles.imageCategoryText}>{post.category}</Text>
         </View>
-        
+
         {/* Badges */}
         <View style={styles.imageBadges}>
+          <View style={[styles.urgencyBadge, { backgroundColor: urgency.bg }]}>
+            <MaterialIcons
+              name={post.urgency === 'high' ? 'priority-high' : post.urgency === 'low' ? 'low-priority' : 'flag'}
+              size={12}
+              color={urgency.color}
+            />
+            <Text style={[styles.urgencyText, { color: urgency.color }]}>
+              {urgency.label}
+            </Text>
+          </View>
+          {appliedCount > 0 && (
+            <View style={styles.bidsBadge}>
+              <MaterialIcons name="people" size={12} color="#6366F1" />
+              <Text style={styles.bidsBadgeText}>{appliedCount} bids</Text>
+            </View>
+          )}
           {post.urgent && (
             <View style={styles.urgentBadge}>
-              <MaterialIcons name="priority-high" size={12} color="#DC2626" />
+              <MaterialIcons name="whatshot" size={12} color="#DC2626" />
               <Text style={styles.urgentText}>URGENT</Text>
             </View>
           )}
@@ -84,27 +171,42 @@ export default function PostCard({ post }) {
             </View>
           )}
         </View>
-        
+
         {/* Budget Badge */}
         <View style={styles.budgetBadge}>
           <Text style={styles.budgetBadgeLabel}>Budget</Text>
-          <Text style={styles.budgetBadgeValue}>{post.budget}</Text>
+          <Text style={styles.budgetBadgeValue}>{post.budget || 'N/A'}</Text>
         </View>
       </View>
 
       {/* Content */}
       <View style={styles.contentContainer}>
+        {/* Post Title */}
+        {post.title ? (
+          <Text style={styles.postTitle}>{displayText(post.title)}</Text>
+        ) : null}
+
         {/* Header with Avatar and Customer Info */}
         <View style={styles.header}>
-          <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-            <Text style={styles.avatarText}>{initials}</Text>
+          <View style={[styles.avatar, { backgroundColor: posterAvatar ? 'transparent' : avatarColor }]}>
+            {posterAvatar ? (
+              <Image
+                source={{ uri: posterAvatar }}
+                style={{ width: '100%', height: '100%', borderRadius: 24 }}
+                defaultSource={{ uri: `https://randomuser.me/api/portraits/lego/${(posterName.length % 10) + 1}.jpg` }}
+              />
+            ) : (
+              <Avatar.Text size={48} label={initials} style={{ backgroundColor: avatarColor }} labelStyle={{ fontSize: 16, fontWeight: 'bold', color: '#fff' }} />
+            )}
           </View>
 
           <View style={styles.headerInfo}>
-            <Text style={styles.customerName}>{post.customer}</Text>
+            <Text style={styles.customerName}>{posterName}</Text>
             <View style={styles.locationTime}>
               <MaterialIcons name="location-on" size={12} color="#6B7280" />
-              <Text style={styles.metaText}>{post.location}</Text>
+              <Text style={styles.metaText} numberOfLines={1}>
+                {post.poster?.district || post.locationCity || post.locationDistrict || post.location || 'Unknown'}
+              </Text>
               <View style={styles.dot} />
               <MaterialIcons name="access-time" size={12} color="#6B7280" />
               <Text style={styles.metaText}>{post.time}</Text>
@@ -112,13 +214,47 @@ export default function PostCard({ post }) {
           </View>
         </View>
 
+        {/* Full Location Details */}
+        {(post.locationAddress || post.locationDistrict || post.locationCity) && (
+          <View style={styles.locationDetails}>
+            {post.locationAddress ? (
+              <View style={styles.locationRow}>
+                <MaterialIcons name="home" size={13} color="#6B7280" />
+                <Text style={styles.locationDetailText} numberOfLines={2}>
+                  {post.locationAddress}
+                </Text>
+              </View>
+            ) : null}
+            {(post.locationDistrict || post.locationCity) && (
+              <View style={styles.locationRow}>
+                <MaterialIcons name="place" size={13} color="#6B7280" />
+                <Text style={styles.locationDetailText}>
+                  {[post.locationDistrict, post.locationCity].filter(Boolean).join(', ')}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Description */}
-        <Text style={styles.description}>{displayText(post.description)}</Text>
+        <Text style={styles.description} numberOfLines={3}>{displayText(post.description)}</Text>
+
+        {/* Tags */}
+        {post.tags && post.tags.length > 0 && (
+          <View style={styles.tagsContainer}>
+            {post.tags.slice(0, 6).map((tag, i) => (
+              <View key={`${tag}-${i}`} style={styles.tagChip}>
+                <MaterialIcons name="label" size={10} color="#7C3AED" />
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Translate Button */}
         <TouchableOpacity
           style={styles.translateBtn}
-          onPress={() => handleTranslate(post.description)}
+          onPress={(e) => { e.stopPropagation && e.stopPropagation(); handleTranslate(post.description); }}
           disabled={loading}
         >
           {loading ? (
@@ -143,7 +279,7 @@ export default function PostCard({ post }) {
               <MaterialIcons name="people" size={14} color="#7C3AED" />
             </View>
             <View>
-              <Text style={styles.statValue}>{post.applied + (applied ? 1 : 0)}</Text>
+              <Text style={styles.statValue}>{appliedCount + (applied ? 1 : 0)}</Text>
               <Text style={styles.statLabel}>Applied</Text>
             </View>
           </View>
@@ -155,7 +291,7 @@ export default function PostCard({ post }) {
               <MaterialIcons name="visibility" size={14} color="#7C3AED" />
             </View>
             <View>
-              <Text style={styles.statValue}>{post.views}</Text>
+              <Text style={styles.statValue}>{post.views || 0}</Text>
               <Text style={styles.statLabel}>Views</Text>
             </View>
           </View>
@@ -164,11 +300,11 @@ export default function PostCard({ post }) {
 
           <View style={styles.statItem}>
             <View style={styles.statIconBg}>
-              <MaterialIcons name="star" size={14} color="#7C3AED" />
+              <MaterialIcons name="chat-bubble-outline" size={14} color="#7C3AED" />
             </View>
             <View>
-              <Text style={styles.statValue}>4.8</Text>
-              <Text style={styles.statLabel}>Rating</Text>
+              <Text style={styles.statValue}>Open</Text>
+              <Text style={styles.statLabel}>Tap to View Details</Text>
             </View>
           </View>
         </View>
@@ -188,19 +324,26 @@ export default function PostCard({ post }) {
           style={[
             styles.applyBtn,
             applied && { backgroundColor: status?.color || '#10B981' },
+            applying && { backgroundColor: '#A78BFA', opacity: 0.9 },
           ]}
-          onPress={() => applyToJob(post)}
-          disabled={applied}
+          onPress={doApply}
+          disabled={applied || applying}
           activeOpacity={applied ? 1 : 0.9}
         >
-          <MaterialIcons
-            name={applied ? 'check-circle' : 'send'}
-            size={18}
-            color="#FFFFFF"
-          />
+          {applying ? (
+            <ActivityIndicator size={18} color="#FFFFFF" />
+          ) : (
+            <MaterialIcons
+              name={applied ? 'check-circle' : 'send'}
+              size={18}
+              color="#FFFFFF"
+            />
+          )}
           <Text style={styles.applyBtnText}>
-            {applied
-              ? (isSi ? status?.labelSi : status?.label)
+            {applying
+              ? 'Applying...'
+              : applied
+              ? (isSi ? status?.labelSi : status?.label) || 'Applied'
               : t('applyNow')
             }
           </Text>
@@ -223,7 +366,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  // Image Section
   imageContainer: {
     position: 'relative',
     height: 200,
@@ -240,7 +382,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.25)',
   },
   imageCategoryBadge: {
     position: 'absolute',
@@ -288,6 +430,43 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     letterSpacing: 0.5,
   },
+  urgencyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  urgencyText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  bidsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  bidsBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#6366F1',
+  },
   aiMatchBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -331,7 +510,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Content Section
   contentContainer: {
     padding: 16,
   },
@@ -340,6 +518,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 12,
+    marginTop: 12,
   },
   avatar: {
     width: 48,
@@ -352,6 +531,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+    overflow: 'hidden',
   },
   avatarText: {
     fontSize: 16,
@@ -362,7 +542,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   customerName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 4,
@@ -473,5 +653,54 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  postTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+  locationDetails: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  locationDetailText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#4B5563',
+    lineHeight: 16,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 14,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#F3E8FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EDE9FE',
+  },
+  tagText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6D28D9',
   },
 });

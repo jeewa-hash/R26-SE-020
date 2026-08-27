@@ -10,6 +10,7 @@ import {
   publishPost,
   updatePost,
   deletePost,
+  applyPost,
 } from "../controllers/postController.js";
 
 
@@ -86,6 +87,16 @@ router.put(
 router.delete(
   "/delete/:id",
   deletePost
+);
+
+
+// =======================================================
+// APPLY TO POST (INCREMENT appliedCount)
+// =======================================================
+
+router.post(
+  "/:id/apply",
+  applyPost
 );
 
 
