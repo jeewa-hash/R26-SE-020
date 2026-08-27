@@ -882,5 +882,35 @@ TEXT_QUESTION_FLOW = {
             "skip_if_in_input": ["colombo", "kandy", "galle", "negombo", "address", "area", "city", "town", "road", "street", "home", "house", "flat", "apartment"],
             "next": None
         }
+    },
+
+   # ═══════════════════════════════════════════
+    # 5. CHILDCARE (NEW)
+    # ═══════════════════════════════════════════
+    "childcare": {
+        1: {
+            "question": "What type of childcare do you need?",
+            "options": ["Babysitting", "Daycare", "Nanny", "After-school care", "Other"],
+            "answer_key": "care_type"
+        },
+        2: {
+            "question": "How many children need care?",
+            "answer_key": "children_count"
+        },
+        3: {
+            "question": "What is the age range of the children?",
+            "answer_key": "age_range"
+        },
+        4: {
+            "question": "Where is the care needed?",
+            "answer_key": "location"
+        },
+        5: {
+            "question": "When do you need the service?",
+            "options": ["Immediately", "This week", "Next week", "Regular schedule"],
+            "answer_key": "schedule"
+        }
     }
+
 }
+

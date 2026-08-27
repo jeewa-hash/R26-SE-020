@@ -341,8 +341,6 @@ export const previewPost = async (req, res) => {
   }
 };
 
-
-
 // =======================================================
 // 5. PUBLISH FINAL POST
 // Embed poster info so we don't have to hit the auth
@@ -375,18 +373,17 @@ export const publishPost = async (req, res) => {
       });
     }
 
-
     // Check whether user exists
-    const user = await getUserById(userId);
+    const user = await getUserById(userId); // ✅ variable is "user"
 
-    if (!rawUser) {
+    if (!user) { // ✅ now checks "user" not "rawUser"
       return res.status(404).json({
         success: false,
         error: "User not found in Auth Service",
       });
     }
 
-    const userInfo = buildUserInfo(rawUser, userId);
+    const userInfo = buildUserInfo(user, userId); // ✅ uses "user"
 
     const posterEmbed = {
       name: userInfo.name,
@@ -408,17 +405,13 @@ export const publishPost = async (req, res) => {
       userId,
     });
 
-
     await newPost.save();
-
 
     // Return post with user information
     const postResponse = {
       ...newPost.toObject(),
-
       user: userInfo,
     };
-
 
     res.status(201).json({
       success: true,
@@ -437,7 +430,6 @@ export const publishPost = async (req, res) => {
   }
 };
 
-
 // =======================================================
 // 6. UPDATE POST
 // =======================================================
@@ -455,7 +447,6 @@ export const updatePost = async (req, res) => {
         error: "Post not found",
       });
     }
-
 
     if (req.body.title !== undefined) {
       post.title = req.body.title;
@@ -489,9 +480,7 @@ export const updatePost = async (req, res) => {
       post.location = { ...post.location, ...req.body.location };
     }
 
-
     await post.save();
-
 
     const rawUser = await getUserById(
       post.userId
@@ -499,13 +488,10 @@ export const updatePost = async (req, res) => {
 
     const userInfo = buildUserInfo(rawUser, post.userId);
 
-
     const postResponse = {
       ...post.toObject(),
-
       user: userInfo,
     };
-
 
     res.status(200).json({
       success: true,
@@ -523,7 +509,6 @@ export const updatePost = async (req, res) => {
     });
   }
 };
-
 
 // =======================================================
 // 7. DELETE POST
@@ -543,7 +528,6 @@ export const deletePost = async (req, res) => {
       });
     }
 
-
     if (
       post.image &&
       fs.existsSync(post.image)
@@ -551,11 +535,9 @@ export const deletePost = async (req, res) => {
       fs.unlinkSync(post.image);
     }
 
-
     await Post.findByIdAndDelete(
       req.params.id
     );
-
 
     res.status(200).json({
       success: true,
@@ -572,7 +554,6 @@ export const deletePost = async (req, res) => {
     });
   }
 };
-
 
 // =======================================================
 // 8. APPLY TO POST — store applicant info in appliedBy[]
