@@ -20,8 +20,17 @@ import { useChat } from '../context/ChatContext';
 import { useNotification } from '../context/NotificationContext';
 
 const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
+const BASE_AUTH_URL = `http://${IP_ADDRESS}:4003`; // For images
 
-// Android layout animation fix
+// ─── Helper: Build full image URL ──────────────────────────
+const getFullImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http')) return imagePath;
+  // If relative path (e.g., "uploads/xxx.jpg"), prepend base URL
+  return `${BASE_AUTH_URL}/${imagePath.replace(/^\/+/, '')}`;
+};
+
+// ─── Android layout animation fix ──────────────────────────
 if (
   Platform.OS === 'android' &&
   UIManager.setLayoutAnimationEnabledExperimental &&
@@ -32,6 +41,7 @@ if (
 
 const { width } = Dimensions.get('window');
 
+// ─── Static data ─────────────────────────────────────────────
 const SUGGESTED_PROVIDERS = [
   {
     id: 's1',
@@ -98,7 +108,7 @@ const CATEGORIES = [
   }
 ];
 
-// ─── Slideshow Component ────────────────────────────────
+// ─── Slideshow Component ──────────────────────────────────
 const Slideshow = ({ isDarkMode }) => {
   const navigation = useNavigation();
   const flatListRef = useRef();
@@ -174,7 +184,7 @@ const Slideshow = ({ isDarkMode }) => {
   );
 };
 
-// ─── Service Card Component ──────────────────────────────
+// ─── Service Card Component ───────────────────────────────
 const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload, isDarkMode }) => {
   return (
     <View style={[styles.accordionContainer, isDarkMode && styles.accordionContainerDark]}>
@@ -276,24 +286,34 @@ export default function HomeScreen() {
     loadUserDetails();
   }, [loadUserDetails]);
 
+  // Combine user from AuthContext and AsyncStorage
   const displayUser = user || userState;
+
+  // ─── Extract display name – SAFE: ensures string ──────
+  const userDisplayName =
+    typeof displayUser?.name === 'string' && displayUser.name
+      ? displayUser.name
+      : typeof displayUser?.fullName === 'string' && displayUser.fullName
+      ? displayUser.fullName
+      : typeof displayUser?.username === 'string' && displayUser.username
+      ? displayUser.username
+      : typeof displayUser?.email === 'string'
+      ? displayUser.email.split('@')[0]
+      : 'User';
+
+  // ─── Get correct profile image URL ──────────────────────
+  const profileImageUrl =
+    getFullImageUrl(displayUser?.profileImage || displayUser?.avatar) ||
+    'https://i.pravatar.cc/150?img=7';
 
   const toggleExpand = (id) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedId(expandedId === id ? null : id);
   };
 
-  const handleProfilePress = () => {
-    navigation.navigate("ProfileScreen");
-  };
-
-  const handleChatPress = () => {
-    navigation.navigate("ChatListScreen");
-  };
-
-  const handleNotifications = () => {
-    navigation.navigate("NotificationScreen");
-  };
+  const handleProfilePress = () => navigation.navigate("ProfileScreen");
+  const handleChatPress = () => navigation.navigate("ChatListScreen");
+  const handleNotifications = () => navigation.navigate("NotificationScreen");
 
   const handleSubCategoryPress = (subcategory) => {
     Alert.alert('Service Selected', `${subcategory} service will be available soon`);
@@ -445,7 +465,7 @@ export default function HomeScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
-          {/* ─── Upper Dashboard Bar: Badge & Theme Toggle ─── */}
+          {/* Upper Dashboard Bar */}
           <View style={styles.headerTopBar}>
             <View style={[styles.dashboardBadge, isDarkMode && styles.dashboardBadgeDark]}>
               <Ionicons name="sparkles" size={12} color="#FBBF24" />
@@ -473,14 +493,14 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Text style={styles.userName}>
-                {displayUser?.name ? `${displayUser.name} 👋` : "User 👋"}
+                {userDisplayName} 👋
               </Text>
               <Text style={[styles.subGreeting, isDarkMode && styles.textMutedDark]}>
                 {t('what_help_today')}
               </Text>
             </View>
             <View style={styles.headerActions}>
-              {/* ── Chat Icon with real unread count ── */}
+              {/* Chat Icon */}
               <TouchableOpacity style={styles.iconBtn} onPress={handleChatPress}>
                 <Ionicons name="chatbubbles-outline" size={22} color="#fff" />
                 {totalUnreadMessages > 0 && (
@@ -492,7 +512,7 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-              {/* ── Notification Icon ── */}
+              {/* Notification Icon */}
               <TouchableOpacity style={styles.iconBtn} onPress={handleNotifications}>
                 <Ionicons name="notifications-outline" size={22} color="#fff" />
                 {notificationUnreadCount > 0 && (
@@ -504,12 +524,10 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-              {/* ── Profile ── */}
+              {/* Profile – now uses full image URL */}
               <TouchableOpacity style={styles.profileBtn} onPress={handleProfilePress}>
                 <Image
-                  source={{
-                    uri: displayUser?.profileImage || displayUser?.avatar || 'https://i.pravatar.cc/150?img=7'
-                  }}
+                  source={{ uri: profileImageUrl }}
                   style={styles.profilePic}
                 />
                 <View style={styles.onlineDot} />
@@ -642,7 +660,6 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
 
-  // Header
   headerGradient: {
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
@@ -758,9 +775,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  profileBtn: {
-    position: 'relative',
-  },
+  profileBtn: { position: 'relative' },
   profilePic: {
     width: 48,
     height: 48,
@@ -811,20 +826,14 @@ const styles = StyleSheet.create({
     color: '#333',
     paddingVertical: 0,
   },
-  clearBtn: {
-    padding: 2,
-  },
+  clearBtn: { padding: 2 },
   filterIcon: {
     paddingLeft: 8,
     borderLeftWidth: 1,
     borderLeftColor: '#E5E7EB',
   },
-  filterChips: {
-    marginTop: 12,
-  },
-  filterChipsContent: {
-    paddingRight: 20,
-  },
+  filterChips: { marginTop: 12 },
+  filterChipsContent: { paddingRight: 20 },
   filterChip: {
     backgroundColor: '#F3F4F6',
     paddingHorizontal: 16,
@@ -876,9 +885,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  biddingTextContainer: {
-    flex: 1,
-  },
+  biddingTextContainer: { flex: 1 },
   biddingTitle: {
     fontSize: 16,
     fontWeight: '700',
@@ -916,10 +923,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 5,
   },
-  slideImage: {
-    width: '100%',
-    height: '100%',
-  },
+  slideImage: { width: '100%', height: '100%' },
   slideOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -929,9 +933,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     padding: 16,
   },
-  slideContent: {
-    marginBottom: 16,
-  },
+  slideContent: { marginBottom: 16 },
   slideTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -1109,22 +1111,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // ─── DARK MODE STYLES ──────────────────────────────────────
+  // ─── DARK MODE STYLES ──────────────────────────────────
 
-  // Main container
   containerDark: {
     backgroundColor: '#0f1121',
   },
-
-  // Text colors
   textDark: {
     color: '#F8FAFC',
   },
   textMutedDark: {
     color: '#94A3B8',
   },
-
-  // Search bar
   searchContainerDark: {
     backgroundColor: '#1a1a2e',
     borderColor: '#2d3561',
@@ -1134,13 +1131,9 @@ const styles = StyleSheet.create({
   filterIconDark: {
     borderLeftColor: '#2d3561',
   },
-
-  // Filter chips
   filterChipDark: {
     backgroundColor: '#242f4d',
   },
-
-  // Accordion / Service Cards
   accordionContainerDark: {
     backgroundColor: '#16213e',
     borderColor: '#2d3561',
@@ -1157,30 +1150,21 @@ const styles = StyleSheet.create({
   subGridDark: {
     borderColor: '#2d3561',
   },
-
-  // Sub-thumbnails (category chips)
   subThumbnailDark: {
     backgroundColor: '#1a1a2e',
     borderColor: '#2d3561',
   },
-
-  // "See All" text
   seeAllTextDark: {
     color: '#818cf8',
   },
-
-  // Slideshow card
   slideCardDark: {
     backgroundColor: '#16213e',
     borderColor: '#2d3561',
     borderWidth: 1,
   },
-
-  // Dashboard badge dark
   dashboardBadgeDark: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
-  // Theme pill dark
   upperThemePillDark: {
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
