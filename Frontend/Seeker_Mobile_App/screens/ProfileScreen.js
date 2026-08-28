@@ -1,4 +1,3 @@
-// screens/ProfileScreen.js
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -15,7 +14,6 @@ import {
   Alert,
   RefreshControl,
   Platform,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -24,46 +22,23 @@ import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
-import { IP_ADDRESS } from '../config';
 
 const { width } = Dimensions.get('window');
-
-// ─── API URL ──────────────────────────────────────────────────
-const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003/seeker`;
-const BASE_AUTH_URL = `http://${IP_ADDRESS}:4003`; // For images
-
-// ─── Helper: get correct profile image URL ──────────────────
-const getProfileImage = (imagePath) => {
-  if (!imagePath) return 'https://i.pravatar.cc/150?img=7';
-  if (imagePath.startsWith('http')) return imagePath;
-  // If relative path (e.g., "uploads/xxx.jpg"), prepend base URL
-  return `${BASE_AUTH_URL}/${imagePath.replace(/^\/+/, '')}`;
-};
-
-// ─── Helper: extract readable location string ──────────────
-const getLocationString = (userObj) => {
-  if (userObj?.district) return userObj.district;
-  if (userObj?.address) return userObj.address;
-  if (userObj?.location && typeof userObj.location === 'string') return userObj.location;
-  return 'Location not set';
-};
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { isDarkMode } = useTheme();
-  const { user, saveUser, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [showEditModal, setShowEditModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // ─── User State ──────────────────────────────────────────
+  
   const [userData, setUserData] = useState({
     name: user?.name || "User",
     email: user?.email || "",
     phone: user?.phone || user?.telephone || "",
-    location: getLocationString(user),
+    location: user?.location || "Colombo, Sri Lanka",
     memberSince: "January 2024",
-    avatar: getProfileImage(user?.profilePicture || user?.avatar),
+    avatar: user?.avatar || user?.profileImage || "https://i.pravatar.cc/150?img=7",
     starPoints: 1250,
     rating: 4.8,
     totalServices: 24,
@@ -71,24 +46,24 @@ export default function ProfileScreen() {
   });
 
   useEffect(() => {
-    // Update when user changes (from AuthContext)
     setUserData((current) => ({
       ...current,
       name: user?.name || current.name,
       email: user?.email || current.email,
       phone: user?.phone || user?.telephone || current.phone,
-      location: getLocationString(user),
-      avatar: getProfileImage(user?.profilePicture || user?.avatar),
+      location: user?.location || current.location,
+      avatar: user?.avatar || user?.profileImage || current.avatar,
     }));
   }, [user]);
 
-  // ─── Menu items ──────────────────────────────────────────
+  // Menu items
   const menuItems = [
     { id: 'bookings', title: 'My Bookings', icon: 'calendar', color: '#667eea', screen: 'BookingsScreen' },
     { id: 'mybids', title: 'My Bids', icon: 'gavel', color: '#4ECDC4', screen: 'MyBidsScreen' },
     { id: 'myposts', title: 'My Posts', icon: 'newspaper', color: '#45B7D1', screen: 'MyPostsScreen' },
     { id: 'history', title: 'Service History', icon: 'time', color: '#96CEB4', screen: 'HistoryScreen' },
     { id: 'starpoints', title: 'Star Points', icon: 'star', color: '#FBBF24', screen: 'StarPointsScreen' },
+  
   ];
 
   const handleMenuPress = (screen) => {
@@ -96,136 +71,69 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await logout();
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Login" }],
-              });
-            } catch (error) {
-              console.log(error);
-            }
-          },
+  Alert.alert(
+    "Logout",
+    "Are you sure you want to logout?",
+    [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await logout();
+
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Login" }],
+            });
+
+          } catch (error) {
+            console.log(error);
+          }
         },
-      ]
-    );
-  };
+      },
+    ]
+  );
+};
 
   const onRefresh = async () => {
     setRefreshing(true);
-    const storedUser = await AsyncStorage.getItem('user');
-    if (storedUser) {
-      const parsed = JSON.parse(storedUser);
-      setUserData((current) => ({
-        ...current,
-        name: parsed.name || current.name,
-        email: parsed.email || current.email,
-        phone: parsed.phone || parsed.telephone || current.phone,
-        location: getLocationString(parsed),
-        avatar: getProfileImage(parsed.profilePicture || parsed.avatar),
-      }));
-    }
-    setRefreshing(false);
+    setTimeout(() => setRefreshing(false), 1000);
   };
 
   const renderStars = (rating) => {
     let stars = [];
     const fullStars = Math.floor(rating);
+    
     for (let i = 1; i <= fullStars; i++) {
       stars.push(<Ionicons key={`star-${i}`} name="star" size={14} color="#FBBF24" />);
     }
+    
     const emptyStars = 5 - stars.length;
     for (let i = 1; i <= emptyStars; i++) {
       stars.push(<Ionicons key={`empty-${i}`} name="star-outline" size={14} color="#FBBF24" />);
     }
+    
     return stars;
-  };
-
-  // ─── UPDATE PROFILE ──────────────────────────────────────
-  const handleSaveProfile = async () => {
-    setIsLoading(true);
-
-    try {
-      const userId = await AsyncStorage.getItem('userId');
-      if (!userId) {
-        Alert.alert('Error', 'User ID not found. Please log in again.');
-        setIsLoading(false);
-        return;
-      }
-
-      const token = await AsyncStorage.getItem('userToken');
-
-      const payload = {
-        name: userData.name,
-        telephone: userData.phone,
-        district: userData.location,
-      };
-
-      console.log('📤 Updating profile with:', payload);
-
-      const response = await fetch(`${AUTH_SERVICE_URL}/user/${userId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: token ? `Bearer ${token}` : '',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Update AsyncStorage and AuthContext
-        const storedUser = await AsyncStorage.getItem('user');
-        if (storedUser) {
-          const currentUser = JSON.parse(storedUser);
-          const updatedUser = {
-            ...currentUser,
-            name: userData.name,
-            telephone: userData.phone,
-            district: userData.location,
-          };
-          await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-          await saveUser(updatedUser);
-        }
-
-        Alert.alert('Success', 'Profile updated successfully!');
-        setShowEditModal(false);
-      } else {
-        Alert.alert('Error', data.message || 'Failed to update profile.');
-      }
-    } catch (error) {
-      console.error('Update profile error:', error);
-      Alert.alert('Error', 'Network error. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      <StatusBar
-        barStyle={isDarkMode ? "light-content" : "dark-content"}
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"}
+      <StatusBar 
+        barStyle={isDarkMode ? "light-content" : "dark-content"} 
+        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"} 
       />
-
-      <ScrollView
+      
+      <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#667eea']} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#667eea']} />}
       >
-        {/* ─── Header with Gradient ─── */}
+        {/* Header with Gradient */}
         <LinearGradient
           colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2', '#f093fb']}
           start={{ x: 0, y: 0 }}
@@ -237,10 +145,12 @@ export default function ProfileScreen() {
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>My Profile</Text>
-            <View style={{ width: 40 }} /> {/* Placeholder for alignment */}
+            <TouchableOpacity onPress={() => setShowEditModal(true)} style={styles.editButton}>
+              <Ionicons name="create-outline" size={22} color="#fff" />
+            </TouchableOpacity>
           </View>
 
-          {/* ─── Profile Info ─── */}
+          {/* Profile Info */}
           <View style={styles.profileInfo}>
             <View style={styles.avatarContainer}>
               <Image source={{ uri: userData.avatar }} style={styles.avatar} />
@@ -259,7 +169,7 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* ─── Stats Row ─── */}
+          {/* Stats Row */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>{userData.totalServices}</Text>
@@ -278,7 +188,7 @@ export default function ProfileScreen() {
           </View>
         </LinearGradient>
 
-        {/* ─── Menu Items ─── */}
+        {/* Menu Items */}
         <View style={styles.menuContainer}>
           {menuItems.map((item) => (
             <TouchableOpacity
@@ -296,33 +206,28 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        {/* ─── Logout Button ─── */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <LinearGradient
-            colors={['#EF4444', '#DC2626']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.logoutGradient}
-          >
-            <Ionicons name="log-out-outline" size={20} color="#fff" />
-            <Text style={styles.logoutText}>Logout</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        {/* Logout Button */}
+        <TouchableOpacity
+  style={styles.logoutButton}
+  onPress={handleLogout}
+>
+  <LinearGradient
+    colors={['#EF4444', '#DC2626']}
+    start={{ x: 0, y: 0 }}
+    end={{ x: 1, y: 0 }}
+    style={styles.logoutGradient}
+  >
+    <Ionicons name="log-out-outline" size={20} color="#fff" />
+    <Text style={styles.logoutText}>Logout</Text>
+  </LinearGradient>
+</TouchableOpacity>
       </ScrollView>
 
-      {/* ─── Edit Profile Modal ─── */}
-      <Modal
-        visible={showEditModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowEditModal(false)}
-      >
+      {/* Edit Profile Modal */}
+      <Modal visible={showEditModal} transparent={true} animationType="slide" onRequestClose={() => setShowEditModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContainer, isDarkMode && styles.modalContainerDark]}>
-            <LinearGradient
-              colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-              style={styles.modalHeader}
-            >
+            <LinearGradient colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']} style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Profile</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
                 <Ionicons name="close" size={24} color="#fff" />
@@ -335,56 +240,45 @@ export default function ProfileScreen() {
               </TouchableOpacity>
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>Full Name</Text>
-                <TextInput
-                  style={[styles.input, isDarkMode && styles.inputDark]}
-                  value={userData.name}
-                  onChangeText={(text) => setUserData({ ...userData, name: text })}
+                <TextInput 
+                  style={[styles.input, isDarkMode && styles.inputDark]} 
+                  value={userData.name} 
+                  onChangeText={(text) => setUserData({...userData, name: text})}
                   placeholderTextColor={isDarkMode ? "#6B7280" : "#9CA3AF"}
                 />
               </View>
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>Email</Text>
-                <TextInput
-                  style={[styles.input, isDarkMode && styles.inputDark]}
-                  value={userData.email}
-                  editable={false}
+                <TextInput 
+                  style={[styles.input, isDarkMode && styles.inputDark]} 
+                  value={userData.email} 
+                  onChangeText={(text) => setUserData({...userData, email: text})} 
+                  keyboardType="email-address"
                   placeholderTextColor={isDarkMode ? "#6B7280" : "#9CA3AF"}
                 />
               </View>
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>Phone</Text>
-                <TextInput
-                  style={[styles.input, isDarkMode && styles.inputDark]}
-                  value={userData.phone}
-                  onChangeText={(text) => setUserData({ ...userData, phone: text })}
+                <TextInput 
+                  style={[styles.input, isDarkMode && styles.inputDark]} 
+                  value={userData.phone} 
+                  onChangeText={(text) => setUserData({...userData, phone: text})} 
                   keyboardType="phone-pad"
                   placeholderTextColor={isDarkMode ? "#6B7280" : "#9CA3AF"}
                 />
               </View>
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>District / Location</Text>
-                <TextInput
-                  style={[styles.input, isDarkMode && styles.inputDark]}
-                  value={userData.location}
-                  onChangeText={(text) => setUserData({ ...userData, location: text })}
+                <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>Location</Text>
+                <TextInput 
+                  style={[styles.input, isDarkMode && styles.inputDark]} 
+                  value={userData.location} 
+                  onChangeText={(text) => setUserData({...userData, location: text})}
                   placeholderTextColor={isDarkMode ? "#6B7280" : "#9CA3AF"}
-                  placeholder="e.g., Colombo"
                 />
               </View>
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSaveProfile}
-                disabled={isLoading}
-              >
-                <LinearGradient
-                  colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#667eea', '#764ba2']}
-                  style={styles.saveGradient}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Save Changes</Text>
-                  )}
+              <TouchableOpacity style={styles.saveButton} onPress={() => setShowEditModal(false)}>
+                <LinearGradient colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#667eea', '#764ba2']} style={styles.saveGradient}>
+                  <Text style={styles.saveButtonText}>Save Changes</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </ScrollView>
@@ -392,15 +286,13 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* ─── Bottom Navigation ─── */}
+      {/* Bottom Navigation */}
       <BottomNav />
     </SafeAreaView>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  // ... (all styles remain unchanged from the previous version)
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
@@ -436,6 +328,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#fff',
+  },
+  editButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ffffff20',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profileInfo: {
     alignItems: 'center',

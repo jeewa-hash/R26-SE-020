@@ -54,7 +54,7 @@ export const ChatProvider = ({ children }) => {
         // ─── SHOW TOAST if not in this chat ──────────────────
         if (chatId !== currentChatId) {
           Toast.show({
-            type: 'message', // uses the custom message toast config
+            type: 'message',
             text1: senderName || 'New Message',
             text2: text?.substring(0, 75) || 'You received a new message',
             visibilityTime: 4500,
@@ -71,7 +71,7 @@ export const ChatProvider = ({ children }) => {
         }
       });
 
-      // Typing and online users
+      // Typing and online users (keep as they are)
       newSocket.on('user-typing', (data) => {
         setTypingUsers(prev => ({ ...prev, [data.userId]: data.isTyping }));
         setTimeout(() => {
@@ -144,6 +144,7 @@ export const ChatProvider = ({ children }) => {
     setUnreadCount(prev => ({ ...prev, [chatId]: 0 }));
   };
 
+  // ─── Expose setActiveChat ──────────────────────────────────
   const setActiveChat = (chatId) => {
     setCurrentChatId(chatId);
   };
@@ -162,7 +163,7 @@ export const ChatProvider = ({ children }) => {
       fetchChats,
       createOrGetChat,
       currentUserId,
-      setActiveChat,
+      setActiveChat,  // ← new
     }}>
       {children}
     </ChatContext.Provider>

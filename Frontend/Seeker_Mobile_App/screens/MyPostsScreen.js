@@ -21,7 +21,8 @@ import { SEEKER_SERVICE_URL } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
+// Use the shared seeker service base URL
+const API_BASE_URL = SEEKER_SERVICE_URL;
 
 export default function FeedScreen({ navigation }) {
   const { isDarkMode } = useTheme();
@@ -32,7 +33,7 @@ export default function FeedScreen({ navigation }) {
   const [userId, setUserId] = useState(null);
   const [token, setToken] = useState(null);
 
-  // ─── Load user data ──────────────────────────────────────
+  // Load user data from storage
   useEffect(() => {
     const loadUserData = async () => {
       try {
@@ -47,7 +48,7 @@ export default function FeedScreen({ navigation }) {
     loadUserData();
   }, []);
 
-  // ─── Fetch posts when userId is available ──────────────
+  // Fetch posts when userId is available
   useEffect(() => {
     if (userId && token) {
       fetchPosts();
@@ -67,7 +68,9 @@ export default function FeedScreen({ navigation }) {
     return unsubscribe;
   }, [navigation, userId, token]);
 
-  // ─── FETCH USER'S POSTS ──────────────────────────────────
+  // =======================================================
+  // FETCH USER'S POSTS
+  // =======================================================
   const fetchPosts = async () => {
     if (!userId || !token) {
       setLoading(false);
@@ -124,7 +127,9 @@ export default function FeedScreen({ navigation }) {
     }
   };
 
-  // ─── FORMAT TIME ──────────────────────────────────────────
+  // =======================================================
+  // FORMAT TIME
+  // =======================================================
   const formatTimeAgo = (timestamp) => {
     if (!timestamp) return 'Just now';
 
@@ -138,13 +143,17 @@ export default function FeedScreen({ navigation }) {
     return `${Math.floor(diff / 86400)}d ago`;
   };
 
-  // ─── REFRESH ──────────────────────────────────────────────
+  // =======================================================
+  // REFRESH
+  // =======================================================
   const onRefresh = () => {
     setRefreshing(true);
     fetchPosts();
   };
 
-  // ─── EDIT POST ────────────────────────────────────────────
+  // =======================================================
+  // EDIT POST
+  // =======================================================
   const handleEditPost = (post) => {
     navigation.navigate('CreatePostScreen', {
       editMode: true,
@@ -152,7 +161,9 @@ export default function FeedScreen({ navigation }) {
     });
   };
 
-  // ─── DELETE ALERT ─────────────────────────────────────────
+  // =======================================================
+  // DELETE ALERT
+  // =======================================================
   const handleDeletePost = (post) => {
     Alert.alert(
       'Delete Post',
@@ -168,7 +179,9 @@ export default function FeedScreen({ navigation }) {
     );
   };
 
-  // ─── DELETE POST ──────────────────────────────────────────
+  // =======================================================
+  // DELETE POST
+  // =======================================================
   const deletePost = async (postId) => {
     try {
       if (!token) {
@@ -204,7 +217,9 @@ export default function FeedScreen({ navigation }) {
     }
   };
 
-  // ─── VIEW RESPONSES – Navigate to PostResponsesScreen ──
+  // =======================================================
+  // VIEW RESPONSES – Navigate to PostResponsesScreen with full post data
+  // =======================================================
   const handleViewResponses = (post) => {
     navigation.navigate('PostResponsesScreen', {
       postId: post.id,
@@ -214,11 +229,14 @@ export default function FeedScreen({ navigation }) {
         image: post.image,
         category: post.category,
         urgency: post.urgency,
+        // Add any other fields you want to pass
       },
     });
   };
 
-  // ─── URGENCY STYLE ────────────────────────────────────────
+  // =======================================================
+  // URGENCY STYLE
+  // =======================================================
   const getUrgencyStyle = (urgency) => {
     switch (urgency) {
       case 'high':
@@ -232,7 +250,9 @@ export default function FeedScreen({ navigation }) {
     }
   };
 
-  // ─── LOADING ──────────────────────────────────────────────
+  // =======================================================
+  // LOADING
+  // =======================================================
   if (loading) {
     return (
       <SafeAreaView
@@ -271,7 +291,9 @@ export default function FeedScreen({ navigation }) {
     );
   }
 
-  // ─── NOT LOGGED IN ────────────────────────────────────────
+  // =======================================================
+  // NOT LOGGED IN
+  // =======================================================
   if (!userId || !token) {
     return (
       <SafeAreaView
@@ -316,7 +338,6 @@ export default function FeedScreen({ navigation }) {
     );
   }
 
-  // ─── MAIN UI ──────────────────────────────────────────────
   return (
     <SafeAreaView
       style={[
@@ -503,36 +524,48 @@ export default function FeedScreen({ navigation }) {
                   </View>
                 </View>
 
-                {/* ─── ACTION BUTTONS (SMALLER & SIMPLER) ─── */}
+                {/* ACTION BUTTONS */}
                 <View style={styles.actionButtons}>
                   {/* EDIT */}
                   <TouchableOpacity
-                    style={[styles.actionBtn, styles.editBtn, isDarkMode && styles.editBtnDark]}
+                    style={styles.editButton}
                     onPress={() => handleEditPost(post)}
-                    activeOpacity={0.7}
                   >
-                    <Ionicons name="create-outline" size={16} color="#667eea" />
-                    <Text style={[styles.actionBtnText, styles.editBtnText]}>Edit</Text>
+                    <Ionicons
+                      name="create-outline"
+                      size={18}
+                      color="#667eea"
+                    />
+
+                    <Text style={styles.editButtonText}>Edit</Text>
                   </TouchableOpacity>
 
                   {/* DELETE */}
                   <TouchableOpacity
-                    style={[styles.actionBtn, styles.deleteBtn, isDarkMode && styles.deleteBtnDark]}
+                    style={styles.deleteButton}
                     onPress={() => handleDeletePost(post)}
-                    activeOpacity={0.7}
                   >
-                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                    <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color="#EF4444"
+                    />
+
+                    <Text style={styles.deleteButtonText}>Delete</Text>
                   </TouchableOpacity>
 
-                  {/* RESPONSES */}
+                  {/* VIEW RESPONSES – pass the entire post object */}
                   <TouchableOpacity
-                    style={[styles.actionBtn, styles.responsesBtn, isDarkMode && styles.responsesBtnDark]}
+                    style={styles.responsesButton}
                     onPress={() => handleViewResponses(post)}
-                    activeOpacity={0.7}
                   >
-                    <Ionicons name="people-outline" size={16} color="#10B981" />
-                    <Text style={[styles.actionBtnText, styles.responsesBtnText]}>
+                    <Ionicons
+                      name="people-outline"
+                      size={18}
+                      color="#10B981"
+                    />
+
+                    <Text style={styles.responsesButtonText}>
                       Responses {post.responseCount > 0 ? `(${post.responseCount})` : ''}
                     </Text>
                   </TouchableOpacity>
@@ -599,7 +632,7 @@ export default function FeedScreen({ navigation }) {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────
+// ─── Styles (unchanged) ──────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -737,72 +770,66 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 
-  // ─── ACTION BUTTONS (SMALLER & SIMPLER) ────────────────
   actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 6,
-    marginTop: 2,
+    gap: 12,
+    marginTop: 4,
   },
 
-  actionBtn: {
+  editButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    borderRadius: 20,
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 1,
-    elevation: 0,
-  },
-
-  actionBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  // Edit button
-  editBtn: {
     borderColor: '#667eea',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#fff',
   },
-  editBtnDark: {
-    borderColor: '#818cf8',
-    backgroundColor: '#242f4d',
-  },
-  editBtnText: {
+
+  editButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
     color: '#667eea',
   },
 
-  // Delete button
-  deleteBtn: {
-    borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
+  deleteButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    backgroundColor: '#fff',
   },
-  deleteBtnDark: {
-    borderColor: '#F87171',
-    backgroundColor: '#242f4d',
-  },
-  deleteBtnText: {
+
+  deleteButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
     color: '#EF4444',
   },
 
-  // Responses button
-  responsesBtn: {
-    borderColor: '#6EE7B7',
-    backgroundColor: '#ECFDF5',
+  responsesButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+    backgroundColor: '#fff',
   },
-  responsesBtnDark: {
-    borderColor: '#34D399',
-    backgroundColor: '#242f4d',
-  },
-  responsesBtnText: {
+
+  responsesButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
     color: '#10B981',
   },
 

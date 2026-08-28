@@ -39,7 +39,6 @@ import HelpScreen from './screens/HelpScreen';
 import SpendAnalyticsScreen from './screens/SpendAnalyticsScreen';
 import RequestQuotationDetailsScreen from './screens/RequestQuotationDetailsScreen';
 import PostResponsesScreen from './screens/PostResponsesScreen';
-import EditProfileScreen from './screens/EditProfileScreen';
 
 // Chat Screens
 import { ChatProvider } from './context/ChatContext';
@@ -139,12 +138,6 @@ function AppNavigator({ initialRouteName }) {
         component={ProvidersScreen}
         options={{ title: t('nav_providers') }}
       />
-
-      <Stack.Screen
-       name="EditProfileScreen"
-      component={EditProfileScreen}
-      options={{ headerShown: false }}
-     />
       
      
     <Stack.Screen 
