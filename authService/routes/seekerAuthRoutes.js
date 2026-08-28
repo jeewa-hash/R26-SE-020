@@ -35,6 +35,14 @@ const upload = multer({
   },
 });
 
+// ─── Update profile picture (secure, token required) ──
+router.put(
+  '/profile-picture',
+  seekerAuthController.verifyToken,
+  upload.any(), // ← accepts any field name (profilePicture, file, image, etc.)
+  seekerAuthController.updateProfilePicture
+);
+
 // Routes
 router.post('/register', upload.single('profilePicture'), seekerAuthController.register);
 router.post('/verify-otp', seekerAuthController.verifyOTP);
@@ -43,7 +51,7 @@ router.post('/logout', seekerAuthController.logout);
 
 // Get user by ID
 router.get('/user/:id', seekerAuthController.getUserById);
-
+router.put('/user/:userId', seekerAuthController.updateProfileById);
 // Notification Routes
 router.get('/notifications', seekerAuthController.verifyToken, seekerAuthController.getNotifications);
 router.patch('/notifications/:id/read', seekerAuthController.verifyToken, seekerAuthController.markAsRead);
