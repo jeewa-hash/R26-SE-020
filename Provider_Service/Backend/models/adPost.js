@@ -59,6 +59,8 @@ const adPostSchema = new mongoose.Schema(
     },
 
     priority: { type: Number, default: 0, index: true },
+        likes: { type: [String], default: [] },
+
   },
   { timestamps: true }
 );

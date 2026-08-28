@@ -39,16 +39,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { LanguageContext } from '../context/LanguageContext';
 import { useTheme } from '../hooks/useTheme';
+import { SEEKER_SERVICE_URL } from '../config';
 
 
 // =======================================================
 // API BASE URL
 // =======================================================
 
-const API_BASE_URL =
-  Platform.OS === 'android'
-    ? 'http://10.0.2.2:6000'
-    : 'http://localhost:6000';
+const API_BASE_URL = SEEKER_SERVICE_URL;
 
 
 // =======================================================

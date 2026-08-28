@@ -16,11 +16,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CONFIG, IP_ADDRESS } from '../config';
+import { CONFIG, QUOTATION_REQUESTS_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
 
 const { width } = Dimensions.get('window');
-const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
+const QUOTATION_API_URL = QUOTATION_REQUESTS_URL;
 
 export default function ProviderProfileScreen({ route, navigation }) {
   const {

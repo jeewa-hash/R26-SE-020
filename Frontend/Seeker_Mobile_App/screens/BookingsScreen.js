@@ -18,13 +18,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { CONFIG } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
-const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
+const API_BASE_URL = CONFIG.SEEKER_SERVICE_URL;
+const PROVIDER_SERVICE_URL = `${CONFIG.PROVIDER_SERVICE_URL}/portfolio/all-providers`;
 
 // ─────────────────────────────────────────────────────────────
 // Helper: group flat request array by sessionId
@@ -236,7 +236,7 @@ export default function BookingsScreen({ navigation }) {
     if (p?.profileImage) {
       const norm = p.profileImage.replace(/\\/g, '/');
       if (norm.startsWith('http')) return norm;
-      return `http://${IP_ADDRESS}:5000/${norm}`;
+      return `${CONFIG.PROVIDER_SERVICE_URL}/${norm}`;
     }
     const hash = providerId ? parseInt(String(providerId).slice(-2), 16) || 1 : 1;
     return `https://i.pravatar.cc/150?img=${(hash % 70) + 1}`;

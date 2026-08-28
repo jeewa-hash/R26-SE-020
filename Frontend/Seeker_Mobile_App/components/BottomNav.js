@@ -3,13 +3,54 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 
-const BottomNav = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
+const HIDDEN_ROUTES = new Set([
+  'Login',
+  'Register',
+  'VerifyOTP',
+  'Language',
+  'Onboarding',
+
+  'ProviderProfile',
+  'ProvidersScreen',
+  'RequestQuotationDetails',
+  'BidCoordinationScreen',
+  'BidResponsesScreen',
+  'UserQuotesScreen',
+  'BiddingScreen',
+  'PostResponsesScreen',
+
+  'FollowUpScreen',
+  'ChatScreen',
+  'ChatListScreen',
+  'NotificationScreen',
+  'FeedbackScreen',
+  'SeasonalDemandsScreen',
+
+  'SettingsScreen',
+  'HelpScreen',
+  'PaymentScreen',
+  'HistoryScreen',
+  'SpendAnalyticsScreen',
+  'StarPointsScreen',
+
+  'MyPostsScreen',
+  'MyBidsScreen',
+  'RescheduleScreen',
+]);
+
+const routeToTab = {
+  Home: 'Home',
+  HomeScreen: 'Home',
+  FeedScreen: 'Feed',
+  CreatePostScreen: 'Create',
+  BookingsScreen: 'Bookings',
+  ProfileScreen: 'Profile',
+};
+
+const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
   const { isDarkMode } = useTheme();
   const { unreadCount } = useChat();
 
@@ -21,26 +62,26 @@ const BottomNav = () => {
       id: 'Home',
       label: 'Home',
       icon: 'home',
-      onPress: () => navigation.navigate('Home'),
+      routeName: 'Home',
     },
     {
       id: 'Feed',
       label: 'Feed',
       icon: 'feed',
-      onPress: () => navigation.navigate('FeedScreen'),
+      routeName: 'FeedScreen',
     },
     {
       id: 'Create',
       label: 'Create',
       icon: 'add',
+      routeName: 'CreatePostScreen',
       isCreateButton: true,
-      onPress: () => navigation.navigate('CreatePostScreen'),
     },
     {
       id: 'Bookings',
       label: 'Bookings',
       icon: 'calendar-today',
-      onPress: () => navigation.navigate('BookingsScreen'),
+      routeName: 'BookingsScreen',
     },
     {
       id: 'Chat',
@@ -54,7 +95,7 @@ const BottomNav = () => {
       id: 'Profile',
       label: 'Profile',
       icon: 'person',
-      onPress: () => navigation.navigate('ProfileScreen'),
+      routeName: 'ProfileScreen',
     },
   ];
 
@@ -69,6 +110,8 @@ const BottomNav = () => {
       default: return false;
     }
   };
+
+  const isActive = (itemId) => selectedTab === itemId;
 
   const inactiveColor = isDarkMode ? '#94A3B8' : '#999';
   const activeColor = isDarkMode ? '#818cf8' : '#667eea';
@@ -153,6 +196,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    height: 78,
     flexDirection: 'row',
     backgroundColor: '#fff',
     paddingVertical: 8,
@@ -161,9 +205,10 @@ const styles = StyleSheet.create({
     borderTopColor: '#E8ECF0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 10,
+    zIndex: 100,
   },
   bottomNavDark: {
     backgroundColor: '#16213e',
@@ -224,6 +269,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+  },
+  navLabel: {
+    fontSize: 11,
+    marginTop: 4,
+  },
+  navLabelActive: {
+    fontWeight: '700',
   },
 });
 

@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/BottomNav';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
-import { IP_ADDRESS } from '../config';
+import { AUTH_SERVICE_URL, TEXT_PREDICT_URL, IMAGE_PREDICT_URL } from '../config';
 import { useChat } from '../context/ChatContext';
 import { useNotification } from '../context/NotificationContext';
 
@@ -332,7 +332,7 @@ export default function HomeScreen() {
       }
 
       const appLanguage = language === 'si' ? 'si' : 'en';
-      const url = `http://10.0.2.2:5002/text-predict`;
+      const url = TEXT_PREDICT_URL;
       console.log('🌐 URL:', url);
 
       const response = await fetch(url, {
@@ -404,7 +404,7 @@ export default function HomeScreen() {
       });
       formData.append('app_lan', language === 'si' ? 'si' : 'en');
 
-      const response = await fetch('http://10.0.2.2:8000/predict', {
+      const response = await fetch(IMAGE_PREDICT_URL, {
         method: 'POST',
         body: formData,
         headers: {

@@ -10,6 +10,8 @@ import {
   publishPost,
   updatePost,
   deletePost,
+  applyPost,
+   getPostResponses, 
 } from "../controllers/postController.js";
 
 
@@ -87,6 +89,23 @@ router.delete(
   "/delete/:id",
   deletePost
 );
+
+
+// =======================================================
+// APPLY TO POST (INCREMENT appliedCount)
+// =======================================================
+
+router.post(
+  "/:id/apply",
+  applyPost
+);
+
+
+
+// =======================================================
+// GET RESPONSES FOR A SPECIFIC POST (NEW)
+// =======================================================
+router.get("/responses/:postId", getPostResponses); 
 
 
 export default router;

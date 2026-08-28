@@ -13,10 +13,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config'; // adjust path if needed
+import { SEEKER_SERVICE_URL } from '../config';
 
 // Use the proxy endpoint from the seeker service
-const API_BASE = `http://${IP_ADDRESS}:6000`;
+const API_BASE = SEEKER_SERVICE_URL;
 const QUOTATIONS_URL = `${API_BASE}/request-quotations/seeker/me`;
 
 export default function NotificationsScreen() {

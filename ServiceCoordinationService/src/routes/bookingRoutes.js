@@ -4,6 +4,7 @@ import {
   getBookingsByProvider,
   getBookingsBySeeker,
   getBookingByPost,
+  createBookingFromCoordination,
   startBooking,
   completeBooking,
   reportBookingDelay,
@@ -19,7 +20,7 @@ router.get("/provider/me/missed-inquiries", protect(["ServiceProvider"]), getPro
 router.get("/seeker/me", protect(["Seeker"]), getBookingsBySeeker);
 
 router.get("/post/:postId", getBookingByPost);
-
+router.post("/coordination/:coordinationId",protect(["Seeker"]),createBookingFromCoordination); // Chaw: seeker creates booking from accepted bid coordination
 router.put("/:bookingId/start", protect(["ServiceProvider"]), startBooking);
 router.put("/:bookingId/report-delay", protect(["ServiceProvider"]), reportBookingDelay);
 router.put("/:bookingId/cancel", protect(["ServiceProvider", "Seeker", "Admin"]), cancelBooking);
