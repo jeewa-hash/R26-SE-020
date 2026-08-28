@@ -306,11 +306,12 @@ export default function App() {
   }
 
   return (
-    <LanguageProvider>
-      <ChatProvider>
-        <ThemeProvider>
-          <AuthProvider>
-            <NotificationProvider>
+  <LanguageProvider>
+    <ChatProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <View style={{ flex: 1 }}>
               <NavigationContainer
                 ref={navigationRef}
                 onReady={() => {
@@ -323,18 +324,21 @@ export default function App() {
               >
                 <View style={{ flex: 1 }}>
                   <AppNavigator initialRouteName={initialRouteName} />
+
                   <BottomNav
                     navigationRef={navigationRef}
                     currentRouteName={currentRouteName}
                     isRootNav
                   />
                 </View>
-                <Toast config={customToastConfig} /> {/* ✅ Rich custom Toast banner */}
               </NavigationContainer>
-            </NotificationProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </ChatProvider>
-    </LanguageProvider>
-  );
+
+              <Toast config={customToastConfig} />
+            </View>
+          </NotificationProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ChatProvider>
+  </LanguageProvider>
+);
 }
