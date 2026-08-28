@@ -16,13 +16,13 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CONFIG, IP_ADDRESS } from "../config";
+import { CONFIG } from "../config";
 import { useAuth } from "../context/AuthContext";
 
 // --------------------------------------------------------------
 // 🔥 Build URL with IP from config
 // --------------------------------------------------------------
-const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
+const QUOTATION_API_URL = `${CONFIG.SEEKER_SERVICE_URL}/request-quotations`;
 
 export default function ProvidersScreen({ route, navigation }) {
   const {
@@ -106,7 +106,7 @@ export default function ProvidersScreen({ route, navigation }) {
     if (normalizedPath.startsWith("http")) {
       return normalizedPath;
     }
-    return `${CONFIG.API_BASE_URL}/${normalizedPath}`;
+    return `${CONFIG.PROVIDER_SERVICE_URL}/${normalizedPath}`;
   };
 
   const getProviderName = (provider) => {

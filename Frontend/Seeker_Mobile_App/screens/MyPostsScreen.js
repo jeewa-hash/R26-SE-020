@@ -17,12 +17,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { SEEKER_SERVICE_URL } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 
-// Use the IP from config
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
+// Use the shared seeker service base URL
+const API_BASE_URL = SEEKER_SERVICE_URL;
 
 export default function FeedScreen({ navigation }) {
   const { isDarkMode } = useTheme();

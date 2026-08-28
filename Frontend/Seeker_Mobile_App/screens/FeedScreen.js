@@ -20,15 +20,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import BottomNav from '../components/BottomNav';
-import { IP_ADDRESS } from '../config';
+import { CONFIG } from '../config';
 import { useTheme } from '../hooks/useTheme';
 
 // ======================================================
 // API BASE URLS
 // ======================================================
-const hostIp = IP_ADDRESS || '10.0.2.2';
-const API_BASE_URL = `http://${hostIp}:3002`;
-const QUOTATION_API_URL = `http://${hostIp}:6000/request-quotations`;
+const API_BASE_URL = CONFIG.PROVIDER_SERVICE_URL;
+const QUOTATION_API_URL = `${CONFIG.SEEKER_SERVICE_URL}/request-quotations`;
 
 // ======================================================
 // FEED SCREEN – SHOWS PROVIDER ADS WITH LIKE & REQUEST QUOTE

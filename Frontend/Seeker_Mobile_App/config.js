@@ -20,6 +20,10 @@ export const ML_SERVICE_URL = url(8000);
 export const API_BASE_URL = CHAT_SERVICE_URL;
 export const SOCKET_URL = CHAT_SERVICE_URL;
 
+export const SEEKER_AUTH_URL = `${AUTH_SERVICE_URL}/seeker`;
+export const QUOTATION_REQUESTS_URL = `${SEEKER_SERVICE_URL}/request-quotations`;
+export const PROVIDER_PORTFOLIO_URL = `${PROVIDER_SERVICE_URL}/portfolio/all-providers`;
+export const PROVIDER_ADS_URL = `${PROVIDER_SERVICE_URL}/api/provider/ads`;
 export const TEXT_PREDICT_URL = `${ADMIN_SERVICE_URL}/text-predict`;
 export const TEXT_CHAT_URL = `${ADMIN_SERVICE_URL}/text-chat`;
 export const IMAGE_PREDICT_URL = `${ML_SERVICE_URL}/predict`;
@@ -37,6 +41,10 @@ export const CONFIG = {
   ADMIN_SERVICE_URL,
   SERVICE_COORDINATION_SERVICE_URL,
   ML_SERVICE_URL,
+  SEEKER_AUTH_URL,
+  QUOTATION_REQUESTS_URL,
+  PROVIDER_PORTFOLIO_URL,
+  PROVIDER_ADS_URL,
   TEXT_PREDICT_URL,
   TEXT_CHAT_URL,
   IMAGE_PREDICT_URL,

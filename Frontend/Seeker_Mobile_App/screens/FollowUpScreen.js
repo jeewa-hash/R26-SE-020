@@ -20,6 +20,7 @@ import { LanguageContext } from "../context/LanguageContext";
 import * as Location from "expo-location";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker } from '../components/SafeMapView';
+import { IMAGE_FLOW_NEXT_URL, TEXT_CHAT_URL, TEXT_PREDICT_URL } from '../config';
 
 
 const { width, height } = Dimensions.get("window");
@@ -94,20 +95,17 @@ if (!token) {
   return;
 }
 
-const res = await fetch(
-  "http://10.0.2.2:5002/text-predict",
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,   // ← added
-    },
-    body: JSON.stringify({
-      text: initialMessage,
-      app_lan: language === "si" ? "si" : "en",
-    }),
-  }
-);
+const res = await fetch(TEXT_PREDICT_URL, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`,
+  },
+  body: JSON.stringify({
+    text: initialMessage,
+    app_lan: language === "si" ? "si" : "en",
+  }),
+});
 
         const data = await res.json();
 
@@ -394,8 +392,8 @@ if (!token) {
 
 const endpoint =
   source === "image"
-    ? "http://10.0.2.2:8000/flow/next"
-    : "http://10.0.2.2:5002/text-chat";
+    ? IMAGE_FLOW_NEXT_URL
+    : TEXT_CHAT_URL;
 
 const response = await fetch(endpoint, {
   method: "POST",

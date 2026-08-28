@@ -16,10 +16,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { IP_ADDRESS } from '../config';
+import { SEEKER_AUTH_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
 
-const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
+const API_URL = SEEKER_AUTH_URL;
 
 
 // =======================================================

@@ -20,10 +20,9 @@ import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
+import { SEEKER_SERVICE_URL } from '../config';
 
-const API_BASE_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:6000'
-  : 'http://localhost:6000';
+const API_BASE_URL = SEEKER_SERVICE_URL;
 
 export default function FeedbackScreen() {
   const { t } = useTranslation();
