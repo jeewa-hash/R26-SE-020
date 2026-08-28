@@ -21,7 +21,6 @@ import { useAuth } from '../context/AuthContext';
 
 const API_URL = SEEKER_AUTH_URL;
 
-
 // =======================================================
 // DECODE JWT
 // =======================================================
@@ -29,24 +28,13 @@ const API_URL = SEEKER_AUTH_URL;
 const decodeJWT = (token) => {
   try {
     const payload = token.split('.')[1];
-
-    const base64 = payload
-      .replace(/-/g, '+')
-      .replace(/_/g, '/');
-
-    const decoded = atob(
-      base64 + '='.repeat((4 - (base64.length % 4)) % 4)
-    );
-
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = atob(base64 + '='.repeat((4 - (base64.length % 4)) % 4));
     return JSON.parse(
       decodeURIComponent(
         decoded
           .split('')
-          .map(
-            (char) =>
-              '%' +
-              ('00' + char.charCodeAt(0).toString(16)).slice(-2)
-          )
+          .map((char) => '%' + ('00' + char.charCodeAt(0).toString(16)).slice(-2))
           .join('')
       )
     );
@@ -55,7 +43,6 @@ const decodeJWT = (token) => {
     return null;
   }
 };
-
 
 // =======================================================
 // LOGIN SCREEN
@@ -68,7 +55,6 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
 
   // =====================================================
   // LOGIN
@@ -83,6 +69,7 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
 
     try {
+      // 1. Login
       const response = await axios.post(
         `${API_URL}/login`,
         {
@@ -98,100 +85,58 @@ export default function LoginScreen({ navigation }) {
         }
       );
 
-      console.log(
-        'LOGIN RESPONSE:',
-        JSON.stringify(response.data, null, 2)
-      );
-
-      // ---------------------------------------------------
-      // GET LOGIN DATA
-      // ---------------------------------------------------
+      console.log('LOGIN RESPONSE:', JSON.stringify(response.data, null, 2));
 
       const token = response.data?.token;
       const role = response.data?.role || 'Seeker';
 
       if (!token) {
-        Alert.alert(
-          'Login Error',
-          'Authentication token was not received.'
-        );
+        Alert.alert('Login Error', 'Authentication token was not received.');
         return;
       }
 
-      // ---------------------------------------------------
-      // GET USER ID FROM JWT
-      // ---------------------------------------------------
-
+      // 2. Decode token to get userId
       const decodedToken = decodeJWT(token);
-
-      console.log(
-        'DECODED JWT:',
-        JSON.stringify(decodedToken, null, 2)
-      );
-
       const userId = decodedToken?.user?.id;
 
-      console.log('MONGODB USER ID:', userId);
-
       if (!userId) {
-        Alert.alert(
-          'Login Error',
-          'Login succeeded, but your user ID could not be obtained.'
-        );
+        Alert.alert('Login Error', 'Could not extract user ID from token.');
         return;
       }
 
-      // ---------------------------------------------------
-      // CREATE USER OBJECT
-      // ---------------------------------------------------
-
-      const userProfile = {
-        _id: String(userId),
-        id: String(userId),
-
-        name:
-          response.data?.user?.name ||
-          response.data?.name ||
-          email.split('@')[0],
-
-        email:
-          response.data?.user?.email ||
-          email.trim(),
-
-        phone:
-          response.data?.user?.telephone ||
-          response.data?.user?.phone ||
-          '',
-
-        location:
-          response.data?.user?.district ||
-          response.data?.user?.location ||
-          'Colombo, Sri Lanka',
-
-        avatar:
-          response.data?.user?.profilePicture ||
-          response.data?.user?.profileImage ||
-          response.data?.user?.avatar ||
-          'https://i.pravatar.cc/150?img=7',
-
-        profileImage:
-          response.data?.user?.profilePicture ||
-          response.data?.user?.profileImage ||
-          response.data?.user?.avatar ||
-          'https://i.pravatar.cc/150?img=7',
-
-        role,
-      };
-
-      console.log(
-        'USER PROFILE:',
-        JSON.stringify(userProfile, null, 2)
+      // 3. Fetch the full user profile from the Auth Service
+      const profileResponse = await axios.get(
+        `${API_URL}/user/${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
-      // ---------------------------------------------------
-      // SAVE LOGIN DATA
-      // ---------------------------------------------------
+      const userData = profileResponse.data;
 
+      console.log('FULL USER PROFILE:', JSON.stringify(userData, null, 2));
+
+      // 4. Build the complete user object
+      const userProfile = {
+        _id: userData._id,
+        id: userData._id,
+        name: userData.name || email.split('@')[0],
+        email: userData.email || email.trim(),
+        telephone: userData.telephone || '',
+        district: userData.district || 'Colombo',
+        location: userData.location || null,
+        profilePicture: userData.profilePicture || 'https://i.pravatar.cc/150?img=7',
+        avatar: userData.profilePicture || 'https://i.pravatar.cc/150?img=7',
+        role: role,
+        isEmailVerified: userData.isEmailVerified,
+        isBlocked: userData.isBlocked,
+      };
+
+      console.log('FINAL USER PROFILE:', JSON.stringify(userProfile, null, 2));
+
+      // 5. Save all data to AsyncStorage
       await AsyncStorage.multiSet([
         ['userToken', token],
         ['userRole', role],
@@ -202,30 +147,17 @@ export default function LoginScreen({ navigation }) {
       // Save to AuthContext
       await saveUser(userProfile);
 
-      // ---------------------------------------------------
-      // VERIFY STORAGE
-      // ---------------------------------------------------
-
-      console.log(
-        'STORED USER:',
-        await AsyncStorage.getItem('user')
+      // 6. Success
+      Alert.alert(
+        'Success',
+        'Logged in successfully!',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.replace('Home'),
+          },
+        ]
       );
-
-      console.log(
-        'STORED USER ID:',
-        await AsyncStorage.getItem('userId')
-      );
-
-      // ---------------------------------------------------
-      // SUCCESS
-      // ---------------------------------------------------
-
-      Alert.alert('Success', 'Logged in successfully!');
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
-
     } catch (error) {
       console.error('LOGIN ERROR:', {
         message: error.message,
@@ -233,8 +165,7 @@ export default function LoginScreen({ navigation }) {
         status: error.response?.status,
       });
 
-      const requiresOTP =
-        error.response?.data?.requiresOTP;
+      const requiresOTP = error.response?.data?.requiresOTP;
 
       if (requiresOTP) {
         Alert.alert(
@@ -243,32 +174,22 @@ export default function LoginScreen({ navigation }) {
           [
             {
               text: 'Verify Now',
-              onPress: () =>
-                navigation.navigate('VerifyOTP', {
-                  email,
-                }),
+              onPress: () => navigation.navigate('VerifyOTP', { email }),
             },
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
+            { text: 'Cancel', style: 'cancel' },
           ]
         );
-
         return;
       }
 
       Alert.alert(
         'Login Failed',
-        error.response?.data?.message ||
-          'Network error or server is down.'
+        error.response?.data?.message || 'Network error or server is down.'
       );
-
     } finally {
       setLoading(false);
     }
   };
-
 
   // =====================================================
   // UI
@@ -276,23 +197,11 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <KeyboardAvoidingView
-      behavior={
-        Platform.OS === 'ios'
-          ? 'padding'
-          : 'height'
-      }
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1 }}
     >
-      <ScrollView
-        contentContainerStyle={styles.container}
-      >
-
-        <Text style={styles.title}>
-          Welcome Back
-        </Text>
-
-
-        {/* EMAIL */}
+      <ScrollView contentContainerStyle={styles.container}>
+        <Text style={styles.title}>Welcome Back</Text>
 
         <TextInput
           style={styles.input}
@@ -304,11 +213,7 @@ export default function LoginScreen({ navigation }) {
           onChangeText={setEmail}
         />
 
-
-        {/* PASSWORD */}
-
         <View style={styles.passwordContainer}>
-
           <TextInput
             style={styles.passwordInput}
             placeholder="Password"
@@ -316,85 +221,34 @@ export default function LoginScreen({ navigation }) {
             value={password}
             onChangeText={setPassword}
           />
-
-          <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() =>
-              setShowPassword(!showPassword)
-            }
-          >
-            <MaterialIcons
-              name={
-                showPassword
-                  ? 'visibility'
-                  : 'visibility-off'
-              }
-              size={24}
-              color="#777"
-            />
+          <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
+            <MaterialIcons name={showPassword ? 'visibility' : 'visibility-off'} size={24} color="#777" />
           </TouchableOpacity>
-
         </View>
 
-
-        {/* LOGIN */}
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>
-              Login
-            </Text>
-          )}
-
+        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Login</Text>}
         </TouchableOpacity>
 
-
-        {/* REGISTER */}
-
         <View style={styles.footer}>
-
-          <Text style={styles.footerText}>
-            Don't have an account?{' '}
-          </Text>
-
-          <TouchableOpacity
-            onPress={() =>
-              navigation.navigate('Register')
-            }
-          >
-            <Text style={styles.link}>
-              Register Here
-            </Text>
+          <Text style={styles.footerText}>Don't have an account? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+            <Text style={styles.link}>Register Here</Text>
           </TouchableOpacity>
-
         </View>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-
-// =======================================================
-// STYLES
-// =======================================================
-
+// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
     justifyContent: 'center',
     padding: 20,
     backgroundColor: '#f5f5f5',
   },
-
   title: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -402,7 +256,6 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     textAlign: 'center',
   },
-
   input: {
     backgroundColor: '#fff',
     padding: 15,
@@ -411,7 +264,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
   },
-
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -421,16 +273,13 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     marginBottom: 15,
   },
-
   passwordInput: {
     flex: 1,
     padding: 15,
   },
-
   eyeIcon: {
     padding: 15,
   },
-
   button: {
     backgroundColor: '#007bff',
     padding: 15,
@@ -438,26 +287,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
-
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
-
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 20,
   },
-
   footerText: {
     color: '#666',
   },
-
   link: {
     color: '#007bff',
     fontWeight: 'bold',
   },
-
 });

@@ -1,3 +1,4 @@
+// components/CustomToastConfig.js
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -151,7 +152,6 @@ const BasePopupToast = ({ text1, text2, props, type = 'info', onPress }) => {
 };
 
 export const customToastConfig = {
-  // Custom styled types
   quote: (props) => <BasePopupToast {...props} type="quote" />,
   bid: (props) => <BasePopupToast {...props} type="bid" />,
   booking: (props) => <BasePopupToast {...props} type="booking" />,
