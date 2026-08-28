@@ -3,10 +3,10 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
-import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import { IP_ADDRESS } from '../config';
+import MapView, { Marker } from '../components/SafeMapView';
 
 const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 
@@ -258,13 +258,26 @@ export default function RegisterScreen({ navigation }) {
 
       <Modal visible={mapVisible} animationType="slide">
         <View style={styles.fullScreenMapContainer}>
-          <MapView 
-            style={styles.fullScreenMap} 
-            region={tempLocation}
-            onPress={handleMapPress}
-          >
-            <Marker coordinate={{ latitude: tempLocation.latitude, longitude: tempLocation.longitude }} />
-          </MapView>
+          {MapView ? (
+            <MapView
+              style={styles.fullScreenMap}
+              region={tempLocation}
+              onPress={handleMapPress}
+            >
+              <Marker
+                coordinate={{
+                  latitude: tempLocation.latitude,
+                  longitude: tempLocation.longitude,
+                }}
+              />
+            </MapView>
+          ) : (
+            <View style={[styles.fullScreenMap, styles.mapUnavailable]}>
+              <Text style={styles.mapUnavailableText}>
+                The map picker is not available in the web browser. Please use the mobile app for location selection.
+              </Text>
+            </View>
+          )}
           
           <View style={styles.mapTopButtons}>
             <TouchableOpacity style={styles.mapCancelBtn} onPress={closeMap}>
@@ -348,6 +361,18 @@ export default function RegisterScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  mapUnavailable: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 24,
+  },
+  mapUnavailableText: {
+    fontSize: 16,
+    color: '#374151',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
   container: { flexGrow: 1, padding: 20, backgroundColor: '#f5f5f5' },
   title: { fontSize: 26, fontWeight: 'bold', color: '#333', marginBottom: 20, textAlign: 'center' },
   profileImageContainer: { alignItems: 'center', marginBottom: 20 },

@@ -11,14 +11,16 @@ import {
   Alert,
   Modal,
   Dimensions,
+  Platform,
   useColorScheme,
 } from "react-native";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { Ionicons } from "@expo/vector-icons";
 import { LanguageContext } from "../context/LanguageContext";
-import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import MapView, { Marker } from '../components/SafeMapView';
+
 
 const { width, height } = Dimensions.get("window");
 
@@ -1720,55 +1722,58 @@ const response = await fetch(endpoint, {
 
               {/* MAP */}
 
-              <MapView
-                ref={mapRef}
-                style={styles.map}
-                region={currentRegion}
-                onPress={
-                  handleMapPress
-                }
-                showsUserLocation={
-                  true
-                }
-                showsMyLocationButton={
-                  true
-              }
-              >
-                {selectedLocation && (
-                  <Marker
-                    coordinate={
-                      selectedLocation
-                    }
-                    draggable
-                    onDragEnd={(e) => {
-                      const {
-                        coordinate,
-                      } =
-                        e.nativeEvent;
-
-                      setSelectedLocation(
-                        coordinate
-                      );
-
-                      reverseGeocode(
-                        coordinate
-                      );
+              {MapView ? (
+                <MapView
+                  ref={mapRef}
+                  style={styles.map}
+                  region={currentRegion}
+                  onPress={handleMapPress}
+                  showsUserLocation={true}
+                  showsMyLocationButton={true}
+                >
+                  {selectedLocation && (
+                    <Marker
+                      coordinate={selectedLocation}
+                      draggable
+                      onDragEnd={(e) => {
+                        const { coordinate } = e.nativeEvent;
+                        setSelectedLocation(coordinate);
+                        reverseGeocode(coordinate);
+                      }}
+                    >
+                      <View style={styles.markerContainer}>
+                        <Ionicons
+                          name="location"
+                          size={38}
+                          color="#6366F1"
+                        />
+                      </View>
+                    </Marker>
+                  )}
+                </MapView>
+              ) : (
+                <View
+                  style={[
+                    styles.map,
+                    {
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: "#F3F4F6",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      color: "#374151",
+                      textAlign: "center",
+                      paddingHorizontal: 24,
                     }}
                   >
-                    <View
-                      style={
-                        styles.markerContainer
-                      }
-                    >
-                      <Ionicons
-                        name="location"
-                        size={38}
-                        color="#6366F1"
-                      />
-                    </View>
-                  </Marker>
-                )}
-              </MapView>
+                    The map picker is not available in the web browser. Please use the mobile app for location selection.
+                  </Text>
+                </View>
+              )}
 
               {/* MY LOCATION */}
 
