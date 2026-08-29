@@ -3,50 +3,106 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 
-const BottomNav = () => {
-  const navigation = useNavigation();
-  const route = useRoute();
-  const { isDarkMode } = useTheme();
-  const { unreadCount } = useChat();
+const HIDDEN_ROUTES = new Set([
+  'Login',
+  'Register',
+  'VerifyOTP',
+  'Language',
+  'Onboarding',
 
-  // Total unread messages across all chats
+  // Full-screen/detail flows
+  'FollowUpScreen',
+  'ProvidersScreen',
+  'ProviderProfile',
+  'RequestQuotationDetails',
+  'PostResponsesScreen',
+  'BidResponsesScreen',
+  'UserQuotesScreen',
+  'FeedbackScreen',
+  'NotificationScreen',
+  'ChatScreen',
+  'EditProfileScreen',
+  'SeasonalDemandsScreen',
+  'RescheduleScreen',
+
+  // Profile sub-pages / utility pages
+  'MyBidsScreen',
+  'MyPostsScreen',
+  'HistoryScreen',
+  'StarPointsScreen',
+  'PaymentScreen',
+  'SettingsScreen',
+  'HelpScreen',
+  'SpendAnalyticsScreen',
+]);
+
+const routeToTab = {
+  Home: 'Home',
+  HomeScreen: 'Home',
+  FeedScreen: 'Feed',
+  CreatePostScreen: 'Create',
+  BookingsScreen: 'Bookings',
+  ChatListScreen: 'Chat',
+  ProfileScreen: 'Profile',
+};
+
+const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
+  const { isDarkMode } = useTheme();
+  const { unreadCount = {} } = useChat();
+  const [selectedTab, setSelectedTab] = React.useState('Home');
+
   const totalUnread = Object.values(unreadCount).reduce((a, b) => a + b, 0);
+
+  React.useEffect(() => {
+    const mappedTab = routeToTab[currentRouteName];
+    if (mappedTab) {
+      setSelectedTab(mappedTab);
+    }
+  }, [currentRouteName]);
+
+  // Old screens still contain <BottomNav />. Returning null there prevents duplicate nav bars.
+  if (!isRootNav) {
+    return null;
+  }
+
+  if (HIDDEN_ROUTES.has(currentRouteName)) {
+    return null;
+  }
 
   const navItems = [
     {
       id: 'Home',
       label: 'Home',
       icon: 'home',
-      onPress: () => navigation.navigate('Home'),
+      routeName: 'Home',
     },
     {
       id: 'Feed',
       label: 'Feed',
       icon: 'feed',
-      onPress: () => navigation.navigate('FeedScreen'),
+      routeName: 'FeedScreen',
     },
     {
       id: 'Create',
       label: 'Create',
       icon: 'add',
+      routeName: 'CreatePostScreen',
       isCreateButton: true,
-      onPress: () => navigation.navigate('CreatePostScreen'),
     },
     {
       id: 'Bookings',
-      label: 'Bookings',
-      icon: 'calendar-today',
-      onPress: () => navigation.navigate('BookingsScreen'),
+      label: 'My Jobs',
+      icon: 'work',
+      routeName: 'BookingsScreen',
     },
     {
       id: 'Chat',
       label: 'Chat',
       icon: 'chat',
-      onPress: () => navigation.navigate('ChatListScreen'),
+      routeName: 'ChatListScreen',
       showBadge: totalUnread > 0,
       badgeCount: totalUnread,
     },
@@ -54,21 +110,19 @@ const BottomNav = () => {
       id: 'Profile',
       label: 'Profile',
       icon: 'person',
-      onPress: () => navigation.navigate('ProfileScreen'),
+      routeName: 'ProfileScreen',
     },
   ];
 
-  const isActive = (itemId) => {
-    switch (itemId) {
-      case 'Home': return route.name === 'Home' || route.name === 'HomeScreen';
-      case 'Feed': return route.name === 'FeedScreen';
-      case 'Create': return route.name === 'CreatePostScreen';
-      case 'Bookings': return route.name === 'BookingsScreen';
-      case 'Chat': return route.name === 'ChatListScreen';
-      case 'Profile': return route.name === 'ProfileScreen';
-      default: return false;
+  const handlePress = (item) => {
+    setSelectedTab(item.id);
+
+    if (navigationRef?.current?.navigate) {
+      navigationRef.current.navigate(item.routeName);
     }
   };
+
+  const isActive = (itemId) => selectedTab === itemId;
 
   const inactiveColor = isDarkMode ? '#94A3B8' : '#999';
   const activeColor = isDarkMode ? '#818cf8' : '#667eea';
@@ -83,7 +137,7 @@ const BottomNav = () => {
             <TouchableOpacity
               key={item.id}
               style={styles.createNavItem}
-              onPress={item.onPress}
+              onPress={() => handlePress(item)}
               activeOpacity={0.8}
             >
               <LinearGradient
@@ -97,8 +151,8 @@ const BottomNav = () => {
               <Text
                 style={[
                   styles.navLabel,
-                  { color: inactiveColor },
-                  active && { color: activeColor, fontWeight: '600' },
+                  { color: active ? activeColor : inactiveColor },
+                  active && styles.navLabelActive,
                 ]}
               >
                 {item.label}
@@ -107,14 +161,13 @@ const BottomNav = () => {
           );
         }
 
-        // Show badge only on Chat tab
         const showBadge = item.id === 'Chat' && item.showBadge;
 
         return (
           <TouchableOpacity
             key={item.id}
             style={styles.navItem}
-            onPress={item.onPress}
+            onPress={() => handlePress(item)}
             activeOpacity={0.7}
           >
             <View style={styles.iconWrapper}>
@@ -134,8 +187,8 @@ const BottomNav = () => {
             <Text
               style={[
                 styles.navLabel,
-                { color: inactiveColor },
-                active && { color: activeColor, fontWeight: '600' },
+                { color: active ? activeColor : inactiveColor },
+                active && styles.navLabelActive,
               ]}
             >
               {item.label}
@@ -156,7 +209,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#fff',
     paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     borderTopWidth: 1,
     borderTopColor: '#E8ECF0',
     shadowColor: '#000',
@@ -164,6 +217,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 8,
+    zIndex: 50,
   },
   bottomNavDark: {
     backgroundColor: '#16213e',
@@ -202,9 +256,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   navLabel: {
-    fontSize: 10,
-    color: '#999',
+    fontSize: 9,
     marginTop: 2,
+  },
+  navLabelActive: {
+    fontWeight: '700',
   },
   createNavItem: {
     flex: 1,

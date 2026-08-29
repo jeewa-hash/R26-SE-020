@@ -5,6 +5,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message'; // ✅ added
+import BottomNav from './components/BottomNav';
 
 import NotificationScreen from './screens/NotificationScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -271,6 +272,14 @@ export default function App() {
   // Default screen is set to Login
   const [bootstrapped, setBootstrapped] = useState(false);
   const [initialRouteName, setInitialRouteName] = useState('Login');
+  const [currentRouteName, setCurrentRouteName] = useState('Login');
+
+  const syncCurrentRouteName = () => {
+    const route = navigationRef.current?.getCurrentRoute?.();
+    if (route?.name) {
+      setCurrentRouteName(route.name);
+    }
+  };
 
   useEffect(() => {
     const bootstrapLanguage = async () => {
@@ -309,10 +318,25 @@ export default function App() {
         <ThemeProvider>
           <AuthProvider>
             <NotificationProvider>
-              <NavigationContainer ref={navigationRef}>
-                <AppNavigator initialRouteName={initialRouteName} />
-                <Toast config={customToastConfig} /> {/* ✅ Rich custom Toast banner */}
-              </NavigationContainer>
+              <View style={{ flex: 1 }}>
+                <NavigationContainer
+                  ref={navigationRef}
+                  onReady={syncCurrentRouteName}
+                  onStateChange={syncCurrentRouteName}
+                >
+                  <View style={{ flex: 1 }}>
+                    <AppNavigator initialRouteName={initialRouteName} />
+
+                    <BottomNav
+                      navigationRef={navigationRef}
+                      currentRouteName={currentRouteName}
+                      isRootNav
+                    />
+                  </View>
+                </NavigationContainer>
+
+                <Toast config={customToastConfig} />
+              </View>
             </NotificationProvider>
           </AuthProvider>
         </ThemeProvider>
