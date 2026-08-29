@@ -5,7 +5,6 @@ import { ActivityIndicator, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message'; // ✅ added
-import BottomNav from './components/BottomNav';
 
 import NotificationScreen from './screens/NotificationScreen';
 import LoginScreen from './screens/LoginScreen';
@@ -39,6 +38,7 @@ import HelpScreen from './screens/HelpScreen';
 import SpendAnalyticsScreen from './screens/SpendAnalyticsScreen';
 import RequestQuotationDetailsScreen from './screens/RequestQuotationDetailsScreen';
 import PostResponsesScreen from './screens/PostResponsesScreen';
+import EditProfileScreen from './screens/EditProfileScreen';
 
 // Chat Screens
 import { ChatProvider } from './context/ChatContext';
@@ -138,6 +138,12 @@ function AppNavigator({ initialRouteName }) {
         component={ProvidersScreen}
         options={{ title: t('nav_providers') }}
       />
+
+      <Stack.Screen
+       name="EditProfileScreen"
+      component={EditProfileScreen}
+      options={{ headerShown: false }}
+     />
       
      
     <Stack.Screen 
@@ -265,14 +271,6 @@ export default function App() {
   // Default screen is set to Login
   const [bootstrapped, setBootstrapped] = useState(false);
   const [initialRouteName, setInitialRouteName] = useState('Login');
-  const [currentRouteName, setCurrentRouteName] = useState('Home');
-
-  const handleStateChange = () => {
-    const route = navigationRef.current?.getCurrentRoute();
-    if (route?.name) {
-      setCurrentRouteName(route.name);
-    }
-  };
 
   useEffect(() => {
     const bootstrapLanguage = async () => {
@@ -306,39 +304,19 @@ export default function App() {
   }
 
   return (
-  <LanguageProvider>
-    <ChatProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <NotificationProvider>
-            <View style={{ flex: 1 }}>
-              <NavigationContainer
-                ref={navigationRef}
-                onReady={() => {
-                  const route = navigationRef.current?.getCurrentRoute();
-                  if (route?.name) {
-                    setCurrentRouteName(route.name);
-                  }
-                }}
-                onStateChange={handleStateChange}
-              >
-                <View style={{ flex: 1 }}>
-                  <AppNavigator initialRouteName={initialRouteName} />
-
-                  <BottomNav
-                    navigationRef={navigationRef}
-                    currentRouteName={currentRouteName}
-                    isRootNav
-                  />
-                </View>
+    <LanguageProvider>
+      <ChatProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <NotificationProvider>
+              <NavigationContainer ref={navigationRef}>
+                <AppNavigator initialRouteName={initialRouteName} />
+                <Toast config={customToastConfig} /> {/* ✅ Rich custom Toast banner */}
               </NavigationContainer>
-
-              <Toast config={customToastConfig} />
-            </View>
-          </NotificationProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </ChatProvider>
-  </LanguageProvider>
-);
+            </NotificationProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </ChatProvider>
+    </LanguageProvider>
+  );
 }

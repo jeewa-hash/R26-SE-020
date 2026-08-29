@@ -18,14 +18,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PROVIDER_SERVICE_URL as PROVIDER_SERVICE_ROOT, SEEKER_SERVICE_URL } from '../config';
+import { IP_ADDRESS } from '../config';
 import { useTheme } from '../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
 
-const PROVIDER_API = `${PROVIDER_SERVICE_ROOT}/api/provider/quotations`;
-const SEEKER_API = SEEKER_SERVICE_URL;
-const PROVIDER_SERVICE_URL_BASE = `${PROVIDER_SERVICE_ROOT}/portfolio/all-providers`;
+const PROVIDER_API = `http://${IP_ADDRESS}:3002/api/provider/quotations`;
+const SEEKER_API = `http://${IP_ADDRESS}:6000`;
+const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
 
 export default function RequestQuotationDetailsScreen({ route, navigation }) {
   const { requestId } = route.params || {};
@@ -44,7 +44,7 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
   const fetchProviders = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(PROVIDER_SERVICE_URL_BASE, {
+      const response = await fetch(PROVIDER_SERVICE_URL, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (response.ok) {

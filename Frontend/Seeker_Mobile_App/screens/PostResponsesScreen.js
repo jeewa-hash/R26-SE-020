@@ -20,12 +20,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AUTH_SERVICE_URL, PROVIDER_API_BASE, API_BASE_URL, SEEKER_SERVICE_URL } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL, PROVIDER_API_BASE, API_BASE_URL } from '../config';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import axios from 'axios';
 
-const QUOTATION_API_URL = `${SEEKER_SERVICE_URL}/request-quotations`;
+const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
 
 export default function PostResponsesScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();

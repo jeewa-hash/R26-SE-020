@@ -11,17 +11,14 @@ import {
   Alert,
   Modal,
   Dimensions,
-  Platform,
   useColorScheme,
 } from "react-native";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { Ionicons } from "@expo/vector-icons";
 import { LanguageContext } from "../context/LanguageContext";
+import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import MapView, { Marker } from '../components/SafeMapView';
-import { IMAGE_FLOW_NEXT_URL, TEXT_CHAT_URL, TEXT_PREDICT_URL } from '../config';
-
 
 const { width, height } = Dimensions.get("window");
 
@@ -95,17 +92,20 @@ if (!token) {
   return;
 }
 
-const res = await fetch(TEXT_PREDICT_URL, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${token}`,
-  },
-  body: JSON.stringify({
-    text: initialMessage,
-    app_lan: language === "si" ? "si" : "en",
-  }),
-});
+const res = await fetch(
+  "http://10.0.2.2:5002/text-predict",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,   // ← added
+    },
+    body: JSON.stringify({
+      text: initialMessage,
+      app_lan: language === "si" ? "si" : "en",
+    }),
+  }
+);
 
         const data = await res.json();
 
@@ -392,8 +392,8 @@ if (!token) {
 
 const endpoint =
   source === "image"
-    ? IMAGE_FLOW_NEXT_URL
-    : TEXT_CHAT_URL;
+    ? "http://10.0.2.2:8000/flow/next"
+    : "http://10.0.2.2:5002/text-chat";
 
 const response = await fetch(endpoint, {
   method: "POST",
@@ -1720,58 +1720,55 @@ const response = await fetch(endpoint, {
 
               {/* MAP */}
 
-              {MapView ? (
-                <MapView
-                  ref={mapRef}
-                  style={styles.map}
-                  region={currentRegion}
-                  onPress={handleMapPress}
-                  showsUserLocation={true}
-                  showsMyLocationButton={true}
-                >
-                  {selectedLocation && (
-                    <Marker
-                      coordinate={selectedLocation}
-                      draggable
-                      onDragEnd={(e) => {
-                        const { coordinate } = e.nativeEvent;
-                        setSelectedLocation(coordinate);
-                        reverseGeocode(coordinate);
-                      }}
-                    >
-                      <View style={styles.markerContainer}>
-                        <Ionicons
-                          name="location"
-                          size={38}
-                          color="#6366F1"
-                        />
-                      </View>
-                    </Marker>
-                  )}
-                </MapView>
-              ) : (
-                <View
-                  style={[
-                    styles.map,
-                    {
-                      justifyContent: "center",
-                      alignItems: "center",
-                      backgroundColor: "#F3F4F6",
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      fontSize: 16,
-                      color: "#374151",
-                      textAlign: "center",
-                      paddingHorizontal: 24,
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                region={currentRegion}
+                onPress={
+                  handleMapPress
+                }
+                showsUserLocation={
+                  true
+                }
+                showsMyLocationButton={
+                  true
+              }
+              >
+                {selectedLocation && (
+                  <Marker
+                    coordinate={
+                      selectedLocation
+                    }
+                    draggable
+                    onDragEnd={(e) => {
+                      const {
+                        coordinate,
+                      } =
+                        e.nativeEvent;
+
+                      setSelectedLocation(
+                        coordinate
+                      );
+
+                      reverseGeocode(
+                        coordinate
+                      );
                     }}
                   >
-                    The map picker is not available in the web browser. Please use the mobile app for location selection.
-                  </Text>
-                </View>
-              )}
+                    <View
+                      style={
+                        styles.markerContainer
+                      }
+                    >
+                      <Ionicons
+                        name="location"
+                        size={38}
+                        color="#6366F1"
+                      />
+                    </View>
+                  </Marker>
+                )}
+              </MapView>
 
               {/* MY LOCATION */}
 

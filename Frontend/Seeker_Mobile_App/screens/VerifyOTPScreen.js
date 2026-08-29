@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import { SEEKER_AUTH_URL } from '../config';
+import { IP_ADDRESS } from '../config';
 
-const API_URL = SEEKER_AUTH_URL;
+const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 
 export default function VerifyOTPScreen({ route, navigation }) {
   const { email } = route.params;

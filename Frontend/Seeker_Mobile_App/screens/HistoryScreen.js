@@ -4,9 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
-import { SEEKER_SERVICE_URL } from '../config';
 
-const API_BASE_URL = SEEKER_SERVICE_URL;
+const API_BASE_URL = Platform.OS === 'android' 
+  ? 'http://10.0.2.2:6000'
+  : 'http://localhost:6000';
 
 export default function HistoryScreen({ navigation }) {
   const { isDarkMode } = useTheme();
