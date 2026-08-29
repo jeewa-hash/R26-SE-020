@@ -13,30 +13,97 @@ const AUTH_SERVICE_URL =
 
 
 // =======================================================
-// GET USER FROM AUTH SERVICE
+// GET USER FROM AUTH SERVICE (SEEKER OR PROVIDER)
 // =======================================================
 
-const getUserById = async (userId) => {
+const getUserById = async (userId, role = "seeker") => {
   try {
-    const response = await axios.get(
-      `${AUTH_SERVICE_URL}/seeker/user/${userId}`
-    );
+    const lowerRole = String(role || "seeker").toLowerCase();
+    const path =
+      lowerRole === "serviceprovider" || lowerRole === "provider"
+        ? `provider/user/${userId}`
+        : `seeker/user/${userId}`;
 
+    const response = await axios.get(`${AUTH_SERVICE_URL}/${path}`);
     return response.data;
-
   } catch (error) {
-
-    console.error(
-      "AUTH SERVICE ERROR:",
-      error.response?.data || error.message
-    );
-
-    return null;
+    try {
+      const altPath =
+        lowerRole === "seeker"
+          ? `provider/user/${userId}`
+          : `seeker/user/${userId}`;
+      const fallback = await axios.get(`${AUTH_SERVICE_URL}/${altPath}`);
+      return fallback.data;
+    } catch (_) {
+      console.error(
+        "AUTH SERVICE ERROR:",
+        error.response?.data || error.message
+      );
+      return null;
+    }
   }
 };
 
 // =======================================================
-// 1. GET ALL POSTSs
+// BUILD USER ENRICHMENT OBJECT
+// =======================================================
+
+const buildUserInfo = (user, fallbackId = null) => {
+  if (!user) {
+    return {
+      _id: fallbackId,
+      name: "Unknown User",
+      profilePicture: null,
+      district: "",
+      telephone: "",
+    };
+  }
+
+  return {
+    _id: user._id || user.id || fallbackId,
+    name: user.name || user.fullName || user.userName || "Unknown User",
+    profilePicture:
+      user.profilePicture || user.profileImage || user.avatar || null,
+    district: user.district || "",
+    telephone: user.telephone || user.phone || user.contact || "",
+  };
+};
+
+// =======================================================
+// SANITIZE POST FOR NON-OWNERS — strip appliedBy list
+// appliedCount remains visible to anyone.
+// =======================================================
+
+const sanitizePost = (postObj, { viewerId, ownerId }) => {
+  const isOwner =
+    !!viewerId &&
+    !!ownerId &&
+    String(viewerId) === String(ownerId);
+
+  if (isOwner) return postObj;
+
+  const { appliedBy, ...rest } = postObj;
+  return rest;
+};
+
+// =======================================================
+// GET OPTIONAL VIEWER ID FROM REQUEST
+// Accepts ?viewerId=xxx query param (passed by UI when auth
+// middleware isn't present in this service).
+// =======================================================
+
+const getViewerId = (req) => {
+  if (req.query?.viewerId) return req.query.viewerId;
+  if (req.body?.viewerId) return req.body.viewerId;
+  if (req.user?.id) return req.user.id;
+  if (req.user?._id) return req.user._id;
+  return null;
+};
+
+
+// =======================================================
+// 1. GET ALL POSTS (PUBLIC NEWS FEED)
+// appliedBy is ALWAYS stripped here (anyone can see the count only)
 // =======================================================
 
 export const getPosts = async (req, res) => {
@@ -49,18 +116,28 @@ export const getPosts = async (req, res) => {
     const postsWithUser = await Promise.all(
       posts.map(async (post) => {
 
-        const user = await getUserById(post.userId);
+        let userInfo = post.poster
+          ? {
+              _id: post.userId || post.seekerId,
+              name: post.poster.name,
+              profilePicture: post.poster.profilePicture || null,
+              district: post.poster.district || "",
+              telephone: post.poster.telephone || "",
+            }
+          : null;
 
-        return {
-          ...post,
+        if (!userInfo) {
+          const rawUser = await getUserById(post.userId);
+          userInfo = buildUserInfo(rawUser, post.userId);
+        }
 
-          user: user
-            ? {
-                _id: user._id,
-                name: user.name,
-              }
-            : null,
-        };
+        return sanitizePost(
+          {
+            ...post,
+            user: userInfo,
+          },
+          { viewerId: getViewerId(req), ownerId: post.userId }
+        );
       })
     );
 
@@ -83,12 +160,17 @@ export const getPosts = async (req, res) => {
 
 // =======================================================
 // 2. GET SINGLE POST
+// appliedBy is shown ONLY when the viewer is the post owner
 // =======================================================
 
 export const getPostById = async (req, res) => {
   try {
 
-    const post = await Post.findById(req.params.id).lean();
+    const post = await Post.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { views: 1 } },
+      { new: true }
+    ).lean();
 
     if (!post) {
       return res.status(404).json({
@@ -97,22 +179,39 @@ export const getPostById = async (req, res) => {
       });
     }
 
-    const user = await getUserById(post.userId);
+    let userInfo = post.poster
+      ? {
+          _id: post.userId || post.seekerId,
+          name: post.poster.name,
+          profilePicture: post.poster.profilePicture || null,
+          district: post.poster.district || "",
+          telephone: post.poster.telephone || "",
+        }
+      : null;
 
-    const postWithUser = {
-      ...post,
+    if (!userInfo) {
+      const rawUser = await getUserById(post.userId);
+      userInfo = buildUserInfo(rawUser, post.userId);
+    }
 
-      user: user
-        ? {
-            _id: user._id,
-            name: user.name,
-          }
-        : null,
-    };
+    const viewerId = getViewerId(req);
+    const ownerId = post.userId || post.seekerId;
+    const isOwner =
+      !!viewerId && !!ownerId && String(viewerId) === String(ownerId);
+
+    const postResponse = sanitizePost(
+      {
+        ...post,
+        user: userInfo,
+        isOwner,
+        applicants: isOwner ? post.appliedBy || [] : undefined,
+      },
+      { viewerId, ownerId }
+    );
 
     res.status(200).json({
       success: true,
-      post: postWithUser,
+      post: postResponse,
     });
 
   } catch (error) {
@@ -128,7 +227,8 @@ export const getPostById = async (req, res) => {
 
 
 // =======================================================
-// 3. GET ALL POSTS BY USER ID
+// 3. GET ALL POSTS BY USER ID (OWNER'S LIST)
+// appliedBy is shown because it's the user's own posts
 // =======================================================
 
 export const getPostsByUserId = async (req, res) => {
@@ -137,22 +237,26 @@ export const getPostsByUserId = async (req, res) => {
     const { userId } = req.params;
 
     const posts = await Post.find({
-      userId: userId,
+      $or: [{ userId: userId }, { seekerId: userId }],
     })
       .sort({ createdAt: -1 })
       .lean();
 
-    const user = await getUserById(userId);
+    const rawUser = await getUserById(userId);
+    const userInfo = buildUserInfo(rawUser, userId);
 
     const postsWithUser = posts.map((post) => ({
       ...post,
-
-      user: user
+      user: post.poster
         ? {
-            _id: user._id,
-            name: user.name,
+            _id: post.userId || post.seekerId,
+            name: post.poster.name,
+            profilePicture: post.poster.profilePicture || null,
+            district: post.poster.district || "",
+            telephone: post.poster.telephone || "",
           }
-        : null,
+        : userInfo,
+      applicants: post.appliedBy || [],
     }));
 
     res.status(200).json({
@@ -237,9 +341,11 @@ export const previewPost = async (req, res) => {
   }
 };
 
-
 // =======================================================
 // 5. PUBLISH FINAL POST
+// Embed poster info so we don't have to hit the auth
+// service on every read, and we have a historical
+// snapshot of who created it.
 // =======================================================
 
 export const publishPost = async (req, res) => {
@@ -253,30 +359,43 @@ export const publishPost = async (req, res) => {
       tags,
       urgency,
       userId,
+      seekerId,
+      location,
+      preferredSchedule,
     } = req.body;
 
+    const actualId = seekerId || userId;
 
-    if (!userId) {
+    if (!actualId) {
       return res.status(400).json({
         success: false,
-        error: "User ID is required",
+        error: "Seeker ID is required",
       });
     }
 
-
     // Check whether user exists
-    const user = await getUserById(userId);
+    const user = await getUserById(userId); // ✅ variable is "user"
 
-    if (!user) {
+    if (!user) { // ✅ now checks "user" not "rawUser"
       return res.status(404).json({
         success: false,
         error: "User not found in Auth Service",
       });
     }
 
+    const userInfo = buildUserInfo(user, userId); // ✅ uses "user"
+
+    const posterEmbed = {
+      name: userInfo.name,
+      profilePicture: userInfo.profilePicture,
+      district: userInfo.district,
+      telephone: userInfo.telephone,
+    };
 
     // Create post
     const newPost = new Post({
+      seekerId: actualId,
+      userId: actualId,
       title,
       description,
       image,
@@ -286,20 +405,13 @@ export const publishPost = async (req, res) => {
       userId,
     });
 
-
     await newPost.save();
-
 
     // Return post with user information
     const postResponse = {
       ...newPost.toObject(),
-
-      user: {
-        _id: user._id,
-        name: user.name,
-      },
+      user: userInfo,
     };
-
 
     res.status(201).json({
       success: true,
@@ -318,7 +430,6 @@ export const publishPost = async (req, res) => {
   }
 };
 
-
 // =======================================================
 // 6. UPDATE POST
 // =======================================================
@@ -336,7 +447,6 @@ export const updatePost = async (req, res) => {
         error: "Post not found",
       });
     }
-
 
     if (req.body.title !== undefined) {
       post.title = req.body.title;
@@ -362,26 +472,26 @@ export const updatePost = async (req, res) => {
       post.image = req.body.image;
     }
 
+    if (req.body.budget !== undefined) {
+      post.budget = req.body.budget;
+    }
+
+    if (req.body.location !== undefined) {
+      post.location = { ...post.location, ...req.body.location };
+    }
 
     await post.save();
 
-
-    const user = await getUserById(
+    const rawUser = await getUserById(
       post.userId
     );
 
+    const userInfo = buildUserInfo(rawUser, post.userId);
 
     const postResponse = {
       ...post.toObject(),
-
-      user: user
-        ? {
-            _id: user._id,
-            name: user.name,
-          }
-        : null,
+      user: userInfo,
     };
-
 
     res.status(200).json({
       success: true,
@@ -399,7 +509,6 @@ export const updatePost = async (req, res) => {
     });
   }
 };
-
 
 // =======================================================
 // 7. DELETE POST
@@ -419,7 +528,6 @@ export const deletePost = async (req, res) => {
       });
     }
 
-
     if (
       post.image &&
       fs.existsSync(post.image)
@@ -427,11 +535,9 @@ export const deletePost = async (req, res) => {
       fs.unlinkSync(post.image);
     }
 
-
     await Post.findByIdAndDelete(
       req.params.id
     );
-
 
     res.status(200).json({
       success: true,
@@ -446,5 +552,159 @@ export const deletePost = async (req, res) => {
       success: false,
       error: error.message,
     });
+  }
+};
+
+// =======================================================
+// 8. APPLY TO POST — store applicant info in appliedBy[]
+//    and increment appliedCount.
+// Request body:
+//   { providerId, applicantName?, applicantProfilePicture?,
+//     bidAmount?, note?, role? }
+// =======================================================
+
+export const applyPost = async (req, res) => {
+  try {
+
+    const { id } = req.params;
+    const {
+      providerId,
+      amount,
+      applicantName,
+      applicantProfilePicture,
+      bidAmount,
+      note,
+      role,
+    } = req.body;
+
+    const applicantId = providerId || req.body.applicantId;
+
+    if (!applicantId) {
+      return res.status(400).json({
+        success: false,
+        error: "Applicant / Provider ID is required",
+      });
+    }
+
+    const post = await Post.findById(id);
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        error: "Post not found",
+      });
+    }
+
+    // Try to enrich applicant info from auth service;
+    // fall back to values provided in the request body.
+    let applicantInfo = {
+      name: applicantName || "",
+      profilePicture: applicantProfilePicture || null,
+    };
+
+    const rawApplicant = await getUserById(
+      applicantId,
+      role || "ServiceProvider"
+    );
+    if (rawApplicant) {
+      const enriched = buildUserInfo(rawApplicant, applicantId);
+      applicantInfo.name = applicantInfo.name || enriched.name;
+      applicantInfo.profilePicture =
+        applicantInfo.profilePicture || enriched.profilePicture;
+    }
+
+    const applicantRole =
+      role === "Seeker" ? "Seeker" : "ServiceProvider";
+
+    const newApplicant = {
+      applicantId,
+      role: applicantRole,
+      name: applicantInfo.name || "Service Provider",
+      profilePicture: applicantInfo.profilePicture,
+      bidAmount: typeof bidAmount === "number" ? bidAmount : null,
+      note: note || "",
+    };
+
+    // Remove if this applicant already exists (prevent duplicates)
+    // then add the fresh entry with current timestamp + latest details
+    const deduped = (post.appliedBy || []).filter(
+      (a) => String(a.applicantId) !== String(applicantId)
+    );
+
+    deduped.push(newApplicant);
+    post.appliedBy = deduped;
+    post.appliedCount = deduped.length;
+    await post.save();
+
+    const incrementAmount =
+      amount && amount > 0 ? Number(amount) : 0;
+    if (incrementAmount > 0) {
+      // Legacy support: extra bonus bumps appliedCount more
+      post.appliedCount = (post.appliedCount || deduped.length) + (incrementAmount - 1);
+      await post.save();
+    }
+
+    const rawOwner = await getUserById(post.userId);
+    const ownerInfo = buildUserInfo(rawOwner, post.userId);
+
+    const viewerId = getViewerId(req) || applicantId;
+    const ownerId = post.userId || post.seekerId;
+    const isOwner =
+      !!viewerId && !!ownerId && String(viewerId) === String(ownerId);
+
+    const postLean = post.toObject();
+    const postResponse = sanitizePost(
+      {
+        ...postLean,
+        user: ownerInfo,
+        isOwner,
+        applicants: isOwner ? postLean.appliedBy || [] : undefined,
+      },
+      { viewerId, ownerId }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Applied successfully",
+      post: postResponse,
+      appliedCount: post.appliedCount,
+      alreadyApplied: deduped.length - 1 !== (post.appliedBy || []).length - 1
+        ? false
+        : false,
+    });
+
+  } catch (error) {
+
+    console.error("APPLY POST ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
+// =======================================================
+// GET POST RESPONSES (appliedBy array) – for the post owner
+// =======================================================
+export const getPostResponses = async (req, res) => {
+  try {
+    const { postId } = req.params;
+
+    // Find the post and select only appliedBy
+    const post = await Post.findById(postId).select('appliedBy');
+
+    if (!post) {
+      return res.status(404).json({ success: false, error: 'Post not found' });
+    }
+
+    // Return the appliedBy array (already sorted by createdAt in DB)
+    res.status(200).json({
+      success: true,
+      responses: post.appliedBy || [],
+    });
+  } catch (error) {
+    console.error('Get Post Responses Error:', error.message);
+    res.status(500).json({ success: false, error: 'Failed to fetch responses' });
   }
 };

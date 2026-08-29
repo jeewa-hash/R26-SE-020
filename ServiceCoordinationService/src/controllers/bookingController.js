@@ -1,4 +1,9 @@
 import Booking from "../models/Booking.js";
+import BidCoordination from "../models/BidCoordination.js";
+import BidPriceEvaluation from "../models/BidPriceEvaluation.js";
+import BidScheduleEvaluation from "../models/BidScheduleEvaluation.js";
+import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
+import { updateProviderQuotationCoordination } from "../clients/providerServiceClient.js";
 
 const canAccessBooking = (req, booking) => {
   if (req.user.role === "Admin") return true;
@@ -95,6 +100,208 @@ export const getBookingByPost = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to get booking by post",
+      error: error.message,
+    });
+  }
+};
+
+export const createBookingFromCoordination = async (req, res) => {
+  try {
+    const { coordinationId } = req.params;
+
+    const coordination = await BidCoordination.findById(coordinationId);
+
+    if (!coordination) {
+      return res.status(404).json({
+        success: false,
+        message: "Bid coordination not found",
+      });
+    }
+
+    if (
+      req.user.role === "Seeker" &&
+      coordination.seekerId.toString() !== req.user.id
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only create bookings for your own coordinated bids",
+      });
+    }
+
+    if (
+      !["CAN_ACCEPT", "AVAILABLE_WITH_CAUTION"].includes(
+        coordination.finalDecision
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "This coordination is not ready for booking",
+        finalDecision: coordination.finalDecision,
+      });
+    }
+
+    if (coordination.status !== "ready_for_seeker_review") {
+      return res.status(400).json({
+        success: false,
+        message: "This coordination is not available for booking",
+        currentStatus: coordination.status,
+      });
+    }
+
+    const scheduleEvaluation = await BidScheduleEvaluation.findOne({
+      bidCoordinationId: coordination._id,
+    });
+
+    if (!scheduleEvaluation) {
+      return res.status(404).json({
+        success: false,
+        message: "Schedule evaluation not found for this coordination",
+      });
+    }
+
+    if (scheduleEvaluation.conflictDetected) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot create booking because schedule conflict still exists",
+        conflictReason: scheduleEvaluation.conflictReason,
+      });
+    }
+
+    const priceEvaluation = await BidPriceEvaluation.findOne({
+      bidCoordinationId: coordination._id,
+    });
+
+    if (!priceEvaluation) {
+      return res.status(404).json({
+        success: false,
+        message: "Price evaluation not found for this coordination",
+      });
+    }
+
+    const selectedSuggestedSlot = await BidSuggestedSlot.findOne({
+      bidCoordinationId: coordination._id,
+      status: "SELECTED",
+    }); // Chaw: detects whether seeker selected a coordinated alternative slot
+
+    const existingBooking = await Booking.findOne({
+      bidCoordinationId: coordination._id,
+      bookingStatus: {
+        $ne: "CANCELLED",
+      },
+    });
+
+    if (existingBooking) {
+      return res.status(400).json({
+        success: false,
+        message: "Booking already exists for this coordination",
+        data: existingBooking,
+      });
+    }
+
+    const startDate = new Date(scheduleEvaluation.requiredWindowStart);
+    const endDate = new Date(scheduleEvaluation.requiredWindowEnd);
+
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime())
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid schedule window in schedule evaluation",
+      });
+    }
+
+    const pad = (value) => String(value).padStart(2, "0");
+
+    const scheduledDate = `${startDate.getUTCFullYear()}-${pad(
+      startDate.getUTCMonth() + 1
+    )}-${pad(startDate.getUTCDate())}`;
+
+    const startTime = `${pad(startDate.getUTCHours())}:${pad(
+      startDate.getUTCMinutes()
+    )}`;
+
+    const endTime = `${pad(endDate.getUTCHours())}:${pad(
+      endDate.getUTCMinutes()
+    )}`;
+
+    const booking = await Booking.create({
+      postId: null,
+      providerRequestId: null,
+
+      bidCoordinationId: coordination._id,
+      externalSessionId: coordination.externalSessionId,
+      externalRequestQuotationId: coordination.externalRequestQuotationId,
+      externalQuotationId: coordination.externalQuotationId,
+
+      seekerId: coordination.seekerId,
+      providerId: coordination.providerId,
+
+      initialSchedule: {
+        date: scheduledDate,
+        startTime,
+        endTime,
+      },
+
+      scheduledDate,
+      startTime,
+      endTime,
+
+      estimatedDurationHours:
+        scheduleEvaluation.finalSchedulingDurationHours,
+
+      finalAmount: priceEvaluation.providerQuotedPrice,
+
+      scheduleSource: selectedSuggestedSlot
+        ? "COORDINATED_SUGGESTED_SLOT"
+        : "PROVIDER_PROPOSED_TIME", // Chaw: selected slot means booking time came from coordination engine
+
+      delayRiskLevel:
+        scheduleEvaluation.delayRiskLevel === "NOT_CHECKED"
+          ? "UNKNOWN"
+          : String(scheduleEvaluation.delayRiskLevel).toUpperCase(),
+
+      bookingStatus: "CONFIRMED",
+    });
+
+    coordination.status = "accepted";
+    await coordination.save();
+
+    let providerQuotationUpdate = null;
+    let providerQuotationUpdateWarning = null;
+
+    try {
+      providerQuotationUpdate = await updateProviderQuotationCoordination(
+        coordination.externalQuotationId,
+        coordination.finalDecision,
+        coordination._id.toString(),
+        scheduleEvaluation.requiredWindowStart,
+        scheduleEvaluation.requiredWindowEnd,
+        "ACCEPTED"
+      ); // Chaw: mark Provider Quotation as ACCEPTED after booking is successfully created
+    } catch (updateError) {
+      providerQuotationUpdateWarning = updateError.message;
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Booking created successfully from coordinated bid",
+      data: {
+        booking,
+        coordination,
+        priceEvaluation,
+        scheduleEvaluation,
+        selectedSuggestedSlot,
+        providerQuotationUpdate,
+        providerQuotationUpdateWarning,
+      },
+    });
+  } catch (error) {
+    console.error("CREATE BOOKING FROM COORDINATION ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create booking from coordination",
       error: error.message,
     });
   }

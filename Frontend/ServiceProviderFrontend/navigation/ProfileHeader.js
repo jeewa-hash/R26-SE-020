@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext } from 'react';
+import React, { useState, useRef, useContext, useEffect } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -17,7 +17,7 @@ import { LanguageContext } from '../context/LanguageContext';
 import SettingsScreen from '../screens/SettingsScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearCredentials } from '../utils/biometricAuth';
-import { CommonActions } from '@react-navigation/native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const SIDEBAR_WIDTH = width * 0.72;
@@ -28,42 +28,75 @@ const LANGUAGES = [
 ];
 
 const SIDEBAR_MENU = [
-  { id: '1', icon: 'edit',           label: 'Edit Profile',   route: 'EditProfile',  color: '#2563EB', bg: '#EFF6FF' },
-  { id: '2', icon: 'bar-chart',      label: 'Performance',    route: 'Stats',        color: '#7C3AED', bg: '#F5F3FF' },
-  { id: '3', icon: 'emoji-events',   label: 'My Badges',      route: 'Badges',       color: '#F59E0B', bg: '#FFFBEB' },
-  { id: '4', icon: 'credit-card',    label: 'Subscription',   route: 'Subscription', color: '#059669', bg: '#ECFDF5' },
-  { id: '5', icon: 'settings',       label: 'Settings',       route: 'Settings',     color: '#6B7280', bg: '#F9FAFB' },
-  { id: '6', icon: 'help-outline',   label: 'Help & Support', route: 'Help',         color: '#0891B2', bg: '#ECFEFF' },
+  { id: '1', icon: 'edit', label: 'Edit Profile', route: 'EditProfile', color: '#2563EB', bg: '#EFF6FF' },
+  { id: '2', icon: 'bar-chart', label: 'Performance', route: 'Stats', color: '#7C3AED', bg: '#F5F3FF' },
+  { id: '3', icon: 'emoji-events', label: 'My Badges', route: 'Badges', color: '#F59E0B', bg: '#FFFBEB' },
+  { id: '4', icon: 'credit-card', label: 'Subscription', route: 'Subscription', color: '#059669', bg: '#ECFDF5' },
+  { id: '5', icon: 'settings', label: 'Settings', route: 'Settings', color: '#6B7280', bg: '#F9FAFB' },
+  { id: '6', icon: 'help-outline', label: 'Help & Support', route: 'Help', color: '#0891B2', bg: '#ECFEFF' },
 ];
 
-export default function ProfileHeader({ navigation, onLogout }) {
+export default function ProfileHeader({ 
+  navigation: propNavigation, 
+  onLogout, 
+  externalVisible = false, 
+  onClose = null,
+  userName = 'Kasun Perera',
+  userInitials = 'KP',
+}) {
   const { i18n } = useTranslation();
   const { isDark, toggleTheme } = useContext(ThemeContext);
   const { language, setLanguage } = useContext(LanguageContext);
+  
+  // Use prop navigation or fallback to useNavigation hook
+  const navigation = propNavigation || useNavigation();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const sideAnim   = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
+  const sideAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
+
+  // Control sidebar from external props
+  useEffect(() => {
+    if (externalVisible) {
+      openSidebar();
+    } else {
+      closeSidebar();
+    }
+  }, [externalVisible]);
 
   const openSidebar = () => {
     setSidebarOpen(true);
     Animated.parallel([
-      Animated.spring(sideAnim,    { toValue: 0,    useNativeDriver: true, tension: 65, friction: 11 }),
-      Animated.timing(overlayAnim, { toValue: 1,    duration: 250,         useNativeDriver: true }),
+      Animated.spring(sideAnim, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }),
+      Animated.timing(overlayAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
     ]).start();
   };
 
   const closeSidebar = () => {
     Animated.parallel([
-      Animated.spring(sideAnim,    { toValue: SIDEBAR_WIDTH, useNativeDriver: true, tension: 65, friction: 11 }),
-      Animated.timing(overlayAnim, { toValue: 0,             duration: 200,         useNativeDriver: true }),
-    ]).start(() => setSidebarOpen(false));
+      Animated.spring(sideAnim, { toValue: SIDEBAR_WIDTH, useNativeDriver: true, tension: 65, friction: 11 }),
+      Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => {
+      setSidebarOpen(false);
+      if (onClose) onClose(); // Call external close handler
+    });
   };
 
   const handleNav = (route) => {
     closeSidebar();
-    if (route) setTimeout(() => navigation.navigate(route), 300);
+    if (route) {
+      setTimeout(() => {
+        try {
+          navigation.navigate(route);
+        } catch (error) {
+          console.log('Navigation error:', error);
+          if (navigation.getParent) {
+            navigation.getParent()?.navigate(route);
+          }
+        }
+      }, 300);
+    }
   };
 
   const changeLanguage = (code) => {
@@ -72,17 +105,17 @@ export default function ProfileHeader({ navigation, onLogout }) {
   };
 
   const handleLogout = async () => {
-  await clearCredentials();
-  await AsyncStorage.removeItem('userToken');
-  await AsyncStorage.removeItem('userRole');
+    await clearCredentials();
+    await AsyncStorage.removeItem('userToken');
+    await AsyncStorage.removeItem('userRole');
 
-  navigation.dispatch(
-    CommonActions.reset({
-      index: 0,
-      routes: [{ name: 'Login' }],
-    })
-  );
-};
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      })
+    );
+  };
 
   return (
     <>
@@ -103,6 +136,7 @@ export default function ProfileHeader({ navigation, onLogout }) {
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.iconBtn, { backgroundColor: isDark ? '#2c2c2e' : '#F5F5F7', borderColor: isDark ? '#3a3a3c' : '#EBEBEB' }]}
+            onPress={() => navigation.navigate('Notifications')}
           >
             <MaterialIcons name="notifications-none" size={20} color={isDark ? '#F2F2F7' : '#111'} />
             <View style={[styles.notifDot, { borderColor: isDark ? '#1c1c1e' : '#fff' }]} />
@@ -131,7 +165,6 @@ export default function ProfileHeader({ navigation, onLogout }) {
       {/* ── Right Sidebar ── */}
       <Animated.View style={[styles.sidebar, { backgroundColor: isDark ? '#1c1c1e' : '#fff', transform: [{ translateX: sideAnim }] }]}>
         <ScrollView showsVerticalScrollIndicator={false}>
-
           {/* Sidebar header */}
           <LinearGradient
             colors={['#1D4ED8', '#7C3AED']}
@@ -158,10 +191,10 @@ export default function ProfileHeader({ navigation, onLogout }) {
 
             {/* User info */}
             <View style={styles.sidebarAvatar}>
-              <Text style={styles.sidebarAvatarText}>KP</Text>
+              <Text style={styles.sidebarAvatarText}>{userInitials}</Text>
             </View>
-            <Text style={styles.sidebarName}>Kasun Perera</Text>
-            <Text style={styles.sidebarHandle}>@kasunperera</Text>
+            <Text style={styles.sidebarName}>{userName}</Text>
+            <Text style={styles.sidebarHandle}>@{userName.toLowerCase().replace(' ', '')}</Text>
             <View style={styles.sidebarBadge}>
               <MaterialIcons name="emoji-events" size={11} color="#FAC775" />
               <Text style={styles.sidebarBadgeText}>Top Rated Pro</Text>
@@ -177,9 +210,14 @@ export default function ProfileHeader({ navigation, onLogout }) {
                 <View key={item.id}>
                   <TouchableOpacity
                     style={styles.menuRow}
-                    onPress={() =>
-                      isSettings ? setSettingsOpen(!settingsOpen) : handleNav(item.route)
-                    }
+                    onPress={() => {
+                      if (isSettings) {
+                        setSettingsOpen(!settingsOpen);
+                      } else {
+                        console.log(`Navigating to: ${item.route}`);
+                        handleNav(item.route);
+                      }
+                    }}
                     activeOpacity={0.6}
                   >
                     <View style={[styles.menuIconBox, { backgroundColor: item.bg }]}>
@@ -193,7 +231,7 @@ export default function ProfileHeader({ navigation, onLogout }) {
                     />
                   </TouchableOpacity>
 
-                  {/* Settings dropdown (App Lock) */}
+                  {/* Settings dropdown */}
                   {isSettings && settingsOpen && <SettingsScreen isDark={isDark} />}
 
                   {index < SIDEBAR_MENU.length - 1 && (
@@ -258,8 +296,8 @@ export default function ProfileHeader({ navigation, onLogout }) {
 
           {/* Logout */}
           <TouchableOpacity
-           style={[styles.logoutBtn, { backgroundColor: isDark ? '#2d0f0f' : '#FEF2F2', borderColor: isDark ? '#501313' : '#FECACA' }]}
-           onPress={handleLogout}
+            style={[styles.logoutBtn, { backgroundColor: isDark ? '#2d0f0f' : '#FEF2F2', borderColor: isDark ? '#501313' : '#FECACA' }]}
+            onPress={handleLogout}
           >
             <MaterialIcons name="logout" size={18} color="#DC2626" />
             <Text style={styles.logoutText}>Log Out</Text>
@@ -268,7 +306,6 @@ export default function ProfileHeader({ navigation, onLogout }) {
           <Text style={[styles.versionText, { color: isDark ? '#3a3a3c' : '#D1D5DB' }]}>
             LocalPro v1.0.0 · SLIIT R26-SE-020
           </Text>
-
         </ScrollView>
       </Animated.View>
     </>
@@ -431,8 +468,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sidebarAvatarText: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
-  sidebarName:       { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 3 },
-  sidebarHandle:     { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 10 },
+  sidebarName: { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 3 },
+  sidebarHandle: { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 10 },
   sidebarBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -445,17 +482,17 @@ const styles = StyleSheet.create({
   sidebarBadgeText: { fontSize: 12, color: '#fff', fontWeight: '600' },
 
   /* Menu */
-  menuSection:      { padding: 16 },
+  menuSection: { padding: 16 },
   menuSectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 10, marginLeft: 4 },
-  menuRow:          { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  menuIconBox:      { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  menuLabel:        { flex: 1, fontSize: 14, fontWeight: '500' },
-  menuDivider:      { height: 0.5 },
+  menuRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  menuIconBox: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  menuLabel: { flex: 1, fontSize: 14, fontWeight: '500' },
+  menuDivider: { height: 0.5 },
 
   /* Language */
-  langPills:        { flexDirection: 'row', gap: 8, paddingLeft: 50, paddingBottom: 8 },
-  langPill:         { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 0.5 },
-  langPillText:     { fontSize: 13, fontWeight: '600' },
+  langPills: { flexDirection: 'row', gap: 8, paddingLeft: 50, paddingBottom: 8 },
+  langPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 0.5 },
+  langPillText: { fontSize: 13, fontWeight: '600' },
 
   /* Logout */
   logoutBtn: {
@@ -467,6 +504,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
   },
-  logoutText:   { fontSize: 14, fontWeight: '600', color: '#DC2626' },
-  versionText:  { textAlign: 'center', fontSize: 11, marginBottom: 32 },
+  logoutText: { fontSize: 14, fontWeight: '600', color: '#DC2626' },
+  versionText: { textAlign: 'center', fontSize: 11, marginBottom: 32 },
 });

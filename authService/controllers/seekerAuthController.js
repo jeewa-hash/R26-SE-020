@@ -272,3 +272,73 @@ exports.getUserById = async (req, res) => {
     });
   }
 };
+
+
+exports.updateProfileById = async (req, res) => {
+  try {
+    const { userId } = req.params; // passed in URL
+    const { name, telephone, district, location, profilePicture } = req.body;
+
+    const seeker = await Seeker.findById(userId);
+    if (!seeker) {
+      return res.status(404).json({ message: 'Seeker not found' });
+    }
+
+    if (name !== undefined) seeker.name = name;
+    if (telephone !== undefined) seeker.telephone = telephone;
+    if (district !== undefined) seeker.district = district;
+    if (location !== undefined) {
+      if (location.latitude !== undefined) seeker.location.latitude = location.latitude;
+      if (location.longitude !== undefined) seeker.location.longitude = location.longitude;
+    }
+    if (profilePicture !== undefined) seeker.profilePicture = profilePicture;
+
+    await seeker.save();
+
+    const updatedSeeker = await Seeker.findById(userId)
+      .select('-password -otp -otpExpires -__v');
+
+    res.status(200).json({
+      message: 'Profile updated successfully (insecure)',
+      user: updatedSeeker,
+    });
+
+  } catch (error) {
+    console.error('INSECURE UPDATE PROFILE ERROR:', error.message);
+    res.status(500).json({ message: 'Server error while updating profile' });
+  }
+};
+
+// ─── UPDATE PROFILE PICTURE (accepts any field name) ──
+exports.updateProfilePicture = async (req, res) => {
+  try {
+    const userId = req.user.id; // from verifyToken middleware
+
+    // Check if any file was uploaded (regardless of field name)
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    const file = req.files[0]; // take the first uploaded file
+
+    const seeker = await Seeker.findById(userId);
+    if (!seeker) {
+      return res.status(404).json({ message: 'Seeker not found' });
+    }
+
+    // Update profilePicture with the file path
+    seeker.profilePicture = file.path;
+    await seeker.save();
+
+    const updatedSeeker = await Seeker.findById(userId)
+      .select('-password -otp -otpExpires -__v');
+
+    res.status(200).json({
+      message: 'Profile picture updated successfully',
+      user: updatedSeeker,
+    });
+  } catch (error) {
+    console.error('UPDATE PROFILE PICTURE ERROR:', error.message);
+    res.status(500).json({ message: 'Server error while updating profile picture' });
+  }
+};

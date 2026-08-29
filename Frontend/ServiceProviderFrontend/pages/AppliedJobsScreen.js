@@ -33,8 +33,8 @@ export default function AppliedJobsScreen() {
 
   const isSi = require('../locales').default.language === 'si';
   const statusCounts = getStatusCounts();
-  
-  const filteredJobs = getJobsByStatus(selectedStatus).filter(job =>
+
+  const filteredJobs = getJobsByStatus(selectedStatus).filter((job) =>
     job.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
     job.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
     job.location.toLowerCase().includes(searchQuery.toLowerCase())
@@ -55,7 +55,11 @@ export default function AppliedJobsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Search Bar */}
       <View style={styles.searchWrapper}>
         <View style={styles.searchContainer}>
@@ -84,14 +88,14 @@ export default function AppliedJobsScreen() {
         {STATUS_FILTERS.map((filter) => {
           const count = statusCounts[filter.key];
           const isActive = selectedStatus === filter.key;
-          
+
           return (
             <TouchableOpacity
               key={filter.key}
               style={[
                 styles.filterChip,
                 isActive && styles.filterChipActive,
-                filter.key !== 'all' && isActive && { backgroundColor: filter.color }
+                filter.key !== 'all' && isActive && { backgroundColor: filter.color },
               ]}
               onPress={() => setSelectedStatus(filter.key)}
             >
@@ -100,21 +104,27 @@ export default function AppliedJobsScreen() {
                 size={16}
                 color={isActive ? '#FFFFFF' : filter.key !== 'all' ? filter.color : '#6B7280'}
               />
-              <Text style={[
-                styles.filterChipText,
-                isActive && styles.filterChipTextActive
-              ]}>
+              <Text
+                style={[
+                  styles.filterChipText,
+                  isActive && styles.filterChipTextActive,
+                ]}
+              >
                 {filter.label}
               </Text>
               {count > 0 && (
-                <View style={[
-                  styles.filterCount,
-                  isActive && styles.filterCountActive
-                ]}>
-                  <Text style={[
-                    styles.filterCountText,
-                    isActive && styles.filterCountTextActive
-                  ]}>
+                <View
+                  style={[
+                    styles.filterCount,
+                    isActive && styles.filterCountActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterCountText,
+                      isActive && styles.filterCountTextActive,
+                    ]}
+                  >
                     {count}
                   </Text>
                 </View>
@@ -131,20 +141,23 @@ export default function AppliedJobsScreen() {
         </Text>
       </View>
 
-      {/* Applied Jobs List */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.appliedList}
-      >
+      {/* Applied Jobs List Container (Standard View instead of nested ScrollView) */}
+      <View style={styles.appliedList}>
         {filteredJobs.map((job) => {
-          const status = Object.values(JOB_STATUS).find((s) => s.key === job.status);
+          const status =
+            Object.values(JOB_STATUS).find((s) => s.key === job.status) || JOB_STATUS.PENDING;
           const categoryColor = CATEGORY_COLORS[job.category] || '#7C3AED';
-          const initials = job.customer.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
-          
+          const initials = job.customer
+            .split(' ')
+            .map((n) => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+
           return (
             <View key={job.id} style={styles.appliedCard}>
               <View style={[styles.appliedCardStatus, { backgroundColor: status.color }]} />
-              
+
               <View style={styles.appliedCardContent}>
                 <View style={styles.appliedCardHeader}>
                   <View style={[styles.appliedAvatar, { backgroundColor: categoryColor + '15' }]}>
@@ -152,21 +165,33 @@ export default function AppliedJobsScreen() {
                       {initials}
                     </Text>
                   </View>
-                  
+
                   <View style={styles.appliedInfo}>
                     <Text style={styles.appliedName}>{job.customer}</Text>
                     <View style={styles.appliedMeta}>
                       <MaterialIcons name="location-on" size={12} color="#9CA3AF" />
-                      <Text style={styles.appliedMetaText}>{job.location}</Text>
+                      <Text style={styles.appliedMetaText}>
+                        {typeof job.location === 'object'
+                          ? job.location.address ||
+                            job.location.city ||
+                            job.location.district ||
+                            'Unknown location'
+                          : job.location || 'Unknown location'}
+                      </Text>
                       <View style={styles.appliedMetaDot} />
-                      <View style={[styles.appliedCategory, { backgroundColor: categoryColor + '10' }]}>
+                      <View
+                        style={[
+                          styles.appliedCategory,
+                          { backgroundColor: categoryColor + '10' },
+                        ]}
+                      >
                         <Text style={[styles.appliedCategoryText, { color: categoryColor }]}>
                           {job.category}
                         </Text>
                       </View>
                     </View>
                   </View>
-                  
+
                   <Text style={styles.appliedBudget}>{job.budget}</Text>
                 </View>
 
@@ -178,8 +203,11 @@ export default function AppliedJobsScreen() {
                   <View style={styles.appliedDate}>
                     <MaterialIcons name="access-time" size={12} color="#9CA3AF" />
                     <Text style={styles.appliedDateText}>
-                      Applied {new Date(job.appliedAt).toLocaleDateString('en-US', {
-                        day: 'numeric', month: 'short', year: 'numeric'
+                      Applied{' '}
+                      {new Date(job.appliedAt).toLocaleDateString('en-US', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
                       })}
                     </Text>
                   </View>
@@ -210,15 +238,18 @@ export default function AppliedJobsScreen() {
             </View>
           );
         })}
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  scrollContent: { paddingBottom: 20 },
+
+  contentContainer: {
+    paddingTop: 16,
+    paddingBottom: 120, // Provides extra space at bottom to clear navigation bars
   },
   searchWrapper: {
     paddingHorizontal: 20,
@@ -295,9 +326,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   appliedList: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
+  paddingHorizontal: 20,
+  paddingBottom: 120,
+  gap: 12,
+},
   appliedCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -381,7 +413,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    
   },
   appliedDate: {
     flexDirection: 'row',
