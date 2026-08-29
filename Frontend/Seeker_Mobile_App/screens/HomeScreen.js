@@ -1,284 +1,158 @@
-import React, { useContext, useState, useRef, useEffect, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, Image, SafeAreaView, LayoutAnimation, Platform,
-  UIManager, Dimensions, Alert, FlatList, StatusBar
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Image,
+  SafeAreaView,
+  StatusBar,
+  Alert,
+  Platform,
 } from 'react-native';
-import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
-import * as ImagePicker from 'expo-image-picker';
-import { useTranslation } from 'react-i18next';
-import { LanguageContext } from '../context/LanguageContext';
-import { getSlideshowData } from '../data/seasonalData';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import BottomNav from '../components/BottomNav';
-import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../context/AuthContext';
 import { IP_ADDRESS } from '../config';
-import { useChat } from '../context/ChatContext';
-import { useNotification } from '../context/NotificationContext';
 
-const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
-const BASE_AUTH_URL = `http://${IP_ADDRESS}:4003`; // For images
+const BASE_AUTH_URL = `http://${IP_ADDRESS}:4003`;
 
-// ─── Helper: Build full image URL ──────────────────────────
 const getFullImageUrl = (imagePath) => {
   if (!imagePath) return null;
   if (imagePath.startsWith('http')) return imagePath;
-  // If relative path (e.g., "uploads/xxx.jpg"), prepend base URL
   return `${BASE_AUTH_URL}/${imagePath.replace(/^\/+/, '')}`;
 };
 
-// ─── Android layout animation fix ──────────────────────────
-if (
-  Platform.OS === 'android' &&
-  UIManager.setLayoutAnimationEnabledExperimental &&
-  !global.nativeFabricUIManager
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-const { width } = Dimensions.get('window');
-
-// ─── Static data ─────────────────────────────────────────────
-const SUGGESTED_PROVIDERS = [
+const menuSections = [
   {
-    id: 's1',
-    name: 'Dilshan Perera',
-    category: 'Electrical',
-    rating: 4.9,
-    reviews: 124,
-    distance: '1.2 km',
-    image: 'https://randomuser.me/api/portraits/men/32.jpg',
-    isOnline: true,
-    reason: 'Top Rated in Electrical'
+    title: 'Activity',
+    items: [
+      {
+        id: 'bookings',
+        label: 'My Bookings',
+        description: 'View current and previous bookings',
+        icon: 'calendar-outline',
+        iconType: 'ion',
+        route: 'BookingsScreen',
+      },
+      {
+        id: 'my-jobs',
+        label: 'My Jobs',
+        description: 'Track quotations, coordination and scheduled jobs',
+        icon: 'work-outline',
+        iconType: 'material',
+        route: 'MyJobsScreen',
+      },
+      {
+        id: 'bids',
+        label: 'My Bids',
+        description: 'View submitted bids and responses',
+        icon: 'gavel',
+        iconType: 'material',
+        route: 'MyBidsScreen',
+      },
+      {
+        id: 'posts',
+        label: 'My Posts',
+        description: 'Manage your service requests',
+        icon: 'article',
+        iconType: 'material',
+        route: 'MyPostsScreen',
+      },
+      {
+        id: 'history',
+        label: 'History',
+        description: 'Completed and cancelled activities',
+        icon: 'time-outline',
+        iconType: 'ion',
+        route: 'HistoryScreen',
+      },
+    ],
   },
   {
-    id: 's2',
-    name: 'Saman Kumara',
-    category: 'Plumbing',
-    rating: 4.8,
-    reviews: 89,
-    distance: '0.8 km',
-    image: 'https://randomuser.me/api/portraits/men/45.jpg',
-    isOnline: false,
-    reason: 'Recently Used Category'
+    title: 'Payments & Rewards',
+    items: [
+      {
+        id: 'points',
+        label: 'Star Points',
+        description: 'View your rewards and points',
+        icon: 'star-outline',
+        iconType: 'ion',
+        route: 'StarPointsScreen',
+      },
+      {
+        id: 'payment',
+        label: 'Payment',
+        description: 'Manage payment methods',
+        icon: 'card-outline',
+        iconType: 'ion',
+        route: 'PaymentScreen',
+      },
+      {
+        id: 'analytics',
+        label: 'Spend Analytics',
+        description: 'Track spending by service category',
+        icon: 'bar-chart-outline',
+        iconType: 'ion',
+        route: 'SpendAnalyticsScreen',
+      },
+    ],
   },
   {
-    id: 's3',
-    name: 'Priya Silva',
-    category: 'Cleaning',
-    rating: 4.7,
-    reviews: 156,
-    distance: '2.5 km',
-    image: 'https://randomuser.me/api/portraits/women/44.jpg',
-    isOnline: true,
-    reason: 'Nearby in Cleaning'
+    title: 'Settings & Support',
+    items: [
+      {
+        id: 'settings',
+        label: 'Settings',
+        description: 'App preferences and account settings',
+        icon: 'settings-outline',
+        iconType: 'ion',
+        route: 'SettingsScreen',
+      },
+      {
+        id: 'help',
+        label: 'Help & Support',
+        description: 'Get help with your account',
+        icon: 'help-circle-outline',
+        iconType: 'ion',
+        route: 'HelpScreen',
+      },
+    ],
   },
-  {
-    id: 's4',
-    name: 'Aruna Jayasuriya',
-    category: 'Gardening',
-    rating: 4.9,
-    reviews: 67,
-    distance: '3.1 km',
-    image: 'https://randomuser.me/api/portraits/men/62.jpg',
-    isOnline: true,
-    reason: 'Most Used Category'
-  }
 ];
 
-const CATEGORIES = [
-  {
-    id: 1, title: 'Repairing Services', icon: 'build', color: '#FF6B6B',
-    subcategories: ['Electrical', 'Plumbing', 'Furniture', 'Painting & Reno']
-  },
-  {
-    id: 2, title: 'Cleaning Services', icon: 'cleaning-services', color: '#4ECDC4',
-    subcategories: ['House Cleaning', 'Post-Construction', 'Move-in/out', 'Sofa/Carpet']
-  },
-  {
-    id: 3, title: 'Gardening Services', icon: 'grass', color: '#45B7D1',
-    subcategories: ['Maintenance', 'Landscaping', 'Planting']
-  },
-  {
-    id: 4, title: 'Care & Personal', icon: 'volunteer-activism', color: '#96CEB4',
-    subcategories: ['Child Care', 'Elderly Care', 'Pet Care', 'Personal Asst']
+const renderIcon = (item, color) => {
+  if (item.iconType === 'material') {
+    return <MaterialIcons name={item.icon} size={22} color={color} />;
   }
-];
 
-// ─── Slideshow Component ──────────────────────────────────
-const Slideshow = ({ isDarkMode }) => {
+  if (item.iconType === 'feather') {
+    return <Feather name={item.icon} size={22} color={color} />;
+  }
+
+  return <Ionicons name={item.icon} size={22} color={color} />;
+};
+
+export default function ProfileScreen() {
   const navigation = useNavigation();
-  const flatListRef = useRef();
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const slideshowData = getSlideshowData();
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (flatListRef.current && slideshowData.length > 0) {
-        const nextIndex = (currentIndex + 1) % slideshowData.length;
-        setCurrentIndex(nextIndex);
-        flatListRef.current.scrollToIndex({ index: nextIndex, animated: true });
-      }
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [currentIndex, slideshowData.length]);
-
-  const renderSlide = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.slideCard, isDarkMode && styles.slideCardDark]}
-      onPress={() => navigation.navigate("SeasonalDemandsScreen")}
-      activeOpacity={0.95}
-    >
-      <Image source={{ uri: item.image }} style={styles.slideImage} />
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.8)']}
-        style={styles.slideOverlay}
-      >
-        <View style={styles.slideContent}>
-          <Text style={styles.slideTitle}>{item.title}</Text>
-          <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
-          <View style={styles.slideButton}>
-            <Text style={styles.slideButtonText}>Explore Now →</Text>
-          </View>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
-
-  const renderDot = () => (
-    <View style={styles.dotContainer}>
-      {slideshowData.map((_, index) => (
-        <View
-          key={index}
-          style={[
-            styles.dot,
-            currentIndex === index && styles.activeDot,
-          ]}
-        />
-      ))}
-    </View>
-  );
-
-  if (slideshowData.length === 0) return null;
-
-  return (
-    <View style={styles.slideshowContainer}>
-      <FlatList
-        ref={flatListRef}
-        data={slideshowData}
-        renderItem={renderSlide}
-        keyExtractor={(item) => item.id.toString()}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event) => {
-          const index = Math.round(event.nativeEvent.contentOffset.x / (width - 32));
-          setCurrentIndex(index);
-        }}
-      />
-      {renderDot()}
-    </View>
-  );
-};
-
-// ─── Service Card Component ───────────────────────────────
-const ServiceCard = ({ category, expanded, onPress, onSubPress, onImageUpload, isDarkMode }) => {
-  return (
-    <View style={[styles.accordionContainer, isDarkMode && styles.accordionContainerDark]}>
-      <TouchableOpacity
-        style={styles.mainCategory}
-        onPress={onPress}
-        activeOpacity={0.7}
-      >
-        <View style={styles.mainCategoryLeft}>
-          <LinearGradient
-            colors={[category.color, `${category.color}CC`]}
-            style={styles.iconBoxGradient}
-          >
-            <MaterialIcons name={category.icon} size={22} color="#fff" />
-          </LinearGradient>
-          <View>
-            <Text style={[styles.mainTitle, isDarkMode && styles.textDark]}>{category.title}</Text>
-            <Text style={[styles.subtitleCount, isDarkMode && styles.textMutedDark]}>{category.subcategories.length} services available</Text>
-          </View>
-        </View>
-        <View style={[styles.expandIcon, isDarkMode && styles.expandIconDark, expanded && styles.expandIconActive]}>
-          <MaterialIcons
-            name={expanded ? "keyboard-arrow-up" : "keyboard-arrow-down"}
-            size={24}
-            color={isDarkMode ? "#818cf8" : "#667eea"}
-          />
-        </View>
-      </TouchableOpacity>
-
-      {expanded && (
-        <View style={[styles.subGrid, isDarkMode && styles.subGridDark]}>
-          {category.subcategories.map((sub, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[styles.subThumbnail, isDarkMode && styles.subThumbnailDark]}
-              onPress={() => onSubPress(sub)}
-            >
-              <View style={[styles.subIconCircle, { backgroundColor: `${category.color}15` }]}>
-                <MaterialIcons name="check-circle" size={14} color={category.color} />
-              </View>
-              <Text style={[styles.subText, isDarkMode && styles.textDark]}>{sub}</Text>
-            </TouchableOpacity>
-          ))}
-
-          {category.id === 1 && (
-            <TouchableOpacity style={styles.specialUploadBtn} activeOpacity={0.8} onPress={onImageUpload}>
-              <LinearGradient
-                colors={isDarkMode ? ['#6366f1', '#4f46e5'] : ['#667eea', '#764ba2']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientButton}
-              >
-                <Feather name="camera" size={18} color="#fff" />
-                <Text style={styles.uploadText}>Upload Photo for Repair</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-    </View>
-  );
-};
-
-// ─── Main Component ──────────────────────────────────────
-export default function HomeScreen() {
-  const { t } = useTranslation();
-  const { language } = useContext(LanguageContext);
-  const { user } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
-  const { unreadCount } = useChat();
-  const { unreadCount: notificationUnreadCount } = useNotification();
+  const { user, logout } = useAuth();
 
-  const [userState, setUserState] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const navigation = useNavigation();
-
-  // Total unread messages across all chats
-  const totalUnreadMessages = Object.values(unreadCount).reduce(
-    (sum, count) => sum + count,
-    0
-  );
+  const [storedUser, setStoredUser] = useState(null);
 
   const loadUserDetails = useCallback(async () => {
     try {
       const userData = await AsyncStorage.getItem('user');
+
       if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUserState(parsedUser);
+        setStoredUser(JSON.parse(userData));
       }
     } catch (error) {
-      console.log("Error loading user:", error);
+      console.log('Profile user load error:', error);
     }
   }, []);
 
@@ -286,11 +160,15 @@ export default function HomeScreen() {
     loadUserDetails();
   }, [loadUserDetails]);
 
-  // Combine user from AuthContext and AsyncStorage
-  const displayUser = user || userState;
+  useFocusEffect(
+    useCallback(() => {
+      loadUserDetails();
+    }, [loadUserDetails])
+  );
 
-  // ─── Extract display name – SAFE: ensures string ──────
-  const userDisplayName =
+  const displayUser = user || storedUser || {};
+
+  const displayName =
     typeof displayUser?.name === 'string' && displayUser.name
       ? displayUser.name
       : typeof displayUser?.fullName === 'string' && displayUser.fullName
@@ -299,873 +177,482 @@ export default function HomeScreen() {
       ? displayUser.username
       : typeof displayUser?.email === 'string'
       ? displayUser.email.split('@')[0]
-      : 'User';
+      : 'Seeker';
 
-  // ─── Get correct profile image URL ──────────────────────
+  const email =
+    typeof displayUser?.email === 'string' && displayUser.email
+      ? displayUser.email
+      : 'No email added';
+
+  const phone =
+    typeof displayUser?.phone === 'string' && displayUser.phone
+      ? displayUser.phone
+      : typeof displayUser?.telephone === 'string' && displayUser.telephone
+      ? displayUser.telephone
+      : 'No phone added';
+
+  const district =
+    typeof displayUser?.district === 'string' && displayUser.district
+      ? displayUser.district
+      : 'No district added';
+
   const profileImageUrl =
     getFullImageUrl(displayUser?.profileImage || displayUser?.avatar) ||
     'https://i.pravatar.cc/150?img=7';
 
-  const toggleExpand = (id) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedId(expandedId === id ? null : id);
+  const handleMenuPress = (item) => {
+    if (!item.route) return;
+    navigation.navigate(item.route);
   };
 
-  const handleProfilePress = () => navigation.navigate("ProfileScreen");
-  const handleChatPress = () => navigation.navigate("ChatListScreen");
-  const handleNotifications = () => navigation.navigate("NotificationScreen");
-
-  const handleSubCategoryPress = (subcategory) => {
-    Alert.alert('Service Selected', `${subcategory} service will be available soon`);
-  };
-
-  const handleSearch = async () => {
-    if (searchQuery.trim().length === 0) return;
-
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      console.log('🔑 Token for text search:', token);
-
-      if (!token) {
-        Alert.alert('Error', 'You are not logged in. Please log in again.');
-        return;
-      }
-
-      const appLanguage = language === 'si' ? 'si' : 'en';
-      const url = `http://10.0.2.2:5002/text-predict`;
-      console.log('🌐 URL:', url);
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
         },
-        body: JSON.stringify({
-          text: searchQuery,
-          app_lan: appLanguage,
-        }),
-      });
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem('userToken');
+              await AsyncStorage.removeItem('userRole');
+              await AsyncStorage.removeItem('user');
 
-      console.log('📡 Response status:', response.status);
-
-      if (response.status === 401) {
-        Alert.alert('Session Expired', 'Please log in again.');
-        return;
-      }
-
-      const data = await response.json();
-      console.log('📦 Response data:', data);
-
-      if (data.session_id) {
-        navigation.navigate('FollowUpScreen', {
-          initialMessage: searchQuery,
-          backendResponse: data,
-          source: 'text',
-        });
-      } else {
-        Alert.alert('Error', data.error || 'Unable to process your request.');
-      }
-    } catch (error) {
-      console.error('Search error:', error);
-      Alert.alert('Network Error', 'Could not connect to the service.');
-    }
-  };
-
-  const handleImageUpload = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        Alert.alert('Error', 'You are not logged in. Please log in again.');
-        return;
-      }
-
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(t('common_error'), t('home_permission_gallery'));
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
-      });
-
-      if (result.canceled) return;
-
-      const imageUri = result.assets[0].uri;
-      const formData = new FormData();
-
-      formData.append('file', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'photo.jpg',
-      });
-      formData.append('app_lan', language === 'si' ? 'si' : 'en');
-
-      const response = await fetch('http://10.0.2.2:8000/predict', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.status === 401) {
-        Alert.alert('Session Expired', 'Please log in again.');
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.session_id) {
-        Alert.alert(
-          t('home_detection_result'),
-          `${data.agent_speech}`,
-          [
-            {
-              text: t('common_ok'),
-              onPress: () => {
-                navigation.navigate('FollowUpScreen', {
-                  session_id: data.session_id,
-                  initialQuestion: data.next_question,
-                  category: data.category,
-                  source: 'image',
-                });
+              if (typeof logout === 'function') {
+                await logout();
               }
+
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              console.log('Logout error:', error);
+              Alert.alert('Error', 'Unable to logout. Please try again.');
             }
-          ]
-        );
-      } else {
-        Alert.alert(t('common_error'), t('home_no_object_detected'));
-      }
-    } catch (error) {
-      console.log('UPLOAD ERROR:', error);
-      Alert.alert(t('common_error'), 'Server connection failed. Please check if the backend is running.');
-    }
+          },
+        },
+      ]
+    );
   };
 
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isDarkMode ? "#0f1121" : "#667eea"}
+        backgroundColor={isDarkMode ? '#0f1121' : '#667eea'}
       />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ─── Header ─── */}
         <LinearGradient
-          colors={isDarkMode ? ['#0f1121', '#1a1a2e', '#16213e'] : ['#4765eb', '#926ee7', '#9d6aa3']}
+          colors={
+            isDarkMode
+              ? ['#0f1121', '#1a1a2e', '#16213e']
+              : ['#4765eb', '#926ee7', '#9d6aa3']
+          }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
-          {/* Upper Dashboard Bar */}
-          <View style={styles.headerTopBar}>
-            <View style={[styles.dashboardBadge, isDarkMode && styles.dashboardBadgeDark]}>
-              <Ionicons name="sparkles" size={12} color="#FBBF24" />
-              <Text style={styles.dashboardBadgeText}>Seeker Dashboard</Text>
-            </View>
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="arrow-back" size={22} color="#fff" />
+            </TouchableOpacity>
+
+            <Text style={styles.headerTitle}>Profile</Text>
 
             <TouchableOpacity
-              style={[styles.upperThemePill, isDarkMode && styles.upperThemePillDark]}
+              style={styles.headerIconButton}
               onPress={toggleTheme}
               activeOpacity={0.8}
             >
-              <View style={[styles.themePillKnob, isDarkMode && styles.themePillKnobDark]}>
-                <Ionicons
-                  name={isDarkMode ? "moon" : "sunny"}
-                  size={12}
-                  color={isDarkMode ? "#818cf8" : "#F59E0B"}
-                />
-              </View>
-              <Text style={styles.themePillText}>
-                {isDarkMode ? "Dark" : "Light"}
-              </Text>
+              <Ionicons
+                name={isDarkMode ? 'moon' : 'sunny'}
+                size={21}
+                color="#fff"
+              />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Text style={styles.userName}>
-                {userDisplayName} 👋
-              </Text>
-              <Text style={[styles.subGreeting, isDarkMode && styles.textMutedDark]}>
-                {t('what_help_today')}
-              </Text>
-            </View>
-            <View style={styles.headerActions}>
-              {/* Chat Icon */}
-              <TouchableOpacity style={styles.iconBtn} onPress={handleChatPress}>
-                <Ionicons name="chatbubbles-outline" size={22} color="#fff" />
-                {totalUnreadMessages > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {totalUnreadMessages > 99 ? '99+' : totalUnreadMessages}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+          <View style={styles.profileHeader}>
+            <View style={styles.profileImageWrapper}>
+              <Image
+                source={{ uri: profileImageUrl }}
+                style={styles.profileImage}
+              />
 
-              {/* Notification Icon */}
-              <TouchableOpacity style={styles.iconBtn} onPress={handleNotifications}>
-                <Ionicons name="notifications-outline" size={22} color="#fff" />
-                {notificationUnreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Profile – now uses full image URL */}
-              <TouchableOpacity style={styles.profileBtn} onPress={handleProfilePress}>
-                <Image
-                  source={{ uri: profileImageUrl }}
-                  style={styles.profilePic}
-                />
-                <View style={styles.onlineDot} />
-              </TouchableOpacity>
+              <View style={styles.onlineDot} />
             </View>
+
+            <Text style={styles.profileName}>{displayName}</Text>
+            <Text style={styles.profileEmail}>{email}</Text>
+
+            <TouchableOpacity
+              style={styles.editProfileButton}
+              onPress={() => navigation.navigate('EditProfileScreen')}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="create-outline" size={18} color="#667eea" />
+              <Text style={styles.editProfileText}>Edit Profile</Text>
+            </TouchableOpacity>
           </View>
         </LinearGradient>
 
-        {/* ─── Search Bar ─── */}
-        <View style={styles.searchWrapper}>
-          <View style={[
-            styles.searchContainer,
-            isDarkMode && styles.searchContainerDark,
-            isSearchFocused && styles.searchContainerFocused
-          ]}>
-            <Feather name="search" size={20} color={isDarkMode ? "#818cf8" : "#667eea"} />
-            <TextInput
-              placeholder={t('search_placeholder')}
-              placeholderTextColor={isDarkMode ? "#6B7280" : "#999"}
-              style={[styles.searchInput, isDarkMode && styles.textDark]}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-              onSubmitEditing={handleSearch}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
-                <Feather name="x" size={18} color={isDarkMode ? "#6B7280" : "#999"} />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={() => setShowFilters(!showFilters)} style={[styles.filterIcon, isDarkMode && styles.filterIconDark]}>
-              <Feather name="sliders" size={20} color={isDarkMode ? "#818cf8" : "#667eea"} />
-            </TouchableOpacity>
-          </View>
-
-          {showFilters && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filterChips}
-              contentContainerStyle={styles.filterChipsContent}
-            >
-              <TouchableOpacity style={styles.filterChipActive}>
-                <Text style={styles.filterChipTextActive}>Nearby</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>Top Rated</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>Lowest Price</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>Available Now</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>24/7 Support</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          )}
-        </View>
-
-        {/* ─── Unlock New Feature Banner ─── */}
-        <TouchableOpacity onPress={() => toggleExpand(1)} activeOpacity={0.9}>
-          <LinearGradient
-            colors={['#FF6B6B', '#FF8E53']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.biddingBanner}
-          >
-            <View style={styles.biddingContent}>
-              <View style={styles.biddingIconContainer}>
-                <MaterialIcons name="image-search" size={32} color="#fff" />
-              </View>
-              <View style={styles.biddingTextContainer}>
-                <Text style={styles.biddingTitle}>🔓 Unlock New Feature</Text>
-                <Text style={styles.biddingSubtitle}>Search repairs by uploading a photo</Text>
-              </View>
-              <View style={styles.biddingArrow}>
-                <Feather name={expandedId === 1 ? 'chevron-up' : 'chevron-down'} size={24} color="#fff" />
-              </View>
+        <View style={styles.infoCard}>
+          <View style={styles.infoItem}>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="call-outline" size={19} color="#667eea" />
             </View>
-          </LinearGradient>
-        </TouchableOpacity>
 
-        {/* ─── Slideshow ─── */}
-        <Slideshow isDarkMode={isDarkMode} />
-
-        {/* ─── Service Section ─── */}
-        <View style={styles.sectionHeader}>
-          <View>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>{t('all_services')}</Text>
-            <Text style={[styles.sectionSubtitle, isDarkMode && styles.textMutedDark]}>Browse by category</Text>
+            <View style={styles.infoTextBox}>
+              <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>
+                Phone
+              </Text>
+              <Text style={[styles.infoValue, isDarkMode && styles.textDark]}>
+                {phone}
+              </Text>
+            </View>
           </View>
-          <TouchableOpacity style={styles.seeAllBtn}>
-            <Text style={[styles.seeAllText, isDarkMode && styles.seeAllTextDark]}>{t('home_see_all')}</Text>
-            <Feather name="arrow-right" size={14} color={isDarkMode ? "#818cf8" : "#667eea"} />
-          </TouchableOpacity>
+
+          <View style={styles.infoDivider} />
+
+          <View style={styles.infoItem}>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="location-outline" size={19} color="#667eea" />
+            </View>
+
+            <View style={styles.infoTextBox}>
+              <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>
+                District
+              </Text>
+              <Text style={[styles.infoValue, isDarkMode && styles.textDark]}>
+                {district}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* ─── Expandable Categories ─── */}
-        {CATEGORIES.map((cat) => (
-          <ServiceCard
-            key={cat.id}
-            category={cat}
-            expanded={expandedId === cat.id}
-            onPress={() => toggleExpand(cat.id)}
-            onSubPress={handleSubCategoryPress}
-            onImageUpload={handleImageUpload}
-            isDarkMode={isDarkMode}
-          />
+        {menuSections.map((section) => (
+          <View key={section.title} style={styles.section}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
+              {section.title}
+            </Text>
+
+            <View style={[styles.menuCard, isDarkMode && styles.menuCardDark]}>
+              {section.items.map((item, index) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[
+                    styles.menuItem,
+                    index !== section.items.length - 1 && styles.menuItemBorder,
+                    isDarkMode && index !== section.items.length - 1 && styles.menuItemBorderDark,
+                  ]}
+                  onPress={() => handleMenuPress(item)}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.menuLeft}>
+                    <View style={[styles.menuIconBox, isDarkMode && styles.menuIconBoxDark]}>
+                      {renderIcon(item, isDarkMode ? '#818cf8' : '#667eea')}
+                    </View>
+
+                    <View style={styles.menuTextBox}>
+                      <Text style={[styles.menuLabel, isDarkMode && styles.textDark]}>
+                        {item.label}
+                      </Text>
+
+                      <Text style={[styles.menuDescription, isDarkMode && styles.textMutedDark]}>
+                        {item.description}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={isDarkMode ? '#94A3B8' : '#9CA3AF'}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         ))}
 
-        <View style={{ height: 20 }} />
-      </ScrollView>
+        <TouchableOpacity
+          style={[styles.logoutButton, isDarkMode && styles.logoutButtonDark]}
+          onPress={handleLogout}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="log-out-outline" size={21} color="#EF4444" />
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
 
-      <BottomNav />
+        <View style={styles.versionBox}>
+          <Text style={[styles.versionText, isDarkMode && styles.textMutedDark]}>
+            Work Wave v1.0.0
+          </Text>
+        </View>
+
+        <View style={{ height: 110 }} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
+  containerDark: {
+    backgroundColor: '#0f1121',
+  },
   scrollContent: {
-    paddingBottom: 80,
+    paddingBottom: 20,
   },
 
   headerGradient: {
+    paddingTop: Platform.OS === 'android' ? 18 : 14,
+    paddingHorizontal: 20,
+    paddingBottom: 34,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    paddingBottom: 40,
-    paddingTop: Platform.OS === 'android' ? 12 : 8,
   },
-  headerTopBar: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    marginBottom: 22,
+  },
+  headerIconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  profileHeader: {
+    alignItems: 'center',
+  },
+  profileImageWrapper: {
+    position: 'relative',
     marginBottom: 12,
   },
-  dashboardBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    gap: 5,
-  },
-  dashboardBadgeDark: {
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
-  },
-  dashboardBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.3,
-  },
-  upperThemePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    borderRadius: 16,
-    paddingHorizontal: 7,
-    paddingVertical: 4,
-    gap: 6,
-  },
-  upperThemePillDark: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  themePillKnob: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  themePillKnobDark: {
-    backgroundColor: '#1e293b',
-  },
-  themePillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#fff',
-    paddingRight: 3,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#fff',
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  subGreeting: {
-    color: '#ffffffCC',
-    fontSize: 13,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  iconBtn: {
-    position: 'relative',
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#ffffff20',
-  },
-  badge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    backgroundColor: '#FF6B6B',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 5,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  profileBtn: { position: 'relative' },
-  profilePic: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 3,
+  profileImage: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    borderWidth: 4,
     borderColor: '#fff',
   },
   onlineDot: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#4CD964',
-    borderWidth: 2,
+    bottom: 7,
+    right: 7,
+    width: 17,
+    height: 17,
+    borderRadius: 9,
+    backgroundColor: '#22C55E',
+    borderWidth: 3,
     borderColor: '#fff',
   },
-
-  // Search
-  searchWrapper: {
-    paddingHorizontal: 20,
-    marginTop: -20,
+  profileName: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '900',
+    marginBottom: 4,
   },
-  searchContainer: {
+  profileEmail: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  editProfileButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
-    gap: 10,
+    paddingVertical: 9,
+    borderRadius: 22,
+    gap: 6,
   },
-  searchContainerFocused: {
-    shadowOpacity: 0.15,
-    shadowRadius: 15,
-    borderWidth: 1,
-    borderColor: '#667eea20',
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#333',
-    paddingVertical: 0,
-  },
-  clearBtn: { padding: 2 },
-  filterIcon: {
-    paddingLeft: 8,
-    borderLeftWidth: 1,
-    borderLeftColor: '#E5E7EB',
-  },
-  filterChips: { marginTop: 12 },
-  filterChipsContent: { paddingRight: 20 },
-  filterChip: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  filterChipActive: {
-    backgroundColor: '#667eea',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  filterChipText: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  filterChipTextActive: {
-    fontSize: 13,
-    color: '#fff',
-    fontWeight: '500',
-  },
-
-  // Bidding Banner
-  biddingBanner: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#FF6B6B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  biddingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    gap: 12,
-  },
-  biddingIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#ffffff30',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  biddingTextContainer: { flex: 1 },
-  biddingTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 2,
-  },
-  biddingSubtitle: {
-    fontSize: 12,
-    color: '#ffffffCC',
-  },
-  biddingArrow: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff20',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Slideshow
-  slideshowContainer: {
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  slideCard: {
-    width: width - 32,
-    height: 180,
-    marginHorizontal: 16,
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  slideImage: { width: '100%', height: '100%' },
-  slideOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '100%',
-    justifyContent: 'flex-end',
-    padding: 16,
-  },
-  slideContent: { marginBottom: 16 },
-  slideTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  slideSubtitle: {
-    fontSize: 12,
-    color: '#ffffffCC',
-    marginBottom: 12,
-  },
-  slideButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  slideButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#fff',
-  },
-  dotContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#D1D5DB',
-    marginHorizontal: 4,
-  },
-  activeDot: {
-    width: 20,
-    backgroundColor: '#667eea',
-  },
-
-  // Section Header
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    paddingHorizontal: 20,
-    marginTop: 30,
-    marginBottom: 18,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1a1a2e',
-    letterSpacing: -0.3,
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: '#999',
-  },
-  seeAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  seeAllText: {
+  editProfileText: {
     color: '#667eea',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '800',
   },
 
-  // Accordion
-  accordionContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+  infoCard: {
     marginHorizontal: 20,
-    marginBottom: 12,
+    marginTop: -22,
+    backgroundColor: '#fff',
+    borderRadius: 20,
     padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 7,
   },
-  mainCategory: {
+  infoItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  mainCategoryLeft: {
+  infoIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  infoTextBox: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 2,
+    fontWeight: '600',
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '700',
+  },
+  infoDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 14,
+  },
+
+  section: {
+    marginTop: 24,
+    paddingHorizontal: 20,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  menuCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  menuCardDark: {
+    backgroundColor: '#16213e',
+    borderWidth: 1,
+    borderColor: '#2d3561',
+  },
+  menuItem: {
+    minHeight: 74,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  menuItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  menuItemBorderDark: {
+    borderBottomColor: '#2d3561',
+  },
+  menuLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    gap: 14,
   },
-  iconBoxGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mainTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1a1a2e',
-    marginBottom: 2,
-  },
-  subtitleCount: {
-    fontSize: 11,
-    color: '#999',
-  },
-  expandIcon: {
-    padding: 4,
-    borderRadius: 12,
-    backgroundColor: '#f0f0f0',
-  },
-  expandIconActive: {
-    backgroundColor: '#667eea15',
-  },
-  subGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 16,
-    borderTopWidth: 1,
-    borderColor: '#E8ECF0',
-    paddingTop: 16,
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  subThumbnail: {
-    width: (width - 104) / 2,
-    backgroundColor: '#F8F9FA',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E8ECF0',
-    gap: 8,
-  },
-  subIconCircle: {
-    width: 28,
-    height: 28,
+  menuIconBox: {
+    width: 42,
+    height: 42,
     borderRadius: 14,
-    justifyContent: 'center',
+    backgroundColor: '#EEF2FF',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  subText: {
+  menuIconBoxDark: {
+    backgroundColor: 'rgba(129, 140, 248, 0.16)',
+  },
+  menuTextBox: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  menuLabel: {
+    fontSize: 15,
+    color: '#111827',
+    fontWeight: '800',
+    marginBottom: 3,
+  },
+  menuDescription: {
     fontSize: 12,
-    color: '#555',
-    fontWeight: '500',
+    color: '#9CA3AF',
+    lineHeight: 16,
   },
-  specialUploadBtn: {
-    width: '100%',
-    marginTop: 8,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  gradientButton: {
+
+  logoutButton: {
+    marginHorizontal: 20,
+    marginTop: 24,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: '#FEF2F2',
     flexDirection: 'row',
-    paddingVertical: 12,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  uploadText: {
-    color: '#fff',
+  logoutButtonDark: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.24)',
+  },
+  logoutText: {
+    color: '#EF4444',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  versionBox: {
+    alignItems: 'center',
+    marginTop: 18,
+  },
+  versionText: {
+    color: '#9CA3AF',
+    fontSize: 12,
     fontWeight: '600',
-    fontSize: 13,
   },
 
-  // ─── DARK MODE STYLES ──────────────────────────────────
-
-  containerDark: {
-    backgroundColor: '#0f1121',
-  },
   textDark: {
     color: '#F8FAFC',
   },
   textMutedDark: {
     color: '#94A3B8',
-  },
-  searchContainerDark: {
-    backgroundColor: '#1a1a2e',
-    borderColor: '#2d3561',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-  },
-  filterIconDark: {
-    borderLeftColor: '#2d3561',
-  },
-  filterChipDark: {
-    backgroundColor: '#242f4d',
-  },
-  accordionContainerDark: {
-    backgroundColor: '#16213e',
-    borderColor: '#2d3561',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  expandIconDark: {
-    backgroundColor: '#242f4d',
-  },
-  subGridDark: {
-    borderColor: '#2d3561',
-  },
-  subThumbnailDark: {
-    backgroundColor: '#1a1a2e',
-    borderColor: '#2d3561',
-  },
-  seeAllTextDark: {
-    color: '#818cf8',
-  },
-  slideCardDark: {
-    backgroundColor: '#16213e',
-    borderColor: '#2d3561',
-    borderWidth: 1,
-  },
-  dashboardBadgeDark: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  },
-  upperThemePillDark: {
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
 });
