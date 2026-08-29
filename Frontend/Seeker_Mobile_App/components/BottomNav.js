@@ -28,6 +28,15 @@ const HIDDEN_ROUTES = new Set([
   'SeasonalDemandsScreen',
   'RescheduleScreen',
 
+  // IT22129376 My Jobs detail/action screens
+  'IT22129376JobDetails',
+  'IT22129376QuoteDetails',
+  'IT22129376CoordinationReview',
+  'IT22129376SuggestedSlots',
+  'IT22129376ConfirmJob',
+  'IT22129376ScheduledJobDetails',
+  'IT22129376JobHistoryDetails',
+
   // Profile sub-pages / utility pages
   'MyBidsScreen',
   'MyPostsScreen',
@@ -42,9 +51,13 @@ const HIDDEN_ROUTES = new Set([
 const routeToTab = {
   Home: 'Home',
   HomeScreen: 'Home',
+
   FeedScreen: 'Feed',
   CreatePostScreen: 'Create',
-  BookingsScreen: 'Bookings',
+
+  MyJobsScreen: 'MyJobs',
+  MyJobs: 'MyJobs',
+
   ChatListScreen: 'Chat',
   ProfileScreen: 'Profile',
 };
@@ -54,16 +67,21 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
   const { unreadCount = {} } = useChat();
   const [selectedTab, setSelectedTab] = React.useState('Home');
 
-  const totalUnread = Object.values(unreadCount).reduce((a, b) => a + b, 0);
+  const totalUnread = Object.values(unreadCount).reduce(
+    (total, count) => total + Number(count || 0),
+    0
+  );
 
   React.useEffect(() => {
     const mappedTab = routeToTab[currentRouteName];
+
     if (mappedTab) {
       setSelectedTab(mappedTab);
     }
   }, [currentRouteName]);
 
-  // Old screens still contain <BottomNav />. Returning null there prevents duplicate nav bars.
+  // Old screens may still contain <BottomNav />.
+  // Returning null prevents duplicate nav bars.
   if (!isRootNav) {
     return null;
   }
@@ -93,10 +111,10 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
       isCreateButton: true,
     },
     {
-      id: 'Bookings',
+      id: 'MyJobs',
       label: 'My Jobs',
       icon: 'work',
-      routeName: 'BookingsScreen',
+      routeName: 'MyJobsScreen',
     },
     {
       id: 'Chat',
@@ -117,7 +135,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
   const handlePress = (item) => {
     setSelectedTab(item.id);
 
-    if (navigationRef?.current?.navigate) {
+    if (navigationRef?.current?.navigate && item.routeName) {
       navigationRef.current.navigate(item.routeName);
     }
   };
@@ -141,13 +159,18 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={isDarkMode ? ['#818cf8', '#6366f1'] : ['#667eea', '#764ba2']}
+                colors={
+                  isDarkMode
+                    ? ['#818cf8', '#6366f1']
+                    : ['#667eea', '#764ba2']
+                }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.createButton}
               >
                 <MaterialIcons name={item.icon} size={28} color="#fff" />
               </LinearGradient>
+
               <Text
                 style={[
                   styles.navLabel,
@@ -176,6 +199,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
                 size={24}
                 color={active ? activeColor : inactiveColor}
               />
+
               {showBadge && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>
@@ -184,6 +208,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
                 </View>
               )}
             </View>
+
             <Text
               style={[
                 styles.navLabel,
