@@ -120,18 +120,18 @@ export default function LoginScreen({ navigation }) {
 
       // 4. Build the complete user object
       const userProfile = {
-        _id: userData._id,
-        id: userData._id,
-        name: userData.name || email.split('@')[0],
-        email: userData.email || email.trim(),
-        telephone: userData.telephone || '',
-        district: userData.district || 'Colombo',
-        location: userData.location || null,
-        profilePicture: userData.profilePicture || 'https://i.pravatar.cc/150?img=7',
-        avatar: userData.profilePicture || 'https://i.pravatar.cc/150?img=7',
+        _id: userData?._id || String(userId),
+        id: userData?._id || String(userId),
+        name: userData?.name || email.split('@')[0],
+        email: userData?.email || email.trim(),
+        telephone: userData?.telephone || '',
+        district: userData?.district || 'Colombo',
+        location: userData?.location || null,
+        profilePicture: userData?.profilePicture || 'https://i.pravatar.cc/150?img=7',
+        avatar: userData?.profilePicture || 'https://i.pravatar.cc/150?img=7',
         role: role,
-        isEmailVerified: userData.isEmailVerified,
-        isBlocked: userData.isBlocked,
+        isEmailVerified: userData?.isEmailVerified,
+        isBlocked: userData?.isBlocked,
       };
 
       console.log('FINAL USER PROFILE:', JSON.stringify(userProfile, null, 2));
@@ -147,17 +147,11 @@ export default function LoginScreen({ navigation }) {
       // Save to AuthContext
       await saveUser(userProfile);
 
-      // 6. Success
-      Alert.alert(
-        'Success',
-        'Logged in successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.replace('Home'),
-          },
-        ]
-      );
+      // 6. Redirect to Seeker Dashboard (Home Screen)
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Home' }],
+      });
     } catch (error) {
       console.error('LOGIN ERROR:', {
         message: error.message,
@@ -244,7 +238,7 @@ export default function LoginScreen({ navigation }) {
 // ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     padding: 20,
     backgroundColor: '#f5f5f5',

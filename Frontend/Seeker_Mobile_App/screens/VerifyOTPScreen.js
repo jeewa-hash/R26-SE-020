@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import { IP_ADDRESS } from '../config';
@@ -37,7 +37,7 @@ export default function VerifyOTPScreen({ route, navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
       style={styles.wrapper}
     >
-      <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.iconContainer}>
           <MaterialIcons name="mark-email-read" size={80} color="#007bff" />
         </View>
@@ -74,7 +74,7 @@ export default function VerifyOTPScreen({ route, navigation }) {
         >
           <Text style={styles.backText}>Back to Login</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     padding: 30,
     alignItems: 'center',

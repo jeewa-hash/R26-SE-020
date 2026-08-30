@@ -16,7 +16,7 @@ import {
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { Ionicons } from "@expo/vector-icons";
 import { LanguageContext } from "../context/LanguageContext";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker } from "../components/SafeMapView";
 import * as Location from "expo-location";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -1319,15 +1319,19 @@ const response = await fetch(endpoint, {
           }
         />
 
-        <View
-          style={[
+        <ScrollView
+          style={styles.safeArea}
+          contentContainerStyle={[
             styles.container,
             {
               backgroundColor: isDarkMode
                 ? "#1F2937"
                 : "#FFFFFF",
+              paddingBottom: 40,
             },
           ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* PROGRESS */}
 
@@ -1880,7 +1884,7 @@ const response = await fetch(endpoint, {
               )}
             </SafeAreaView>
           </Modal>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }

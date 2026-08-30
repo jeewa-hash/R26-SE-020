@@ -294,7 +294,11 @@ export default function ProvidersScreen({ route, navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* MATCH SUMMARY */}
         <View style={styles.matchSummary}>
           <View style={styles.matchIcon}>
@@ -574,7 +578,12 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
+  },
+
+  scrollContent: {
     padding: 16,
+    paddingBottom: 50,
+    flexGrow: 1,
   },
 
   centerContainer: {
