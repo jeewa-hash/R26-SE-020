@@ -16,14 +16,14 @@ router.post("/", createRequestQuotation);
 
 router.get("/seeker/:seekerId", getSeekerRequests);
 
+router.get("/provider-filtered/:providerId", getProviderRequestsbyProvider);
+
 router.get("/provider/:providerId", getProviderRequests);
 
 router.patch("/:id/status", updateRequestStatus);
 
 router.delete("/:id", deleteRequestQuotation);
 
-//router.get("/:id", getSingleRequest);
-router.get("/:id", getSingleRequest); // Chaw - Temporarily open for service-to-service local testing
+router.get("/:id", getSingleRequest);
 
-router.get("/provider-filtered/:providerId", getProviderRequestsbyProvider);
 export default router;

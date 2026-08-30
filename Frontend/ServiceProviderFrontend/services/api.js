@@ -31,10 +31,24 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expired or invalid
-      AsyncStorage.removeItem('userToken');
-      AsyncStorage.removeItem('userRole');
-      AsyncStorage.removeItem('userId');
-      // You might want to navigate to login screen here
+      const keysToClear = [
+        'userToken',
+        'token',
+        'authToken',
+        'accessToken',
+        'userId',
+        'providerId',
+        'seekerId',
+        'userRole',
+        'role',
+        'user',
+        'currentUser',
+        'provider',
+        'seeker',
+      ];
+      AsyncStorage.multiRemove(keysToClear).then(() => {
+        console.log('LOGOUT: all auth keys cleared');
+      }).catch(() => {});
     }
     return Promise.reject(error);
   }

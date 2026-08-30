@@ -273,7 +273,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       ]);
 
       if (reqResult.status === 'fulfilled') {
-        const rawRequests = reqResult.value.requests || [];
+        const rawRequests = reqResult.value.rawList || reqResult.value.requests || [];
         const providerRequests = filterForLoggedProvider(rawRequests, auth.providerId);
 
         console.log('RAW PROVIDER REQUESTS:', rawRequests.length);
@@ -286,7 +286,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       }
 
       if (quoteResult.status === 'fulfilled') {
-        const rawQuotations = quoteResult.value.quotations || [];
+        const rawQuotations = quoteResult.value.rawList || quoteResult.value.quotations || [];
         const providerQuotations = filterForLoggedProvider(rawQuotations, auth.providerId);
 
         console.log('RAW PROVIDER QUOTATIONS:', rawQuotations.length);
@@ -299,7 +299,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       }
 
       if (jobsResult.status === 'fulfilled') {
-        const rawJobs = jobsResult.value.jobs || [];
+        const rawJobs = jobsResult.value.rawList || jobsResult.value.jobs || [];
         const providerJobs = filterForLoggedProvider(rawJobs, auth.providerId);
 
         console.log('RAW PROVIDER JOBS:', rawJobs.length);

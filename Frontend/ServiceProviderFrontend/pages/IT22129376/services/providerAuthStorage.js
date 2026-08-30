@@ -1,115 +1,198 @@
 // pages/IT22129376/services/providerAuthStorage.js
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUserIdFromJwt, getRoleFromJwt } from '../utils/jwtHelpers';
 
-const STORAGE_KEYS = {
-  token: 'userToken',
-  userId: 'userId',
-  userRole: 'userRole',
-  user: 'user',
-};
+export const AUTH_KEYS = [
+  'userToken',
+  'token',
+  'authToken',
+  'accessToken',
 
-const decodeBase64Url = (base64Url) => {
+  'userId',
+  'providerId',
+  'seekerId',
+
+  'userRole',
+  'role',
+
+  'user',
+  'currentUser',
+  'provider',
+  'seeker',
+];
+
+export const clearAllAuthStorage = async () => {
   try {
-    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) base64 += '=';
-    if (typeof atob === 'function') return atob(base64);
-    return '';
+    await AsyncStorage.multiRemove(AUTH_KEYS);
+    console.log('LOGOUT: all auth keys cleared');
   } catch (error) {
-    return '';
+    console.warn('Error clearing auth storage:', error?.message);
   }
 };
 
-export const decodeJwtPayload = (token) => {
-  try {
-    if (!token || typeof token !== 'string') return null;
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const decoded = decodeBase64Url(parts[1]);
-    if (!decoded) return null;
-    return JSON.parse(decoded);
-  } catch (error) {
-    return null;
+export const saveProviderLogin = async ({ token, user, role }) => {
+  if (!token || typeof token !== 'string') {
+    throw new Error('Valid token is required to save provider login.');
   }
-};
 
-export const getUserIdFromJwt = (token) => {
-  const payload = decodeJwtPayload(token);
-  if (!payload) return null;
+  const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
+  const safeUser = user || {};
 
-  return (
-    payload?.user?._id?.$oid ||
-    payload?.user?._id ||
-    payload?.user?.id ||
-    payload?.userId ||
-    payload?.providerId ||
-    payload?.id ||
-    payload?._id?.$oid ||
-    payload?._id ||
-    payload?.sub ||
-    null
-  );
+  const jwtUserId = getUserIdFromJwt(cleanToken);
+  const jwtRole = getRoleFromJwt(cleanToken);
+
+  const providerId =
+    safeUser?._id ||
+    safeUser?.id ||
+    safeUser?.userId ||
+    safeUser?.providerId ||
+    jwtUserId ||
+    null;
+
+  const finalRole =
+    safeUser?.role ||
+    role ||
+    jwtRole ||
+    'ServiceProvider';
+
+  if (!providerId) {
+    console.log('SAVE PROVIDER LOGIN FAILED USER:', safeUser);
+    throw new Error('Provider ID could not be resolved from login response.');
+  }
+
+  // Clear all old keys before saving new provider session
+  await clearAllAuthStorage();
+
+  const entries = [
+    ['userToken', cleanToken],
+    ['token', cleanToken],
+    ['accessToken', cleanToken],
+
+    ['userId', String(providerId)],
+    ['providerId', String(providerId)],
+
+    ['userRole', String(finalRole)],
+    ['role', String(finalRole)],
+
+    ['user', JSON.stringify(safeUser)],
+    ['currentUser', JSON.stringify(safeUser)],
+    ['provider', JSON.stringify(safeUser)],
+  ];
+
+  if (String(finalRole).toLowerCase().includes('seeker')) {
+    entries.push(['seekerId', String(providerId)]);
+  }
+
+  await AsyncStorage.multiSet(entries);
+
+  console.log('LOGIN SAVED USER ID:', providerId);
+  console.log('LOGIN SAVED ROLE:', finalRole);
+
+  return {
+    token: cleanToken,
+    providerId: String(providerId),
+    userId: String(providerId),
+    role: finalRole,
+    user: safeUser,
+  };
 };
 
 export const getStoredProviderAuth = async () => {
+  const token =
+    (await AsyncStorage.getItem('userToken')) ||
+    (await AsyncStorage.getItem('token')) ||
+    (await AsyncStorage.getItem('accessToken')) ||
+    (await AsyncStorage.getItem('authToken'));
+
+  const storedProviderId = await AsyncStorage.getItem('providerId');
+  const storedUserId = await AsyncStorage.getItem('userId');
+
+  const storedRole =
+    (await AsyncStorage.getItem('userRole')) ||
+    (await AsyncStorage.getItem('role'));
+
+  const storedUserRaw =
+    (await AsyncStorage.getItem('user')) ||
+    (await AsyncStorage.getItem('provider')) ||
+    (await AsyncStorage.getItem('currentUser'));
+
+  let storedUser = {};
+
   try {
-    const [token, storedUserId, userRole, userText] = await Promise.all([
-      AsyncStorage.getItem(STORAGE_KEYS.token),
-      AsyncStorage.getItem(STORAGE_KEYS.userId),
-      AsyncStorage.getItem(STORAGE_KEYS.userRole),
-      AsyncStorage.getItem(STORAGE_KEYS.user),
-    ]);
-
-    let user = null;
-    try {
-      user = userText ? JSON.parse(userText) : null;
-    } catch (error) {
-      user = null;
-    }
-
-    const jwtUserId = getUserIdFromJwt(token);
-    const providerId =
-      storedUserId ||
-      user?._id ||
-      user?.id ||
-      user?.userId ||
-      user?.providerId ||
-      jwtUserId ||
-      null;
-
-    if (providerId && !storedUserId) {
-      await AsyncStorage.setItem(STORAGE_KEYS.userId, String(providerId));
-    }
-
-    return {
-      token,
-      providerId,
-      userRole,
-      user,
-      isLoggedIn: Boolean(token && providerId),
-    };
+    storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : {};
   } catch (error) {
-    console.log('Provider auth read error:', error);
-    return { token: null, providerId: null, userRole: null, user: null, isLoggedIn: false };
+    storedUser = {};
   }
-};
 
-export const requireProviderAuth = async () => {
-  const auth = await getStoredProviderAuth();
-  if (!auth.isLoggedIn) throw new Error('Provider login details were not found. Please login again.');
-  return auth;
+  const jwtUserId = getUserIdFromJwt(token);
+  const jwtRole = getRoleFromJwt(token);
+
+  // Exact resolution order:
+  // 1. stored providerId
+  // 2. stored userId
+  // 3. storedUser._id
+  // 4. storedUser.id
+  // 5. storedUser.userId
+  // 6. storedUser.providerId
+  // 7. JWT user id fallback
+  const providerId =
+    storedProviderId ||
+    storedUserId ||
+    storedUser?._id ||
+    storedUser?.id ||
+    storedUser?.userId ||
+    storedUser?.providerId ||
+    jwtUserId ||
+    null;
+
+  const role =
+    storedRole ||
+    storedUser?.role ||
+    jwtRole ||
+    'ServiceProvider';
+
+  console.log('STORED PROVIDER AUTH:', {
+    providerId,
+    role,
+    hasToken: Boolean(token),
+  });
+
+  return {
+    token,
+    providerId: providerId ? String(providerId) : null,
+    userId: providerId ? String(providerId) : null,
+    role,
+    user: storedUser,
+    isLoggedIn: Boolean(token && providerId),
+  };
 };
 
 export const buildAuthHeaders = async () => {
-  const { token } = await getStoredProviderAuth();
-  const headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
+  const token =
+    (await AsyncStorage.getItem('userToken')) ||
+    (await AsyncStorage.getItem('token')) ||
+    (await AsyncStorage.getItem('accessToken')) ||
+    (await AsyncStorage.getItem('authToken'));
+
+  const cleanToken = token ? token.replace(/^Bearer\s+/i, '').trim() : null;
+
+  return {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    ...(cleanToken ? { Authorization: `Bearer ${cleanToken}` } : {}),
+  };
+};
+
+export const clearProviderAuth = async () => {
+  await clearAllAuthStorage();
 };
 
 export default {
-  decodeJwtPayload,
-  getUserIdFromJwt,
+  AUTH_KEYS,
+  saveProviderLogin,
   getStoredProviderAuth,
-  requireProviderAuth,
   buildAuthHeaders,
+  clearProviderAuth,
+  clearAllAuthStorage,
 };
