@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// pages/IT22129376/utils/jwtHelpers.js
 
 const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
 
@@ -28,7 +28,7 @@ const base64Decode = (input) => {
     try {
       return atob(input);
     } catch (e) {
-      // fallback
+      // fallback to manual decode
     }
   }
 
@@ -114,88 +114,8 @@ export const getRoleFromJwt = (token) => {
   );
 };
 
-export const getStoredUserId = async () => {
-  try {
-    const storedId = await AsyncStorage.getItem('userId');
-    if (storedId) return storedId;
-
-    const token =
-      (await AsyncStorage.getItem('userToken')) ||
-      (await AsyncStorage.getItem('token')) ||
-      (await AsyncStorage.getItem('accessToken'));
-
-    if (!token) return null;
-
-    const idFromToken = getUserIdFromJwt(token);
-    if (idFromToken) {
-      await AsyncStorage.setItem('userId', String(idFromToken));
-    }
-
-    return idFromToken;
-  } catch (error) {
-    console.warn('Error getting stored user ID:', error?.message);
-    return null;
-  }
-};
-
-export const getUserFromToken = async () => {
-  try {
-    const token =
-      (await AsyncStorage.getItem('userToken')) ||
-      (await AsyncStorage.getItem('token')) ||
-      (await AsyncStorage.getItem('accessToken'));
-
-    if (!token) return null;
-
-    const decoded = decodeJwt(token);
-    return decoded?.user || decoded || null;
-  } catch (error) {
-    console.warn('Error getting user from token:', error?.message);
-    return null;
-  }
-};
-
-export const getUserRole = async () => {
-  try {
-    const user = await getUserFromToken();
-    return user?.role || null;
-  } catch (error) {
-    console.warn('Error getting user role:', error?.message);
-    return null;
-  }
-};
-
-const ALL_AUTH_KEYS = [
-  'userToken',
-  'token',
-  'authToken',
-  'accessToken',
-  'userId',
-  'providerId',
-  'seekerId',
-  'userRole',
-  'role',
-  'user',
-  'currentUser',
-  'provider',
-  'seeker',
-];
-
-export const clearUserData = async () => {
-  try {
-    await AsyncStorage.multiRemove(ALL_AUTH_KEYS);
-    console.log('LOGOUT: all auth keys cleared');
-  } catch (error) {
-    console.warn('Error clearing user data:', error?.message);
-  }
-};
-
 export default {
   decodeJwt,
   getUserIdFromJwt,
   getRoleFromJwt,
-  getStoredUserId,
-  getUserFromToken,
-  getUserRole,
-  clearUserData,
 };
