@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
-import MapView, { Marker } from 'react-native-maps';
+import MapPickerModal from '../components/MapPickerModal';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import { IP_ADDRESS } from '../config';
@@ -444,36 +444,15 @@ export default function RegisterScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <Modal visible={mapVisible} animationType="slide">
-        <View style={styles.fullScreenMapContainer}>
-          <MapView 
-            style={styles.fullScreenMap} 
-            region={tempLocation}
-            onPress={handleMapPress}
-          >
-            <Marker coordinate={{ latitude: tempLocation.latitude, longitude: tempLocation.longitude }} />
-          </MapView>
-          
-          <View style={styles.mapTopButtons}>
-            <TouchableOpacity style={styles.mapCancelBtn} onPress={closeMap}>
-              <MaterialIcons name="close" size={20} color="#fff" />
-              <Text style={styles.mapBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.mapFindMeBtn} onPress={findMe} disabled={findingLocation}>
-              <MaterialIcons name="my-location" size={20} color="#fff" />
-              <Text style={styles.mapBtnText}>{findingLocation ? "Locating..." : "Find Me"}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.mapBottomButtons}>
-            <TouchableOpacity style={styles.mapConfirmBtn} onPress={confirmLocation}>
-              <MaterialIcons name="check" size={20} color="#fff" />
-              <Text style={styles.mapBtnText}>Confirm Location</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <MapPickerModal
+        visible={mapVisible}
+        tempLocation={tempLocation}
+        onMapPress={handleMapPress}
+        onClose={closeMap}
+        onFindMe={findMe}
+        findingLocation={findingLocation}
+        onConfirm={confirmLocation}
+      />
 
       <Text style={styles.label}>Password</Text>
       <View style={[styles.passwordContainer, password.length > 0 && !isPasswordValid && styles.inputError]}>
