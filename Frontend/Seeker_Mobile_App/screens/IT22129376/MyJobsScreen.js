@@ -42,6 +42,10 @@ const getRequestId = (request) => {
   );
 };
 
+const getQuotationId = (quotation) => {
+  return quotation?._id || quotation?.id || quotation?.externalQuotationId || '';
+};
+
 const getQuotationRequestId = (quotation) => {
   return (
     quotation?.externalRequestQuotationId ||
@@ -97,6 +101,7 @@ const normalizeActiveJob = (request, quotations = []) => {
     ...request,
     id: requestId,
     _id: requestId,
+    externalRequestQuotationId: requestId,
     title:
       request?.serviceSubcategory ||
       request?.subcategory ||
@@ -105,17 +110,35 @@ const normalizeActiveJob = (request, quotations = []) => {
       request?.serviceCategory ||
       request?.category ||
       'Service Request',
+    description:
+      request?.description ||
+      request?.problemDescription ||
+      request?.summary ||
+      request?.object ||
+      'Service request created from diagnosis.',
     category:
       request?.serviceCategory ||
       request?.category ||
       request?.detectedCategory ||
       'General',
+    subcategory:
+      request?.serviceSubcategory ||
+      request?.subcategory ||
+      request?.object ||
+      request?.detectedObject ||
+      'Service',
+    location:
+      request?.serviceLocation ||
+      request?.location ||
+      request?.district ||
+      'Location not available',
     status:
       relatedQuotes.length > 0
         ? 'Quotes Received'
         : request?.status || 'Quotation Requested',
+    providerCount: relatedQuotes.length,
     quotesCount: relatedQuotes.length,
-    relatedQuotes,
+    relatedQuotes: relatedQuotes.map((quotation) => normalizeQuote(quotation, [request])),
   };
 };
 
@@ -126,10 +149,15 @@ const normalizeQuote = (quotation, requests = []) => {
     return getRequestId(request) === requestId;
   });
 
+  const quoteId = getQuotationId(quotation);
+  const price = quotation?.price || quotation?.quotedPrice || quotation?.finalAmount || 0;
+
   return {
     ...quotation,
-    id: quotation?._id || quotation?.id || quotation?.externalQuotationId,
-    _id: quotation?._id || quotation?.id || quotation?.externalQuotationId,
+    id: quoteId,
+    _id: quoteId,
+    externalQuotationId: quoteId,
+    externalRequestQuotationId: requestId,
     request: relatedRequest || null,
     title:
       quotation?.serviceSubcategory ||
@@ -145,20 +173,33 @@ const normalizeQuote = (quotation, requests = []) => {
       relatedRequest?.serviceCategory ||
       relatedRequest?.category ||
       'General',
-    price:
-      quotation?.price ||
-      quotation?.quotedPrice ||
-      quotation?.finalAmount ||
+    quotedPrice: price,
+    price,
+    seekerBudget:
+      relatedRequest?.seekerBudgetAmount ||
+      relatedRequest?.budgetAmount ||
+      relatedRequest?.budget ||
+      quotation?.seekerBudget ||
       0,
+    providerName:
+      quotation?.providerSnapshot?.name ||
+      quotation?.providerName ||
+      quotation?.providerId ||
+      'Provider',
+    note: quotation?.notes || quotation?.note || 'Provider quotation received.',
     status: quotation?.status || 'SENT',
+    proposedStartTime: quotation?.proposedStartTime || quotation?.coordinatedStartTime,
+    estimatedDurationHours: quotation?.estimatedDurationHours || quotation?.durationHours,
   };
 };
 
 const normalizeScheduledBooking = (booking) => {
+  const id = booking?._id || booking?.id || booking?.bookingId;
+
   return {
     ...booking,
-    id: booking?._id || booking?.id || booking?.bookingId,
-    _id: booking?._id || booking?.id || booking?.bookingId,
+    id,
+    _id: id,
     title:
       booking?.serviceSubcategory ||
       booking?.serviceSubCategory ||
@@ -169,6 +210,32 @@ const normalizeScheduledBooking = (booking) => {
       booking?.serviceCategory ||
       booking?.category ||
       'General',
+    providerName:
+      booking?.providerSnapshot?.name ||
+      booking?.providerName ||
+      booking?.providerId ||
+      'Provider',
+    location:
+      booking?.serviceLocation ||
+      booking?.location ||
+      booking?.district ||
+      'Location not available',
+    scheduledStartTime:
+      booking?.scheduledStartTime ||
+      booking?.startTime ||
+      booking?.coordinatedStartTime ||
+      booking?.scheduledDateTime,
+    scheduledEndTime:
+      booking?.scheduledEndTime ||
+      booking?.endTime ||
+      booking?.coordinatedEndTime ||
+      booking?.estimatedEndTime,
+    finalAmount:
+      booking?.finalAmount ||
+      booking?.amount ||
+      booking?.price ||
+      booking?.quotedPrice ||
+      0,
     status:
       booking?.status ||
       booking?.bookingStatus ||
@@ -219,7 +286,6 @@ export default function MyJobsScreen({ navigation }) {
       }
 
       setSeekerId(auth.seekerId);
-
       console.log('Logged seekerId:', auth.seekerId);
 
       const [requestsResult, quotationsResult, bookingsResult] =
@@ -260,13 +326,13 @@ export default function MyJobsScreen({ navigation }) {
       console.log('REAL QUOTATIONS:', realQuotations.length);
       console.log('REAL BOOKINGS:', realBookings.length);
 
-      const normalizedActiveJobs = realRequests
-        .filter((request) => isActiveRequest(request, realBookings))
-        .map((request) => normalizeActiveJob(request, realQuotations));
-
       const normalizedQuotes = realQuotations.map((quotation) =>
         normalizeQuote(quotation, realRequests)
       );
+
+      const normalizedActiveJobs = realRequests
+        .filter((request) => isActiveRequest(request, realBookings))
+        .map((request) => normalizeActiveJob(request, realQuotations));
 
       const normalizedScheduled = realBookings
         .filter((booking) => !isCompletedOrCancelled(booking))
@@ -465,7 +531,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 110,
   },
-
   stateCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
@@ -522,7 +587,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
   },
-
   textDark: {
     color: '#F8FAFC',
   },
