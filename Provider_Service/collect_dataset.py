@@ -16,145 +16,127 @@ Place this file at:
 
 import os
 import cv2
-import subprocess
+import yt_dlp
+from urllib.parse import urlparse, urlunparse
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
-DATASET_DIR    = r"E:\4th year\semester 1\Research\R26-SE-020\Provider_Service\dataset"
-FRAME_INTERVAL = 30      # Extract 1 frame every 30 frames (~1 per second at 30fps)
-MAX_FRAMES     = 150     # Max frames to extract per video
+DATASET_DIR    = r"E:\R26-SE-020\Provider_Service\dataset"
+FRAME_INTERVAL = 75  
+MAX_FRAMES     = 150  # Max frames to extract per video
 IMG_SIZE       = (224, 224)
 
-# ─── Your YouTube Video Links ─────────────────────────────────────────────────
+# ─── Your YouTube / Facebook Video Links ──────────────────────────────────────
 
 VIDEOS = {
-
     "electrical_repair": [
-        "https://youtube.com/shorts/527A7JMDI5E?si=AwCVZfACX2DkzuJ1",
-        "https://youtube.com/shorts/qCVxqBZvM_U?si=owT4VXShHIWqQm5l",
-        "https://youtube.com/shorts/qaTGAeUlvv8?si=jM-xKr0JfaZDKHF6",
-        "https://youtube.com/shorts/j1SLh0dJsDo?si=TmSaP9rrkIhc2vLU",
-        "https://youtube.com/shorts/BsDdQK3dDMs?si=WSgM8h7EC2r0Fl1x",
-        "https://youtube.com/shorts/IWOsaZ2By9g?si=RZN4GLQlZM_XL3Ws",
+        "https://youtu.be/g0a4n_ndInA?si=boDFg4uFwHX14-gd",
+        "https://youtube.com/shorts/InHJ4nh1wsc?si=ZzhCT1hj-Lqmj9g_",
+        "https://www.facebook.com/share/r/1BqXzCBegY/",
+        "https://www.facebook.com/share/r/1DBsbmMLqm/",
+        "https://www.facebook.com/share/v/1Em61DKU4o/",
+        "https://www.facebook.com/share/v/1ca29EvRqM/",
+        "https://www.facebook.com/reel/1594082328716333/",
+        "https://www.facebook.com/share/v/19Nq8puTyR/",
+        "https://www.facebook.com/share/v/19JxUSpGvK/",
+        "https://www.facebook.com/share/v/19Y937e3cs/",
+        "https://www.facebook.com/share/v/1EkW4rykLM/",
+        "https://www.facebook.com/reel/1623100539443023",
+        "https://www.facebook.com/share/v/1EoiyqhjVF/",
+        "https://www.facebook.com/share/v/19F5XHkEuC/",
     ],
 
     "plumbing_repair": [
-        "https://youtube.com/shorts/3tiJ9dP2KtA?si=FvbLxDpkQmZnRfG7",
-        "https://youtube.com/shorts/tyk_cGxp3UI?si=__T9NQVyW_1QebMe",
-        "https://youtube.com/shorts/UV0kenv8yWA?si=toMpcXLrYBGKFlln",
-        "https://youtube.com/shorts/D6Qa_Izp3lA?si=5JlTUkyz_Qb_LBhb",
-        "https://youtube.com/shorts/e-Gvh3J-NW0?si=mZkiwskpIt6bsYOf",
-        "https://youtube.com/shorts/7D8sTcncsDE?si=2qRfFaohenjBmpky",
+        "https://www.facebook.com/share/v/14pK8apSC7C/",
+        "https://www.facebook.com/share/r/1FCeqCT7B4/",
+        "https://www.facebook.com/reel/1317846663835889/",
+        "https://www.facebook.com/share/r/1FihpPpA25/",
+        "https://www.facebook.com/reel/2235850213859847/",
+        "https://www.facebook.com/reel/1033882555753683/",
     ],
 
     "furniture_repair": [
-        "https://youtube.com/shorts/_V5L6Fs1sBI?si=Epq3inc47f6zK4Uh",
-        "https://youtube.com/shorts/aBkcc7jmGwI?si=-6i7QetORAaB5n2l",
-        "https://youtube.com/shorts/EG1H5R27b6o?si=f3IQ-fkeUpL0Gqkz",
-        "https://youtube.com/shorts/QgeuDMoM5T0?si=zPi13l0YiJID-CIM",
-        "https://youtube.com/shorts/0Jd312CE3y4?si=sGSPMFsKmicvLiYM",
-        "https://youtube.com/shorts/bB0R7WudEdk?si=kyVz7xB5XYqIY1vR",
+        
     ],
 
     "roofing_repair": [
-        "https://youtube.com/shorts/yAZyuFizmeQ?si=o4FEWbOpOqUv9vcV",
-        "https://youtube.com/shorts/ah6RUbi-0PU?si=eseyG6QyA8Ss5cxA",
-        "https://youtube.com/shorts/oWuMlgmUp2k?si=qwHdZjEvXVFO6Fy1",
-        "https://youtube.com/shorts/KZdlzRM2vow?si=9D5lhBBunHhmWSja",
+        
     ],
 
     "painting_renovation": [
-        "https://youtube.com/shorts/VzSDqHoq00w?si=OiE13dpKYTuCxTj5",
-        "https://youtube.com/shorts/AEli_vNrOdU?si=ytvyNafmUCrFHPrO",
-        "https://youtube.com/shorts/wYKYpIGSTII?si=mi8Yl3CbZKKid1Rz",
-        "https://youtube.com/shorts/py5WwbFhVyQ?si=sBMW2wlCe3ikh9-s",
-        "https://youtube.com/shorts/EZs1fzxXKu8?si=kuLyTEhLKldcAenL",
+        
     ],
 
     "house_cleaning": [
-        "https://youtu.be/FROaGN675us?si=QSEfO_7PsfAyzc9X",
-        "https://youtu.be/S5qZVIyWElY?si=w5KRC8XkI5tsII74",
-        "https://youtu.be/jNj92cg7GIw?si=od_d4JEnYuPb6Qkk",
-        "https://youtu.be/16fzSfVFE8U?si=V9vVAYUcFqAJ9MO-",
+        
     ],
 
     "post_construction_cleaning": [
-        "https://youtube.com/shorts/T7RUId6EXzY?si=M8FtkB89crIckIw6",
-        "https://youtube.com/shorts/NXmUqdmhkC4?si=vuzzmhtObCSAM2Xt",
-        "https://youtube.com/shorts/2yh_xe41Vws?si=KLGYobWUPdOlqgXv",
-        "https://youtube.com/shorts/92S5v4FDArg?si=g-H1OQ9Vf29ebioO",
-        "https://youtube.com/shorts/FDla_6HNyI4?si=X7BTT4ZV3n0-5Aya",
+        
     ],
 
     "move_in_out_cleaning": [
-        "https://youtu.be/Jw5olIBE7ZE?si=vYZ340Z4x5yk9A9n",
-        "https://youtu.be/zxdpDaRcFdQ?si=JJfARn7kKakQlvKI",
-        "https://youtu.be/yDd4jIVNkDM?si=QX2-Yby5L856wEcv",
+        
     ],
 
     "sofa_carpet_curtain_cleaning": [
-        "https://youtube.com/shorts/QQg8t2mzigQ?si=IeRJ7lCNqdaYZWiQ",
-        "https://youtube.com/shorts/uu6-sXaOQhg?si=EsrFczmp9KOW9IY8",
-        "https://youtube.com/shorts/WotHVgGpMCo?si=X52xQMqVWNCp4iC2",
-        "https://youtu.be/oscDVKlnSco?si=b70-ucyPFiRZIo8B",
-        "https://youtu.be/uD4l952RMq0?si=egZFARbvn7zK6JCz",
+        
     ],
 
     "garden_cleaning": [
-        "https://youtube.com/shorts/D5rs1z7AHZs?si=hivzHL9okrzlXIO0",
-        "https://youtube.com/shorts/R8-zJUdkdFc?si=9hy5qSUW4foAZKFh",
-        "https://youtube.com/shorts/DnMRXX1zAls?si=oqWjnO5IneNpU6-N",
-        "https://youtube.com/shorts/ovU2wVdE0SA?si=aO_tgFRc2-QvGNj5",
-        "https://youtube.com/shorts/aJF_CKXNCcs?si=g_kFQk9bBs7xpECw",
-        "https://youtube.com/shorts/lV6u107mr1s?si=71fc5x_Mnn6q_V_k",
-        "https://youtube.com/shorts/etvv018hlCM?si=h6oUe64xdelN0Uf6",
+       
     ],
 
     "garden_maintenance": [
-        "https://youtube.com/shorts/9NWfAntuAiI?si=1bWDcG4DQWaA5klP",
-        "https://youtube.com/shorts/3uQfeXv4UKI?si=5f1rkz5SQ7QB4qwr",
-        "https://youtube.com/shorts/dKGPtR6V_GE?si=IxYMtv1O8tueKK7U",
-        "https://youtube.com/shorts/UtwP7wMbs7Y?si=LZ012EpOoj006S5J",
-        "https://youtube.com/shorts/ps9eCWbPBLg?si=0whhALOewx-dlEbD",
-        "https://youtube.com/shorts/pLD-lWqqJ-c?si=Ps_0CKxbW3GGneWF",
-        "https://youtube.com/shorts/vbXen8WvgvI?si=QyzXyOep9fV5PXjf",
+       
     ],
 
     "landscaping_design": [
-        "https://youtube.com/shorts/Y_UyZQsYJeA?si=brYuVpr44y-rEBrW",
-        "https://youtube.com/shorts/hyK3w1iCAfk?si=F1WaMLIgnLalprod",
-        "https://youtube.com/shorts/nPA8MP0gLgY?si=Nf_2np-FFJgeO7u3",
-        "https://youtube.com/shorts/rACL9fdAJBQ?si=o_z7YUs_myYDi3fZ",
-        "https://youtube.com/shorts/U9Zjg0TFv6c?si=iPvBB5Jn_QFzz2PL",
-        "https://youtube.com/shorts/VGTuakVPmVU?si=0rtjLSFqJyqghtGz",
+        
     ],
 
     "planting": [
-        "https://youtube.com/shorts/AAo8PBmXi4M?si=qOr7qzOd9LdnfA6b",
-        "https://youtube.com/shorts/OlodjsmaWZk?si=ch_MYLnZRcIIb11s",
-        "https://youtube.com/shorts/4eMS0_sva8c?si=iGIFOINx_TR8YuiH",
-        "https://youtube.com/shorts/WHGhHgHNmTw?si=dcc8Q4eVVH9EJohN",
+        
     ],
 }
 
 # ─── Core Functions ───────────────────────────────────────────────────────────
 
+
+def clean_facebook_url(url: str) -> str:
+    """Removes tracking query parameters from FB share links."""
+    parsed = urlparse(url)
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
+
+
 def download_video(url: str, output_path: str) -> str:
-    """Download a YouTube video using yt-dlp."""
+    """Downloads YouTube and Facebook videos using native Python yt-dlp."""
     print(f"  Downloading: {url}")
-    cmd = [
-        "yt-dlp",
-        "-f", "mp4/best[height<=480]",
-        "-o", output_path,
-        "--quiet",
-        "--no-warnings",
-        url,
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"  ❌ Download failed: {result.stderr.strip()}")
+    
+    if "facebook.com" in url or "fb.watch" in url:
+        url = clean_facebook_url(url)
+
+    ydl_opts = {
+        'format': 'best[height<=480]/bestvideo[height<=480]+bestaudio/best',
+        'outtmpl': output_path,
+        'quiet': True,
+        'no_warnings': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'http_headers': {
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Sec-Fetch-Mode': 'navigate',
+        },
+        'max_retries': 3,
+        'fragment_retries': 3,
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        return output_path
+    except Exception as e:
+        print(f"  ❌ Download failed for {url}: {e}")
         return None
-    return output_path
 
 
 def get_existing_files(class_name: str) -> set:
@@ -166,17 +148,16 @@ def get_existing_files(class_name: str) -> set:
 
 
 def get_next_index(existing_files: set, class_name: str) -> int:
-    """
-    Scan existing filenames and return max index + 1.
-    e.g. if electrical_repair_0042.jpg exists, returns 43.
-    """
+    """Scan existing filenames and return max index + 1."""
     max_index = 0
-    prefix    = f"{class_name}_"
+    prefix = f"{class_name}_"
     for filename in existing_files:
-        name = os.path.splitext(filename)[0]   # strip .jpg
+        name = os.path.splitext(filename)[0]
         if name.startswith(prefix):
             try:
-                index = int(name.replace(prefix, ""))
+                # Extract number part regardless of vidX prefix
+                num_part = name.split('_')[-1]
+                index = int(num_part)
                 if index > max_index:
                     max_index = index
             except ValueError:
@@ -184,12 +165,18 @@ def get_next_index(existing_files: set, class_name: str) -> int:
     return max_index + 1
 
 
-def extract_frames(video_path: str, class_name: str, existing_files: set) -> int:
-    """
-    Extract frames from a video, never overwriting existing files.
-    existing_files is updated in-place so consecutive videos don't collide.
-    Returns number of frames saved.
-    """
+def center_crop_and_resize(img, target_size=(224, 224)):
+    """Crops the center of the image to preserve aspect ratio before resizing."""
+    h, w = img.shape[:2]
+    min_dim = min(h, w)
+    start_x = (w - min_dim) // 2
+    start_y = (h - min_dim) // 2
+    cropped = img[start_y:start_y + min_dim, start_x:start_x + min_dim]
+    return cv2.resize(cropped, target_size)
+
+
+def extract_frames(video_path: str, class_name: str, video_id: int, existing_files: set) -> int:
+    """Extract frames from a video, preserving aspect ratio and preventing overlaps."""
     class_dir = os.path.join(DATASET_DIR, class_name)
     os.makedirs(class_dir, exist_ok=True)
 
@@ -202,7 +189,6 @@ def extract_frames(video_path: str, class_name: str, existing_files: set) -> int
     fps          = cap.get(cv2.CAP_PROP_FPS)
     print(f"  Video: {total_frames} frames at {fps:.1f}fps")
 
-    # Start index safely above all existing files
     img_index   = get_next_index(existing_files, class_name)
     frame_count = 0
     saved_count = 0
@@ -213,7 +199,7 @@ def extract_frames(video_path: str, class_name: str, existing_files: set) -> int
             break
 
         if frame_count % FRAME_INTERVAL == 0:
-            resized = cv2.resize(frame, IMG_SIZE)
+            resized = center_crop_and_resize(frame, IMG_SIZE)
 
             # Skip very dark or very bright frames
             gray       = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
@@ -229,15 +215,15 @@ def extract_frames(video_path: str, class_name: str, existing_files: set) -> int
 
             # Find a filename that does NOT already exist
             while True:
-                filename = f"{class_name}_{img_index:04d}.jpg"
+                filename = f"{class_name}_vid{video_id}_{img_index:04d}.jpg"
                 if filename not in existing_files:
                     break
-                img_index += 1   # keep incrementing until free slot found
+                img_index += 1
 
             save_path = os.path.join(class_dir, filename)
             cv2.imwrite(save_path, resized, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
-            existing_files.add(filename)  # register so next frame won't collide
+            existing_files.add(filename)
             saved_count += 1
             img_index   += 1
 
@@ -277,13 +263,10 @@ def main():
         existing_count = get_existing_count(class_name)
         print(f"Existing images: {existing_count}")
 
-        # Skip classes that already have enough images
         if existing_count >= 100:
             print(f"  ✅ Already has {existing_count} images — skipping")
             continue
 
-        # Load ALL existing filenames once — passed into every extract call
-        # so no two videos in the same class can produce duplicate filenames
         existing_files = get_existing_files(class_name)
         class_saved    = 0
 
@@ -299,7 +282,8 @@ def main():
             if result is None:
                 continue
 
-            saved = extract_frames(video_path, class_name, existing_files)
+            # Pass i (video_id) into extract_frames
+            saved = extract_frames(video_path, class_name, i + 1, existing_files)
             class_saved += saved
             print(f"  ✅ Extracted {saved} frames")
 
@@ -309,7 +293,6 @@ def main():
         print(f"Total for {class_name}: {existing_count + class_saved} images (+{class_saved} new)")
         total_saved += class_saved
 
-    # Cleanup temp folder
     try:
         os.rmdir(temp_dir)
     except Exception:

@@ -37,4 +37,9 @@ router.post("/:id/create-checkout-session", createBoostCheckoutSession);
 //admin routes
 router.get("/income/total", getSystemTotalIncome);
 
+router.post("/:id/create-checkout-session", createBoostCheckoutSession);
+
+//admin routes
+router.get("/income/total", getSystemTotalIncome);
+
 export default router;
