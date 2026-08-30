@@ -264,7 +264,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
         return;
       }
       setProviderId(auth.providerId);
-      console.log('Provider My Jobs providerId:', auth.providerId);
+      console.log('LOGGED PROVIDER ID:', auth.providerId);
 
       const [reqResult, quoteResult, jobsResult] = await Promise.allSettled([
         getProviderRequests(auth.providerId),
@@ -278,11 +278,19 @@ export default function ProviderMyJobsScreen({ navigation }) {
 
         console.log('RAW PROVIDER REQUESTS:', rawRequests.length);
         console.log('FILTERED PROVIDER REQUESTS:', providerRequests.length);
+        console.log('FIRST RAW REQUEST:', JSON.stringify(rawRequests[0], null, 2));
 
         setRequests(providerRequests);
+
+        if (rawRequests.length === 0) {
+          setBackendWarning('No incoming requests yet. New quotation requests assigned to you will appear here.');
+        } else if (providerRequests.length === 0) {
+          setBackendWarning('No requests are assigned to your provider account yet.');
+        }
       } else {
         console.log('Provider requests failed:', reqResult.reason?.message);
         setRequests([]);
+        setBackendWarning('Unable to load your jobs right now. Please check your connection and try again.');
       }
 
       if (quoteResult.status === 'fulfilled') {
@@ -311,9 +319,6 @@ export default function ProviderMyJobsScreen({ navigation }) {
         setJobs([]);
       }
 
-      if (reqResult.status === 'rejected' && quoteResult.status === 'rejected' && jobsResult.status === 'rejected') {
-        setBackendWarning('No provider flow data loaded yet. Check backend routes only if requests, quotes or bookings should already exist.');
-      }
     } catch (err) {
       console.log('Provider My Jobs load error:', err);
       setError(err.message || 'Failed to load provider flow.');
@@ -395,7 +400,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       return <>{warningBlock}{renderTimeline()}{todayJobs.map((job) => <BookingCard key={getBookingId(job)} booking={job} onPress={() => openJob(job)} isDark={isDark} />)}</>;
     }
     if (activeTab === 'Requests') {
-      return <>{warningBlock}{normalizedRequests.length === 0 ? <EmptyState isDark={isDark} icon="mail-open-outline" title="No incoming requests" message="Requests assigned to this provider will appear here before quotation submission." /> : normalizedRequests.map((r) => <RequestCard key={getRequestId(r)} request={r} isDark={isDark} onPress={() => openRequest(r)} onQuote={() => openQuoteForm(r)} />)}</>;
+      return <>{warningBlock}{normalizedRequests.length === 0 ? <EmptyState isDark={isDark} icon="mail-open-outline" title="No incoming requests" message="No incoming requests yet. New quotation requests assigned to you will appear here." /> : normalizedRequests.map((r) => <RequestCard key={getRequestId(r)} request={r} isDark={isDark} onPress={() => openRequest(r)} onQuote={() => openQuoteForm(r)} />)}</>;
     }
     if (activeTab === 'Quotes') {
       return <>{warningBlock}{normalizedQuotes.length === 0 ? <EmptyState isDark={isDark} icon="receipt-outline" title="No quotations sent" message="After submitting a quotation, its seeker decision and coordination status will appear here." /> : normalizedQuotes.map((q) => <QuoteCard key={getQuotationId(q)} quotation={q} isDark={isDark} onPress={() => Alert.alert('Quotation', `Status: ${q.status || 'SENT'}\nPrice: LKR ${q.price || '-'}`)} />)}</>;

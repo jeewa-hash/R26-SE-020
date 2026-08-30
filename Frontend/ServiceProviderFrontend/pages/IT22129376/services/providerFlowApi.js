@@ -1,5 +1,11 @@
 // pages/IT22129376/services/providerFlowApi.js
-import { IP_ADDRESS, CONFIG } from '../../../config';
+import {
+  IP_ADDRESS,
+  CONFIG,
+  SEEKER_SERVICE_URL,
+  PROVIDER_SERVICE_API_URL,
+  COORDINATION_SERVICE_URL,
+} from '../../../config';
 import { buildAuthHeaders } from './providerAuthStorage';
 
 const trimSlash = (url) => String(url || '').replace(/\/+$/, '');
@@ -7,18 +13,20 @@ const uniqueUrls = (urls) => [...new Set(urls.filter(Boolean).map(trimSlash))];
 
 const SEEKER_URLS = uniqueUrls([
   CONFIG?.SEEKER_SERVICE_URL,
-  `http://${IP_ADDRESS}:6001`,
-  `http://${IP_ADDRESS}:6000`,
+  SEEKER_SERVICE_URL,
   CONFIG?.API_BASE_URL,
+  `http://${IP_ADDRESS}:6000`,
 ]);
 
 const PROVIDER_URLS = uniqueUrls([
   CONFIG?.PROVIDER_SERVICE_URL,
+  PROVIDER_SERVICE_API_URL,
   `http://${IP_ADDRESS}:3002`,
 ]);
 
 const COORDINATION_URLS = uniqueUrls([
   CONFIG?.COORDINATION_SERVICE_URL,
+  COORDINATION_SERVICE_URL,
   `http://${IP_ADDRESS}:5010`,
 ]);
 
@@ -93,7 +101,7 @@ const firstSuccess = async (candidates) => {
 
       return {
         data,
-        usedUrl,
+        usedUrl: url,
       };
     } catch (error) {
       lastError = error;
@@ -221,6 +229,9 @@ export const getProviderRequests = async (providerId) => {
   ]);
 
   const requests = filterForProvider(rawRequests, providerId);
+
+  console.log('Provider requests raw count:', rawRequests.length);
+  console.log('Provider requests filtered count:', requests.length);
 
   return {
     raw: data,
