@@ -113,8 +113,8 @@ function AppNavigator({ initialRouteName }) {
       <Stack.Screen
         name="Home"
         component={HomeScreen}
-        options={{ title: t('nav_dashboard'), headerLeft: null }}
-      />
+        options={{ headerShown: false }}
+/>
 
       <Stack.Screen
         name="FeedScreen"
