@@ -413,7 +413,7 @@ const ProfilePage = () => {
       </div>
 
       {/* 2. Password Change Section */}
-      <div className="profile-section-card">
+      <div className="profile-section-card security-card">
         <div className="section-header">
           <div className="section-title-wrap">
             <div className="section-icon-wrap rose">
@@ -423,6 +423,9 @@ const ProfilePage = () => {
               <h3>Security & Password Management</h3>
               <p>Change your administrator account login password with live security validation.</p>
             </div>
+          </div>
+          <div className="security-status-badge">
+            <HiOutlineShieldCheck /> Active Security Policy
           </div>
         </div>
 
@@ -462,6 +465,7 @@ const ProfilePage = () => {
                   className="eye-toggle-btn"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                   tabIndex="-1"
+                  title={showCurrentPassword ? 'Hide password' : 'Show password'}
                 >
                   {showCurrentPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
@@ -490,6 +494,7 @@ const ProfilePage = () => {
                   className="eye-toggle-btn"
                   onClick={() => setShowNewPassword(!showNewPassword)}
                   tabIndex="-1"
+                  title={showNewPassword ? 'Hide password' : 'Show password'}
                 >
                   {showNewPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
@@ -518,6 +523,7 @@ const ProfilePage = () => {
                   className="eye-toggle-btn"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   tabIndex="-1"
+                  title={showConfirmPassword ? 'Hide password' : 'Show password'}
                 >
                   {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
                 </button>
@@ -525,36 +531,20 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          {/* Live Validation Feedback Box */}
+          {/* Live Validation Feedback Box - Elegant Security Dashboard */}
           <div className="password-validation-box">
-            <span className="validation-title">Password Security Requirements:</span>
-            <div className="validation-rules-list">
-              <div className={`rule-item ${passwordValidations.hasMinLength ? 'valid' : 'invalid'}`}>
-                {passwordValidations.hasMinLength ? <FiCheck /> : <FiX />} At least 6 characters in length
-              </div>
-              <div className={`rule-item ${passwordValidations.hasNumberOrSpecial ? 'valid' : 'invalid'}`}>
-                {passwordValidations.hasNumberOrSpecial ? <FiCheck /> : <FiX />} Contains numbers or special symbols
-              </div>
-              <div className={`rule-item ${passwordValidations.isDifferentFromCurrent ? 'valid' : 'invalid'}`}>
-                {passwordValidations.isDifferentFromCurrent ? <FiCheck /> : <FiX />} Different from current password
-              </div>
-              <div className={`rule-item ${passwordValidations.matchesConfirm ? 'valid' : passwordValidations.confirmTouched ? 'invalid' : 'pending'}`}>
-                {passwordValidations.matchesConfirm ? (
-                  <FiCheck />
-                ) : passwordValidations.confirmTouched ? (
-                  <FiX />
-                ) : (
-                  <FiClock />
-                )}
-                {passwordValidations.confirmTouched && !passwordValidations.matchesConfirm
-                  ? 'Passwords do not match'
-                  : passwordValidations.matchesConfirm
-                  ? 'Passwords match successfully'
-                  : 'Confirm password must match'}
-              </div>
+            <div className="validation-header-row">
+              <span className="validation-title">
+                <FiShield /> Password Security Requirements
+              </span>
+              {passwordForm.newPassword.length > 0 && (
+                <span className={`strength-badge strength-${passwordValidations.strengthScore}`}>
+                  Strength: {passwordValidations.strengthScore === 3 ? 'Strong' : passwordValidations.strengthScore === 2 ? 'Medium' : 'Weak'}
+                </span>
+              )}
             </div>
 
-            {/* Password Strength Indicator */}
+            {/* Password Strength Progress Bar */}
             {passwordForm.newPassword.length > 0 && (
               <div className="strength-meter-wrap">
                 <div className="strength-bar-bg">
@@ -563,11 +553,51 @@ const ProfilePage = () => {
                     style={{ width: `${(passwordValidations.strengthScore / 3) * 100}%` }}
                   ></div>
                 </div>
-                <span className="strength-text">
-                  Strength: {passwordValidations.strengthScore === 3 ? 'Strong' : passwordValidations.strengthScore === 2 ? 'Medium' : 'Weak'}
-                </span>
               </div>
             )}
+
+            {/* 4 Elegant Security Requirement Chips */}
+            <div className="validation-rules-list">
+              <div className={`rule-item ${passwordValidations.hasMinLength ? 'valid' : passwordForm.newPassword.length > 0 ? 'invalid' : 'pending'}`}>
+                <span className="rule-icon">
+                  {passwordValidations.hasMinLength ? <FiCheck /> : passwordForm.newPassword.length > 0 ? <FiX /> : <FiClock />}
+                </span>
+                <span className="rule-text">At least 6 characters in length</span>
+              </div>
+
+              <div className={`rule-item ${passwordValidations.hasNumberOrSpecial ? 'valid' : passwordForm.newPassword.length > 0 ? 'invalid' : 'pending'}`}>
+                <span className="rule-icon">
+                  {passwordValidations.hasNumberOrSpecial ? <FiCheck /> : passwordForm.newPassword.length > 0 ? <FiX /> : <FiClock />}
+                </span>
+                <span className="rule-text">Contains numbers or special symbols</span>
+              </div>
+
+              <div className={`rule-item ${passwordValidations.isDifferentFromCurrent ? 'valid' : passwordForm.newPassword.length > 0 ? 'invalid' : 'pending'}`}>
+                <span className="rule-icon">
+                  {passwordValidations.isDifferentFromCurrent ? <FiCheck /> : passwordForm.newPassword.length > 0 ? <FiX /> : <FiClock />}
+                </span>
+                <span className="rule-text">Different from current password</span>
+              </div>
+
+              <div className={`rule-item ${passwordValidations.matchesConfirm ? 'valid' : passwordValidations.confirmTouched ? 'invalid' : 'pending'}`}>
+                <span className="rule-icon">
+                  {passwordValidations.matchesConfirm ? (
+                    <FiCheck />
+                  ) : passwordValidations.confirmTouched ? (
+                    <FiX />
+                  ) : (
+                    <FiClock />
+                  )}
+                </span>
+                <span className="rule-text">
+                  {passwordValidations.confirmTouched && !passwordValidations.matchesConfirm
+                    ? 'Passwords do not match'
+                    : passwordValidations.matchesConfirm
+                    ? 'Passwords match successfully'
+                    : 'Confirm password must match'}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Action Row */}
@@ -581,7 +611,7 @@ const ProfilePage = () => {
             </button>
             {!passwordValidations.isAllValid && (
               <span className="button-hint-text">
-                Complete all password security checks above to enable button.
+                <FiLock className="hint-lock-icon" /> Complete all password security requirements above to enable update.
               </span>
             )}
           </div>

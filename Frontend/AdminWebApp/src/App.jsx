@@ -15,6 +15,7 @@ import DemandForecastingPage from './pages/DemandForecastingPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import ReportsPage from './pages/ReportsPage';
 import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 import UserLocationsPage from './pages/UserLocationsPage';
 import './App.css';
 
@@ -47,6 +48,7 @@ function App() {
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="user-locations" element={<UserLocationsPage />} />
         </Route>
 
