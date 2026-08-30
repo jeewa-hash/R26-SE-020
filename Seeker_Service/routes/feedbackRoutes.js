@@ -3,6 +3,7 @@ import {
   createFeedback,
   getProviderFeedback,
   getServiceFeedback,
+  getBookingFeedbackStatus,
   updateFeedback,
   deleteFeedback
 } from "../controllers/feedbackController.js";
@@ -14,6 +15,7 @@ router.post("/", createFeedback);
 
 // READ
 router.get("/provider/:providerId", getProviderFeedback);
+router.get("/booking/:bookingId", getBookingFeedbackStatus);
 router.get("/service/:serviceId", getServiceFeedback);
 
 // UPDATE
