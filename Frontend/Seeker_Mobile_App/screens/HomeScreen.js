@@ -27,6 +27,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import { useNotification } from '../context/NotificationContext';
+import { AUTH_SERVICE_URL, API_BASE_URL, CONFIG, IP_ADDRESS } from '../config';
 
 if (
   Platform.OS === 'android' &&
@@ -69,85 +70,343 @@ const CATEGORIES = [
   },
 ];
 
+const AVATAR_GRADIENTS = [
+  ['#4f46e5', '#7c3aed'], // Indigo - Violet
+  ['#059669', '#10b981'], // Emerald
+  ['#d97706', '#f59e0b'], // Amber
+  ['#e11d48', '#fb7185'], // Rose
+  ['#0284c7', '#38bdf8'], // Sky
+  ['#7c3aed', '#c084fc'], // Purple
+  ['#ea580c', '#fb923c'], // Orange
+];
+
+const getAvatarGradient = (char) => {
+  const code = (char || 'P').charCodeAt(0);
+  return AVATAR_GRADIENTS[code % AVATAR_GRADIENTS.length];
+};
+
 const Slideshow = ({ isDarkMode }) => {
   const navigation = useNavigation();
   const flatListRef = useRef();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const slideshowData = getSlideshowData();
+  const [slides, setSlides] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [failedImages, setFailedImages] = useState({});
 
+  // Fetch Recommended Providers for the Logged-in Seeker
   useEffect(() => {
+    let isMounted = true;
+
+    const fetchRecommendations = async () => {
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        const token = await AsyncStorage.getItem('userToken');
+
+        let recUrl = `${AUTH_SERVICE_URL}/seeker/recommendations/${userId || 'guest'}`;
+        let response = null;
+
+        try {
+          const res = await fetch(recUrl, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (res.ok) {
+            response = await res.json();
+          }
+        } catch (e) {
+          console.log('Error fetching from authService recommendations, trying fallback:', e.message);
+        }
+
+        // Fallback to Seeker_Service endpoint if needed
+        if (!response || !response.success) {
+          try {
+            const fallbackUrl = `http://${IP_ADDRESS}:6000/request-quotations/recommendations/seeker/${userId || 'guest'}`;
+            const res2 = await fetch(fallbackUrl, {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (res2.ok) {
+              response = await res2.json();
+            }
+          } catch (fErr) {
+            console.log('Error fetching from fallback:', fErr.message);
+          }
+        }
+
+        // Second Fallback: Fetch general providers list if recommendations empty
+        if (!response || !response.recommendations || response.recommendations.length === 0) {
+          try {
+            const provRes = await fetch(`${AUTH_SERVICE_URL}/providers`);
+            const pData = await provRes.json();
+            const provList = (pData.providers || pData || []).filter(
+              (p) =>
+                p.isVerified &&
+                !p.isBlocked &&
+                !p.isRejected &&
+                (!p.consecutiveRejections || p.consecutiveRejections <= 3) &&
+                (!p.consecutiveCancellations || p.consecutiveCancellations <= 3)
+            );
+            if (provList.length > 0) {
+              const formatted = provList.slice(0, 5).map((p, idx) => ({
+                id: String(p._id || p.id || idx),
+                title: p.name || p.fullName || (p.email ? p.email.split('@')[0] : `Provider ${idx + 1}`),
+                subtitle: `${p.category || 'General Service'} • ${p.district || 'Available'}`,
+                category: p.category || 'General Service',
+                district: p.district || 'All Districts',
+                rating: p.rating || 4.9,
+                reviewsCount: p.reviewCount || 12,
+                isVerified: true,
+                matchReason: `Top rated in ${p.district || 'your area'}`,
+                image: p.profileImage || null,
+                provider: p,
+                portfolio: {
+                  categories: [p.category || 'General Service'],
+                  specific_labels: [p.category || 'General Service'],
+                  images: p.profileImage ? [p.profileImage] : [],
+                  total_images: p.profileImage ? 1 : 0,
+                },
+                match: {
+                  category: p.category || 'General Service',
+                  reason: 'Recommended for you',
+                },
+              }));
+              if (isMounted) {
+                setSlides(formatted);
+                setLoading(false);
+              }
+              return;
+            }
+          } catch (pErr) {
+            console.log('Error fetching general providers:', pErr.message);
+          }
+        }
+
+        if (isMounted) {
+          if (response && response.recommendations && response.recommendations.length > 0) {
+            const onlyVerified = response.recommendations.filter(
+              (r) => r.isVerified && !r.provider?.isBlocked && !r.provider?.isRejected
+            );
+            setSlides(onlyVerified);
+          } else {
+            // Default seasonal data if completely offline
+            const defaultMock = getSlideshowData().map((s) => ({
+              ...s,
+              isMock: true,
+            }));
+            setSlides(defaultMock);
+          }
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Recommendations load error:', err);
+        if (isMounted) {
+          setSlides(getSlideshowData());
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchRecommendations();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Automatic slide interval
+  useEffect(() => {
+    if (slides.length <= 1) return;
+
     const interval = setInterval(() => {
-      if (flatListRef.current && slideshowData.length > 0) {
-        const nextIndex = (currentIndex + 1) % slideshowData.length;
+      if (flatListRef.current && slides.length > 0) {
+        const nextIndex = (currentIndex + 1) % slides.length;
         setCurrentIndex(nextIndex);
         flatListRef.current.scrollToIndex({
           index: nextIndex,
           animated: true,
         });
       }
-    }, 4000);
+    }, 4500);
 
     return () => clearInterval(interval);
-  }, [currentIndex, slideshowData.length]);
+  }, [currentIndex, slides.length]);
 
-  const renderSlide = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.slideCard, isDarkMode && styles.slideCardDark]}
-      onPress={() => navigation.navigate('SeasonalDemandsScreen')}
-      activeOpacity={0.95}
-    >
-      <Image source={{ uri: item.image }} style={styles.slideImage} />
+  // Navigate directly to profileOfProvider
+  const handleNavigateToProvider = (item) => {
+    if (item.isMock) {
+      navigation.navigate('SeasonalDemandsScreen');
+      return;
+    }
 
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.8)']}
-        style={styles.slideOverlay}
+    const p = item.provider || item;
+    navigation.navigate('profileOfProvider', {
+      providerItem: {
+        provider: {
+          id: p.id || p._id || item.id,
+          _id: p.id || p._id || item.id,
+          name: p.name || item.title || 'Service Provider',
+          email: p.email || '',
+          telephone: p.telephone || '',
+          district: p.district || item.district || '',
+          category: p.category || item.category || '',
+          profileImage: p.profileImage || item.image || '',
+          bio: p.bio || '',
+          isVerified: Boolean(p.isVerified || item.isVerified),
+          rating: p.rating || item.rating || 4.9,
+          location: p.location || null,
+        },
+        portfolio: item.portfolio || {
+          categories: [p.category || item.category || 'General Service'],
+          specific_labels: [p.category || item.category || 'General Service'],
+          images: (p.profileImage || item.image) ? [p.profileImage || item.image] : [],
+          total_images: (p.profileImage || item.image) ? 1 : 0,
+        },
+        match: item.match || {
+          reason: item.matchReason || 'Recommended Provider in your district',
+          category: p.category || item.category || 'General Service',
+        },
+      },
+    });
+  };
+
+  const getProfileImageUrl = (profileImage) => {
+    if (!profileImage) return null;
+    const normalized = profileImage.replace(/\\/g, '/');
+    if (normalized.startsWith('http')) return normalized;
+    return `${AUTH_SERVICE_URL}/${normalized}`;
+  };
+
+  const renderSlide = ({ item }) => {
+    const itemId = String(item.id || item._id || item.title);
+    const imgUri = getProfileImageUrl(item.image || item.provider?.profileImage);
+    const hasValidImage = Boolean(imgUri) && !failedImages[itemId];
+
+    const providerTitle = item.title || item.provider?.name || item.name || 'Provider';
+    const initial = providerTitle.trim().length > 0 ? providerTitle.trim().charAt(0).toUpperCase() : 'P';
+    const avatarGradientColors = getAvatarGradient(initial);
+
+    return (
+      <TouchableOpacity
+        style={[styles.slideCard, isDarkMode && styles.slideCardDark]}
+        onPress={() => handleNavigateToProvider(item)}
+        activeOpacity={0.92}
       >
-        <View style={styles.slideContent}>
-          <Text style={styles.slideTitle}>{item.title}</Text>
-          <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
+        {hasValidImage ? (
+          <Image
+            source={{ uri: imgUri }}
+            style={styles.slideImage}
+            resizeMode="cover"
+            onError={() => setFailedImages((prev) => ({ ...prev, [itemId]: true }))}
+          />
+        ) : (
+          <LinearGradient
+            colors={isDarkMode ? ['#0f172a', '#1e1b4b'] : avatarGradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.slideImage}
+          >
+            <View style={styles.slideWatermarkWrap}>
+              <Text style={styles.slideWatermarkInitial}>{initial}</Text>
+            </View>
+          </LinearGradient>
+        )}
 
-          <View style={styles.slideButton}>
-            <Text style={styles.slideButtonText}>Explore Now →</Text>
+        <LinearGradient
+          colors={['rgba(0,0,0,0.2)', 'rgba(15,23,42,0.92)']}
+          style={styles.slideOverlay}
+        >
+          {/* Top Recommendation Tag & Rating */}
+          <View style={styles.slideHeaderRow}>
+            <View style={styles.slideTagPill}>
+              <Text style={styles.slideTagText}>
+                {item.isTopCategory ? '⭐ Top Category' : '📍 ' + (item.district || 'Recommended')}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {item.isVerified && (
+                <View style={styles.slideVerifiedPill}>
+                  <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+                  <Text style={styles.slideVerifiedText}>Verified</Text>
+                </View>
+              )}
+
+              <View style={styles.slideRatingPill}>
+                <Ionicons name="star" size={13} color="#FBBF24" />
+                <Text style={styles.slideRatingText}>{Number(item.rating || 4.9).toFixed(1)}</Text>
+              </View>
+            </View>
           </View>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+
+          {/* Provider Details */}
+          <View style={styles.slideContent}>
+            <View style={styles.slideProviderRow}>
+              {hasValidImage ? (
+                <Image
+                  source={{ uri: imgUri }}
+                  style={styles.slideAvatarThumb}
+                  onError={() => setFailedImages((prev) => ({ ...prev, [itemId]: true }))}
+                />
+              ) : (
+                <LinearGradient
+                  colors={avatarGradientColors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.slideAvatarFallback}
+                >
+                  <Text style={styles.slideAvatarInitial}>{initial}</Text>
+                </LinearGradient>
+              )}
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.slideTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <Text style={styles.slideSubtitle} numberOfLines={1}>
+                  {item.subtitle}
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.slideButton}
+              onPress={() => handleNavigateToProvider(item)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.slideButtonText}>Explore Now →</Text>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  };
 
   const renderDot = () => (
     <View style={styles.dotContainer}>
-      {slideshowData.map((_, index) => (
+      {slides.map((_, index) => (
         <View
           key={index}
-          style={[
-            styles.dot,
-            currentIndex === index && styles.activeDot,
-          ]}
+          style={[styles.dot, currentIndex === index && styles.activeDot]}
         />
       ))}
     </View>
   );
 
-  if (slideshowData.length === 0) return null;
+  if (slides.length === 0) return null;
 
   return (
     <View style={styles.slideshowContainer}>
       <FlatList
         ref={flatListRef}
-        data={slideshowData}
+        data={slides}
         renderItem={renderSlide}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item, idx) => (item.id || item._id || idx).toString()}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(event) => {
-          const index = Math.round(
-            event.nativeEvent.contentOffset.x / (width - 32)
-          );
+          const index = Math.round(event.nativeEvent.contentOffset.x / (width - 32));
           setCurrentIndex(index);
         }}
       />
-
       {renderDot()}
     </View>
   );
@@ -658,7 +917,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingBottom: 36,
-    paddingTop: Platform.OS === 'android' ? 18 : 14,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 12 : (Platform.OS === 'ios' ? 48 : 20),
   },
   header: {
     flexDirection: 'row',
@@ -858,20 +1117,20 @@ const styles = StyleSheet.create({
   },
   slideCard: {
     width: width - 32,
-    height: 180,
+    height: 195,
     marginHorizontal: 16,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#fff',
+    backgroundColor: '#1e1b4b',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.15,
+    shadowRadius: 14,
+    elevation: 6,
   },
   slideCardDark: {
-    backgroundColor: '#16213e',
-    borderColor: '#2d3561',
+    backgroundColor: '#0f1123',
+    borderColor: '#3730a3',
     borderWidth: 1,
   },
   slideImage: {
@@ -884,35 +1143,129 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '100%',
-    justifyContent: 'flex-end',
-    padding: 16,
+    justifyContent: 'space-between',
+    padding: 14,
   },
-  slideContent: {
-    marginBottom: 16,
+  slideHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
   },
-  slideTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  slideSubtitle: {
-    fontSize: 12,
-    color: '#ffffffCC',
-    marginBottom: 12,
-  },
-  slideButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+  slideTagPill: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
   },
+  slideTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  slideVerifiedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(16,185,129,0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.45)',
+  },
+  slideVerifiedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  slideRatingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  slideRatingText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#FBBF24',
+  },
+  slideContent: {
+    marginBottom: 4,
+  },
+  slideProviderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 10,
+  },
+  slideAvatarThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  slideWatermarkWrap: {
+    position: 'absolute',
+    right: 15,
+    top: 5,
+    opacity: 0.18,
+  },
+  slideWatermarkInitial: {
+    fontSize: 140,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  slideAvatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  slideAvatarInitial: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  slideTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  slideSubtitle: {
+    fontSize: 12,
+    color: '#E2E8F0',
+    fontWeight: '500',
+  },
+  slideButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
   slideButtonText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '700',
     color: '#fff',
   },
   dotContainer: {
