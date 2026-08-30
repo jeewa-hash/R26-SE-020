@@ -1,11 +1,15 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { 
   View, TouchableOpacity, StyleSheet, Platform, Image, Dimensions,
 } from 'react-native';
 import { Text, Searchbar } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { io } from 'socket.io-client';
 import { ThemeContext } from '../context/ThemeContext';
-import ProfileHeader from '../navigation/ProfileHeader'; // Import ProfileHeader
+import { useUnread } from '../context/UnreadContext';
+import ProfileHeader from '../navigation/ProfileHeader';
+import { CONFIG } from '../config';
 
 const { width, height } = Dimensions.get('window');
 
@@ -15,15 +19,95 @@ export default function HeaderSection({
   avatarUrl = null,
   search = '',
   onSearchChange = () => {},
-  unreadCount = 0,
-  onInboxPress = () => {},
+  onInboxPress,
   onMenuPress,
 }) {
   const theme = useContext(ThemeContext) || {};
   const isDark = theme.isDark ?? false;
-  
-  // State for ProfileHeader sidebar
+
+  const { unreadCount = 0, setUnreadCount } = useUnread() || {};
+
+  const socketRef = useRef(null);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+  const [actualUserName, setActualUserName] = useState(userName);
+
+  const fetchTotalUnreadCount = async (userId) => {
+    try {
+      const response = await fetch(`${CONFIG.SEEKER_SERVICE_URL}/chat/user/${userId}`);
+      if (response.ok) {
+        const threads = await response.json();
+        
+        // Safeguard against non-array response or undefined items
+        if (Array.isArray(threads)) {
+          const total = threads.reduce((sum, thread) => {
+            return sum + (thread && typeof thread.unreadCount === 'number' ? thread.unreadCount : 0);
+          }, 0);
+          setUnreadCount(total);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch total unread count:', error);
+    }
+  };
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        if (!token) return;
+
+        const response = await fetch(`${CONFIG.AUTH_SERVICE_URL}/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const user = data.provider || data.user || data;
+
+        if (user?.name) {
+          setActualUserName(user.name);
+        }
+      } catch (error) {
+        console.error('Failed to load user:', error);
+      }
+    };
+
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const setupHeaderSocket = async () => {
+      const storedUserId = await AsyncStorage.getItem('userId');
+      if (!storedUserId) return;
+
+      if (isMounted) {
+        await fetchTotalUnreadCount(storedUserId);
+      }
+
+      socketRef.current = io(CONFIG.SEEKER_SERVICE_URL);
+      socketRef.current.emit('addUser', storedUserId);
+
+      socketRef.current.on('getMessage', (incomingData) => {
+        if (incomingData && incomingData.senderId !== storedUserId) {
+          setUnreadCount((prev) => (prev || 0) + 1);
+        }
+      });
+    };
+
+    setupHeaderSocket();
+
+    return () => {
+      isMounted = false;
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, []);
 
   const getInitials = (name) => {
     if (!name) return 'U';
@@ -34,12 +118,20 @@ export default function HeaderSection({
       .toUpperCase();
   };
 
+  const handleInboxPress = () => {
+    setUnreadCount(0);
+    if (onInboxPress) {
+      onInboxPress();
+    } else if (navigation) {
+      navigation.navigate('InboxScreen');
+    }
+  };
+
   const handleMenuPress = () => {
     if (onMenuPress) {
       onMenuPress();
       return;
     }
-    // Open ProfileHeader sidebar
     setIsSidebarVisible(true);
   };
 
@@ -55,7 +147,6 @@ export default function HeaderSection({
           { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' },
         ]}
       >
-        {/* Top Bar: Profile Picture, Actions (Chat & Side Menu) */}
         <View style={styles.topRow}>
           <View style={styles.userSection}>
             <TouchableOpacity style={styles.avatarTouchable} activeOpacity={0.8}>
@@ -63,7 +154,7 @@ export default function HeaderSection({
                 <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
               ) : (
                 <View style={styles.avatarFallback}>
-                  <Text style={styles.avatarFallbackText}>{getInitials(userName)}</Text>
+                  <Text style={styles.avatarFallbackText}>{getInitials(actualUserName)}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -72,19 +163,18 @@ export default function HeaderSection({
                 Hello 👋
               </Text>
               <Text style={[styles.userNameText, { color: isDark ? '#F2F2F7' : '#1F2937' }]}>
-                {userName}
+                {actualUserName}
               </Text>
             </View>
           </View>
 
           <View style={styles.actionsContainer}>
-            {/* Inbox / Chat Button */}
             <TouchableOpacity
               style={[
                 styles.iconButton,
                 { backgroundColor: isDark ? '#2C2C2E' : '#F3F4F6' },
               ]}
-              onPress={onInboxPress}
+              onPress={handleInboxPress}
               activeOpacity={0.7}
             >
               <MaterialIcons
@@ -101,7 +191,6 @@ export default function HeaderSection({
               )}
             </TouchableOpacity>
 
-            {/* Sidebar Menu Toggle Icon - Now opens ProfileHeader sidebar */}
             <TouchableOpacity
               style={[
                 styles.menuBtn,
@@ -137,7 +226,6 @@ export default function HeaderSection({
           </View>
         </View>
 
-        {/* Integrated Search Bar */}
         <View style={styles.searchContainer}>
           <Searchbar
             placeholder="Search services, categories..."
@@ -160,16 +248,12 @@ export default function HeaderSection({
         </View>
       </View>
 
-      {/* ProfileHeader Sidebar - Rendered as overlay */}
       {isSidebarVisible && (
         <View style={StyleSheet.absoluteFillObject}>
           <ProfileHeader 
             navigation={navigation}
-            onLogout={() => {
-              handleCloseSidebar();
-              // Add logout logic here if needed
-            }}
-            // Pass additional props to control sidebar visibility
+            userName={actualUserName}
+            onLogout={handleCloseSidebar}
             externalVisible={isSidebarVisible}
             onClose={handleCloseSidebar}
           />

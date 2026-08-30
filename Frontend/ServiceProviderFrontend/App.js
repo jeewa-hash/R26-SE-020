@@ -27,6 +27,7 @@ import { LanguageProvider } from './context/LanguageContext';
 import { PortfolioProvider } from './context/PortfolioContext';
 import { AppliedJobsProvider } from './context/AppliedJobsContext';
 import { NotificationsProvider } from './context/NotificationsContext';
+import { UnreadProvider } from './context/UnreadContext';
 
 // Auth / biometric utils
 import {
@@ -242,7 +243,9 @@ export default function App() {
           <PortfolioProvider>
             <AppliedJobsProvider>
               <NotificationsProvider>
-                <AppContent />
+                <UnreadProvider>
+                  <AppContent />
+                </UnreadProvider>
               </NotificationsProvider>
             </AppliedJobsProvider>
           </PortfolioProvider>

@@ -32,7 +32,7 @@ router.post("/:id/boost", protect(["ServiceProvider"]), boostPost); // boost ad 
 router.post("/:id/like", toggleLikePost); // toggle like on ad post
 
 
-router.post("/:id/create-checkout-session", createBoostCheckoutSession);
+router.post("/:id/create-checkout-session", protect(["ServiceProvider"]), createBoostCheckoutSession);
 
 //admin routes
 router.get("/income/total", getSystemTotalIncome);

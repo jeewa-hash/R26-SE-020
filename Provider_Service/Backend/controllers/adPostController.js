@@ -201,7 +201,7 @@ export const listAllPublicPosts = async (req, res) => {
 // so the post ranks higher in sorted feeds.
 // Helper function to calculate boost fee based on step amount
 const calculateBoostFee = (amount) => {
-  const baseRatePerStep = 100; // Rs 100 per step
+  const baseRatePerStep = 200; // Rs 100 per step
   const rawTotal = amount * baseRatePerStep;
 
   // Calculate 5% discount for every full 5-step increment
