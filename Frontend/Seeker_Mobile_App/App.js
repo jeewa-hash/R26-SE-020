@@ -21,6 +21,7 @@ import CreatePostScreen from './screens/CreatePostScreen';
 import LanguageScreen from './screens/LanguageScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import ProviderProfileScreen from './screens/ProviderProfileScreen';
+import ProfileOfProvider from './screens/profileOfProvider';
 
 import FeedbackScreen from './screens/FeedbackScreen';
 import BiddingScreen from './screens/BiddingScreen';
@@ -149,6 +150,18 @@ function AppNavigator({ initialRouteName }) {
       <Stack.Screen
         name="ProviderProfile"
         component={ProviderProfileScreen}
+        options={{ headerShown: false }}
+      />
+
+      <Stack.Screen
+        name="profileOfProvider"
+        component={ProfileOfProvider}
+        options={{ headerShown: false }}
+      />
+
+      <Stack.Screen
+        name="ProfileOfProvider"
+        component={ProfileOfProvider}
         options={{ headerShown: false }}
       />
 

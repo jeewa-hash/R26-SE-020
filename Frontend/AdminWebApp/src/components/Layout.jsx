@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { API_BASE_URL, AUTH_SERVICE_URL } from '../config';
-import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare, FiActivity, FiTrendingUp, FiBarChart2, FiFileText, FiUser } from 'react-icons/fi';
+import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare, FiActivity, FiTrendingUp, FiBarChart2, FiFileText, FiUser, FiMapPin } from 'react-icons/fi';
 import { HiOutlineShieldCheck } from 'react-icons/hi';
 import workwaveLogo from '../assets/logo.png';
 
@@ -240,6 +240,13 @@ function Layout() {
           >
             <span className="sidebar-link-icon"><FiUsers /></span>
             View Users
+          </NavLink>
+          <NavLink
+            to="/user-locations"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiMapPin /></span>
+            Geographic Distribution
           </NavLink>
           <NavLink
             to="/categories"
