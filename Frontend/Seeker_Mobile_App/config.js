@@ -10,7 +10,7 @@ export const SOCKET_URL = `http://${IP_ADDRESS}:6000`;     // same for socket
 // Other services
 export const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003`;
 export const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
-export const PROVIDER_API_BASE = `http://${IP_ADDRESS}:5000`;  
+export const PROVIDER_API_BASE = `http://${IP_ADDRESS}:5000`;
 
 // If you need a legacy CONFIG object (points to main backend on port 5002)
 export const CONFIG = {

@@ -291,7 +291,7 @@ export default function MyJobsScreen({ navigation }) {
       const [requestsResult, quotationsResult, bookingsResult] =
         await Promise.allSettled([
           getSeekerRequestQuotations(auth.seekerId),
-          getProviderQuotationsForSeeker(auth.seekerId),
+          getProviderQuotationsForSeeker(),
           getSeekerBookings(auth.seekerId),
         ]);
 
