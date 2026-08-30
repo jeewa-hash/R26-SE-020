@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { API_BASE_URL, AUTH_SERVICE_URL } from '../config';
+import { API_BASE_URL, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { FiUsers, FiEdit2, FiTrash2, FiX, FiAlertTriangle, FiFilter, FiSearch, FiMapPin, FiMap } from 'react-icons/fi';
 
 function ViewUsersPage () {
@@ -38,6 +38,7 @@ function ViewUsersPage () {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewData, setViewData] = useState(null);
   const [viewType, setViewType] = useState('');
+  const [availableCategories, setAvailableCategories] = useState([]);
 
   const fetchUsers = async () => {
     try {
@@ -54,9 +55,44 @@ function ViewUsersPage () {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await axios.get(`${ADMIN_SERVICE_URL}/categories`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (Array.isArray(res.data)) {
+        setAvailableCategories(res.data.map((c) => c.name).filter(Boolean));
+      }
+    } catch (err) {
+      console.warn('Could not fetch categories from admin service', err);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchCategories();
   }, []);
+
+  const categoryDropdownOptions = useMemo(() => {
+    const fromUsers = (users.providers || []).map((p) => p.category).filter(Boolean);
+    const defaults = [
+      'Grass cutting',
+      'Plumbing',
+      'Electrical',
+      'Carpentry',
+      'House Cleaning',
+      'Masonry',
+      'Painting',
+      'AC Repair',
+      'Appliance Repair',
+      'Gardening',
+      'Roofing',
+      'Vehicle Repair',
+    ];
+    const combined = Array.from(new Set([...availableCategories, ...fromUsers, ...defaults])).filter(Boolean);
+    return combined.sort();
+  }, [availableCategories, users.providers]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -217,7 +253,13 @@ function ViewUsersPage () {
   // Edit Handlers
   const openEditModal = (user, type) => {
     setEditType(type);
-    setEditData({ ...user });
+    const initialData = { ...user };
+    if (type === 'provider') {
+      if (!initialData.name && initialData.fullName) {
+        initialData.name = initialData.fullName;
+      }
+    }
+    setEditData(initialData);
     setIsEditModalOpen(true);
   };
 
@@ -228,7 +270,12 @@ function ViewUsersPage () {
   };
 
   const handleEditChange = (e) => {
-    setEditData({ ...editData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'name' && editType === 'provider') {
+      setEditData({ ...editData, name: value, fullName: value });
+    } else {
+      setEditData({ ...editData, [name]: value });
+    }
   };
 
   const handleEditSubmit = async (e) => {
@@ -655,18 +702,53 @@ function ViewUsersPage () {
                 {editType === 'provider' && (
                   <>
                     <div className="form-group">
+                      <label>Name</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        name="name" 
+                        placeholder="Enter provider full name" 
+                        value={editData.name || editData.fullName || ''} 
+                        onChange={handleEditChange} 
+                        required 
+                      />
+                    </div>
+                    <div className="form-group">
                       <label>Category</label>
-                      <input type="text" className="form-input" name="category" value={editData.category || ''} onChange={handleEditChange} />
+                      <select 
+                        className="form-input" 
+                        name="category" 
+                        value={editData.category || ''} 
+                        onChange={handleEditChange} 
+                        required
+                      >
+                        <option value="" disabled>Select Category</option>
+                        {categoryDropdownOptions.map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="form-group">
                       <label>Telephone</label>
-                      <input type="text" className="form-input" name="telephone" value={editData.telephone || ''} onChange={handleEditChange} />
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        name="telephone" 
+                        value={editData.telephone || ''} 
+                        onChange={handleEditChange} 
+                      />
                     </div>
                     <div className="form-group">
                       <label>District</label>
-                      <select className="form-input" name="district" value={editData.district || ''} onChange={handleEditChange} required>
+                      <select 
+                        className="form-input" 
+                        name="district" 
+                        value={editData.district || ''} 
+                        onChange={handleEditChange} 
+                        required
+                      >
                         <option value="" disabled>Select District</option>
-                        {SRI_LANKA_DISTRICTS.map(district => (
+                        {SRI_LANKA_DISTRICTS.map((district) => (
                           <option key={district} value={district}>{district}</option>
                         ))}
                       </select>
