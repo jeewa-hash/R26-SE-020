@@ -7,8 +7,9 @@ const uniqueUrls = (urls) => [...new Set(urls.filter(Boolean).map(trimSlash))];
 
 const SEEKER_URLS = uniqueUrls([
   CONFIG?.SEEKER_SERVICE_URL,
-  CONFIG?.API_BASE_URL,
+  `http://${IP_ADDRESS}:6001`,
   `http://${IP_ADDRESS}:6000`,
+  CONFIG?.API_BASE_URL,
 ]);
 
 const PROVIDER_URLS = uniqueUrls([
@@ -92,7 +93,7 @@ const firstSuccess = async (candidates) => {
 
       return {
         data,
-        usedUrl: url,
+        usedUrl,
       };
     } catch (error) {
       lastError = error;
@@ -190,22 +191,20 @@ export const getProviderRequests = async (providerId) => {
     throw new Error('Provider ID is required');
   }
 
+  // 1. /request-quotations/provider-filtered/:providerId
+  // 2. /request-quotations/provider/:providerId
+  // 3. /requests/provider/me as fallback
   const candidates = [
-    // New filtered route first.
-    // This should return only requests that belong to this provider.
     ...SEEKER_URLS.map((base) => ({
       url: `${base}/request-quotations/provider-filtered/${providerId}`,
       auth: false,
     })),
 
-    // Old route kept as fallback.
     ...SEEKER_URLS.map((base) => ({
       url: `${base}/request-quotations/provider/${providerId}`,
       auth: false,
     })),
 
-    // Optional coordination service fallback.
-    // This route is protected and uses token user.
     ...COORDINATION_URLS.map((base) => ({
       url: `${base}/requests/provider/me`,
       auth: true,
@@ -223,12 +222,10 @@ export const getProviderRequests = async (providerId) => {
 
   const requests = filterForProvider(rawRequests, providerId);
 
-  console.log('Provider requests raw count:', rawRequests.length);
-  console.log('Provider requests filtered count:', requests.length);
-
   return {
     raw: data,
     usedUrl,
+    rawList: rawRequests,
     requests,
     rawCount: rawRequests.length,
     filteredCount: requests.length,
@@ -236,6 +233,7 @@ export const getProviderRequests = async (providerId) => {
 };
 
 export const getProviderQuotations = async (providerId = null) => {
+  // GET /api/provider/quotations/provider/me with provider token
   const candidates = PROVIDER_URLS.map((base) => ({
     url: `${base}/api/provider/quotations/provider/me`,
     auth: true,
@@ -253,12 +251,10 @@ export const getProviderQuotations = async (providerId = null) => {
     ? filterForProvider(rawQuotations, providerId)
     : rawQuotations;
 
-  console.log('Provider quotations raw count:', rawQuotations.length);
-  console.log('Provider quotations filtered count:', quotations.length);
-
   return {
     raw: data,
     usedUrl,
+    rawList: rawQuotations,
     quotations,
     rawCount: rawQuotations.length,
     filteredCount: quotations.length,
@@ -266,14 +262,16 @@ export const getProviderQuotations = async (providerId = null) => {
 };
 
 export const getProviderJobs = async (providerId = null) => {
+  // 1. /bookings/provider/me
+  // 2. /calendar/provider/me
   const candidates = [
     ...COORDINATION_URLS.map((base) => ({
-      url: `${base}/calendar/provider/me`,
+      url: `${base}/bookings/provider/me`,
       auth: true,
     })),
 
     ...COORDINATION_URLS.map((base) => ({
-      url: `${base}/bookings/provider/me`,
+      url: `${base}/calendar/provider/me`,
       auth: true,
     })),
   ];
@@ -290,12 +288,10 @@ export const getProviderJobs = async (providerId = null) => {
 
   const jobs = providerId ? filterForProvider(rawJobs, providerId) : rawJobs;
 
-  console.log('Provider jobs raw count:', rawJobs.length);
-  console.log('Provider jobs filtered count:', jobs.length);
-
   return {
     raw: data,
     usedUrl,
+    rawList: rawJobs,
     jobs,
     rawCount: rawJobs.length,
     filteredCount: jobs.length,
@@ -476,23 +472,31 @@ export const buildQuotationPayload = ({
   notes,
 }) => {
   const durationNumber = Number(estimatedDurationHours || 0);
+  const reqId =
+    request?._id ||
+    request?.id ||
+    request?.providerRequestId ||
+    request?.requestQuotationId ||
+    request?.externalRequestQuotationId;
 
   return {
-    externalRequestQuotationId:
-      request?._id ||
-      request?.id ||
-      request?.requestQuotationId ||
-      request?.externalRequestQuotationId,
+    providerRequestId: reqId,
+    externalRequestQuotationId: reqId,
 
     externalSessionId:
       request?.sessionId ||
       request?.externalSessionId ||
-      request?.serviceSessionId,
+      request?.serviceSessionId ||
+      request?.session?._id ||
+      request?.session?.id ||
+      reqId,
 
     seekerId:
       request?.seekerId ||
       request?.customerId ||
-      request?.userId,
+      request?.userId ||
+      request?.seeker?._id ||
+      request?.seeker?.id,
 
     providerId,
 

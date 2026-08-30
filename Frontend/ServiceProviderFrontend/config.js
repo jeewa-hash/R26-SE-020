@@ -7,8 +7,8 @@ export const IP_ADDRESS = `192.168.8.101` ||
   (Platform.OS === 'android' ? '10.0.2.2' : 'localhost');
 
 export const CONFIG = {
-  API_BASE_URL: `http://${IP_ADDRESS}:6000`,
-  SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6000`,
+  API_BASE_URL: `http://${IP_ADDRESS}:6001`,
+  SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6001`,
   AUTH_SERVICE_URL: `http://${IP_ADDRESS}:4003`,
   ADMIN_SERVICE_URL: `http://${IP_ADDRESS}:5002`,
   PROVIDER_SERVICE_URL: `http://${IP_ADDRESS}:3002`,

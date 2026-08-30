@@ -50,7 +50,7 @@ const PORT = process.env.PORT || 6000;
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    httpServer.listen(PORT, () => {
+    httpServer.listen(PORT, "0.0.0.0", () => {
       console.log("");
       console.log("================================================");
       console.log("       🚀 SEEKER SERVICE BACKEND");

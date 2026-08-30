@@ -108,10 +108,27 @@ export default function ProfileScreen({ navigation }) {
   }, [navigation, unreadCount]);
 
   const handleLogout = async () => {
-    await clearCredentials();
-    await AsyncStorage.removeItem('userToken');
-    await AsyncStorage.removeItem('userRole');
-    await AsyncStorage.removeItem('userId');
+    try {
+      await clearCredentials();
+    } catch (e) {}
+
+    const keysToClear = [
+      'userToken',
+      'token',
+      'authToken',
+      'accessToken',
+      'userId',
+      'providerId',
+      'seekerId',
+      'userRole',
+      'role',
+      'user',
+      'currentUser',
+      'provider',
+      'seeker',
+    ];
+    await AsyncStorage.multiRemove(keysToClear);
+    console.log('LOGOUT: all auth keys cleared');
     
     navigation.dispatch(
       CommonActions.reset({
