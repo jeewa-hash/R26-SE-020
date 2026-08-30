@@ -19,7 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import axios from 'axios';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, PROVIDER_API_BASE, AUTH_SERVICE_URL } from '../config';
 
 export default function ChatScreen() {
   const navigation = useNavigation();
@@ -32,6 +32,9 @@ export default function ChatScreen() {
     userName,
     userAvatar,
     userRole,
+    // Some existing entry points use providerName/providerId instead.
+    providerName,
+    providerId,
     source,
     isBooking,
     postId,
@@ -49,7 +52,53 @@ export default function ChatScreen() {
   const flatListRef = useRef();
   const [messageText, setMessageText] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
-  const [avatarError, setAvatarError] = useState(false);
+  const [providerDetails, setProviderDetails] = useState({ name: '', avatar: '' });
+  const chatPartnerId = userId || providerId;
+  const incomingMessage = chatMessages.find(
+    (message) => String(message.senderId) !== String(currentUserId)
+  );
+  const displayProviderName =
+    userName ||
+    providerName ||
+    providerDetails.name ||
+    incomingMessage?.senderName ||
+    incomingMessage?.sender?.name ||
+    'Service Provider';
+  const displayProviderAvatar =
+    userAvatar ||
+    providerDetails.avatar ||
+    incomingMessage?.senderAvatar ||
+    incomingMessage?.sender?.profileImage ||
+    'https://i.pravatar.cc/150';
+
+  // A chat opened from a notification only has IDs. Resolve the matching
+  // provider so its real name is still shown in the chat header.
+  useEffect(() => {
+    const loadProviderDetails = async () => {
+      if (!chatPartnerId || userName || providerName) return;
+
+      try {
+        const response = await axios.get(`${PROVIDER_API_BASE}/portfolio/all-providers`);
+        const providerItem = (response.data?.providers || []).find(
+          (item) => String(item?.provider?.id) === String(chatPartnerId)
+        );
+        const provider = providerItem?.provider;
+        if (!provider) return;
+
+        const imagePath = provider.profileImage;
+        const avatar = imagePath
+          ? (imagePath.startsWith('http')
+            ? imagePath
+            : `${AUTH_SERVICE_URL}/${imagePath.replace(/^\/+/, '')}`)
+          : '';
+        setProviderDetails({ name: provider.name || '', avatar });
+      } catch (error) {
+        console.warn('Unable to load provider details for chat:', error.message);
+      }
+    };
+
+    loadProviderDetails();
+  }, [chatPartnerId, userName, providerName]);
 
   // ─── Attached Post State (like FB/Instagram Ad inquiry) ───────────
   const [attachedPost, setAttachedPost] = useState(
@@ -113,7 +162,7 @@ export default function ChatScreen() {
   // ─── Mark as read ──────────────────────────────────────
   useEffect(() => {
     if (chatId) markAsRead(chatId);
-  }, [chatId]);
+  }, [chatId, markAsRead, messages[chatId]?.length]);
 
   // ─── Navigate to Post / Booking Details on Post Card Click ──────
   const handlePostPress = (postData) => {
@@ -177,7 +226,7 @@ export default function ChatScreen() {
       setAttachedPost(null); // clear attachment after sending inquiry
     }
 
-    sendMessage(userId, payload, chatId);
+    sendMessage(chatPartnerId, payload, chatId);
     setMessageText('');
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 120);
   };
@@ -220,7 +269,7 @@ export default function ChatScreen() {
       >
         {!isMyMessage && (
           <Image
-            source={{ uri: userAvatar || 'https://i.pravatar.cc/150' }}
+            source={{ uri: displayProviderAvatar }}
             style={styles.messageAvatar}
           />
         )}
@@ -331,21 +380,12 @@ export default function ChatScreen() {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            {userAvatar && !avatarError ? (
-              <Image
-                source={{ uri: userAvatar }}
-                style={styles.headerAvatar}
-                onError={() => setAvatarError(true)}
-              />
-            ) : (
-              <View style={styles.headerAvatarFallback}>
-                <Text style={styles.headerAvatarInitial}>
-                  {(userName || 'P').trim().charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
+            <Image
+              source={{ uri: displayProviderAvatar }}
+              style={styles.headerAvatar}
+            />
             <View style={styles.headerInfo}>
-              <Text style={styles.headerName}>{userName || 'Provider'}</Text>
+              <Text style={styles.headerName}>{displayProviderName}</Text>
               <Text style={styles.headerRole}>{userRole || 'Service Provider'}</Text>
             </View>
           </View>
@@ -458,7 +498,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
   containerDark: { backgroundColor: '#0f1121' },
   headerGradient: {
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 8 : (Platform.OS === 'ios' ? 48 : 16),
+    paddingTop: Platform.OS === 'ios' ? 45 : 12,
     paddingBottom: 8,
   },
   header: {
@@ -477,22 +517,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
     marginRight: 12,
-  },
-  headerAvatarFallback: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderWidth: 2,
-    borderColor: '#fff',
-    marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerAvatarInitial: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#fff',
   },
   headerInfo: { flex: 1 },
   headerName: { fontSize: 17, fontWeight: '700', color: '#fff' },

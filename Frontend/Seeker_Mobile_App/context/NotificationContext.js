@@ -15,6 +15,7 @@ const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:3002`;
 const QUOTATIONS_URL = `${PROVIDER_SERVICE_URL}/api/provider/quotations/seeker/me`;
 const AUTH_NOTIFICATIONS_URL = `http://${IP_ADDRESS}:4003/seeker/notifications`;
 const SEEN_NOTIFS_STORAGE_KEY = 'seeker_seen_notification_ids';
+const READ_QUOTES_KEY = 'readQuotes';
 
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
@@ -128,6 +129,8 @@ export const NotificationProvider = ({ children }) => {
 
       let quoteNotifs = [];
       let authNotifs = [];
+      const savedReadQuoteIds = await AsyncStorage.getItem(READ_QUOTES_KEY);
+      const readQuoteIds = new Set(savedReadQuoteIds ? JSON.parse(savedReadQuoteIds) : []);
 
       // 1. Fetch quotations
       try {
@@ -144,7 +147,7 @@ export const NotificationProvider = ({ children }) => {
               title: `New Quotation: LKR ${quote.price}`,
               message: quote.notes || `Duration: ${quote.durationText || '1 day'}`,
               createdAt: quote.createdAt,
-              isRead: false,
+              isRead: readQuoteIds.has(id),
               quoteId: quote._id,
               providerRequestId: quote.providerRequestId,
               providerId: quote.providerId?._id || quote.providerId,
@@ -276,11 +279,26 @@ export const NotificationProvider = ({ children }) => {
   // ─────────────────────────────────────────────────────────────
   // Manual helpers
   // ─────────────────────────────────────────────────────────────
-  const markAsRead = (id) => {
+  const markAsRead = async (id) => {
+    if (String(id).startsWith('quote_')) {
+      try {
+        const savedReadQuoteIds = await AsyncStorage.getItem(READ_QUOTES_KEY);
+        const readQuoteIds = savedReadQuoteIds ? JSON.parse(savedReadQuoteIds) : [];
+        if (!readQuoteIds.includes(id)) {
+          await AsyncStorage.setItem(READ_QUOTES_KEY, JSON.stringify([...readQuoteIds, id]));
+        }
+      } catch (err) {
+        console.warn('Failed to save read quote ID:', err);
+      }
+    }
+
     setNotifications((prev) =>
       prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
     );
-    setUnreadCount((prev) => Math.max(0, prev - 1));
+    setUnreadCount((prev) => {
+      const notification = notifications.find((item) => item._id === id);
+      return notification?.isRead ? prev : Math.max(0, prev - 1);
+    });
   };
 
   const markAllAsRead = () => {
