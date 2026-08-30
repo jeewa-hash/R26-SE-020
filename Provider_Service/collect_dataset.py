@@ -21,9 +21,9 @@ from urllib.parse import urlparse, urlunparse
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
-DATASET_DIR    = r"E:\4th year\semester 1\Research\R26-SE-020\Provider_Service\dataset"
+DATASET_DIR    = r"E:\R26-SE-020\Provider_Service\dataset"
 FRAME_INTERVAL = 75  
-MAX_FRAMES     = 10  # Max frames to extract per video
+MAX_FRAMES     = 150  # Max frames to extract per video
 IMG_SIZE       = (224, 224)
 
 # ─── Your YouTube / Facebook Video Links ──────────────────────────────────────
