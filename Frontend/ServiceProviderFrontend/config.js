@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 
 // Set EXPO_PUBLIC_API_HOST to your computer's LAN IP when testing on a
 // physical device (for example: 192.168.1.103). Android emulators use 10.0.2.2.
-export const IP_ADDRESS =
+export const IP_ADDRESS = `192.168.8.101` ||
   process.env.EXPO_PUBLIC_API_HOST ||
   (Platform.OS === 'android' ? '10.0.2.2' : 'localhost');
 

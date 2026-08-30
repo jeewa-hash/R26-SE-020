@@ -7,6 +7,7 @@ import {
   getSingleRequest,
   updateRequestStatus,
   deleteRequestQuotation,
+  getProviderRequestsbyProvider
 } from "../controllers/requestQuotationController.js";
 
 const router = express.Router();
@@ -24,4 +25,5 @@ router.delete("/:id", deleteRequestQuotation);
 //router.get("/:id", getSingleRequest);
 router.get("/:id", getSingleRequest); // Chaw - Temporarily open for service-to-service local testing
 
+router.get("/provider-filtered/:providerId", getProviderRequestsbyProvider);
 export default router;

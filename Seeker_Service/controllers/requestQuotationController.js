@@ -373,3 +373,49 @@ export const deleteRequestQuotation = async (req, res) => {
     });
   }
 };
+
+export const getProviderRequestsbyProvider = async (req, res) => {
+  try {
+    const { providerId } = req.params;
+
+    if (!providerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Provider ID is required",
+      });
+    }
+
+    const requests = await RequestQuotation.find({
+      $or: [
+        { providerId: providerId },
+        { selectedProviderId: providerId },
+        { assignedProviderId: providerId },
+
+        // If your schema stores providers as arrays
+        { providerIds: providerId },
+        { selectedProviderIds: providerId },
+        { assignedProviderIds: providerId },
+
+        // If your schema stores provider objects
+        { "provider.providerId": providerId },
+        { "providers.providerId": providerId },
+        { "selectedProviders.providerId": providerId },
+        { "assignedProviders.providerId": providerId },
+      ],
+    }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: requests.length,
+      requests,
+    });
+  } catch (error) {
+    console.error("Get provider requests error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch provider requests",
+      error: error.message,
+    });
+  }
+};

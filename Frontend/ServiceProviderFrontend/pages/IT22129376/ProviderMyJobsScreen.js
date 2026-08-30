@@ -4,7 +4,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -13,8 +12,9 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
 import { COLORS } from './theme';
@@ -25,9 +25,7 @@ import {
   getBookingStart,
   getBookingEnd,
   getBookingId,
-  getId,
   getQuotationId,
-  getQuotationRequestId,
   getRequestId,
   getRiskStyle,
   getServiceCategory,
@@ -42,6 +40,68 @@ import {
 } from './utils/providerFlowMapper';
 
 const TABS = ['Today', 'Requests', 'Quotes', 'Scheduled', 'History'];
+
+const toComparableId = (value) => {
+  if (!value) return '';
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value);
+  }
+
+  if (typeof value === 'object') {
+    return String(
+      value?._id?.$oid ||
+        value?._id ||
+        value?.id ||
+        value?.providerId ||
+        value?.provider?._id ||
+        value?.provider?.id ||
+        value?.userId ||
+        ''
+    );
+  }
+
+  return String(value);
+};
+
+const idMatches = (value, targetId) => {
+  if (!value || !targetId) return false;
+
+  if (Array.isArray(value)) {
+    return value.some((item) => idMatches(item, targetId));
+  }
+
+  return toComparableId(value) === String(targetId);
+};
+
+const belongsToLoggedProvider = (item, providerId) => {
+  if (!item || !providerId) return false;
+
+  return (
+    idMatches(item.providerId, providerId) ||
+    idMatches(item.selectedProviderId, providerId) ||
+    idMatches(item.assignedProviderId, providerId) ||
+    idMatches(item.serviceProviderId, providerId) ||
+    idMatches(item.provider, providerId) ||
+    idMatches(item.serviceProvider, providerId) ||
+    idMatches(item.providerIds, providerId) ||
+    idMatches(item.selectedProviderIds, providerId) ||
+    idMatches(item.assignedProviderIds, providerId) ||
+    idMatches(item.providers, providerId) ||
+    idMatches(item.selectedProviders, providerId) ||
+    idMatches(item.assignedProviders, providerId) ||
+    idMatches(item.providerSnapshot?.id, providerId) ||
+    idMatches(item.providerSnapshot?._id, providerId) ||
+    idMatches(item.providerSnapshot?.providerId, providerId)
+  );
+};
+
+const filterForLoggedProvider = (items, providerId) => {
+  if (!Array.isArray(items)) return [];
+  if (!providerId) return [];
+
+  return items.filter((item) => belongsToLoggedProvider(item, providerId));
+};
 
 const Badge = ({ label, bg, color }) => (
   <View style={[styles.badge, { backgroundColor: bg }]}> 
@@ -212,20 +272,41 @@ export default function ProviderMyJobsScreen({ navigation }) {
         getProviderJobs(auth.providerId),
       ]);
 
-      if (reqResult.status === 'fulfilled') setRequests(reqResult.value.requests || []);
-      else {
+      if (reqResult.status === 'fulfilled') {
+        const rawRequests = reqResult.value.requests || [];
+        const providerRequests = filterForLoggedProvider(rawRequests, auth.providerId);
+
+        console.log('RAW PROVIDER REQUESTS:', rawRequests.length);
+        console.log('FILTERED PROVIDER REQUESTS:', providerRequests.length);
+
+        setRequests(providerRequests);
+      } else {
         console.log('Provider requests failed:', reqResult.reason?.message);
         setRequests([]);
       }
 
-      if (quoteResult.status === 'fulfilled') setQuotations(quoteResult.value.quotations || []);
-      else {
+      if (quoteResult.status === 'fulfilled') {
+        const rawQuotations = quoteResult.value.quotations || [];
+        const providerQuotations = filterForLoggedProvider(rawQuotations, auth.providerId);
+
+        console.log('RAW PROVIDER QUOTATIONS:', rawQuotations.length);
+        console.log('FILTERED PROVIDER QUOTATIONS:', providerQuotations.length);
+
+        setQuotations(providerQuotations);
+      } else {
         console.log('Provider quotations failed:', quoteResult.reason?.message);
         setQuotations([]);
       }
 
-      if (jobsResult.status === 'fulfilled') setJobs(jobsResult.value.jobs || []);
-      else {
+      if (jobsResult.status === 'fulfilled') {
+        const rawJobs = jobsResult.value.jobs || [];
+        const providerJobs = filterForLoggedProvider(rawJobs, auth.providerId);
+
+        console.log('RAW PROVIDER JOBS:', rawJobs.length);
+        console.log('FILTERED PROVIDER JOBS:', providerJobs.length);
+
+        setJobs(providerJobs);
+      } else {
         console.log('Provider jobs failed:', jobsResult.reason?.message);
         setJobs([]);
       }

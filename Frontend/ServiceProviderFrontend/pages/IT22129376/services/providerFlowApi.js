@@ -52,6 +52,8 @@ const requestJson = async (url, options = {}) => {
   const response = await fetch(url, {
     ...options,
     headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
       ...headers,
       ...(options.headers || {}),
     },
@@ -111,8 +113,76 @@ const normalizeList = (data, keys = []) => {
   if (Array.isArray(data?.data)) return data.data;
   if (Array.isArray(data?.results)) return data.results;
   if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.requests)) return data.requests;
+  if (Array.isArray(data?.requestQuotations)) return data.requestQuotations;
+  if (Array.isArray(data?.providerRequests)) return data.providerRequests;
+  if (Array.isArray(data?.quotations)) return data.quotations;
+  if (Array.isArray(data?.providerQuotations)) return data.providerQuotations;
+  if (Array.isArray(data?.bookings)) return data.bookings;
+  if (Array.isArray(data?.calendar)) return data.calendar;
+  if (Array.isArray(data?.jobs)) return data.jobs;
 
   return [];
+};
+
+const toComparableId = (value) => {
+  if (!value) return '';
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value);
+  }
+
+  if (typeof value === 'object') {
+    return String(
+      value?._id?.$oid ||
+        value?._id ||
+        value?.id ||
+        value?.providerId ||
+        value?.provider?._id ||
+        value?.provider?.id ||
+        value?.userId ||
+        ''
+    );
+  }
+
+  return String(value);
+};
+
+const idMatches = (value, targetId) => {
+  if (!value || !targetId) return false;
+
+  if (Array.isArray(value)) {
+    return value.some((item) => idMatches(item, targetId));
+  }
+
+  return toComparableId(value) === String(targetId);
+};
+
+const belongsToProvider = (item, providerId) => {
+  if (!item || !providerId) return false;
+
+  return (
+    idMatches(item.providerId, providerId) ||
+    idMatches(item.selectedProviderId, providerId) ||
+    idMatches(item.assignedProviderId, providerId) ||
+    idMatches(item.serviceProviderId, providerId) ||
+    idMatches(item.provider, providerId) ||
+    idMatches(item.serviceProvider, providerId) ||
+    idMatches(item.providerIds, providerId) ||
+    idMatches(item.selectedProviderIds, providerId) ||
+    idMatches(item.assignedProviderIds, providerId) ||
+    idMatches(item.providers, providerId) ||
+    idMatches(item.selectedProviders, providerId) ||
+    idMatches(item.assignedProviders, providerId) ||
+    idMatches(item.providerSnapshot?.id, providerId) ||
+    idMatches(item.providerSnapshot?._id, providerId) ||
+    idMatches(item.providerSnapshot?.providerId, providerId)
+  );
+};
+
+const filterForProvider = (items, providerId) => {
+  if (!providerId) return items;
+  return items.filter((item) => belongsToProvider(item, providerId));
 };
 
 export const getProviderRequests = async (providerId) => {
@@ -121,12 +191,21 @@ export const getProviderRequests = async (providerId) => {
   }
 
   const candidates = [
+    // New filtered route first.
+    // This should return only requests that belong to this provider.
+    ...SEEKER_URLS.map((base) => ({
+      url: `${base}/request-quotations/provider-filtered/${providerId}`,
+      auth: false,
+    })),
+
+    // Old route kept as fallback.
     ...SEEKER_URLS.map((base) => ({
       url: `${base}/request-quotations/provider/${providerId}`,
       auth: false,
     })),
 
-    // Coordination Service provider request route is protected and uses token user.
+    // Optional coordination service fallback.
+    // This route is protected and uses token user.
     ...COORDINATION_URLS.map((base) => ({
       url: `${base}/requests/provider/me`,
       auth: true,
@@ -135,21 +214,28 @@ export const getProviderRequests = async (providerId) => {
 
   const { data, usedUrl } = await firstSuccess(candidates);
 
+  const rawRequests = normalizeList(data, [
+    'requests',
+    'requestQuotations',
+    'providerRequests',
+    'data',
+  ]);
+
+  const requests = filterForProvider(rawRequests, providerId);
+
+  console.log('Provider requests raw count:', rawRequests.length);
+  console.log('Provider requests filtered count:', requests.length);
+
   return {
     raw: data,
     usedUrl,
-    requests: normalizeList(data, [
-      'requests',
-      'requestQuotations',
-      'providerRequests',
-      'data',
-    ]),
+    requests,
+    rawCount: rawRequests.length,
+    filteredCount: requests.length,
   };
 };
 
-export const getProviderQuotations = async () => {
-  // Provider Service route is /api/provider/quotations/provider/me.
-  // It is protected and uses the logged-in ServiceProvider from the token.
+export const getProviderQuotations = async (providerId = null) => {
   const candidates = PROVIDER_URLS.map((base) => ({
     url: `${base}/api/provider/quotations/provider/me`,
     auth: true,
@@ -157,24 +243,35 @@ export const getProviderQuotations = async () => {
 
   const { data, usedUrl } = await firstSuccess(candidates);
 
+  const rawQuotations = normalizeList(data, [
+    'quotations',
+    'providerQuotations',
+    'data',
+  ]);
+
+  const quotations = providerId
+    ? filterForProvider(rawQuotations, providerId)
+    : rawQuotations;
+
+  console.log('Provider quotations raw count:', rawQuotations.length);
+  console.log('Provider quotations filtered count:', quotations.length);
+
   return {
     raw: data,
     usedUrl,
-    quotations: normalizeList(data, [
-      'quotations',
-      'providerQuotations',
-      'data',
-    ]),
+    quotations,
+    rawCount: rawQuotations.length,
+    filteredCount: quotations.length,
   };
 };
 
-export const getProviderJobs = async () => {
-  // Coordination Service routes are protected /me routes.
+export const getProviderJobs = async (providerId = null) => {
   const candidates = [
     ...COORDINATION_URLS.map((base) => ({
       url: `${base}/calendar/provider/me`,
       auth: true,
     })),
+
     ...COORDINATION_URLS.map((base) => ({
       url: `${base}/bookings/provider/me`,
       auth: true,
@@ -183,16 +280,25 @@ export const getProviderJobs = async () => {
 
   const { data, usedUrl } = await firstSuccess(candidates);
 
+  const rawJobs = normalizeList(data, [
+    'bookings',
+    'calendar',
+    'jobs',
+    'providerBookings',
+    'data',
+  ]);
+
+  const jobs = providerId ? filterForProvider(rawJobs, providerId) : rawJobs;
+
+  console.log('Provider jobs raw count:', rawJobs.length);
+  console.log('Provider jobs filtered count:', jobs.length);
+
   return {
     raw: data,
     usedUrl,
-    jobs: normalizeList(data, [
-      'bookings',
-      'calendar',
-      'jobs',
-      'providerBookings',
-      'data',
-    ]),
+    jobs,
+    rawCount: rawJobs.length,
+    filteredCount: jobs.length,
   };
 };
 
