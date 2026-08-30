@@ -44,7 +44,7 @@ function HomeStack() {
 // `isCenter` marks the raised, glowing middle button (now the Notifications tab)
 const TABS = [
   { name: 'HomeTab', label: 'Home', icon: 'home-outline', iconActive: 'home' },
-  { name: 'Bookings', label: 'Bookings', icon: 'calendar-outline', iconActive: 'calendar' },
+  { name: 'Bookings', label: 'My Jobs', icon: 'briefcase-outline', iconActive: 'briefcase' },
   { name: 'NotificationsTab', label: 'Alerts', icon: 'bell-outline', iconActive: 'bell', isCenter: true },
   { name: 'Earnings', label: 'Earnings', icon: 'wallet-outline', iconActive: 'wallet' },
   { name: 'Profile', label: 'Profile', icon: 'account-outline', iconActive: 'account' },

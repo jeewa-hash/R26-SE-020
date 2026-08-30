@@ -47,6 +47,10 @@ import CreatePostScreen from './pages/CreatePostScreen';
 import SubmitInquiryScreen from './screens/SubmitInquiryScreen';
 import ProviderPostDetailScreen from './screens/ProviderPostDetailScreen';
 import AppliedJobsScreen from './pages/AppliedJobsScreen';
+import ProviderJobDetailsScreen from './pages/IT22129376/ProviderJobDetailsScreen';
+import ProviderRequestDetailsScreen from './pages/IT22129376/ProviderRequestDetailsScreen';
+import ProviderQuotationFormScreen from './pages/IT22129376/ProviderQuotationFormScreen';
+
 
 const Stack = createStackNavigator();
 
@@ -151,6 +155,10 @@ function AppContent() {
             />
             <Stack.Screen name="ProviderPostDetail" component={ProviderPostDetailScreen} />
             <Stack.Screen name="AppliedJobs" component={AppliedJobsScreen} />
+            <Stack.Screen name="IT22129376ProviderJobDetails" component={ProviderJobDetailsScreen} />
+            <Stack.Screen name="IT22129376ProviderRequestDetails" component={ProviderRequestDetailsScreen} />
+            <Stack.Screen name="IT22129376ProviderQuotationForm" component={ProviderQuotationFormScreen} />
+
           </Stack.Navigator>
         </NavigationContainer>
 
