@@ -5,6 +5,9 @@ const adminController = require('../controllers/adminController');
 // Public routes
 router.post('/login', adminController.login);
 router.post('/logout', adminController.logout);
+router.post('/forgot-password', adminController.forgotPassword);
+router.post('/verify-otp', adminController.verifyOTP);
+router.post('/reset-password', adminController.resetPassword);
 
 // Protected routes (only logged-in admin can access)
 router.post('/register', adminController.verifyAdmin, adminController.register);

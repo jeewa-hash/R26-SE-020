@@ -239,7 +239,7 @@ exports.getDemandSupplyAnalytics = async (req, res) => {
  */
 exports.getBookingGrowthAnalytics = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, district } = req.query;
 
     const coordConn = await getCoordinationConnection();
     let bookings = [];
@@ -263,6 +263,25 @@ exports.getBookingGrowthAnalytics = async (req, res) => {
       }
 
       bookings = await coordConn.collection('bookings').find(filter).toArray();
+    }
+
+    // Build Seeker ID -> District mapping to accurately match bookings to districts
+    let seekers = [];
+    if (mongoose.connection && mongoose.connection.db) {
+      seekers = await mongoose.connection.db.collection('seekers').find({}, { projection: { _id: 1, district: 1 } }).toArray();
+    }
+    const seekerDistrictMap = {};
+    seekers.forEach((s) => {
+      if (s._id) seekerDistrictMap[s._id.toString()] = (s.district || '').trim().toLowerCase();
+    });
+
+    if (district && district !== 'All' && district !== 'All Districts') {
+      const targetDist = district.trim().toLowerCase();
+      bookings = bookings.filter((b) => {
+        const sDist = b.seekerId ? seekerDistrictMap[b.seekerId.toString()] : '';
+        const locDist = (b.location?.district || b.location?.city || b.location?.address || '').toLowerCase();
+        return sDist === targetDist || locDist.includes(targetDist);
+      });
     }
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -345,7 +364,7 @@ exports.getBookingGrowthAnalytics = async (req, res) => {
 
 exports.getUserGrowthAnalytics = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, district } = req.query;
 
     let seekers = [];
     let providers = [];
@@ -355,15 +374,24 @@ exports.getUserGrowthAnalytics = async (req, res) => {
       providers = await mongoose.connection.db.collection('providers').find({}).toArray();
     }
 
+    if (district && district !== 'All' && district !== 'All Districts') {
+      const targetDist = district.trim().toLowerCase();
+      seekers = seekers.filter((s) => (s.district || '').trim().toLowerCase() === targetDist);
+      providers = providers.filter((p) => (p.district || '').trim().toLowerCase() === targetDist);
+    }
+
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const targetYear = startDate ? new Date(startDate).getFullYear() : (seekers[0]?.createdAt ? new Date(seekers[0].createdAt).getFullYear() : new Date().getFullYear());
 
     // Initialize 12 months data
     const monthlyMap = {};
     monthNames.forEach((name, idx) => {
+      const monthNum = String(idx + 1).padStart(2, '0');
+      const dateKey = `${targetYear}-${monthNum}-01`;
       monthlyMap[idx] = {
         name,
         monthIndex: idx,
+        date: dateKey,
         newSeekers: 0,
         newProviders: 0,
         seekers: 0,
@@ -429,6 +457,77 @@ exports.getUserGrowthAnalytics = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch user growth analytics',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * GET /api/analytics/revenue-growth
+ * Fetches revenue growth & total income from Provider Service
+ */
+exports.getRevenueGrowthAnalytics = async (req, res) => {
+  try {
+    const { district } = req.query;
+    const axios = require('axios');
+    const providerServiceUrl = process.env.PROVIDER_SERVICE_URL || 'http://localhost:3002';
+    
+    // 1. If district is specified, lookup provider IDs belonging to that district from FinanceManagement.providers
+    let targetProviderIds = null;
+    if (district && district !== 'All' && district !== 'All Districts') {
+      try {
+        if (mongoose.connection && mongoose.connection.db) {
+          const providers = await mongoose.connection.db.collection('providers').find(
+            { district: { $regex: new RegExp(`^${district.trim()}$`, 'i') } },
+            { projection: { _id: 1 } }
+          ).toArray();
+          targetProviderIds = providers.map(p => p._id.toString());
+        }
+      } catch (pErr) {
+        console.log('Error querying providers for revenue district filter:', pErr.message);
+      }
+    }
+
+    try {
+      const params = {};
+      if (district && district !== 'All') params.district = district;
+      if (targetProviderIds !== null) {
+        params.providerIds = targetProviderIds.join(',');
+      }
+      const response = await axios.get(`${providerServiceUrl}/api/provider/ads/income/total`, { params, timeout: 3500 });
+      if (response.data && response.data.success) {
+        return res.status(200).json(response.data);
+      }
+    } catch (apiErr) {
+      console.log('Provider service call error in revenue growth analytics:', apiErr.message);
+    }
+
+    const currentYear = new Date().getFullYear();
+    const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const fallbackBreakdown = MONTH_NAMES.map((m, idx) => ({
+      name: m,
+      month: m,
+      monthIndex: idx + 1,
+      year: currentYear,
+      date: `${currentYear}-${idx < 9 ? '0' : ''}${idx + 1}-01`,
+      revenue: 0,
+      transactions: 0,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalIncomeLkr: 0,
+        totalTransactions: 0,
+        currency: 'LKR',
+        monthlyBreakdown: fallbackBreakdown,
+      },
+    });
+  } catch (error) {
+    console.error('getRevenueGrowthAnalytics error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch revenue analytics',
       error: error.message,
     });
   }
