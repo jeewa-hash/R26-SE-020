@@ -49,6 +49,7 @@ export default function ChatScreen() {
   const flatListRef = useRef();
   const [messageText, setMessageText] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
+  const [avatarError, setAvatarError] = useState(false);
 
   // ─── Attached Post State (like FB/Instagram Ad inquiry) ───────────
   const [attachedPost, setAttachedPost] = useState(
@@ -330,10 +331,19 @@ export default function ChatScreen() {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Image
-              source={{ uri: userAvatar || 'https://i.pravatar.cc/150' }}
-              style={styles.headerAvatar}
-            />
+            {userAvatar && !avatarError ? (
+              <Image
+                source={{ uri: userAvatar }}
+                style={styles.headerAvatar}
+                onError={() => setAvatarError(true)}
+              />
+            ) : (
+              <View style={styles.headerAvatarFallback}>
+                <Text style={styles.headerAvatarInitial}>
+                  {(userName || 'P').trim().charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
             <View style={styles.headerInfo}>
               <Text style={styles.headerName}>{userName || 'Provider'}</Text>
               <Text style={styles.headerRole}>{userRole || 'Service Provider'}</Text>
@@ -448,7 +458,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
   containerDark: { backgroundColor: '#0f1121' },
   headerGradient: {
-    paddingTop: Platform.OS === 'ios' ? 45 : 12,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 8 : (Platform.OS === 'ios' ? 48 : 16),
     paddingBottom: 8,
   },
   header: {
@@ -467,6 +477,22 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
     marginRight: 12,
+  },
+  headerAvatarFallback: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 2,
+    borderColor: '#fff',
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatarInitial: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#fff',
   },
   headerInfo: { flex: 1 },
   headerName: { fontSize: 17, fontWeight: '700', color: '#fff' },

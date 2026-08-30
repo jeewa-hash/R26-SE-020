@@ -66,16 +66,16 @@ function ViewUsersPage () {
   };
 
   const getInitials = (user, type) => {
-    if (type === 'seeker') return (user.name || 'S').charAt(0);
-    if (type === 'admin') return (user.fullName || 'A').charAt(0);
-    if (type === 'provider') return (user.email || 'P').charAt(0);
+    if (type === 'seeker') return (user.name || user.fullName || 'S').charAt(0).toUpperCase();
+    if (type === 'admin') return (user.fullName || user.name || 'A').charAt(0).toUpperCase();
+    if (type === 'provider') return (user.name || user.fullName || (user.email ? user.email.split('@')[0] : 'P')).charAt(0).toUpperCase();
     return '?';
   };
 
   const getDisplayName = (user, type) => {
-    if (type === 'seeker') return user.name || 'Unknown';
-    if (type === 'admin') return user.fullName || 'Unknown';
-    if (type === 'provider') return user.email || 'Unknown';
+    if (type === 'seeker') return user.name || user.fullName || 'Unknown';
+    if (type === 'admin') return user.fullName || user.name || 'Unknown';
+    if (type === 'provider') return user.name || user.fullName || (user.email ? user.email.split('@')[0] : 'Unknown');
     return 'Unknown';
   };
 
@@ -86,9 +86,19 @@ function ViewUsersPage () {
     const term = searchTerm.trim().toLowerCase();
 
     return list.filter((user) => {
-      const name = type === 'seeker' ? (user.name || '') : type === 'admin' ? (user.fullName || '') : (user.email || '');
+      const name = type === 'seeker' 
+        ? (user.name || user.fullName || '') 
+        : type === 'admin' 
+        ? (user.fullName || user.name || '') 
+        : (user.name || user.fullName || (user.email ? user.email.split('@')[0] : ''));
       const email = user.email || '';
-      const matchesSearch = !term || name.toLowerCase().includes(term) || email.toLowerCase().includes(term);
+      const telephone = user.telephone || '';
+      const nic = user.nicNumber || user.nic || '';
+      const matchesSearch = !term || 
+        name.toLowerCase().includes(term) || 
+        email.toLowerCase().includes(term) || 
+        telephone.toLowerCase().includes(term) || 
+        nic.toLowerCase().includes(term);
       const matchesDistrict = districtFilter === 'All' || (user.district && user.district.toLowerCase() === districtFilter.toLowerCase());
       const matchesCategory = type !== 'provider' || providerCategoryFilter === 'All' || (user.category && user.category.toLowerCase() === providerCategoryFilter.toLowerCase());
       const matchesGender = type !== 'provider' || genderFilter === 'All' || (user.gender && user.gender === genderFilter);
@@ -322,9 +332,8 @@ function ViewUsersPage () {
         <table className="users-table">
           <thead>
             <tr>
+              <th>Name</th>
               <th>Email</th>
-              <th>Telephone</th>
-              <th>NIC</th>
               <th>Category</th>
               <th>District</th>
               <th>Verified</th>
@@ -335,16 +344,19 @@ function ViewUsersPage () {
           </thead>
           <tbody>
             {filteredUsers.providers.map((provider) => (
-              <tr key={provider._id} className="clickable-row" onClick={() => openViewModal(provider, 'provider')}>
+              <tr key={provider._id} className="clickable-row" onClick={() => openViewModal(provider, 'provider')} title="Click to view full details card">
                 <td style={{ fontWeight: '600', color: 'var(--gray-900)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     {renderAvatar(provider, 'provider', 'sm')}
-                    {provider.email}
+                    <span>{getDisplayName(provider, 'provider')}</span>
                   </div>
                 </td>
-                <td>{provider.telephone || 'N/A'}</td>
-                <td>{provider.nicNumber || 'N/A'}</td>
-                <td>{provider.category || 'N/A'}</td>
+                <td style={{ color: 'var(--gray-600)' }}>{provider.email}</td>
+                <td>
+                  <span style={{ fontWeight: '500', color: 'var(--gray-800)' }}>
+                    {provider.category || 'N/A'}
+                  </span>
+                </td>
                 <td>{provider.district || 'N/A'}</td>
                 <td>
                   <span className={`status-badge ${provider.isVerified ? 'verified' : 'pending'}`}>
@@ -356,7 +368,7 @@ function ViewUsersPage () {
                 <td onClick={(e) => e.stopPropagation()}>{renderActions(provider, 'provider')}</td>
               </tr>
             ))}
-            {users.providers.length === 0 && <tr><td colSpan="9" className="text-center">No service providers found.</td></tr>}
+            {filteredUsers.providers.length === 0 && <tr><td colSpan="8" className="text-center">No service providers found.</td></tr>}
           </tbody>
         </table>
       );
@@ -406,7 +418,10 @@ function ViewUsersPage () {
     <div className="page-content">
       <div className="register-page-header">
         <div>
-          <h1><FiUsers style={{ marginRight: 8, verticalAlign: 'middle', color: 'var(--primary-500)' }} /> View All Users</h1>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <FiUsers style={{ color: 'var(--primary-500)', flexShrink: 0 }} />
+            <span>View All Users</span>
+          </h1>
           <p>Manage and view details of all users registered in the system.</p>
         </div>
       </div>

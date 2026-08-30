@@ -7,11 +7,14 @@ import {
   getSingleRequest,
   updateRequestStatus,
   deleteRequestQuotation,
+  getProviderRecommendations,
 } from "../controllers/requestQuotationController.js";
 
 const router = express.Router();
 
 router.post("/", createRequestQuotation);
+
+router.get("/recommendations/seeker/:seekerId", getProviderRecommendations);
 
 router.get("/seeker/:seekerId", getSeekerRequests);
 
