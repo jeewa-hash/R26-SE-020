@@ -41,6 +41,9 @@ const AnalyticsPage = () => {
     totalBoostSteps: 0,
     currency: 'LKR',
   });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [sortConfig, setSortConfig] = useState({ key: 'percentage', direction: 'asc' });
 
   // Tab & Filter persistence handlers
   const handleSetActiveTab = (tab) => {
