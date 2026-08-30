@@ -20,6 +20,10 @@ export default function ChatListScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [providerMap, setProviderMap] = useState({});
+  const totalUnreadMessages = Object.values(unreadCount).reduce(
+    (total, count) => total + Number(count || 0),
+    0
+  );
 
   // ─── Helper: build full image URL from relative path ──
   const buildImageUrl = (imagePath) => {
@@ -194,7 +198,16 @@ export default function ChatListScreen() {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Messages</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.headerTitle}>Messages</Text>
+            {totalUnreadMessages > 0 && (
+              <View style={styles.headerUnreadBadge}>
+                <Text style={styles.headerUnreadText}>
+                  {totalUnreadMessages > 99 ? '99+' : totalUnreadMessages}
+                </Text>
+              </View>
+            )}
+          </View>
           <TouchableOpacity style={styles.newChatButton}>
             <Ionicons name="create-outline" size={24} color="#fff" />
           </TouchableOpacity>
@@ -240,6 +253,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ffffff20', justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerUnreadBadge: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EF4444' },
+  headerUnreadText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   newChatButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ffffff20', justifyContent: 'center', alignItems: 'center' },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 16, marginTop: 16, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
   searchContainerDark: { backgroundColor: '#16213e', borderColor: '#2d3561' },

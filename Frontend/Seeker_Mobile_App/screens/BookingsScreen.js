@@ -18,7 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS, AUTH_SERVICE_URL } from '../config';
+import { IP_ADDRESS } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
@@ -64,7 +64,6 @@ export default function BookingsScreen({ navigation }) {
   const [expandedSessions, setExpandedSessions] = useState({});
 
   const [totalSessions, setTotalSessions] = useState(0);
-  const [confirmedSessions, setConfirmedSessions] = useState(0);
 
   // ─────────────────────────────────────────────────────────────
   // Fetch all providers into a map keyed by provider id
@@ -127,11 +126,7 @@ export default function BookingsScreen({ navigation }) {
         setGroupedBookings(groups);
 
         const total = groups.length;
-        const confirmed = groups.filter((g) =>
-          g.requests.some((r) => r.status === 'confirmed')
-        ).length;
         setTotalSessions(total);
-        setConfirmedSessions(confirmed);
 
         const providerMap = await fetchProviders();
         setProvidersMap(providerMap);
@@ -188,6 +183,13 @@ export default function BookingsScreen({ navigation }) {
           icon: 'checkmark-circle',
           text: 'Confirmed',
         };
+      case 'pending':
+        return {
+          bg: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7',
+          color: '#F59E0B',
+          icon: 'time-outline',
+          text: 'Pending',
+        };
       case 'cancelled':
         return {
           bg: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2',
@@ -220,12 +222,10 @@ export default function BookingsScreen({ navigation }) {
 
   const getProviderImage = (providerId) => {
     const p = getProvider(providerId);
-    const imagePath = p?.profileImage || p?.profilePicture || p?.avatar;
-
-    if (imagePath) {
-      const norm = imagePath.replace(/\\/g, '/');
+    if (p?.profileImage) {
+      const norm = p.profileImage.replace(/\\/g, '/');
       if (norm.startsWith('http')) return norm;
-      return `${AUTH_SERVICE_URL}/${norm.replace(/^\/+/, '')}`;
+      return `http://${IP_ADDRESS}:5000/${norm}`;
     }
     const hash = providerId ? parseInt(String(providerId).slice(-2), 16) || 1 : 1;
     return `https://i.pravatar.cc/150?img=${(hash % 70) + 1}`;
@@ -384,7 +384,7 @@ export default function BookingsScreen({ navigation }) {
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Bookings</Text>
+        <Text style={styles.headerTitle}>My Requests</Text>
         <TouchableOpacity
           style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
           onPress={onRefresh}
@@ -400,15 +400,6 @@ export default function BookingsScreen({ navigation }) {
           </Text>
           <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
             Total
-          </Text>
-        </View>
-        <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
-        <View style={styles.statCard}>
-          <Text style={[styles.statNumber, { color: '#10B981' }]}>
-            {confirmedSessions}
-          </Text>
-          <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
-            Confirmed
           </Text>
         </View>
       </View>
@@ -513,7 +504,14 @@ export default function BookingsScreen({ navigation }) {
                       ) : null}
                     </View>
 
-                    
+                    {overallStatus !== 'pending' && (
+                      <View style={[styles.statusBadge, { backgroundColor: overallStyle.bg }]}>
+                        <Ionicons name={overallStyle.icon} size={13} color={overallStyle.color} />
+                        <Text style={[styles.statusText, { color: overallStyle.color }]}>
+                          {overallStyle.text}
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
                   <View style={[styles.divider, isDarkMode && styles.dividerDark]} />
@@ -567,7 +565,7 @@ export default function BookingsScreen({ navigation }) {
                                   {pName}
                                 </Text>
                               </TouchableOpacity>
-                              {req.status !== 'pending' && (
+                              {req.status !== 'pending' && req.status !== 'confirmed' && (
                                 <View style={[styles.providerStatusChip, { backgroundColor: pStatus.bg }]}>
                                   <Ionicons name={pStatus.icon} size={11} color={pStatus.color} />
                                   <Text style={[styles.providerStatusText, { color: pStatus.color }]}>
@@ -603,7 +601,7 @@ export default function BookingsScreen({ navigation }) {
                                     isDarkMode && styles.viewQuoteBtnTextDark,
                                   ]}
                                 >
-                                  Quote
+                                  View
                                 </Text>
                               </TouchableOpacity>
                             </View>

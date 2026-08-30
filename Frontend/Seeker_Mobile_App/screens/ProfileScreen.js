@@ -45,7 +45,7 @@ const getLocationString = (userObj) => {
 const menuItems = [
   {
     id: 'bookings',
-    title: 'My Bookings',
+    title: 'My Requests',
     icon: 'calendar',
     iconType: 'ion',
     color: '#667eea',
@@ -118,9 +118,7 @@ export default function ProfileScreen() {
     memberSince: 'January 2024',
     avatar: getProfileImage(user?.profilePicture || user?.profileImage || user?.avatar),
     starPoints: 1250,
-    rating: 4.8,
     totalServices: 24,
-    totalReviews: 128,
   });
 
   useEffect(() => {
@@ -198,37 +196,6 @@ export default function ProfileScreen() {
     }
 
     setRefreshing(false);
-  };
-
-  const renderStars = (rating) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-
-    for (let i = 1; i <= fullStars; i += 1) {
-      stars.push(
-        <Ionicons
-          key={`star-${i}`}
-          name="star"
-          size={14}
-          color="#FBBF24"
-        />
-      );
-    }
-
-    const emptyStars = 5 - stars.length;
-
-    for (let i = 1; i <= emptyStars; i += 1) {
-      stars.push(
-        <Ionicons
-          key={`empty-${i}`}
-          name="star-outline"
-          size={14}
-          color="#FBBF24"
-        />
-      );
-    }
-
-    return stars;
   };
 
   const handleSaveProfile = async () => {
@@ -371,13 +338,6 @@ export default function ProfileScreen() {
               <Text style={styles.locationText}>{userData.location}</Text>
             </View>
 
-            <View style={styles.ratingContainer}>
-              <View style={styles.starsContainer}>
-                {renderStars(userData.rating)}
-              </View>
-
-              <Text style={styles.ratingText}>{userData.rating}</Text>
-            </View>
           </View>
 
           <View style={styles.statsRow}>
@@ -393,12 +353,6 @@ export default function ProfileScreen() {
               <Text style={styles.statLabel}>Star Points</Text>
             </View>
 
-            <View style={styles.statDivider} />
-
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.totalReviews}</Text>
-              <Text style={styles.statLabel}>Reviews</Text>
-            </View>
           </View>
         </LinearGradient>
 
