@@ -17,6 +17,10 @@ export function PortfolioProvider({ children }) {
     setPortfolioImages((prev) => [...prev, ...newImages]);
   }, []);
 
+  const saveRemoteImages = useCallback((images) => {
+    setPortfolioImages(images);
+  }, []);
+
   // Get all unique tags across all images
   const getAllTags = useCallback(() => {
     const tagSet = new Set();
@@ -45,6 +49,7 @@ export function PortfolioProvider({ children }) {
     <PortfolioContext.Provider value={{
       portfolioImages,
       saveImages,
+      saveRemoteImages,
       getAllTags,
       getImagesByTag,
       deleteImage,

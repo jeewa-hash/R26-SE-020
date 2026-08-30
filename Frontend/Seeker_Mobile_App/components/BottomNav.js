@@ -1,10 +1,26 @@
 // components/BottomNav.js
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
+import { useAuth } from '../context/AuthContext';
+import { IP_ADDRESS } from '../config';
+
+const BASE_AUTH_URL = `http://${IP_ADDRESS}:4003`;
+
+const getFullImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http')) return imagePath;
+  return `${BASE_AUTH_URL}/${imagePath.replace(/^\/+/, '')}`;
+};
 
 const HIDDEN_ROUTES = new Set([
   'Login',
@@ -53,24 +69,43 @@ const routeToTab = {
   HomeScreen: 'Home',
 
   FeedScreen: 'Feed',
-  CreatePostScreen: 'Create',
 
   MyJobsScreen: 'MyJobs',
   MyJobs: 'MyJobs',
 
   ChatListScreen: 'Chat',
+
   ProfileScreen: 'Profile',
 };
 
 const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
   const { isDarkMode } = useTheme();
   const { unreadCount = {} } = useChat();
+  const { user } = useAuth();
+
   const [selectedTab, setSelectedTab] = React.useState('Home');
+  const [storedUser, setStoredUser] = React.useState(null);
 
   const totalUnread = Object.values(unreadCount).reduce(
     (total, count) => total + Number(count || 0),
     0
   );
+
+  React.useEffect(() => {
+    const loadStoredUser = async () => {
+      try {
+        const userData = await AsyncStorage.getItem('user');
+
+        if (userData) {
+          setStoredUser(JSON.parse(userData));
+        }
+      } catch (error) {
+        console.log('BottomNav user load error:', error);
+      }
+    };
+
+    loadStoredUser();
+  }, []);
 
   React.useEffect(() => {
     const mappedTab = routeToTab[currentRouteName];
@@ -90,6 +125,12 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
     return null;
   }
 
+  const displayUser = user || storedUser;
+
+  const profileImageUrl =
+    getFullImageUrl(displayUser?.profileImage || displayUser?.avatar) ||
+    'https://i.pravatar.cc/150?img=7';
+
   const navItems = [
     {
       id: 'Home',
@@ -102,13 +143,6 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
       label: 'Feed',
       icon: 'feed',
       routeName: 'FeedScreen',
-    },
-    {
-      id: 'Create',
-      label: 'Create',
-      icon: 'add',
-      routeName: 'CreatePostScreen',
-      isCreateButton: true,
     },
     {
       id: 'MyJobs',
@@ -126,9 +160,8 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
     },
     {
       id: 'Profile',
-      label: 'Profile',
-      icon: 'person',
       routeName: 'ProfileScreen',
+      isProfile: true,
     },
   ];
 
@@ -142,7 +175,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
 
   const isActive = (itemId) => selectedTab === itemId;
 
-  const inactiveColor = isDarkMode ? '#94A3B8' : '#999';
+  const inactiveColor = isDarkMode ? '#94A3B8' : '#9CA3AF';
   const activeColor = isDarkMode ? '#818cf8' : '#667eea';
 
   return (
@@ -150,36 +183,26 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
       {navItems.map((item) => {
         const active = isActive(item.id);
 
-        if (item.isCreateButton) {
+        if (item.isProfile) {
           return (
             <TouchableOpacity
               key={item.id}
-              style={styles.createNavItem}
+              style={styles.navItem}
               onPress={() => handlePress(item)}
-              activeOpacity={0.8}
+              activeOpacity={0.75}
             >
-              <LinearGradient
-                colors={
-                  isDarkMode
-                    ? ['#818cf8', '#6366f1']
-                    : ['#667eea', '#764ba2']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.createButton}
-              >
-                <MaterialIcons name={item.icon} size={28} color="#fff" />
-              </LinearGradient>
-
-              <Text
+              <View
                 style={[
-                  styles.navLabel,
-                  { color: active ? activeColor : inactiveColor },
-                  active && styles.navLabelActive,
+                  styles.profileNavWrap,
+                  active && styles.profileNavWrapActive,
+                  active && isDarkMode && styles.profileNavWrapActiveDark,
                 ]}
               >
-                {item.label}
-              </Text>
+                <Image
+                  source={{ uri: profileImageUrl }}
+                  style={styles.profileNavImage}
+                />
+              </View>
             </TouchableOpacity>
           );
         }
@@ -191,12 +214,18 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
             key={item.id}
             style={styles.navItem}
             onPress={() => handlePress(item)}
-            activeOpacity={0.7}
+            activeOpacity={0.75}
           >
-            <View style={styles.iconWrapper}>
+            <View
+              style={[
+                styles.iconContainer,
+                active && styles.iconContainerActive,
+                active && isDarkMode && styles.iconContainerActiveDark,
+              ]}
+            >
               <MaterialIcons
                 name={item.icon}
-                size={24}
+                size={23}
                 color={active ? activeColor : inactiveColor}
               />
 
@@ -233,15 +262,16 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     backgroundColor: '#fff',
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+    paddingTop: 8,
+    paddingBottom: 8,
+    paddingHorizontal: 8,
     borderTopWidth: 1,
     borderTopColor: '#E8ECF0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 10,
     zIndex: 50,
   },
   bottomNavDark: {
@@ -254,21 +284,58 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
-  iconWrapper: {
+  iconContainer: {
+    width: 38,
+    height: 30,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
+  },
+  iconContainerActive: {
+    backgroundColor: '#EEF2FF',
+  },
+  iconContainerActiveDark: {
+    backgroundColor: 'rgba(129, 140, 248, 0.16)',
+  },
+  navLabel: {
+    fontSize: 10,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  navLabelActive: {
+    fontWeight: '800',
+  },
+  profileNavWrap: {
+    width: 45,
+    height: 45,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  profileNavWrapActive: {
+    backgroundColor: '#EEF2FF',
+  },
+  profileNavWrapActiveDark: {
+    backgroundColor: 'rgba(129, 140, 248, 0.16)',
+  },
+  profileNavImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
   badge: {
     position: 'absolute',
-    top: -6,
-    right: -12,
+    top: -5,
+    right: -5,
     backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
+    borderRadius: 9,
+    minWidth: 17,
+    height: 17,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
@@ -277,34 +344,8 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  navLabel: {
     fontSize: 9,
-    marginTop: 2,
-  },
-  navLabelActive: {
-    fontWeight: '700',
-  },
-  createNavItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -16,
-  },
-  createButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 2,
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    fontWeight: '800',
   },
 });
 

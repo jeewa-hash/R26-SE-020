@@ -24,12 +24,12 @@ const SIDEBAR_WIDTH = width * 0.72;
 
 const LANGUAGES = [
   { code: 'en', label: 'English' },
-  { code: 'si', label: 'සිංහල' },
+
 ];
 
 const SIDEBAR_MENU = [
   { id: '1', icon: 'edit', label: 'Edit Profile', route: 'EditProfile', color: '#2563EB', bg: '#EFF6FF' },
-  { id: '2', icon: 'bar-chart', label: 'Performance', route: 'Stats', color: '#7C3AED', bg: '#F5F3FF' },
+  { id: '2', icon: 'rate-review', label: 'Submit Inquiry', route: 'SubmitInquiry', color: '#7C3AED', bg: '#F5F3FF' },
   { id: '3', icon: 'emoji-events', label: 'My Badges', route: 'Badges', color: '#F59E0B', bg: '#FFFBEB' },
   { id: '4', icon: 'credit-card', label: 'Subscription', route: 'Subscription', color: '#059669', bg: '#ECFDF5' },
   { id: '5', icon: 'settings', label: 'Settings', route: 'Settings', color: '#6B7280', bg: '#F9FAFB' },
@@ -127,7 +127,7 @@ export default function ProfileHeader({
             <Text style={{ fontSize: 16, color: isDark ? '#111' : '#fff' }}>⚡</Text>
           </View>
           <View>
-            <Text style={[styles.appName, { color: isDark ? '#F2F2F7' : '#111' }]}>LocalPro</Text>
+            <Text style={[styles.appName, { color: isDark ? '#F2F2F7' : '#111' }]}>WorkWave</Text>
             <Text style={[styles.appTagline, { color: isDark ? '#8E8E93' : '#AAAAAA' }]}>Service Provider</Text>
           </View>
         </View>
@@ -164,7 +164,10 @@ export default function ProfileHeader({
 
       {/* ── Right Sidebar ── */}
       <Animated.View style={[styles.sidebar, { backgroundColor: isDark ? '#1c1c1e' : '#fff', transform: [{ translateX: sideAnim }] }]}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+  showsVerticalScrollIndicator={false}
+  contentContainerStyle={styles.sidebarContent}
+>
           {/* Sidebar header */}
           <LinearGradient
             colors={['#1D4ED8', '#7C3AED']}
@@ -182,7 +185,7 @@ export default function ProfileHeader({
                 <Text style={{ fontSize: 18 }}>⚡</Text>
               </View>
               <View>
-                <Text style={styles.sidebarAppName}>LocalPro</Text>
+                <Text style={styles.sidebarAppName}>WorkWave</Text>
                 <Text style={styles.sidebarAppSub}>Service Provider</Text>
               </View>
             </View>
@@ -195,10 +198,7 @@ export default function ProfileHeader({
             </View>
             <Text style={styles.sidebarName}>{userName}</Text>
             <Text style={styles.sidebarHandle}>@{userName.toLowerCase().replace(' ', '')}</Text>
-            <View style={styles.sidebarBadge}>
-              <MaterialIcons name="emoji-events" size={11} color="#FAC775" />
-              <Text style={styles.sidebarBadgeText}>Top Rated Pro</Text>
-            </View>
+            
           </LinearGradient>
 
           {/* Menu items */}
@@ -269,8 +269,7 @@ export default function ProfileHeader({
                 <MaterialIcons name="language" size={18} color={isDark ? '#5DCAA5' : '#059669'} />
               </View>
               <Text style={[styles.menuLabel, { color: isDark ? '#F2F2F7' : '#111' }]}>Language</Text>
-            </View>
-            <View style={styles.langPills}>
+              <View style={styles.inlineLangPills}>
               {LANGUAGES.map((lang) => {
                 const active = language === lang.code;
                 return (
@@ -291,6 +290,7 @@ export default function ProfileHeader({
                   </TouchableOpacity>
                 );
               })}
+              </View>
             </View>
           </View>
 
@@ -303,9 +303,7 @@ export default function ProfileHeader({
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
 
-          <Text style={[styles.versionText, { color: isDark ? '#3a3a3c' : '#D1D5DB' }]}>
-            LocalPro v1.0.0 · SLIIT R26-SE-020
-          </Text>
+          
         </ScrollView>
       </Animated.View>
     </>
@@ -480,6 +478,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   sidebarBadgeText: { fontSize: 12, color: '#fff', fontWeight: '600' },
+  sidebarContent: {
+  paddingBottom: 150,
+},
 
   /* Menu */
   menuSection: { padding: 16 },
@@ -490,7 +491,7 @@ const styles = StyleSheet.create({
   menuDivider: { height: 0.5 },
 
   /* Language */
-  langPills: { flexDirection: 'row', gap: 8, paddingLeft: 50, paddingBottom: 8 },
+  inlineLangPills: { flexDirection: 'row', gap: 8 },
   langPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 0.5 },
   langPillText: { fontSize: 13, fontWeight: '600' },
 
@@ -499,10 +500,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    margin: 16,
+    margin: 5,
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
+    marginBottom: 110,
   },
   logoutText: { fontSize: 14, fontWeight: '600', color: '#DC2626' },
   versionText: { textAlign: 'center', fontSize: 11, marginBottom: 32 },

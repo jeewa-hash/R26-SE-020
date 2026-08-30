@@ -15,14 +15,11 @@ import { Colors } from '../theme';
 import HeaderSection from '../components/HeaderSection';
 import { CONFIG } from '../config';
 import ProviderPostsSection from './Providerpostssection .js';
-
+import ServicesSection from '../components/portfolio/ServicesSection';
 
 const { width } = Dimensions.get('window');
 
-const SKILLS = [
-  'Pipe Repair', 'Water Supply', 'Drain Cleaning',
-  'Emergency', 'Residential', 'Commercial',
-];
+
 
 const REVIEWS = [
   { id: '1', name: 'Kumara P.',  rating: 5, comment: 'Excellent work! Fixed the pipe quickly and professionally.', date: 'May 8'  },
@@ -30,12 +27,7 @@ const REVIEWS = [
   { id: '3', name: 'Samira W.',  rating: 4, comment: 'Good service, arrived on time and completed the job well.',   date: 'Apr 28' },
 ];
 
-const SERVICES = [
-  { id: '1', title: 'Emergency Pipe Repair',  price: 'LKR 2,500+', icon: 'plumbing', color: '#2563EB' },
-  { id: '2', title: 'Drain Cleaning',          price: 'LKR 1,800+', icon: 'water',    color: '#0891B2' },
-  { id: '3', title: 'Water Tank Service',      price: 'LKR 3,500+', icon: 'opacity',  color: '#7C3AED' },
-  { id: '4', title: 'Full Plumbing Install',   price: 'LKR 8,000+', icon: 'build',    color: '#059669' },
-];
+
 
 const getInitials = (name) =>
   name.split(' ').map((n) => n[0]).join('').toUpperCase();
@@ -47,6 +39,37 @@ export default function ProfileScreen({ navigation }) {
     images, processing, progress,
     showTagScreen, openGallery, cancelProcessing, resetAll,
   } = usePortfolioUpload();
+
+  const [profileSkills, setProfileSkills] = useState([]);
+
+useEffect(() => {
+  const fetchSkills = async () => {
+    const token = await AsyncStorage.getItem('userToken');
+
+    const response = await fetch(
+      `${CONFIG.ML_SERVICE_URL}/portfolio/items`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    const skills = [
+      ...new Set(
+        (data.items || []).flatMap((item) =>
+          Array.isArray(item.tags) ? item.tags : []
+        )
+      ),
+    ];
+
+    setProfileSkills(skills);
+  };
+
+  fetchSkills();
+}, []);
 
   // Profile data state
   const [profile, setProfile] = useState({
@@ -61,9 +84,9 @@ export default function ProfileScreen({ navigation }) {
     profileImage: null,
     isVerified: false,
     jobs: '0',
-    rating: '4.9★',
-    completion: '98%',
-    earned: '45K',
+    rating: '★',
+    completion: '%',
+    earned: 'K',
   });
   const [loading, setLoading] = useState(true);
 
@@ -104,10 +127,10 @@ export default function ProfileScreen({ navigation }) {
             gender: p.gender || 'Not specified',
             profileImage: p.profileImage || null,
             isVerified: p.isVerified || false,
-            jobs: '124', // From hardcoded stats or backend if available
-            rating: '4.9★', // From hardcoded stats or backend if available
-            completion: '98%', // From hardcoded stats or backend if available
-            earned: '45K', // From hardcoded stats or backend if available
+            jobs: 'N/A', // From hardcoded stats or backend if available
+            rating: 'N/A★', // From hardcoded stats or backend if available
+            completion: 'N/A%', // From hardcoded stats or backend if available
+            earned: 'N/AK', // From hardcoded stats or backend if available
           });
         }
       } catch (err) {
@@ -161,7 +184,7 @@ export default function ProfileScreen({ navigation }) {
               //search={search}              // Your search state
               //onSearchChange={setSearch}   // Your search setter
               //unreadCount={unreadCount}    // Your notification count
-              onInboxPress={() => navigation.navigate('Messages')}
+              onInboxPress={() => navigation.navigate('InboxScreen')}
               // onMenuPress is optional - the HeaderSection now handles it internally
             />
 
@@ -181,13 +204,10 @@ export default function ProfileScreen({ navigation }) {
           </View>
 
           <Text style={[styles.profileName, { color: C.text }]}>{profile.name}</Text>
-          <Text style={[styles.profileHandle, { color: C.textSub }]}>{profile.category} · {profile.district}</Text>
+          <Text style={[styles.profileHandle, { color: C.textSub }]}>{profile.district}</Text>
 
           <View style={styles.badgeRow}>
-            <View style={styles.goldBadge}>
-              <MaterialIcons name="emoji-events" size={12} color="#F59E0B" />
-              <Text style={styles.goldBadgeText}>Top Rated Pro</Text>
-            </View>
+            
             <View style={styles.verifiedBadge}>
               <MaterialIcons name="verified" size={12} color="#2563EB" />
               <Text style={styles.verifiedBadgeText}>Verified</Text>
@@ -227,41 +247,15 @@ export default function ProfileScreen({ navigation }) {
     
         </View>
 
-        {/* ── Services ── */}
-        <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: C.text }]}>My Services</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAll}>+ Add Service</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.servicesGrid}>
-            {SERVICES.map((svc) => (
-              <View key={svc.id} style={[styles.serviceCard, { backgroundColor: C.subCard, borderColor: C.border }]}>
-                <View style={[styles.serviceIconBg, { backgroundColor: svc.color + '18' }]}>
-                  <MaterialIcons name={svc.icon} size={22} color={svc.color} />
-                </View>
-                <Text style={[styles.serviceTitle, { color: C.text }]} numberOfLines={2}>{svc.title}</Text>
-                <Text style={[styles.servicePrice, { color: svc.color }]}>{svc.price}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+        <ServicesSection navigation={navigation} C={C} initialCategory={profile.category} />
         <ProviderPostsSection navigation={navigation} isDark={isDark} />
 
         {/* ── Skills ── */}
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <Text style={[styles.sectionTitle, { color: C.text }]}>Skills & Expertise</Text>
           <View style={styles.skillsWrap}>
-            {SKILLS.map((skill) => (
-              <View key={skill} style={[styles.skillChip, {
-                backgroundColor: isDark ? '#1e1b3a' : '#EFF6FF',
-                borderColor:     isDark ? '#2d2860' : '#BFDBFE',
-              }]}>
-                <Text style={[styles.skillText, { color: isDark ? '#AFA9EC' : '#1D4ED8' }]}>{skill}</Text>
-              </View>
-            ))}
-            {allTags.map((tag) => (
+            
+            {profileSkills.map((tag) => (
               <View key={tag} style={[styles.skillChipAI, {
                 backgroundColor: isDark ? '#0d2820' : '#F0FDF4',
                 borderColor:     isDark ? '#145040' : '#A7F3D0',
@@ -272,18 +266,10 @@ export default function ProfileScreen({ navigation }) {
             ))}
           </View>
           {allTags.length > 0 && (
-            <Text style={styles.aiTagNote}>✨ {allTags.length} tags detected by AI from your portfolio</Text>
+            <Text style={styles.aiTagNote}>✨ {profileSkills.length} tags detected by AI from your portfolio</Text>
           )}
         </View>
-        <View style={styles.btnContainer}>
-                    <TouchableOpacity 
-                      style={styles.submitInquiryBtn}
-                      onPress={() => navigation.navigate('SubmitInquiry')}
-                    >
-                      <MaterialIcons name="rate-review" size={18} color="#6366f1" />
-                      <Text style={styles.submitInquiryBtnText}>Submit Inquiries</Text>
-                    </TouchableOpacity>
-                  </View>
+        
 
         {/* ── Portfolio ── */}
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>

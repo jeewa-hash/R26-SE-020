@@ -3,22 +3,47 @@ import { Alert } from 'react-native';
 import ScreenShell from './ScreenShell';
 import SuggestedSlotCard from './components/SuggestedSlotCard';
 import ActionButton from './components/ActionButton';
-import { quotes } from './mock/myJobsMockData';
+import EmptyJobsState from './components/EmptyJobsState';
 import { selectSuggestedSlot } from './services/myJobsApi';
 import { useTheme } from '../../hooks/useTheme';
 
+const getSlotId = (slot) => slot?._id || slot?.id;
+
 export default function SuggestedSlotsScreen({ route, navigation }) {
   const { isDarkMode } = useTheme();
-  const quote = route.params?.quote || quotes[0];
-  const [selectedSlot, setSelectedSlot] = useState(null);
+  const quote = route.params?.quote;
+  const [selectedSlot, setSelectedSlot] = useState(quote?.selectedSlot || null);
   const [loadingSlotId, setLoadingSlotId] = useState(null);
 
+  if (!quote?.coordinationId) {
+    return (
+      <ScreenShell title="Suggested Slots" subtitle="No coordination result" navigation={navigation}>
+        <EmptyJobsState
+          title="No real suggested slots found"
+          message="Run the smart coordination check first. Suggested slots are loaded from the coordination backend."
+          icon="event-busy"
+          buttonLabel="Back to Review"
+          onButtonPress={() => navigation.goBack()}
+          isDarkMode={isDarkMode}
+        />
+      </ScreenShell>
+    );
+  }
+
+  const slots = quote.suggestedSlots || [];
+
   const handleSelect = async (slot) => {
-    setLoadingSlotId(slot._id || slot.id);
+    const slotId = getSlotId(slot);
+
+    if (!slotId) {
+      Alert.alert('Invalid Slot', 'This slot does not have a valid backend slot ID.');
+      return;
+    }
+
+    setLoadingSlotId(slotId);
+
     try {
-      if (quote.coordinationId && slot._id) {
-        await selectSuggestedSlot({ coordinationId: quote.coordinationId, slotId: slot._id });
-      }
+      await selectSuggestedSlot(quote.coordinationId, slotId);
       setSelectedSlot(slot);
     } catch (error) {
       Alert.alert('Slot Selection Failed', error.message || 'Please try again.');
@@ -32,6 +57,8 @@ export default function SuggestedSlotsScreen({ route, navigation }) {
         ...quote,
         selectedSlot,
         proposedStartTime: selectedSlot.startTime,
+        coordinatedStartTime: selectedSlot.startTime,
+        coordinatedEndTime: selectedSlot.endTime,
         coordinationDecision: 'AVAILABLE_WITH_CAUTION',
       }
     : quote;
@@ -51,16 +78,30 @@ export default function SuggestedSlotsScreen({ route, navigation }) {
         />
       }
     >
-      {(quote.suggestedSlots || []).map((slot) => (
-        <SuggestedSlotCard
-          key={slot._id || slot.id}
-          slot={slot}
-          selected={(selectedSlot?._id || selectedSlot?.id) === (slot._id || slot.id)}
-          loading={loadingSlotId === (slot._id || slot.id)}
+      {!slots.length ? (
+        <EmptyJobsState
+          title="No slots returned"
+          message="The backend did not return any suggested slots for this coordination."
+          icon="event-busy"
           isDarkMode={isDarkMode}
-          onSelect={() => handleSelect(slot)}
         />
-      ))}
+      ) : (
+        slots.map((slot) => {
+          const slotId = getSlotId(slot);
+          const selectedId = getSlotId(selectedSlot);
+
+          return (
+            <SuggestedSlotCard
+              key={slotId}
+              slot={slot}
+              selected={selectedId === slotId}
+              loading={loadingSlotId === slotId}
+              isDarkMode={isDarkMode}
+              onSelect={() => handleSelect(slot)}
+            />
+          );
+        })
+      )}
     </ScreenShell>
   );
 }

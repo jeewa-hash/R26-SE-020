@@ -4,41 +4,69 @@ import ScreenShell from './ScreenShell';
 import ActionButton from './components/ActionButton';
 import CoordinationSummaryCard from './components/CoordinationSummaryCard';
 import InfoRow from './components/InfoRow';
+import EmptyJobsState from './components/EmptyJobsState';
 import { COLORS } from './theme';
-import { scheduledJobs } from './mock/myJobsMockData';
 import { formatCurrency, formatDateTime } from './utils/dateTimeFormatter';
 import { useTheme } from '../../hooks/useTheme';
 
+const getBookingId = (booking) => booking?._id || booking?.id || booking?.bookingId;
+const getTitle = (booking) => booking?.title || booking?.serviceSubcategory || booking?.serviceSubCategory || booking?.subcategory || 'Scheduled Service';
+const getProvider = (booking) => booking?.providerSnapshot?.name || booking?.providerName || booking?.providerId || 'Provider';
+const getStart = (booking) => booking?.scheduledStartTime || booking?.startTime || booking?.coordinatedStartTime || booking?.scheduledDateTime;
+const getEnd = (booking) => booking?.scheduledEndTime || booking?.endTime || booking?.coordinatedEndTime || booking?.estimatedEndTime;
+const getAmount = (booking) => booking?.finalAmount || booking?.amount || booking?.price || booking?.quotedPrice || 0;
+const getLocation = (booking) => booking?.location || booking?.serviceLocation || booking?.district || 'Location not available';
+
 export default function ScheduledJobDetailsScreen({ route, navigation }) {
   const { isDarkMode } = useTheme();
-  const booking = route.params?.booking || scheduledJobs[0];
+  const booking = route.params?.booking;
+
+  if (!booking || !getBookingId(booking)) {
+    return (
+      <ScreenShell title="Scheduled Job" subtitle="No booking selected" navigation={navigation}>
+        <EmptyJobsState
+          title="No real booking selected"
+          message="Open a booking from My Jobs → Scheduled to view real booking details."
+          icon="event-busy"
+          buttonLabel="Back to My Jobs"
+          onButtonPress={() => navigation.navigate('MyJobsScreen')}
+          isDarkMode={isDarkMode}
+        />
+      </ScreenShell>
+    );
+  }
 
   return (
-    <ScreenShell title="Scheduled Job" subtitle={booking.status} navigation={navigation}>
+    <ScreenShell title="Scheduled Job" subtitle={booking.status || booking.bookingStatus || 'CONFIRMED'} navigation={navigation}>
       <View style={[styles.card, isDarkMode && styles.cardDark]}>
-        <Text style={[styles.title, isDarkMode && styles.textDark]}>{booking.title}</Text>
-        <Text style={[styles.provider, isDarkMode && styles.mutedDark]}>{booking.providerName}</Text>
+        <Text style={[styles.title, isDarkMode && styles.textDark]}>
+          {getTitle(booking)}
+        </Text>
+
+        <Text style={[styles.provider, isDarkMode && styles.mutedDark]}>
+          {getProvider(booking)}
+        </Text>
 
         <View style={styles.divider} />
 
-        <InfoRow icon="event" label="Start Time" value={formatDateTime(booking.scheduledStartTime)} isDarkMode={isDarkMode} />
-        <InfoRow icon="event-available" label="End Time" value={formatDateTime(booking.scheduledEndTime)} isDarkMode={isDarkMode} />
-        <InfoRow icon="payments" label="Final Amount" value={formatCurrency(booking.finalAmount)} isDarkMode={isDarkMode} />
-        <InfoRow icon="place" label="Location" value={booking.location} isDarkMode={isDarkMode} />
-        <InfoRow icon="schedule-send" label="Schedule Source" value={booking.scheduleSource} isDarkMode={isDarkMode} />
+        <InfoRow icon="event" label="Start Time" value={formatDateTime(getStart(booking))} isDarkMode={isDarkMode} />
+        <InfoRow icon="event-available" label="End Time" value={formatDateTime(getEnd(booking))} isDarkMode={isDarkMode} />
+        <InfoRow icon="payments" label="Final Amount" value={formatCurrency(getAmount(booking))} isDarkMode={isDarkMode} />
+        <InfoRow icon="place" label="Location" value={getLocation(booking)} isDarkMode={isDarkMode} />
+        <InfoRow icon="schedule-send" label="Schedule Source" value={booking.scheduleSource || 'Coordinated Booking'} isDarkMode={isDarkMode} />
       </View>
 
       <CoordinationSummaryCard
-        decision="AVAILABLE_WITH_CAUTION"
+        decision={booking.coordinationDecision || booking.coordinationStatus || 'AVAILABLE_WITH_CAUTION'}
         recommendedAction="This scheduled job was created through availability-aware coordination."
         conflictDetected={false}
-        delayRiskLevel={booking.delayRiskLevel}
+        delayRiskLevel={booking.delayRiskLevel || booking.predictedDelayRiskLevel}
         isDarkMode={isDarkMode}
       />
 
       <View style={styles.actions}>
         <ActionButton label="Chat Provider" icon="chat" onPress={() => navigation.navigate('ChatListScreen')} />
-        <ActionButton label="Request Reschedule" variant="secondary" icon="update" onPress={() => navigation.navigate('RescheduleScreen')} />
+        <ActionButton label="Request Reschedule" variant="secondary" icon="update" onPress={() => navigation.navigate('RescheduleScreen', { booking })} />
       </View>
     </ScreenShell>
   );

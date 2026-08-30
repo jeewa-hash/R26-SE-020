@@ -22,6 +22,7 @@ import ChatScreen from '../pages/ChatScreen';
 import QuotationTemplate from '../pages/QuotationTemplate';
 import NotificationsScreen from '../pages/NotificationsScreen';
 import InboxScreen from '../pages/InboxScreen';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -324,7 +325,22 @@ export default function BottomTabNavigator() {
             key={tab.name}
             name={tab.name}
             component={SCREENS[tab.name]}
-            options={{
+            options={({ route }) => ({
+      // Hide floating tab bar dynamically when opening sub-screens like ChatScreen
+      tabBarStyle: ((routeName) => {
+        const hiddenScreens = ['ChatScreen', 'QuotationTemplate', 'InboxScreen'];
+        if (hiddenScreens.includes(routeName)) {
+          return { display: 'none' };
+        }
+        return [
+          styles.tabBar,
+          {
+            backgroundColor: C.bar,
+            borderColor: C.barBorder,
+            shadowColor: C.shadowColor,
+          },
+        ];
+      })(getFocusedRouteNameFromRoute(route)),
               tabBarIcon: ({ focused }) =>
                 tab.isCenter ? (
                   <CenterTabItem
@@ -353,7 +369,7 @@ export default function BottomTabNavigator() {
                     />
                   )
                 : undefined,
-            }}
+            })}
           />
         ))}
       </Tab.Navigator>

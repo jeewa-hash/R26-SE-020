@@ -4,34 +4,63 @@ import ScreenShell from './ScreenShell';
 import ActionButton from './components/ActionButton';
 import InfoRow from './components/InfoRow';
 import StatusBadge from './components/StatusBadge';
+import EmptyJobsState from './components/EmptyJobsState';
 import { COLORS } from './theme';
-import { historyJobs } from './mock/myJobsMockData';
 import { mapJobStatus } from './utils/jobStatusMapper';
 import { formatCurrency, formatDateTime } from './utils/dateTimeFormatter';
 import { useTheme } from '../../hooks/useTheme';
 
+const getJobId = (job) => job?._id || job?.id || job?.bookingId;
+const getTitle = (job) => job?.title || job?.serviceSubcategory || job?.serviceSubCategory || job?.subcategory || 'Service Job';
+const getProvider = (job) => job?.providerSnapshot?.name || job?.providerName || job?.providerId || 'Provider';
+const getAmount = (job) => job?.finalAmount || job?.amount || job?.price || job?.quotedPrice || 0;
+const getClosedDate = (job) => job?.completedAt || job?.cancelledAt || job?.updatedAt || job?.scheduledEndTime || job?.endTime;
+const getLocation = (job) => job?.location || job?.serviceLocation || job?.district || 'Location not available';
+
 export default function JobHistoryDetailsScreen({ route, navigation }) {
   const { isDarkMode } = useTheme();
-  const job = route.params?.job || historyJobs[0];
-  const mapped = mapJobStatus(job.status);
+  const job = route.params?.job;
+
+  if (!job || !getJobId(job)) {
+    return (
+      <ScreenShell title="Job Summary" subtitle="History" navigation={navigation}>
+        <EmptyJobsState
+          title="No real history item selected"
+          message="Open a job from My Jobs → History to view real completed or cancelled job details."
+          icon="history"
+          buttonLabel="Back to My Jobs"
+          onButtonPress={() => navigation.navigate('MyJobsScreen')}
+          isDarkMode={isDarkMode}
+        />
+      </ScreenShell>
+    );
+  }
+
+  const mapped = mapJobStatus(job.status || job.bookingStatus || 'COMPLETED');
 
   return (
     <ScreenShell title="Job Summary" subtitle="History" navigation={navigation}>
       <View style={[styles.card, isDarkMode && styles.cardDark]}>
         <StatusBadge label={mapped.label} tone={mapped.tone} icon={mapped.icon} />
-        <Text style={[styles.title, isDarkMode && styles.textDark]}>{job.title}</Text>
-        <Text style={[styles.provider, isDarkMode && styles.mutedDark]}>{job.providerName}</Text>
+
+        <Text style={[styles.title, isDarkMode && styles.textDark]}>
+          {getTitle(job)}
+        </Text>
+
+        <Text style={[styles.provider, isDarkMode && styles.mutedDark]}>
+          {getProvider(job)}
+        </Text>
 
         <View style={styles.divider} />
 
-        <InfoRow icon="payments" label="Amount" value={formatCurrency(job.finalAmount)} isDarkMode={isDarkMode} />
-        <InfoRow icon="event" label="Closed Date" value={formatDateTime(job.completedAt)} isDarkMode={isDarkMode} />
-        <InfoRow icon="place" label="Location" value={job.location} isDarkMode={isDarkMode} />
+        <InfoRow icon="payments" label="Amount" value={formatCurrency(getAmount(job))} isDarkMode={isDarkMode} />
+        <InfoRow icon="event" label="Closed Date" value={formatDateTime(getClosedDate(job))} isDarkMode={isDarkMode} />
+        <InfoRow icon="place" label="Location" value={getLocation(job)} isDarkMode={isDarkMode} />
       </View>
 
       <View style={styles.actions}>
         <ActionButton label="Book Similar Service" icon="replay" onPress={() => navigation.navigate('Home')} />
-        <ActionButton label="Leave Review" variant="secondary" icon="star" onPress={() => navigation.navigate('FeedbackScreen')} />
+        <ActionButton label="Leave Review" variant="secondary" icon="star" onPress={() => navigation.navigate('FeedbackScreen', { job })} />
       </View>
     </ScreenShell>
   );
