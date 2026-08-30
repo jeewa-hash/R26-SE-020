@@ -10,6 +10,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import chatSocket from "./sockets/chatSocket.js";
 import feedbackRoutes from "./routes/feedbackRoutes.js";
 import requestQuotationRoutes from "./routes/requestQuotationRoutes.js";
+import rewardRoutes from "./routes/rewardRoutes.js";
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use("/posts", postRoutes);
 app.use("/chat", chatRoutes);
 app.use("/feedback", feedbackRoutes);
 app.use("/request-quotations", requestQuotationRoutes);
+app.use("/api/rewards", rewardRoutes);
 
 
 // HTTP + SOCKET SERVER
