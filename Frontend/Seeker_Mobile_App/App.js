@@ -341,7 +341,7 @@ export default function App() {
   const [currentRouteName, setCurrentRouteName] = useState('Login');
 
   const syncCurrentRouteName = () => {
-    const route = navigationRef.current?.getCurrentRoute?.();
+    const route = navigationRef.getCurrentRoute();
 
     if (route?.name) {
       setCurrentRouteName(route.name);
@@ -394,7 +394,6 @@ export default function App() {
                 >
                   <View style={{ flex: 1 }}>
                     <AppNavigator initialRouteName={initialRouteName} />
-
                     <BottomNav
                       navigationRef={navigationRef}
                       currentRouteName={currentRouteName}
