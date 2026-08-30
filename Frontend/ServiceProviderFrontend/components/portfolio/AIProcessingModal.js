@@ -52,7 +52,7 @@ export default function AIProcessingModal({ visible, progress, imageCount, onCan
           {/* AI Badge */}
           <View style={styles.aiBadge}>
             <View style={styles.aiDot} />
-            <Text style={styles.aiText}>LOCALPRO AI</Text>
+            <Text style={styles.aiText}>WorkWave AI</Text>
           </View>
 
           {/* Spinner */}

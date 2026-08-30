@@ -2,6 +2,8 @@ import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
+import dns from "node:dns";
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
 import { createServer } from "http";
 import { Server } from "socket.io";
 

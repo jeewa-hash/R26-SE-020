@@ -1,14 +1,9 @@
 /**
  * components/profile/ProviderPostsSection.jsx
  *
- * Displays the provider's posted ads with like and comment counts.
- * Drop this inside ProfileScreen after the Services section.
- *
- * Usage in ProfileScreen:
- *   import ProviderPostsSection from '../components/profile/ProviderPostsSection';
- *   <ProviderPostsSection navigation={navigation} isDark={isDark} />
+ * Displays the provider's posted ads with like and comment counts,
+ * and fetches the list of liker names from the Seeker Auth Service.
  */
-// to d0 - remove hardcoded codes and want to Fetch posts error: [TypeError: Network request failed] fix this error. got related axio error
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -22,6 +17,7 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -34,22 +30,25 @@ const { width: SCREEN_W } = Dimensions.get('window');
 // ── Helpers ──────────────────────────────────────────────────────
 
 function timeAgo(isoString) {
+  if (!isoString) return '';
   const diff = Math.floor((Date.now() - new Date(isoString)) / 1000);
-  if (diff < 60)    return `${diff}s ago`;
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
 function formatCount(n) {
+  if (typeof n !== 'number') return '0';
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
   return String(n);
 }
 
 // ── Post Card ────────────────────────────────────────────────────
 
-function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C }) {
+function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C, isBoosting }) {
   const isBoosted = (post.priority || 0) > 0;
+
   return (
     <View style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
 
@@ -80,7 +79,6 @@ function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C }) {
           resizeMode="cover"
         />
       ) : (
-        /* Placeholder gradient block when no image */
         <View style={[styles.imagePlaceholder, { backgroundColor: isDark ? '#1e1b3a' : '#EFF6FF' }]}>
           <MaterialIcons name="campaign" size={32} color={Colors.primary} />
           <Text style={[styles.placeholderText, { color: Colors.primary }]}>
@@ -99,13 +97,23 @@ function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C }) {
         </Text>
       </View>
 
+      {/* Liked By Names List */}
+      {Array.isArray(post.likedBy) && post.likedBy.length > 0 && (
+        <View style={styles.likedByContainer}>
+          <Text style={[styles.likedByHeader, { color: C.textSub }]}>Liked by:</Text>
+          {post.likedBy.map((name, index) => (
+            <Text key={`${name}-${index}`} style={[styles.likedByName, { color: C.text }]}>
+              • {name}
+            </Text>
+          ))}
+        </View>
+      )}
+
       {/* Divider */}
       <View style={[styles.divider, { backgroundColor: C.border }]} />
 
       {/* Action row — likes + comments */}
       <View style={styles.actionRow}>
-
-        {/* Like button */}
         <TouchableOpacity
           style={styles.actionBtn}
           onPress={() => onLike(post.id)}
@@ -116,10 +124,7 @@ function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C }) {
             size={20}
             color={post.isLiked ? '#EF4444' : C.textSub}
           />
-          <Text style={[
-            styles.actionCount,
-            { color: post.isLiked ? '#EF4444' : C.textSub },
-          ]}>
+          <Text style={[styles.actionCount, { color: post.isLiked ? '#EF4444' : C.textSub }]}>
             {formatCount(post.likes)}
           </Text>
           <Text style={[styles.actionLabel, { color: C.textSub }]}>
@@ -128,34 +133,6 @@ function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C }) {
         </TouchableOpacity>
 
         <View style={[styles.actionDivider, { backgroundColor: C.border }]} />
-
-        {/* Comment button */}
-        <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={() => onComment(post)}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons
-            name="comment-outline"
-            size={20}
-            color={C.textSub}
-          />
-          <Text style={[styles.actionCount, { color: C.textSub }]}>
-            {formatCount(post.comments)}
-          </Text>
-          <Text style={[styles.actionLabel, { color: C.textSub }]}>
-            {post.comments === 1 ? 'Comment' : 'Comments'}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={[styles.actionDivider, { backgroundColor: C.border }]} />
-
-        {/* Share */}
-        <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7}>
-          <MaterialCommunityIcons name="share-outline" size={20} color={C.textSub} />
-          <Text style={[styles.actionLabel, { color: C.textSub }]}>Share</Text>
-        </TouchableOpacity>
-
       </View>
 
       {/* Boost Ad Button */}
@@ -167,19 +144,26 @@ function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C }) {
           ]}
           onPress={() => onBoost(post)}
           activeOpacity={0.8}
+          disabled={isBoosting}
         >
-          <MaterialCommunityIcons
-            name={isBoosted ? 'rocket-launch' : 'trending-up'}
-            size={16}
-            color="#fff"
-          />
-          <Text style={styles.boostBtnText}>
-            {isBoosted ? 'Boost Again' : 'Boost Ad'}
-          </Text>
-          {isBoosted && (
-            <View style={styles.boostCounter}>
-              <Text style={styles.boostCounterText}>+{post.priority}</Text>
-            </View>
+          {isBoosting ? (
+            <ActivityIndicator color="#fff" size="small" />
+          ) : (
+            <>
+              <MaterialCommunityIcons
+                name={isBoosted ? 'rocket-launch' : 'trending-up'}
+                size={16}
+                color="#fff"
+              />
+              <Text style={styles.boostBtnText}>
+                {isBoosted ? 'Boost Again' : 'Boost Ad'}
+              </Text>
+              {isBoosted && (
+                <View style={styles.boostCounter}>
+                  <Text style={styles.boostCounterText}>+{post.priority}</Text>
+                </View>
+              )}
+            </>
           )}
         </TouchableOpacity>
       </View>
@@ -219,8 +203,7 @@ function OptionsModal({ visible, onClose, onEdit, onDelete, isDark }) {
   );
 }
 
-
-// ── Main Section ─────────────────────────────────────────────────
+// ── Main Section Component ───────────────────────────────────────
 
 export default function ProviderPostsSection({ navigation, isDark }) {
   const [posts, setPosts] = useState([]);
@@ -233,46 +216,77 @@ export default function ProviderPostsSection({ navigation, isDark }) {
     ? { card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e' }
     : { card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#E2E8F0' };
 
+  // Fetch seeker names by array of IDs
+  const fetchLikerNames = async (likeIds) => {
+    if (!Array.isArray(likeIds) || likeIds.length === 0) return [];
+    
+    const users = await Promise.all(
+      likeIds.map(async (id) => {
+        try {
+          const response = await fetch(
+            `${CONFIG.AUTH_SERVICE_URL}/../seeker/user/${id}`
+          );
+          if (!response.ok) return 'Unknown user';
+          const data = await response.json();
+          return data.name || data.user?.name || 'Unknown user';
+        } catch (error) {
+          console.log('Error fetching seeker info:', error);
+          return 'Unknown user';
+        }
+      })
+    );
+
+    return users;
+  };
+
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const [token] = await AsyncStorage.multiGet(['userToken']);
-        const authToken = token[1];
-        
+        const authToken = await AsyncStorage.getItem('userToken');
+
         if (!authToken) {
           Alert.alert('Error', 'No authentication token found. Please login again.');
+          setLoading(false);
           return;
         }
 
         const res = await fetch(
           `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/provider`,
           {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`,
-          },
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${authToken}`,
+            },
           }
         );
 
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        if (!res.ok) throw new Error(`Server returned status ${res.status}`);
         const data = await res.json();
-        
+
         if (data && Array.isArray(data.data)) {
-          setPosts(data.data.map((post) => {
-            const platformPost = post.posts?.[0] || {};
-            return {
-            id: post._id || post.id,
-            title: platformPost.title || post.serviceLabel || 'Service advertisement',
-            description: platformPost.caption || post.extraInfo || '',
-            image: post.image?.url || null,
-            likes: post.likes || 0,
-            comments: post.comments || 0,
-            postedAt: post.createdAt || post.postedAt,
-            isLiked: Boolean(post.isLiked),
-            priority: post.priority || 0,
-            };
-          }));
+          const formattedPosts = await Promise.all(
+            data.data.map(async (post) => {
+              const platformPost = post.posts?.[0] || {};
+              const likeIds = Array.isArray(post.likes) ? post.likes : [];
+              const likedBy = await fetchLikerNames(likeIds);
+
+              return {
+                id: post._id || post.id,
+                title: platformPost.title || post.serviceLabel || 'Service advertisement',
+                description: platformPost.caption || post.extraInfo || '',
+                image: post.image?.url || null,
+                likes: likeIds.length > 0 ? likeIds.length : (typeof post.likes === 'number' ? post.likes : 0),
+                likedBy,
+                comments: post.comments || 0,
+                postedAt: post.createdAt || post.postedAt,
+                isLiked: Boolean(post.isLiked),
+                priority: post.priority || 0,
+              };
+            })
+          );
+
+          setPosts(formattedPosts);
         } else {
           setPosts([]);
         }
@@ -280,7 +294,7 @@ export default function ProviderPostsSection({ navigation, isDark }) {
         console.log('Fetch posts error:', err);
         Alert.alert(
           'Unable to load posts',
-          'Check that the Provider Service is running and that the app is using a reachable server address.'
+          'Check that the Provider Service is running and reachable via your configuration IP.'
         );
         setPosts([]);
       } finally {
@@ -289,18 +303,19 @@ export default function ProviderPostsSection({ navigation, isDark }) {
     };
 
     fetchPosts();
-  }, []);   
+  }, []);
 
-  // ── Toggle like locally (replace with API call later) ─────────
   const handleLike = (postId) => {
-    setPosts(prev => prev.map(p => {
-      if (p.id !== postId) return p;
-      return {
-        ...p,
-        isLiked: !p.isLiked,
-        likes: p.isLiked ? p.likes - 1 : p.likes + 1,
-      };
-    }));
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.id !== postId) return p;
+        return {
+          ...p,
+          isLiked: !p.isLiked,
+          likes: p.isLiked ? p.likes - 1 : p.likes + 1,
+        };
+      })
+    );
   };
 
   const handleComment = (post) => {
@@ -319,10 +334,13 @@ export default function ProviderPostsSection({ navigation, isDark }) {
       const token = await AsyncStorage.getItem('userToken');
       const res = await fetch(
         `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/${selectedPost.id}`,
-        { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      setPosts(prev => prev.filter(p => p.id !== selectedPost.id));
+      setPosts((prev) => prev.filter((p) => p.id !== selectedPost.id));
       setShowOptions(false);
     } catch (err) {
       Alert.alert('Unable to delete post', err.message);
@@ -334,56 +352,52 @@ export default function ProviderPostsSection({ navigation, isDark }) {
     navigation.navigate('EditPost', { post: selectedPost });
   };
 
-  // ── Boost Ad — increase priority and re-sort locally ─────────
-  const handleBoost = async (post) => {
-    if (boostingId) return;
-    setBoostingId(post.id);
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const res = await fetch(
-        `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/${post.id}/boost`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ amount: 1 }),
-        }
-      );
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      const result = await res.json();
-      if (!result.success) throw new Error(result.message || 'Boost failed');
+ const handleBoost = async (post) => {
+  if (boostingId) return;
+  setBoostingId(post.id);
 
-      const updatedPriority = result.data?.priority ?? (post.priority || 0) + 1;
+  try {
+    const token = await AsyncStorage.getItem('userToken');
+    const response = await fetch(
+      `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/${post.id}/create-checkout-session`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          amount: 1,
+          redirectScheme: 'WorkWave://',
+        }),
+      }
+    );
 
-      setPosts(prev => {
-        const updated = prev.map(p =>
-          p.id === post.id
-            ? { ...p, priority: updatedPriority }
-            : p
-        );
-        updated.sort((a, b) => {
-          if ((b.priority || 0) !== (a.priority || 0)) {
-            return (b.priority || 0) - (a.priority || 0);
-          }
-          return new Date(b.postedAt) - new Date(a.postedAt);
-        });
-        return updated;
-      });
+    const result = await response.json();
 
-      Alert.alert(
-        'Ad Boosted! 🚀',
-        `Your ad priority is now ${updatedPriority}. It will appear higher in the feed.`
-      );
-    } catch (err) {
-      Alert.alert('Unable to boost ad', err.message);
-    } finally {
-      setBoostingId(null);
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || `Server error: ${response.status}`);
     }
-  };
 
-  // ── Section header ────────────────────────────────────────────
+    const checkoutUrl = result.url || result.sessionUrl || result.data?.url;
+
+    if (!checkoutUrl) {
+      throw new Error(`Missing URL in response: ${JSON.stringify(result)}`);
+    }
+
+    const canOpen = await Linking.canOpenURL(checkoutUrl);
+    if (!canOpen) {
+      throw new Error(`Device cannot open URL: ${checkoutUrl}`);
+    }
+
+    await Linking.openURL(checkoutUrl);
+  } catch (err) {
+    Alert.alert('Unable to boost ad', err.message);
+  } finally {
+    setBoostingId(null);
+  }
+};
+
   const header = (
     <View style={[styles.sectionHeader, { borderBottomColor: C.border }]}>
       <View>
@@ -414,7 +428,6 @@ export default function ProviderPostsSection({ navigation, isDark }) {
     );
   }
 
-  // ── Empty state ───────────────────────────────────────────────
   if (posts.length === 0) {
     return (
       <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
@@ -440,7 +453,6 @@ export default function ProviderPostsSection({ navigation, isDark }) {
     <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
       {header}
 
-      {/* Horizontally scrollable post cards */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -449,7 +461,7 @@ export default function ProviderPostsSection({ navigation, isDark }) {
         snapToInterval={CARD_W + 12}
         snapToAlignment="start"
       >
-        {posts.map(post => (
+        {posts.map((post) => (
           <PostCard
             key={post.id}
             post={post}
@@ -459,6 +471,7 @@ export default function ProviderPostsSection({ navigation, isDark }) {
             onBoost={handleBoost}
             isDark={isDark}
             C={C}
+            isBoosting={boostingId === post.id}
           />
         ))}
       </ScrollView>
@@ -474,23 +487,19 @@ export default function ProviderPostsSection({ navigation, isDark }) {
   );
 }
 
-// ── Constants ────────────────────────────────────────────────────
+// ── Styles ───────────────────────────────────────────────────────
 
 const CARD_W = SCREEN_W * 0.78;
-
-// ── Styles ───────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   section: {
     borderRadius: 18,
-    borderWidth: 0.5,
-    marginHorizontal: 16,
-    marginBottom: 14,
+    borderWidth: 1,
+    marginHorizontal: 2,
+    marginBottom: 20,
     paddingTop: 16,
     overflow: 'hidden',
   },
-
-  // Section header
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -501,7 +510,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionTitle: { fontSize: 15, fontWeight: '700' },
-  sectionSub:   { fontSize: 12, marginTop: 2 },
+  sectionSub: { fontSize: 12, marginTop: 2 },
   newPostBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -512,19 +521,15 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   newPostBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
-
-  // Scroll
   scrollContent: {
     paddingLeft: 16,
-    paddingRight: 8,
+    paddingRight: 10,
     paddingBottom: 16,
-    gap: 12,
+    gap: 18,
   },
-
-  // Post card
   card: {
     width: CARD_W,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 0.5,
     overflow: 'hidden',
   },
@@ -536,10 +541,8 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
   },
-  timeRow:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   timeText: { fontSize: 11 },
-
-  // Image
   postImage: { width: '100%', height: 160 },
   imagePlaceholder: {
     height: 140,
@@ -548,15 +551,23 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   placeholderText: { fontSize: 13, fontWeight: '600' },
-
-  // Body
-  cardBody:  { padding: 14, paddingBottom: 10 },
+  cardBody: { padding: 14, paddingBottom: 6 },
   postTitle: { fontSize: 14, fontWeight: '700', marginBottom: 6, lineHeight: 20 },
-  postDesc:  { fontSize: 13, lineHeight: 19 },
-
+  postDesc: { fontSize: 13, lineHeight: 19 },
+  likedByContainer: {
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+  },
+  likedByHeader: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  likedByName: {
+    fontSize: 12,
+    marginLeft: 4,
+  },
   divider: { height: 0.5, marginHorizontal: 14 },
-
-  // Actions
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -573,8 +584,6 @@ const styles = StyleSheet.create({
   actionCount: { fontSize: 13, fontWeight: '700' },
   actionLabel: { fontSize: 12 },
   actionDivider: { width: 0.5, height: 20 },
-
-  // Boost Badge (shown in header when priority > 0)
   boostBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -590,8 +599,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
   },
-
-  // Boost Ad Button
   boostBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -619,8 +626,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
-
-  // Options modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
@@ -634,9 +639,12 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   sheetHandle: {
-    width: 40, height: 4, borderRadius: 2,
+    width: 40,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: '#D1D5DB',
-    alignSelf: 'center', marginBottom: 20,
+    alignSelf: 'center',
+    marginBottom: 20,
   },
   sheetOption: {
     flexDirection: 'row',
@@ -645,9 +653,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   sheetOptionText: { fontSize: 16, fontWeight: '600' },
-  sheetDivider:    { height: 0.5, backgroundColor: '#E5E7EB' },
-
-  // Empty state
+  sheetDivider: { height: 0.5, backgroundColor: '#E5E7EB' },
   emptyBox: {
     alignItems: 'center',
     paddingVertical: 32,
@@ -655,7 +661,7 @@ const styles = StyleSheet.create({
   },
   loadingBox: { alignItems: 'center', paddingVertical: 32 },
   emptyTitle: { fontSize: 15, fontWeight: '700', marginTop: 12, marginBottom: 6 },
-  emptySub:   { fontSize: 13, textAlign: 'center', lineHeight: 19, marginBottom: 20 },
+  emptySub: { fontSize: 13, textAlign: 'center', lineHeight: 19, marginBottom: 20 },
   emptyBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 12,

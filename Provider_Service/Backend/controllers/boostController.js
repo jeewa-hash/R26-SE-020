@@ -1,11 +1,12 @@
 import Stripe from "stripe";
+
 import AdPost from "../models/AdPost.js";
 
 // Initialize Stripe with your secret key from environment variables
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const calculateBoostFee = (amount) => {
-  const baseRate = 100; // LKR 100 per step
+  const baseRate = 200; // LKR 100 per step
   const rawTotal = amount * baseRate;
   const discountTier = Math.floor(amount / 5);
   const discountPercentage = discountTier * 0.05;
@@ -15,10 +16,10 @@ const calculateBoostFee = (amount) => {
 };
 
 export const createBoostCheckoutSession = async (req, res) => {
+  console.log('BOOST SESSION — user:', req.user, 'body:', req.body, 'params:', req.params);
   try {
-    // Read optional redirect scheme from app, or default to custom scheme
-    const redirectScheme = req.body?.redirectScheme || "myapp://";
-    const cleanScheme = redirectScheme.replace(/\/$/, "");
+    // Stripe Checkout requires valid HTTP(S) return URLs.
+    const checkoutBaseUrl = (process.env.CLIENT_URL || "http://localhost:3002").replace(/\/$/, "");
 
     const boostAmount = Number(req.body?.amount) || 1;
     if (boostAmount <= 0 || !Number.isInteger(boostAmount)) {
@@ -31,6 +32,13 @@ export const createBoostCheckoutSession = async (req, res) => {
     }
 
     const totalFeeLkr = calculateBoostFee(boostAmount);
+    const MIN_CHARGE_LKR = 200; // adjust based on current LKR/USD rate, with margin
+    if (totalFeeLkr < MIN_CHARGE_LKR) {
+      return res.status(400).json({
+        success: false,
+        message: `Minimum boost charge is LKR ${MIN_CHARGE_LKR}. Please increase the boost amount.`,
+      });
+    }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -43,7 +51,7 @@ export const createBoostCheckoutSession = async (req, res) => {
               name: `Boost Ad Priority by ${boostAmount} Steps`,
               description: `Post ID: ${post._id}`,
             },
-            unit_amount: totalFeeLkr * 100,
+            unit_amount: totalFeeLkr * 200,
           },
           quantity: 1,
         },
@@ -54,13 +62,13 @@ export const createBoostCheckoutSession = async (req, res) => {
         boostAmount: boostAmount.toString(),
         totalCharged: totalFeeLkr.toString(),
       },
-      // Uses the mobile deep link scheme directly without process.env.CLIENT_URL
-      success_url: `${cleanScheme}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${cleanScheme}/payment-cancelled`,
+      success_url: `${checkoutBaseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${checkoutBaseUrl}/payment-cancelled`,
     });
 
     res.json({ success: true, url: session.url, sessionId: session.id });
   } catch (err) {
+    console.error('BOOST SESSION ERROR:', err); 
     res.status(500).json({ success: false, error: err.message });
   }
 };
