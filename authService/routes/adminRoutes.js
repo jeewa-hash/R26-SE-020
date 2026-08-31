@@ -40,5 +40,6 @@ router.post('/audit-logs/internal', adminController.createAuditLogInternal);
 
 // Demand Forecasting Alert Route
 router.post('/notify-high-demand', adminController.verifyAdmin, adminController.dispatchHighDemandAlerts);
+router.post('/notify-provider-internal', adminController.notifyProviderInternal);
 
 module.exports = router;

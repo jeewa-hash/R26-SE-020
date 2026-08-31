@@ -122,6 +122,25 @@ export const createFeedback = async (req, res) => {
 };
 
 /* =========================
+   GET ALL FEEDBACKS
+========================= */
+export const getAllFeedbacks = async (req, res) => {
+  try {
+    const feedbacks = await Feedback.find({}).sort({ createdAt: -1 });
+    return res.status(200).json({
+      success: true,
+      count: feedbacks.length,
+      data: feedbacks
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server error"
+    });
+  }
+};
+
+/* =========================
    GET BY PROVIDER
 ========================= */
 export const getProviderFeedback = async (req, res) => {

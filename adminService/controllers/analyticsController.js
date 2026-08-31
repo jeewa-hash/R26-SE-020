@@ -464,7 +464,7 @@ exports.getUserGrowthAnalytics = async (req, res) => {
 
 /**
  * GET /api/analytics/revenue-growth
- * Fetches revenue growth & total income from Provider Service
+ * Fetches combined revenue growth, ad boosting income, and service booking commission earnings (5%)
  */
 exports.getRevenueGrowthAnalytics = async (req, res) => {
   try {
@@ -474,53 +474,188 @@ exports.getRevenueGrowthAnalytics = async (req, res) => {
     
     // 1. If district is specified, lookup provider IDs belonging to that district from FinanceManagement.providers
     let targetProviderIds = null;
-    if (district && district !== 'All' && district !== 'All Districts') {
+    const providerDistrictMap = {};
+    if (mongoose.connection && mongoose.connection.db) {
       try {
-        if (mongoose.connection && mongoose.connection.db) {
-          const providers = await mongoose.connection.db.collection('providers').find(
-            { district: { $regex: new RegExp(`^${district.trim()}$`, 'i') } },
-            { projection: { _id: 1 } }
-          ).toArray();
-          targetProviderIds = providers.map(p => p._id.toString());
+        const allProviders = await mongoose.connection.db.collection('providers').find({}, { projection: { _id: 1, district: 1 } }).toArray();
+        allProviders.forEach(p => {
+          if (p._id) providerDistrictMap[p._id.toString()] = p.district || 'Colombo';
+        });
+
+        if (district && district !== 'All' && district !== 'All Districts') {
+          const matched = allProviders.filter(p => (p.district || '').toLowerCase() === district.trim().toLowerCase());
+          targetProviderIds = matched.map(p => p._id.toString());
         }
       } catch (pErr) {
         console.log('Error querying providers for revenue district filter:', pErr.message);
       }
     }
 
-    try {
-      const params = {};
-      if (district && district !== 'All') params.district = district;
-      if (targetProviderIds !== null) {
-        params.providerIds = targetProviderIds.join(',');
-      }
-      const response = await axios.get(`${providerServiceUrl}/api/provider/ads/income/total`, { params, timeout: 3500 });
-      if (response.data && response.data.success) {
-        return res.status(200).json(response.data);
-      }
-    } catch (apiErr) {
-      console.log('Provider service call error in revenue growth analytics:', apiErr.message);
-    }
-
     const currentYear = new Date().getFullYear();
     const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const fallbackBreakdown = MONTH_NAMES.map((m, idx) => ({
-      name: m,
-      month: m,
-      monthIndex: idx + 1,
-      year: currentYear,
-      date: `${currentYear}-${idx < 9 ? '0' : ''}${idx + 1}-01`,
-      revenue: 0,
-      transactions: 0,
-    }));
+    
+    const monthlyMap = {};
+    for (let i = 1; i <= 12; i++) {
+      monthlyMap[i] = {
+        totalRevenue: 0,
+        boostRevenue: 0,
+        commissionRevenue: 0,
+        serviceVolume: 0,
+        boostTransactions: 0,
+        bookingTransactions: 0,
+        totalTransactions: 0,
+        boostSteps: 0,
+      };
+    }
+
+    let totalBoostRevenue = 0;
+    let totalBoostTransactions = 0;
+    let totalBoostSteps = 0;
+
+    // A. Fetch Ad Boosting Transactions from Provider Service or Provider DB
+    try {
+      const providerMongoUri = process.env.PROVIDER_MONGO_URI || 'mongodb+srv://jkumarasekara_db_user:vfDFrozTabkpXDCl@cluster0.xggs3th.mongodb.net/Provider_Service?retryWrites=true&w=majority';
+      const providerConn = await mongoose.createConnection(providerMongoUri).asPromise();
+
+      const boostQuery = { status: 'completed' };
+      if (targetProviderIds && targetProviderIds.length > 0) {
+        boostQuery.providerId = { $in: targetProviderIds };
+      }
+
+      const boostTxList = await providerConn.collection('transactions').find(boostQuery).toArray();
+      boostTxList.forEach(tx => {
+        const txDate = new Date(tx.createdAt || tx.updatedAt || Date.now());
+        const txYear = txDate.getFullYear();
+        const txMonth = txDate.getMonth() + 1;
+        const amount = Number(tx.amountPaid) || 0;
+        const steps = Number(tx.boostAmount) || 0;
+
+        totalBoostRevenue += amount;
+        totalBoostTransactions += 1;
+        totalBoostSteps += steps;
+
+        if (txYear === currentYear && monthlyMap[txMonth]) {
+          monthlyMap[txMonth].boostRevenue += amount;
+          monthlyMap[txMonth].boostTransactions += 1;
+          monthlyMap[txMonth].boostSteps += steps;
+        }
+      });
+    } catch (dbErr) {
+      console.log('Provider DB direct query note for boosts:', dbErr.message);
+      // Fallback via HTTP API
+      try {
+        const params = {};
+        if (district && district !== 'All') params.district = district;
+        if (targetProviderIds !== null) params.providerIds = targetProviderIds.join(',');
+        const response = await axios.get(`${providerServiceUrl}/api/provider/ads/income/total`, { params, timeout: 3500 });
+        if (response.data && response.data.success && response.data.data) {
+          const rData = response.data.data;
+          totalBoostRevenue = rData.totalIncomeLkr || 0;
+          totalBoostTransactions = rData.totalTransactions || 0;
+          totalBoostSteps = rData.totalBoostSteps || 0;
+          (rData.monthlyBreakdown || []).forEach((m, idx) => {
+            const mIdx = idx + 1;
+            if (monthlyMap[mIdx]) {
+              monthlyMap[mIdx].boostRevenue = Number(m.revenue) || 0;
+              monthlyMap[mIdx].boostTransactions = Number(m.transactions) || 0;
+              monthlyMap[mIdx].boostSteps = Number(m.boostSteps) || 0;
+            }
+          });
+        }
+      } catch (apiErr) {
+        console.log('Provider service call error in revenue growth analytics:', apiErr.message);
+      }
+    }
+
+    // B. Fetch Service Booking Commission (5%) from Coordination Database
+    let totalCommissionRevenue = 0;
+    let totalBookingVolume = 0;
+    let totalCompletedBookings = 0;
+
+    try {
+      const coordConn = await getCoordinationConnection();
+      if (coordConn && coordConn.db) {
+        const bookingList = await coordConn.db.collection('bookings').find({}).toArray();
+        bookingList.forEach(b => {
+          const isCompleted = b.bookingStatus === 'COMPLETED' || b.bookingStatus === 'CONFIRMED' || (!b.bookingStatus && b.finalAmount);
+          if (isCompleted) {
+            const pId = b.providerId ? b.providerId.toString() : '';
+            const pDistrict = providerDistrictMap[pId] || b.location?.district || 'Colombo';
+
+            // District filter match
+            if (district && district !== 'All' && district !== 'All Districts') {
+              if (pDistrict.toLowerCase() !== district.trim().toLowerCase()) return;
+            }
+
+            const rawDate = b.scheduledDate || b.initialSchedule?.date || (b.createdAt ? new Date(b.createdAt).toISOString().slice(0, 10) : '2026-08-01');
+            const bDate = new Date(rawDate);
+            const bYear = bDate.getFullYear();
+            const bMonth = bDate.getMonth() + 1;
+
+            const finalAmount = Number(b.finalAmount) || 2500; // standard booking service value
+            const commission = Math.round(finalAmount * 0.05 * 100) / 100; // 5% platform commission
+
+            totalBookingVolume += finalAmount;
+            totalCommissionRevenue += commission;
+            totalCompletedBookings += 1;
+
+            if (bYear === currentYear && monthlyMap[bMonth]) {
+              monthlyMap[bMonth].commissionRevenue += commission;
+              monthlyMap[bMonth].serviceVolume += finalAmount;
+              monthlyMap[bMonth].bookingTransactions += 1;
+            }
+          }
+        });
+      }
+    } catch (bErr) {
+      console.log('Coordination DB query note in revenue analytics:', bErr.message);
+    }
+
+    // C. Combine both streams into final monthly breakdown
+    const monthlyBreakdown = MONTH_NAMES.map((monthName, idx) => {
+      const monthNum = idx + 1;
+      const data = monthlyMap[monthNum] || {};
+      const boostRev = Math.round((data.boostRevenue || 0) * 100) / 100;
+      const commRev = Math.round((data.commissionRevenue || 0) * 100) / 100;
+      const combinedTotal = Math.round((boostRev + commRev) * 100) / 100;
+      const monthStr = monthNum < 10 ? `0${monthNum}` : `${monthNum}`;
+
+      return {
+        name: monthName,
+        month: monthName,
+        monthIndex: monthNum,
+        year: currentYear,
+        date: `${currentYear}-${monthStr}-01`,
+        revenue: combinedTotal, // Default combined total for area chart
+        totalRevenue: combinedTotal,
+        boostRevenue: boostRev,
+        commissionRevenue: commRev,
+        serviceVolume: Math.round((data.serviceVolume || 0) * 100) / 100,
+        boostTransactions: data.boostTransactions || 0,
+        bookingTransactions: data.bookingTransactions || 0,
+        totalTransactions: (data.boostTransactions || 0) + (data.bookingTransactions || 0),
+        transactions: (data.boostTransactions || 0) + (data.bookingTransactions || 0),
+        boostSteps: data.boostSteps || 0,
+      };
+    });
+
+    const totalIncomeLkr = Math.round((totalBoostRevenue + totalCommissionRevenue) * 100) / 100;
+    const totalTransactions = totalBoostTransactions + totalCompletedBookings;
 
     return res.status(200).json({
       success: true,
       data: {
-        totalIncomeLkr: 0,
-        totalTransactions: 0,
+        totalIncomeLkr,
+        totalRevenue: totalIncomeLkr,
+        totalBoostRevenue: Math.round(totalBoostRevenue * 100) / 100,
+        totalCommissionRevenue: Math.round(totalCommissionRevenue * 100) / 100,
+        totalBookingVolume: Math.round(totalBookingVolume * 100) / 100,
+        totalTransactions,
+        totalBoostTransactions,
+        totalCompletedBookings,
+        totalBoostSteps,
         currency: 'LKR',
-        monthlyBreakdown: fallbackBreakdown,
+        monthlyBreakdown,
       },
     });
   } catch (error) {

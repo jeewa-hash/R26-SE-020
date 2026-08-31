@@ -118,7 +118,13 @@ export default function NotificationScreen({ navigation }) {
     fetchNotifications();
     setupSocketConnection();
 
+    // Auto-poll every 2.5 seconds to guarantee live updates without requiring manual pull-to-refresh
+    const interval = setInterval(() => {
+      fetchNotifications(false);
+    }, 2500);
+
     return () => {
+      clearInterval(interval);
       if (socketRef.current) {
         socketRef.current.disconnect();
       }

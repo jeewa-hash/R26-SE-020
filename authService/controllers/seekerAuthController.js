@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Seeker = require('../models/Seeker');
 const SeekerNotification = require('../models/SeekerNotification');
 const bcrypt = require('bcryptjs');
@@ -343,6 +344,14 @@ exports.updateProfilePicture = async (req, res) => {
   }
 };
 
+let seekerDbConn = null;
+const getSeekerDb = async () => {
+  if (seekerDbConn && seekerDbConn.readyState === 1) return seekerDbConn;
+  const uri = process.env.SEEKER_MONGO_URI || 'mongodb+srv://oshera:tashmi1234abcd@serviceseeker.kqdud8l.mongodb.net/ServiceSeeker?retryWrites=true&w=majority';
+  seekerDbConn = await mongoose.createConnection(uri).asPromise();
+  return seekerDbConn;
+};
+
 // =======================================================
 // GET PROVIDER RECOMMENDATIONS FOR SEEKER
 // =======================================================
@@ -376,15 +385,61 @@ exports.getProviderRecommendations = async (req, res) => {
       isRejected: { $ne: true },
     });
 
+    // Fetch real feedback stats from ServiceSeeker DB directly
+    let feedbackStatsByProvider = {};
+    try {
+      const seekerConn = await getSeekerDb();
+      const fbs = await seekerConn.collection('feedbacks').find({}).toArray();
+      for (const fb of fbs) {
+        const pid = String(fb.providerId);
+        if (!feedbackStatsByProvider[pid]) {
+          feedbackStatsByProvider[pid] = { total: 0, count: 0 };
+        }
+        if (typeof fb.rating === 'number' && fb.rating > 0) {
+          feedbackStatsByProvider[pid].total += fb.rating;
+          feedbackStatsByProvider[pid].count += 1;
+        }
+      }
+    } catch (e) {
+      console.warn('Feedback stats direct query warning:', e.message);
+    }
+
     const now = new Date();
 
-    // 4. Exclude providers with temporary block or >3 consecutive cancellations / rejections / missed bookings
+    // 4. Exclude providers with temporary block, >3 consecutive cancellations / rejections / missed bookings, or rating < 4.0 (if rated)
     const eligibleProviders = rawProviders.filter((p) => {
       if (!p.isVerified) return false;
       if (p.isBlocked || p.isRejected || p.isSuspended) return false;
       if (p.blockedUntil && new Date(p.blockedUntil) > now) return false;
       if (p.consecutiveRejections && p.consecutiveRejections > 3) return false;
       if (p.consecutiveCancellations && p.consecutiveCancellations > 3) return false;
+
+      // Real Rating Check: Calculate actual average rating from DB feedbacks
+      const pId = String(p._id || p.id);
+      const fbStat = feedbackStatsByProvider[pId];
+      let realRating = null;
+      let reviewCount = 0;
+      let hasRealRating = false;
+
+      if (fbStat && fbStat.count > 0) {
+        realRating = Number((fbStat.total / fbStat.count).toFixed(1));
+        reviewCount = fbStat.count;
+        hasRealRating = true;
+      } else if (typeof p.rating === 'number' && p.rating > 0) {
+        realRating = Number(Number(p.rating).toFixed(1));
+        reviewCount = p.reviewCount || 1;
+        hasRealRating = true;
+      }
+
+      // If provider has ratings, exclude if rating < 4.0
+      if (hasRealRating && realRating < 4.0) {
+        return false;
+      }
+
+      p.computedRating = realRating;
+      p.computedReviewCount = reviewCount;
+      p.hasRealRating = hasRealRating;
+
       return true;
     });
 
@@ -399,12 +454,18 @@ exports.getProviderRecommendations = async (req, res) => {
       if (pDistrict === normalizedDistrict) {
         districtMatches.push({
           ...p.toObject(),
+          computedRating: p.computedRating,
+          computedReviewCount: p.computedReviewCount,
+          hasRealRating: p.hasRealRating,
           matchScore: 90,
           matchReason: `Top rated verified pro in ${p.district || seekerDistrict}`,
         });
       } else {
         otherMatches.push({
           ...p.toObject(),
+          computedRating: p.computedRating,
+          computedReviewCount: p.computedReviewCount,
+          hasRealRating: p.hasRealRating,
           matchScore: 50,
           matchReason: `Verified Specialist`,
         });
@@ -418,6 +479,9 @@ exports.getProviderRecommendations = async (req, res) => {
       const displayName = p.name || p.fullName || (p.email ? p.email.split('@')[0] : `Provider ${idx + 1}`);
       const categoryName = p.category || 'General Services';
       const districtName = p.district || seekerDistrict;
+      const hasRealRating = Boolean(p.hasRealRating);
+      const realRating = hasRealRating ? p.computedRating : null;
+      const totalReviews = hasRealRating ? p.computedReviewCount : 0;
 
       return {
         id: String(pId),
@@ -426,8 +490,9 @@ exports.getProviderRecommendations = async (req, res) => {
         subtitle: `${categoryName} • ${districtName}`,
         category: categoryName,
         district: districtName,
-        rating: p.rating || 4.9,
-        reviewsCount: p.reviewCount || 14,
+        rating: realRating,
+        reviewsCount: totalReviews,
+        hasRealRating: hasRealRating,
         isVerified: true,
         matchReason: p.matchReason,
         image: p.profileImage || null,
@@ -442,7 +507,8 @@ exports.getProviderRecommendations = async (req, res) => {
           profileImage: p.profileImage,
           bio: p.bio,
           isVerified: true,
-          rating: p.rating || 4.9,
+          rating: realRating,
+          hasRealRating: hasRealRating,
           location: p.location,
         },
         portfolio: {

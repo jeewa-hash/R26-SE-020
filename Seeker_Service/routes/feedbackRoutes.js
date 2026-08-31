@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createFeedback,
+  getAllFeedbacks,
   getProviderFeedback,
   getServiceFeedback,
   getBookingFeedbackStatus,
@@ -14,6 +15,7 @@ const router = express.Router();
 router.post("/", createFeedback);
 
 // READ
+router.get("/", getAllFeedbacks);
 router.get("/provider/:providerId", getProviderFeedback);
 router.get("/booking/:bookingId", getBookingFeedbackStatus);
 router.get("/service/:serviceId", getServiceFeedback);
