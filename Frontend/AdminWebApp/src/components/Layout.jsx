@@ -549,7 +549,12 @@ function Layout() {
               )}
             </div>
 
-            <button className="topbar-icon-btn" title="Settings">
+            <button 
+              className="topbar-icon-btn" 
+              title="Settings"
+              onClick={() => navigate('/settings')}
+              style={{ cursor: 'pointer' }}
+            >
               <FiSettings />
             </button>
           </div>

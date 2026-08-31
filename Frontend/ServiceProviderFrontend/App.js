@@ -6,7 +6,15 @@ import {
   ActivityIndicator,
   StyleSheet,
   AppState,
+  LogBox,
 } from 'react-native';
+
+LogBox.ignoreLogs([
+  'expo-notifications: Android Push notifications',
+  'Android Push notifications (remote notifications)',
+  'Push notifications functionality provided by expo-notifications was removed from Expo Go',
+  'warnOfExpoGoPushUsage',
+]);
 import {
   NavigationContainer,
   useNavigationContainerRef,

@@ -925,70 +925,78 @@ exports.createAuditLogInternal = async (req, res) => {
   }
 };
 
-// Dispatch High Demand Alerts to Providers
+// Dispatch High Demand Alerts to Providers and Seekers
 exports.dispatchHighDemandAlerts = async (req, res) => {
   try {
     const { category, district, timeframe, avgDemand, confidence } = req.body;
     
-    // Check if we already sent this specific alert today
-    const todayStr = new Date().toISOString().split('T')[0];
-    
-    const existingLog = await HighDemandAlertLog.findOne({
-      category,
-      district,
-      timeframe,
-      date: todayStr
-    });
-
-    if (existingLog) {
-      return res.status(200).json({ message: 'Alerts already dispatched for this category, district, and timeframe today. Skipping to prevent spam.' });
-    }
-
-    // Find verified, active providers in the district and category
-    const query = {
-      role: 'ServiceProvider',
-      isVerified: true,
+    // Find active providers in the district and category (case-insensitive regex)
+    const providerQuery = {
       isBlocked: false,
     };
-    if (district !== 'All Districts') query.district = district;
-    if (category !== 'All Categories') query.category = category;
-
-    const providers = await Provider.find(query);
-
-    // Also Dispatch notifications to Seekers in that district
-    // This helps seekers know when demand is high so they can book in advance
-    const seekers = await Seeker.find({ 
-      district: district === 'All Districts' ? { $exists: true } : district,
-      isEmailVerified: true,
-      isBlocked: false
-    });
-
-    if (providers.length === 0 && seekers.length === 0) {
-      // Record log even if no one found, to not retry
-      await HighDemandAlertLog.create({ category, district, timeframe, date: todayStr });
-      return res.status(200).json({ message: 'No providers or seekers found to send alerts to.' });
+    if (district && district !== 'All Districts' && district !== 'All') {
+      providerQuery.district = { $regex: new RegExp(`^${district}$`, 'i') };
+    }
+    if (category && category !== 'All Categories' && category !== 'All') {
+      providerQuery.category = { $regex: new RegExp(`^${category}$`, 'i') };
     }
 
-    // Dispatch notifications to Providers (Emails skipped as per requirement)
+    const providers = await Provider.find(providerQuery);
+
+    // Find active seekers in that district
+    const seekerQuery = {
+      isBlocked: false,
+    };
+    if (district && district !== 'All Districts' && district !== 'All') {
+      seekerQuery.district = { $regex: new RegExp(`^${district}$`, 'i') };
+    }
+
+    const seekers = await Seeker.find(seekerQuery);
+
+    const socketUtil = require('../utils/socket');
+    let ioInstance = null;
+    try {
+      ioInstance = socketUtil.getIO();
+    } catch (e) {
+      // socket io might not be initialized
+    }
+
+    // Dispatch notifications to Providers
     for (const provider of providers) {
-      await ProviderNotification.create({
+      const pNotif = await ProviderNotification.create({
         providerId: provider._id,
         title: `🚀 High Demand Alert: ${category}!`,
         message: `High demand predicted for ${category} in ${district} for ${timeframe}. Stay active to grab more job requests and increase your earnings!`,
-        type: 'high_demand_alert'
+        type: 'high_demand_alert',
+        category: 'admin',
+        isRead: false
       });
+
+      if (ioInstance) {
+        ioInstance.to(provider._id.toString()).emit('new_notification', pNotif);
+        ioInstance.to(provider._id.toString()).emit('notification', pNotif);
+      }
     }
 
+    // Dispatch notifications to Seekers
     for (const seeker of seekers) {
-      await SeekerNotification.create({
+      const sNotif = await SeekerNotification.create({
         seekerId: seeker._id,
         title: `🚀 High Demand Alert: ${category}!`,
         message: `We're seeing high demand for ${category} in ${district} for ${timeframe}. Book your service early to ensure availability!`,
-        type: 'high_demand_alert'
+        type: 'high_demand_alert',
+        category: 'admin',
+        isRead: false
       });
+
+      if (ioInstance) {
+        ioInstance.to(seeker._id.toString()).emit('new_notification', sNotif);
+        ioInstance.to(seeker._id.toString()).emit('notification', sNotif);
+      }
     }
 
-    // Save to tracking DB
+    // Log to tracking DB
+    const todayStr = new Date().toISOString().split('T')[0];
     await HighDemandAlertLog.create({ category, district, timeframe, date: todayStr });
 
     // Optional: Log to AuditLog
@@ -997,10 +1005,16 @@ exports.dispatchHighDemandAlerts = async (req, res) => {
       category: 'Demand Forecasting',
       admin: req.user,
       target: { name: `Alerts sent to ${providers.length} providers and ${seekers.length} seekers`, type: 'ALERT' },
-      metadata: { category, district, timeframe }
+      metadata: { category, district, timeframe, confidence, avgDemand }
     });
 
-    res.status(200).json({ message: `High Demand alerts successfully sent to ${providers.length} providers and ${seekers.length} seekers.` });
+    console.log(`✅ High Demand Alerts sent: ${providers.length} providers, ${seekers.length} seekers (${district} - ${category})`);
+
+    res.status(200).json({ 
+      success: true,
+      message: `High Demand alerts successfully sent to ${providers.length} providers and ${seekers.length} seekers.`,
+      dispatchedCount: { providers: providers.length, seekers: seekers.length }
+    });
   } catch (err) {
     console.error('Error dispatching high demand alerts:', err);
     res.status(500).json({ message: 'Internal server error while dispatching alerts' });
