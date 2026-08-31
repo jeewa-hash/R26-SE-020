@@ -360,6 +360,8 @@
 
 .mp-status-tab.paid.active { color: #059669; }
 .mp-status-tab.pending.active { color: #d97706; }
+.mp-status-tab.suspended.active { color: #dc2626; }
+.mp-status-tab.waived.active { color: #475569; }
 .mp-status-tab.overdue.active { color: #e11d48; }
 
 .mp-tab-count {
