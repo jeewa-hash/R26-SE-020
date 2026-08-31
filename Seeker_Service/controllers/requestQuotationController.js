@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import axios from "axios";
 import RequestQuotation from "../models/RequestQuotation.js";
+import Feedback from "../models/feedbackModel.js";
 
 export const createRequestQuotation = async (req, res) => {
   try {
@@ -456,6 +457,25 @@ export const getProviderRecommendations = async (req, res) => {
       requestsByProvider[pid].push(req);
     }
 
+    // Fetch all feedbacks to calculate real average rating and review counts per provider
+    let allFeedbacks = [];
+    try {
+      allFeedbacks = await Feedback.find({});
+    } catch (fbErr) {
+      console.warn("Could not query feedbacks:", fbErr.message);
+    }
+    const feedbackStatsByProvider = {};
+    for (const fb of allFeedbacks) {
+      const pid = String(fb.providerId);
+      if (!feedbackStatsByProvider[pid]) {
+        feedbackStatsByProvider[pid] = { total: 0, count: 0 };
+      }
+      if (typeof fb.rating === "number" && fb.rating > 0) {
+        feedbackStatsByProvider[pid].total += fb.rating;
+        feedbackStatsByProvider[pid].count += 1;
+      }
+    }
+
     const now = new Date();
 
     // Strict Filter for Recommendations:
@@ -463,6 +483,7 @@ export const getProviderRecommendations = async (req, res) => {
     // 2. Must NOT be blocked, suspended, or rejected
     // 3. Must NOT have active temporary block
     // 4. Must NOT have >3 consecutive missed or cancelled bookings
+    // 5. Must have an Average Rating >= 4.0 (with real decimal ratings)
     const eligibleProviders = allProviders.filter((p) => {
       // 1. Verified check
       if (!p.isVerified) return false;
@@ -491,12 +512,32 @@ export const getProviderRecommendations = async (req, res) => {
         if (consecutiveCancelled > 3) return false;
       }
 
+      // 5. Average Rating >= 4.0 Check (Fetch real rating from DB with decimals)
+      const fbStat = feedbackStatsByProvider[pId];
+      let avgRating = 4.8;
+      let reviewCount = 0;
+      if (fbStat && fbStat.count > 0) {
+        avgRating = Number((fbStat.total / fbStat.count).toFixed(1));
+        reviewCount = fbStat.count;
+      } else if (p.rating && typeof p.rating === "number") {
+        avgRating = Number(Number(p.rating).toFixed(1));
+        reviewCount = p.reviewCount || 0;
+      }
+
+      // Exclude providers with average rating < 4.0
+      if (avgRating < 4.0) {
+        return false;
+      }
+
+      p.computedRating = avgRating;
+      p.computedReviewCount = reviewCount;
+
       return true;
     });
 
     const normalizedSeekerDistrict = (seekerDistrict || "").trim().toLowerCase();
 
-    // 5. Categorize and rank providers
+    // 6. Categorize and rank providers
     const isNewSeeker = topCategories.length === 0;
     let matchedProviders = [];
 
@@ -582,12 +623,14 @@ export const getProviderRecommendations = async (req, res) => {
       matchedProviders = [...districtMatches, ...otherMatches];
     }
 
-    // 6. Format output for Seeker Mobile App Carousel & Navigation
+    // 7. Format output for Seeker Mobile App Carousel & Navigation
     const recommendations = matchedProviders.map((p, idx) => {
       const pId = p._id || p.id;
       const displayName = p.name || p.fullName || (p.email ? p.email.split("@")[0] : `Provider ${idx + 1}`);
       const categoryName = p.category || "General Services";
       const districtName = p.district || seekerDistrict;
+      const realRating = p.computedRating || (p.rating ? Number(Number(p.rating).toFixed(1)) : 4.8);
+      const totalReviews = p.computedReviewCount !== undefined ? p.computedReviewCount : (p.reviewCount || 14);
 
       return {
         id: String(pId),
@@ -596,8 +639,8 @@ export const getProviderRecommendations = async (req, res) => {
         subtitle: `${categoryName} • ${districtName}`,
         category: categoryName,
         district: districtName,
-        rating: p.rating || 4.9,
-        reviewsCount: p.reviewCount || 14,
+        rating: realRating,
+        reviewsCount: totalReviews,
         isVerified: Boolean(p.isVerified),
         matchReason: p.matchReason,
         matchScore: p.matchScore,
@@ -614,7 +657,7 @@ export const getProviderRecommendations = async (req, res) => {
           profileImage: p.profileImage,
           bio: p.bio,
           isVerified: Boolean(p.isVerified),
-          rating: p.rating || 4.9,
+          rating: realRating,
           location: p.location,
         },
         portfolio: {

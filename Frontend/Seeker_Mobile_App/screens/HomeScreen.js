@@ -145,29 +145,34 @@ const Slideshow = ({ isDarkMode }) => {
                 (!p.consecutiveCancellations || p.consecutiveCancellations <= 3)
             );
             if (provList.length > 0) {
-              const formatted = provList.slice(0, 5).map((p, idx) => ({
-                id: String(p._id || p.id || idx),
-                title: p.name || p.fullName || (p.email ? p.email.split('@')[0] : `Provider ${idx + 1}`),
-                subtitle: `${p.category || 'General Service'} • ${p.district || 'Available'}`,
-                category: p.category || 'General Service',
-                district: p.district || 'All Districts',
-                rating: p.rating || 4.9,
-                reviewsCount: p.reviewCount || 12,
-                isVerified: true,
-                matchReason: `Top rated in ${p.district || 'your area'}`,
-                image: p.profileImage || null,
-                provider: p,
-                portfolio: {
-                  categories: [p.category || 'General Service'],
-                  specific_labels: [p.category || 'General Service'],
-                  images: p.profileImage ? [p.profileImage] : [],
-                  total_images: p.profileImage ? 1 : 0,
-                },
-                match: {
+              const formatted = provList.slice(0, 5).map((p, idx) => {
+                const hasRealRating = Boolean(p.hasRealRating || (typeof p.rating === 'number' && p.rating > 0));
+                const realRating = hasRealRating ? Number(Number(p.rating).toFixed(1)) : null;
+                return {
+                  id: String(p._id || p.id || idx),
+                  title: p.name || p.fullName || (p.email ? p.email.split('@')[0] : `Provider ${idx + 1}`),
+                  subtitle: `${p.category || 'General Service'} • ${p.district || 'Available'}`,
                   category: p.category || 'General Service',
-                  reason: 'Recommended for you',
-                },
-              }));
+                  district: p.district || 'All Districts',
+                  rating: realRating,
+                  reviewsCount: p.reviewCount || 0,
+                  hasRealRating: hasRealRating,
+                  isVerified: true,
+                  matchReason: `Top rated in ${p.district || 'your area'}`,
+                  image: p.profileImage || null,
+                  provider: p,
+                  portfolio: {
+                    categories: [p.category || 'General Service'],
+                    specific_labels: [p.category || 'General Service'],
+                    images: p.profileImage ? [p.profileImage] : [],
+                    total_images: p.profileImage ? 1 : 0,
+                  },
+                  match: {
+                    category: p.category || 'General Service',
+                    reason: 'Recommended for you',
+                  },
+                };
+              });
               if (isMounted) {
                 setSlides(formatted);
                 setLoading(false);
@@ -182,7 +187,11 @@ const Slideshow = ({ isDarkMode }) => {
         if (isMounted) {
           if (response && response.recommendations && response.recommendations.length > 0) {
             const onlyVerified = response.recommendations.filter(
-              (r) => r.isVerified && !r.provider?.isBlocked && !r.provider?.isRejected
+              (r) =>
+                r.isVerified &&
+                !r.provider?.isBlocked &&
+                !r.provider?.isRejected &&
+                Number(r.rating || r.provider?.rating || 0) >= 4.0
             );
             setSlides(onlyVerified);
           } else {
@@ -329,10 +338,12 @@ const Slideshow = ({ isDarkMode }) => {
                 </View>
               )}
 
-              <View style={styles.slideRatingPill}>
-                <Ionicons name="star" size={13} color="#FBBF24" />
-                <Text style={styles.slideRatingText}>{Number(item.rating || 4.9).toFixed(1)}</Text>
-              </View>
+              {(item.hasRealRating || (item.rating && item.reviewsCount > 0)) && item.rating ? (
+                <View style={styles.slideRatingPill}>
+                  <Ionicons name="star" size={13} color="#FBBF24" />
+                  <Text style={styles.slideRatingText}>{Number(item.rating).toFixed(1)}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
