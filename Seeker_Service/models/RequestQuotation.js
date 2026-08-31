@@ -32,6 +32,12 @@ const requestQuotationSchema = new mongoose.Schema(
       required: true,
     },
 
+    postId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
+
     sessionId: {
       type: String,
       required: true,
@@ -110,13 +116,18 @@ const requestQuotationSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "confirmed", "cancelled"],
+      enum: ["pending", "quoted", "accepted", "rejected", "cancelled", "expired"],
       default: "pending",
     },
   },
   {
     timestamps: true,
   }
+);
+
+requestQuotationSchema.index(
+  { seekerId: 1, providerId: 1, sessionId: 1 },
+  { unique: true }
 );
 
 const RequestQuotation = mongoose.model(

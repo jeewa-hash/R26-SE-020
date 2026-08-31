@@ -1,146 +1,64 @@
-// components/BottomNav.js
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
-import { useChat } from '../context/ChatContext';
 
 const HIDDEN_ROUTES = new Set([
-  'Login',
-  'Register',
-  'VerifyOTP',
-  'Language',
-  'Onboarding',
-
-  // Full-screen/detail flows
-  'FollowUpScreen',
-  'ProvidersScreen',
-  'ProviderProfile',
-  'RequestQuotationDetails',
-  'PostResponsesScreen',
-  'BidResponsesScreen',
-  'UserQuotesScreen',
-  'FeedbackScreen',
-  'NotificationScreen',
-  'ChatScreen',
-  'EditProfileScreen',
-  'SeasonalDemandsScreen',
-  'RescheduleScreen',
-
-  // IT22129376 My Jobs detail/action screens
-  'IT22129376JobDetails',
-  'IT22129376QuoteDetails',
-  'IT22129376CoordinationReview',
-  'IT22129376SuggestedSlots',
-  'IT22129376ConfirmJob',
-  'IT22129376ScheduledJobDetails',
-  'IT22129376JobHistoryDetails',
-
-  // Profile sub-pages / utility pages
-  'MyBidsScreen',
-  'MyPostsScreen',
-  'HistoryScreen',
-  'StarPointsScreen',
-  'PaymentScreen',
-  'SettingsScreen',
-  'HelpScreen',
-  'SpendAnalyticsScreen',
+  'Login', 'Register', 'VerifyOTP', 'Language', 'Onboarding',
+  'FollowUpScreen', 'ProvidersScreen', 'ProviderProfile',
+  'RequestQuotationDetails', 'PostResponsesScreen', 'BidResponsesScreen',
+  'UserQuotesScreen', 'FeedbackScreen', 'NotificationScreen', 'ChatScreen',
+  'EditProfileScreen', 'SeasonalDemandsScreen', 'RescheduleScreen',
+  'IT22129376JobDetails', 'IT22129376QuoteDetails',
+  'IT22129376CoordinationReview', 'IT22129376SuggestedSlots',
+  'IT22129376ConfirmJob', 'IT22129376ScheduledJobDetails',
+  'IT22129376JobHistoryDetails', 'MyBidsScreen', 'MyPostsScreen',
+  'HistoryScreen', 'StarPointsScreen', 'PaymentScreen', 'SettingsScreen',
+  'HelpScreen', 'SpendAnalyticsScreen',
 ]);
-
-const routeToTab = {
-  Home: 'Home',
-  HomeScreen: 'Home',
-
-  FeedScreen: 'Feed',
-  CreatePostScreen: 'Create',
-
-  MyJobsScreen: 'MyJobs',
-  MyJobs: 'MyJobs',
-
-  ChatListScreen: 'Chat',
-  ProfileScreen: 'Profile',
-};
 
 const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
   const { isDarkMode } = useTheme();
-  const { unreadCount = {} } = useChat();
-  const [selectedTab, setSelectedTab] = React.useState('Home');
 
-  const totalUnread = Object.values(unreadCount).reduce(
-    (total, count) => total + Number(count || 0),
-    0
-  );
-
-  React.useEffect(() => {
-    const mappedTab = routeToTab[currentRouteName];
-
-    if (mappedTab) {
-      setSelectedTab(mappedTab);
-    }
-  }, [currentRouteName]);
-
-  // Old screens may still contain <BottomNav />.
-  // Returning null prevents duplicate nav bars.
-  if (!isRootNav) {
+  // This bar is beside the navigator rather than inside a Stack.Screen.
+  // Using the ref avoids the useRoute/useNavigation context error.
+  if (!isRootNav || HIDDEN_ROUTES.has(currentRouteName)) {
     return null;
   }
 
-  if (HIDDEN_ROUTES.has(currentRouteName)) {
-    return null;
-  }
-
-  const navItems = [
-    {
-      id: 'Home',
-      label: 'Home',
-      icon: 'home',
-      routeName: 'Home',
-    },
-    {
-      id: 'Feed',
-      label: 'Feed',
-      icon: 'feed',
-      routeName: 'FeedScreen',
-    },
-    {
-      id: 'Create',
-      label: 'Create',
-      icon: 'add',
-      routeName: 'CreatePostScreen',
-      isCreateButton: true,
-    },
-    {
-      id: 'MyJobs',
-      label: 'My Jobs',
-      icon: 'work',
-      routeName: 'MyJobsScreen',
-    },
-    {
-      id: 'Chat',
-      label: 'Chat',
-      icon: 'chat',
-      routeName: 'ChatListScreen',
-      showBadge: totalUnread > 0,
-      badgeCount: totalUnread,
-    },
-    {
-      id: 'Profile',
-      label: 'Profile',
-      icon: 'person',
-      routeName: 'ProfileScreen',
-    },
-  ];
-
-  const handlePress = (item) => {
-    setSelectedTab(item.id);
-
-    if (navigationRef?.current?.navigate && item.routeName) {
-      navigationRef.current.navigate(item.routeName);
+  const navigate = (screenName) => {
+    if (navigationRef?.isReady?.()) {
+      navigationRef.navigate(screenName);
+    } else if (navigationRef?.current?.navigate) {
+      navigationRef.current.navigate(screenName);
     }
   };
 
-  const isActive = (itemId) => selectedTab === itemId;
+  const navItems = [
+    { id: 'Home', label: 'Home', icon: 'home', routeName: 'Home' },
+    { id: 'Feed', label: 'Feed', icon: 'feed', routeName: 'FeedScreen' },
+    {
+      id: 'Create', label: 'Create', icon: 'add',
+      routeName: 'CreatePostScreen', isCreateButton: true,
+    },
+    {
+      id: 'Bookings', label: 'Bookings', icon: 'calendar-today',
+      routeName: 'BookingsScreen',
+    },
+    { id: 'Profile', label: 'Profile', icon: 'person', routeName: 'ProfileScreen' },
+  ];
+
+  const isActive = (itemId) => {
+    switch (itemId) {
+      case 'Home': return currentRouteName === 'Home' || currentRouteName === 'HomeScreen';
+      case 'Feed': return currentRouteName === 'FeedScreen';
+      case 'Create': return currentRouteName === 'CreatePostScreen';
+      case 'Bookings': return currentRouteName === 'BookingsScreen';
+      case 'Profile': return currentRouteName === 'ProfileScreen';
+      default: return false;
+    }
+  };
 
   const inactiveColor = isDarkMode ? '#94A3B8' : '#999';
   const activeColor = isDarkMode ? '#818cf8' : '#667eea';
@@ -152,70 +70,26 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
 
         if (item.isCreateButton) {
           return (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.createNavItem}
-              onPress={() => handlePress(item)}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity key={item.id} style={styles.createNavItem}
+              onPress={() => navigate(item.routeName)} activeOpacity={0.8}>
               <LinearGradient
-                colors={
-                  isDarkMode
-                    ? ['#818cf8', '#6366f1']
-                    : ['#667eea', '#764ba2']
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.createButton}
+                colors={isDarkMode ? ['#818cf8', '#6366f1'] : ['#667eea', '#764ba2']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.createButton}
               >
                 <MaterialIcons name={item.icon} size={28} color="#fff" />
               </LinearGradient>
-
-              <Text
-                style={[
-                  styles.navLabel,
-                  { color: active ? activeColor : inactiveColor },
-                  active && styles.navLabelActive,
-                ]}
-              >
+              <Text style={[styles.navLabel, { color: inactiveColor }, active && [styles.activeLabel, { color: activeColor }]]}>
                 {item.label}
               </Text>
             </TouchableOpacity>
           );
         }
 
-        const showBadge = item.id === 'Chat' && item.showBadge;
-
         return (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.navItem}
-            onPress={() => handlePress(item)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconWrapper}>
-              <MaterialIcons
-                name={item.icon}
-                size={24}
-                color={active ? activeColor : inactiveColor}
-              />
-
-              {showBadge && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {item.badgeCount > 99 ? '99+' : item.badgeCount}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <Text
-              style={[
-                styles.navLabel,
-                { color: active ? activeColor : inactiveColor },
-                active && styles.navLabelActive,
-              ]}
-            >
+          <TouchableOpacity key={item.id} style={styles.navItem}
+            onPress={() => navigate(item.routeName)} activeOpacity={0.7}>
+            <MaterialIcons name={item.icon} size={24} color={active ? activeColor : inactiveColor} />
+            <Text style={[styles.navLabel, { color: active ? activeColor : inactiveColor }, active && styles.activeLabel]}>
               {item.label}
             </Text>
           </TouchableOpacity>
@@ -227,84 +101,21 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
 
 const styles = StyleSheet.create({
   bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#E8ECF0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 50,
+    position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row',
+    backgroundColor: '#fff', paddingVertical: 8, paddingHorizontal: 8,
+    borderTopWidth: 1, borderTopColor: '#E8ECF0', shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05,
+    shadowRadius: 8, elevation: 8,
   },
-  bottomNavDark: {
-    backgroundColor: '#16213e',
-    borderTopColor: '#2d3561',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 4,
-  },
-  iconWrapper: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: -6,
-    right: -12,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: '#fff',
-  },
-  badgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  navLabel: {
-    fontSize: 9,
-    marginTop: 2,
-  },
-  navLabelActive: {
-    fontWeight: '700',
-  },
-  createNavItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -16,
-  },
+  bottomNavDark: { backgroundColor: '#16213e', borderTopColor: '#2d3561', shadowOpacity: 0.3 },
+  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 4 },
+  navLabel: { fontSize: 10, marginTop: 2 },
+  activeLabel: { fontWeight: '600' },
+  createNavItem: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: -16 },
   createButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 2,
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center',
+    marginBottom: 2, shadowColor: '#667eea', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
 });
 

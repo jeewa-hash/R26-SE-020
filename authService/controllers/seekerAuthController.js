@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Seeker = require('../models/Seeker');
 const SeekerNotification = require('../models/SeekerNotification');
 const bcrypt = require('bcryptjs');
@@ -340,5 +341,236 @@ exports.updateProfilePicture = async (req, res) => {
   } catch (error) {
     console.error('UPDATE PROFILE PICTURE ERROR:', error.message);
     res.status(500).json({ message: 'Server error while updating profile picture' });
+  }
+};
+
+let seekerDbConn = null;
+const getSeekerDb = async () => {
+  if (seekerDbConn && seekerDbConn.readyState === 1) return seekerDbConn;
+  const uri = process.env.SEEKER_MONGO_URI || 'mongodb+srv://oshera:tashmi1234abcd@serviceseeker.kqdud8l.mongodb.net/ServiceSeeker?retryWrites=true&w=majority';
+  seekerDbConn = await mongoose.createConnection(uri).asPromise();
+  return seekerDbConn;
+};
+
+let coordinationDbConn = null;
+const getCoordinationDb = async () => {
+  if (coordinationDbConn && coordinationDbConn.readyState === 1) return coordinationDbConn;
+  const uri = process.env.COORDINATION_MONGO_URI || 'mongodb+srv://jkumarasekara_db_user:vfDFrozTabkpXDCl@cluster0.xggs3th.mongodb.net/Coordination_Service?retryWrites=true&w=majority';
+  coordinationDbConn = await mongoose.createConnection(uri).asPromise();
+  return coordinationDbConn;
+};
+
+// =======================================================
+// GET PROVIDER RECOMMENDATIONS FOR SEEKER
+// =======================================================
+exports.getProviderRecommendations = async (req, res) => {
+  try {
+    const { seekerId } = req.params;
+    const Provider = require('../models/Provider');
+
+    let seekerDistrict = 'Colombo';
+    let seekerName = '';
+
+    if (seekerId) {
+      try {
+        const seeker = await Seeker.findById(seekerId);
+        if (seeker) {
+          seekerDistrict = seeker.district || 'Colombo';
+          seekerName = seeker.name || '';
+        }
+      } catch (e) {
+        console.warn('Error finding seeker in authService:', e.message);
+      }
+    }
+
+    // Filter criteria for recommendations:
+    // 1. Must be verified (isVerified: true)
+    // 2. Must NOT be blocked (isBlocked: false or not true)
+    // 3. Must NOT be rejected/suspended (isRejected: false, isSuspended: false)
+    const rawProviders = await Provider.find({
+      isVerified: true,
+      isBlocked: { $ne: true },
+      isRejected: { $ne: true },
+      isSuspended: { $ne: true },
+    });
+
+    // Fetch real feedback stats from ServiceSeeker DB directly
+    let feedbackStatsByProvider = {};
+    try {
+      const seekerConn = await getSeekerDb();
+      const fbs = await seekerConn.collection('feedbacks').find({}).toArray();
+      for (const fb of fbs) {
+        const pid = String(fb.providerId);
+        if (!feedbackStatsByProvider[pid]) {
+          feedbackStatsByProvider[pid] = { total: 0, count: 0 };
+        }
+        if (typeof fb.rating === 'number' && fb.rating > 0) {
+          feedbackStatsByProvider[pid].total += fb.rating;
+          feedbackStatsByProvider[pid].count += 1;
+        }
+      }
+    } catch (e) {
+      console.warn('Feedback stats direct query warning:', e.message);
+    }
+
+    // Fetch active unapproved missed bookings / penalty counts
+    let activeMissedCountByProvider = {};
+    try {
+      const coordConn = await getCoordinationDb();
+      const missedBookings = await coordConn.collection('bookings').find({
+        bookingStatus: { $in: ['CANCELLED', 'DELAY_REPORTED', 'RESCHEDULED', 'RESCHEDULING_REQUIRED'] },
+        'cancellationInfo.cancelledBy': { $ne: 'SEEKER' },
+        cancelledBy: { $ne: 'SEEKER' },
+        cancelledBySeeker: { $ne: true },
+        'cancellationInfo.inquiryStatus': { $ne: 'APPROVED' },
+      }).toArray();
+
+      for (const b of missedBookings) {
+        if (b.providerId) {
+          const pid = String(b.providerId);
+          activeMissedCountByProvider[pid] = (activeMissedCountByProvider[pid] || 0) + 1;
+        }
+      }
+    } catch (cErr) {
+      console.warn('Coordination DB missed bookings query warning:', cErr.message);
+    }
+
+    const now = new Date();
+
+    // 4. Exclude providers with temporary block, >3 consecutive cancellations / rejections / missed bookings, rating < 4.0, or penalty score >= 3
+    const eligibleProviders = rawProviders.filter((p) => {
+      if (!p.isVerified) return false;
+      if (p.isBlocked || p.isRejected || p.isSuspended) return false;
+      if (p.blockedUntil && new Date(p.blockedUntil) > now) return false;
+      if (p.consecutiveRejections && p.consecutiveRejections > 3) return false;
+      if (p.consecutiveCancellations && p.consecutiveCancellations > 3) return false;
+
+      const pId = String(p._id || p.id);
+
+      // Exclude provider if active missed bookings / penalty score >= 3 (3/3 or higher)
+      const penaltyScore = activeMissedCountByProvider[pId] || 0;
+      if (penaltyScore >= 3) {
+        return false;
+      }
+
+      // Real Rating Check: Calculate actual average rating from DB feedbacks
+      const fbStat = feedbackStatsByProvider[pId];
+      let realRating = null;
+      let reviewCount = 0;
+      let hasRealRating = false;
+
+      if (fbStat && fbStat.count > 0) {
+        realRating = Number((fbStat.total / fbStat.count).toFixed(1));
+        reviewCount = fbStat.count;
+        hasRealRating = true;
+      } else if (typeof p.rating === 'number' && p.rating > 0) {
+        realRating = Number(Number(p.rating).toFixed(1));
+        reviewCount = p.reviewCount || 1;
+        hasRealRating = true;
+      }
+
+      // If provider has ratings, exclude if rating < 4.0
+      if (hasRealRating && realRating < 4.0) {
+        return false;
+      }
+
+      p.computedRating = realRating;
+      p.computedReviewCount = reviewCount;
+      p.hasRealRating = hasRealRating;
+      p.penaltyScore = penaltyScore;
+
+      return true;
+    });
+
+    const normalizedDistrict = (seekerDistrict || '').trim().toLowerCase();
+
+    // Separate eligible providers into district matches and other verified specialists
+    const districtMatches = [];
+    const otherMatches = [];
+
+    for (const p of eligibleProviders) {
+      const pDistrict = (p.district || '').trim().toLowerCase();
+      if (pDistrict === normalizedDistrict) {
+        districtMatches.push({
+          ...p.toObject(),
+          computedRating: p.computedRating,
+          computedReviewCount: p.computedReviewCount,
+          hasRealRating: p.hasRealRating,
+          matchScore: 90,
+          matchReason: `Top rated verified pro in ${p.district || seekerDistrict}`,
+        });
+      } else {
+        otherMatches.push({
+          ...p.toObject(),
+          computedRating: p.computedRating,
+          computedReviewCount: p.computedReviewCount,
+          hasRealRating: p.hasRealRating,
+          matchScore: 50,
+          matchReason: `Verified Specialist`,
+        });
+      }
+    }
+
+    const matchedProviders = [...districtMatches, ...otherMatches];
+
+    const recommendations = matchedProviders.map((p, idx) => {
+      const pId = p._id || p.id;
+      const displayName = p.name || p.fullName || (p.email ? p.email.split('@')[0] : `Provider ${idx + 1}`);
+      const categoryName = p.category || 'General Services';
+      const districtName = p.district || seekerDistrict;
+      const hasRealRating = Boolean(p.hasRealRating);
+      const realRating = hasRealRating ? p.computedRating : null;
+      const totalReviews = hasRealRating ? p.computedReviewCount : 0;
+
+      return {
+        id: String(pId),
+        _id: String(pId),
+        title: displayName,
+        subtitle: `${categoryName} • ${districtName}`,
+        category: categoryName,
+        district: districtName,
+        rating: realRating,
+        reviewsCount: totalReviews,
+        hasRealRating: hasRealRating,
+        isVerified: true,
+        matchReason: p.matchReason,
+        image: p.profileImage || null,
+        provider: {
+          id: String(pId),
+          _id: String(pId),
+          name: displayName,
+          email: p.email,
+          telephone: p.telephone,
+          district: districtName,
+          category: categoryName,
+          profileImage: p.profileImage,
+          bio: p.bio,
+          isVerified: true,
+          rating: realRating,
+          hasRealRating: hasRealRating,
+          location: p.location,
+        },
+        portfolio: {
+          categories: [categoryName],
+          specific_labels: [categoryName],
+          images: p.profileImage ? [p.profileImage] : [],
+          total_images: p.profileImage ? 1 : 0,
+        },
+        match: {
+          category: categoryName,
+          reason: p.matchReason,
+        },
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      seekerDistrict,
+      totalRecommendations: recommendations.length,
+      recommendations,
+    });
+  } catch (error) {
+    console.error('GET PROVIDER RECOMMENDATIONS ERROR:', error.message);
+    res.status(500).json({ success: false, message: 'Server error while fetching recommendations' });
   }
 };

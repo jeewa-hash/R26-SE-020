@@ -5,6 +5,9 @@ const adminController = require('../controllers/adminController');
 // Public routes
 router.post('/login', adminController.login);
 router.post('/logout', adminController.logout);
+router.post('/forgot-password', adminController.forgotPassword);
+router.post('/verify-otp', adminController.verifyOTP);
+router.post('/reset-password', adminController.resetPassword);
 
 // Protected routes (only logged-in admin can access)
 router.post('/register', adminController.verifyAdmin, adminController.register);
@@ -37,5 +40,6 @@ router.post('/audit-logs/internal', adminController.createAuditLogInternal);
 
 // Demand Forecasting Alert Route
 router.post('/notify-high-demand', adminController.verifyAdmin, adminController.dispatchHighDemandAlerts);
+router.post('/notify-provider-internal', adminController.notifyProviderInternal);
 
 module.exports = router;

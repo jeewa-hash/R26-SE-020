@@ -21,11 +21,32 @@ from translator import (
 )
 
 # --- MobileNet ---
-from tensorflow.keras.applications.mobilenet_v2 import (
-    MobileNetV2,
-    preprocess_input,
-    decode_predictions
-)
+try:
+    from tensorflow.keras.applications.mobilenet_v2 import (
+        MobileNetV2,
+        preprocess_input,
+        decode_predictions
+    )
+except (ImportError, ModuleNotFoundError, AttributeError):
+    try:
+        from tensorflow.keras.applications import (
+            MobileNetV2,
+            mobilenet_v2
+        )
+        preprocess_input = mobilenet_v2.preprocess_input
+        decode_predictions = mobilenet_v2.decode_predictions
+    except (ImportError, ModuleNotFoundError, AttributeError):
+        try:
+            import keras
+            from keras.applications.mobilenet_v2 import (
+                MobileNetV2,
+                preprocess_input,
+                decode_predictions
+            )
+        except (ImportError, ModuleNotFoundError, AttributeError):
+            MobileNetV2 = None
+            preprocess_input = None
+            decode_predictions = None
 
 
 # FASTAPI
@@ -42,6 +63,32 @@ app.add_middleware(
 # PROVIDER SERVICE CONFIGURATION
 
 PROVIDER_SERVICE_URL = "http://localhost:5000/portfolio/all-providers"
+INQUIRY_SERVICE_URL = os.getenv("INQUIRY_SERVICE_URL", "http://localhost:5001")
+
+
+def is_provider_restricted(provider_id):
+    """Return whether a provider must not be suggested because of penalty score, suspension, block, or unverified status."""
+    if not provider_id:
+        return False
+
+    try:
+        response = requests.get(
+            f"{INQUIRY_SERVICE_URL}/api/inquiries/check-bookable/{provider_id}",
+            timeout=5,
+        )
+        if response.status_code != 200:
+            return False
+
+        data = response.json()
+        penalty_score = data.get("penaltyScore", 0)
+        return bool(
+            data.get("isRestricted", False)
+            or data.get("isBlocked", False)
+            or not data.get("isBookable", True)
+            or (isinstance(penalty_score, (int, float)) and penalty_score >= 3)
+        )
+    except (requests.RequestException, ValueError):
+        return False
 
 # --- JWT Configuration (read from .env) ---
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -80,9 +127,13 @@ OBJECT_FLOW_MAP = {
 
 # MODEL SETUP
 
-MODEL_PATH = "../models/repair_model_v1.h5"
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "../models/repair_model_v1.h5")
 
-model = tf.keras.models.load_model(MODEL_PATH)
+try:
+    model = tf.keras.models.load_model(MODEL_PATH)
+except Exception as e:
+    print(f"Warning: Could not load repair model from {MODEL_PATH}: {e}")
+    model = None
 
 CLASSES = [
     "electrical",
@@ -91,7 +142,11 @@ CLASSES = [
     "plumbing"
 ]
 
-visual_identifier = MobileNetV2(weights="imagenet")
+try:
+    visual_identifier = MobileNetV2(weights="imagenet") if MobileNetV2 is not None else None
+except Exception as e:
+    print(f"Warning: Could not initialize MobileNetV2: {e}")
+    visual_identifier = None
 
 # IMAGE HELPER
 
@@ -145,6 +200,8 @@ def get_matching_question_group(category, detected_object):
 # OBJECT DETECTION
 
 def detect_object(base_tensor):
+    if visual_identifier is None or preprocess_input is None or decode_predictions is None:
+        return None
 
     mobile_x = preprocess_input(
         base_tensor.copy()
@@ -379,8 +436,18 @@ def filter_matching_providers(category, providers, district=None):
         provider = item.get("provider", {})
         portfolio = item.get("portfolio", {})
 
-        # Skip blocked
-        if provider.get("isBlocked", False):
+        # Skip blocked, suspended, rejected, or unverified providers
+        if (
+            provider.get("isBlocked", False)
+            or provider.get("isSuspended", False)
+            or provider.get("isRejected", False)
+            or not provider.get("isVerified", False)
+        ):
+            continue
+
+        # Do not suggest providers restricted for penalty score >= 3 or missed bookings.
+        provider_id = provider.get("_id") or provider.get("id") or provider.get("providerId")
+        if is_provider_restricted(provider_id):
             continue
 
         # Category match (using new logic)

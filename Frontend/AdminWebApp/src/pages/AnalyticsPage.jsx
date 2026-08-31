@@ -5,15 +5,16 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  Legend, ResponsiveContainer, LineChart, Line
+  Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area
 } from 'recharts';
 import {
   FiFilter, FiMap, FiActivity, FiCalendar, FiSearch,
   FiChevronUp, FiChevronDown, FiAlertTriangle, FiCheckCircle,
-  FiClock, FiXCircle, FiLayers, FiUsers, FiTrendingUp, FiDollarSign, FiLock
+  FiClock, FiXCircle, FiLayers, FiUsers, FiTrendingUp, FiDollarSign, FiLock, FiMapPin,
+  FiZap, FiArrowUpRight, FiPieChart
 } from 'react-icons/fi';
 import { DISTRICT_METADATA, generatePerformanceMockData } from '../data/mockAnalyticsData';
-import { API_BASE_URL, ADMIN_SERVICE_URL } from '../config';
+import { API_BASE_URL, ADMIN_SERVICE_URL, PROVIDER_SERVICE_URL } from '../config';
 import './AnalyticsPage.css';
 
 const AnalyticsPage = () => {
@@ -21,6 +22,7 @@ const AnalyticsPage = () => {
   const [performanceTab, setPerformanceTab] = useState(() => localStorage.getItem('analytics_perf_tab') || 'user-growth');
   const [userTypeFilter, setUserTypeFilter] = useState(() => localStorage.getItem('analytics_user_filter') || 'All');
   const [bookingStatusFilter, setBookingStatusFilter] = useState(() => localStorage.getItem('analytics_booking_filter') || 'ALL');
+  const [selectedDistrict, setSelectedDistrict] = useState(() => localStorage.getItem('analytics_district_filter') || localStorage.getItem('admin_default_district') || 'All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [districtData, setDistrictData] = useState([]);
@@ -34,6 +36,22 @@ const AnalyticsPage = () => {
     totalDistrictsCount: 25,
   });
   const [performanceData, setPerformanceData] = useState({ userData: [], bookingData: [], revenueData: [] });
+  const [revenueStreamFilter, setRevenueStreamFilter] = useState(() => localStorage.getItem('analytics_rev_filter') || 'ALL');
+  const [revenueStats, setRevenueStats] = useState({
+    totalIncomeLkr: 0,
+    totalRevenue: 0,
+    totalBoostRevenue: 0,
+    totalCommissionRevenue: 0,
+    totalBookingVolume: 0,
+    totalTransactions: 0,
+    totalBoostTransactions: 0,
+    totalCompletedBookings: 0,
+    totalBoostSteps: 0,
+    currency: 'LKR',
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [sortConfig, setSortConfig] = useState({ key: 'percentage', direction: 'asc' });
 
   // Tab & Filter persistence handlers
   const handleSetActiveTab = (tab) => {
@@ -56,19 +74,25 @@ const AnalyticsPage = () => {
     localStorage.setItem('analytics_booking_filter', filter);
   };
 
-  // Table State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [sortConfig, setSortConfig] = useState({ key: 'percentage', direction: 'asc' });
+  const handleSetRevenueStreamFilter = (filter) => {
+    setRevenueStreamFilter(filter);
+    localStorage.setItem('analytics_rev_filter', filter);
+  };
 
-  // Memoize handleFilter to avoid infinite loops
+  const handleSetSelectedDistrict = (district) => {
+    setSelectedDistrict(district);
+    localStorage.setItem('analytics_district_filter', district);
+  };
+
+  // Helper to fetch live analytics data with memoized callback
   const handleFilter = useCallback(async () => {
+    const params = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (selectedDistrict && selectedDistrict !== 'All') params.district = selectedDistrict;
+
     // 1. Fetch Real Demand-Supply Analytics Data from Admin Backend
     try {
-      const params = {};
-      if (startDate) params.startDate = startDate;
-      if (endDate) params.endDate = endDate;
-
       const demandRes = await axios.get(`${ADMIN_SERVICE_URL}/api/analytics/demand-supply`, { params });
       if (demandRes.data && demandRes.data.success) {
         setDistrictData(demandRes.data.data);
@@ -84,10 +108,6 @@ const AnalyticsPage = () => {
     // 2. Fetch Real Service Booking Growth Data from Admin Backend
     let realBookingData = [];
     try {
-      const params = {};
-      if (startDate) params.startDate = startDate;
-      if (endDate) params.endDate = endDate;
-
       const bookingRes = await axios.get(`${ADMIN_SERVICE_URL}/api/analytics/booking-growth`, { params });
       if (bookingRes.data && bookingRes.data.success) {
         realBookingData = bookingRes.data.data;
@@ -96,21 +116,55 @@ const AnalyticsPage = () => {
       console.error('Failed to fetch real booking growth data:', bErr);
     }
 
-    // 3. Fetch Real User Growth Data from Backend
+    // 3. Fetch Real Revenue Growth & Total Income Data (Ad Boost + Service Bookings Commission)
+    let realRevenueBreakdown = [];
+    try {
+      let revRes;
+      try {
+        revRes = await axios.get(`${ADMIN_SERVICE_URL}/api/analytics/revenue-growth`, { params });
+      } catch (pErr) {
+        revRes = await axios.get(`${PROVIDER_SERVICE_URL}/api/provider/ads/income/total`, { params });
+      }
+
+      if (revRes && revRes.data && revRes.data.success) {
+        const rData = revRes.data.data;
+        setRevenueStats({
+          totalIncomeLkr: rData.totalIncomeLkr || 0,
+          totalRevenue: rData.totalRevenue || rData.totalIncomeLkr || 0,
+          totalBoostRevenue: rData.totalBoostRevenue || 0,
+          totalCommissionRevenue: rData.totalCommissionRevenue || 0,
+          totalBookingVolume: rData.totalBookingVolume || 0,
+          totalTransactions: rData.totalTransactions || 0,
+          totalBoostTransactions: rData.totalBoostTransactions || 0,
+          totalCompletedBookings: rData.totalCompletedBookings || 0,
+          totalBoostSteps: rData.totalBoostSteps || 0,
+          currency: rData.currency || 'LKR',
+        });
+        if (rData.monthlyBreakdown && rData.monthlyBreakdown.length > 0) {
+          realRevenueBreakdown = rData.monthlyBreakdown;
+        }
+      }
+    } catch (rErr) {
+      console.error('Failed to fetch real revenue growth data:', rErr);
+    }
+
+    // 4. Fetch Real User Growth Data from Backend
     try {
       const token = localStorage.getItem('adminToken');
       const response = await axios.get(`${API_BASE_URL}/user-growth`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        params,
       });
 
       const realUserData = response.data;
 
-      // Filter Performance Data (Merge real user & booking data)
+      // Filter Performance Data (Merge real user, booking & revenue data)
       const mockPerfData = generatePerformanceMockData();
       let perfData = {
         ...mockPerfData,
         userData: realUserData,
         bookingData: realBookingData.length > 0 ? realBookingData : mockPerfData.bookingData,
+        revenueData: realRevenueBreakdown.length > 0 ? realRevenueBreakdown : mockPerfData.revenueData,
       };
 
       if (startDate || endDate) {
@@ -131,10 +185,13 @@ const AnalyticsPage = () => {
       setPerformanceData(perfData);
     } catch (err) {
       console.error('Failed to fetch real user growth data', err);
-      // Fallback to mock user/revenue data if API fails, but keep real bookings
+      // Fallback to mock user data if API fails, but keep real bookings and revenue
       let perfData = generatePerformanceMockData();
       if (realBookingData.length > 0) {
         perfData.bookingData = realBookingData;
+      }
+      if (realRevenueBreakdown.length > 0) {
+        perfData.revenueData = realRevenueBreakdown;
       }
       if (startDate || endDate) {
         const filterByDate = (data) => data.filter(item => {
@@ -152,14 +209,19 @@ const AnalyticsPage = () => {
       }
       setPerformanceData(perfData);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, selectedDistrict]);
 
-  // Initial load and Real-time auto-polling every 4 seconds
+  // Initial load and auto-polling based on Admin Settings
   useEffect(() => {
     handleFilter();
+    
+    const refreshSetting = localStorage.getItem('admin_refresh_interval') || '60';
+    if (refreshSetting === 'manual') return;
+
+    const refreshSeconds = parseInt(refreshSetting, 10) || 60;
     const interval = setInterval(() => {
       handleFilter();
-    }, 4000);
+    }, refreshSeconds * 1000);
     return () => clearInterval(interval);
   }, [handleFilter]);
 
@@ -182,9 +244,10 @@ const AnalyticsPage = () => {
 
     return L.divIcon({
       html: svg,
-      className: 'cloud-marker-icon',
+      className: 'custom-cloud-icon',
       iconSize: [width, height + 10],
       iconAnchor: [width / 2, height + 10],
+      popupAnchor: [0, -(height + 10)],
     });
   };
 
@@ -257,6 +320,18 @@ const AnalyticsPage = () => {
         </div>
 
         <div className="filter-bar">
+          <div className="filter-group">
+            <label><FiMapPin /> District</label>
+            <select
+              value={selectedDistrict}
+              onChange={(e) => handleSetSelectedDistrict(e.target.value)}
+              className="district-filter-select"
+            >
+              <option value="All">All Districts</option>
+              <option value="Colombo">Colombo</option>
+              <option value="Gampaha">Gampaha</option>
+            </select>
+          </div>
           <div className="filter-group">
             <label><FiCalendar /> Start Date</label>
             <input
@@ -487,22 +562,25 @@ const AnalyticsPage = () => {
         <div className="performance-view space-y-6">
           <div className="performance-tabs">
             <button
-              className={`perf-tab-btn ${performanceTab === 'user-growth' ? 'active' : ''}`}
+              className={`perf-tab-btn perf-tab-users ${performanceTab === 'user-growth' ? 'active' : ''}`}
               onClick={() => handleSetPerformanceTab('user-growth')}
             >
-              <FiUsers /> User Growth
+              <span className="perf-tab-icon"><FiUsers /></span>
+              <span>User Growth</span>
             </button>
             <button
-              className={`perf-tab-btn ${performanceTab === 'booking-growth' ? 'active' : ''}`}
+              className={`perf-tab-btn perf-tab-bookings ${performanceTab === 'booking-growth' ? 'active' : ''}`}
               onClick={() => handleSetPerformanceTab('booking-growth')}
             >
-              <FiTrendingUp /> Service Booking Growth
+              <span className="perf-tab-icon"><FiTrendingUp /></span>
+              <span>Service Booking Growth</span>
             </button>
             <button
-              className={`perf-tab-btn ${performanceTab === 'revenue-growth' ? 'active' : ''}`}
+              className={`perf-tab-btn perf-tab-revenue ${performanceTab === 'revenue-growth' ? 'active' : ''}`}
               onClick={() => handleSetPerformanceTab('revenue-growth')}
             >
-              <FiDollarSign /> Revenue Growth
+              <span className="perf-tab-icon"><FiDollarSign /></span>
+              <span>Revenue Growth</span>
             </button>
           </div>
 
@@ -753,46 +831,289 @@ const AnalyticsPage = () => {
 
             {performanceTab === 'revenue-growth' && (
               <div className="performance-card revenue-card-wrapper">
-                <div className="card-header">
-                  <div className="flex items-center gap-3">
-                    <h3>Revenue Growth</h3>
-                    <span className="upcoming-tag">Next Version</span>
+                {/* 1. Executive Header */}
+                <div className="revenue-hero-header">
+                  <div className="revenue-hero-left">
+                    <div className="revenue-title-row">
+                      <div className="revenue-icon-box">
+                        <FiDollarSign />
+                      </div>
+                      <div>
+                        <div className="revenue-title-flex">
+                          <h3 className="revenue-main-title">Financial Monetization &amp; Revenue Growth</h3>
+                          <span className="live-status-pill">
+                            <span className="live-status-pulse"></span> Live Financials
+                          </span>
+                        </div>
+                        <p className="revenue-subtitle">
+                          Real-time breakdown of Platform 5% Booking Commissions and Provider Post Ad Boosting monetization.
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="summary-stat">
-                    <span className="label">Total Revenue:</span>
-                    <span className="value" style={{ color: '#94a3b8', fontSize: '18px' }}>
-                      Coming soon...
-                    </span>
+
+                  {/* Segmented Control Filter */}
+                  <div className="revenue-stream-segmented">
+                    <button 
+                      className={`rev-seg-btn ${revenueStreamFilter === 'ALL' ? 'active' : ''}`}
+                      onClick={() => handleSetRevenueStreamFilter('ALL')}
+                    >
+                      <FiLayers /> All Streams
+                    </button>
+                    <button 
+                      className={`rev-seg-btn ${revenueStreamFilter === 'BOOST' ? 'active' : ''}`}
+                      onClick={() => handleSetRevenueStreamFilter('BOOST')}
+                    >
+                      <FiZap /> Ad Boosting
+                    </button>
+                    <button 
+                      className={`rev-seg-btn ${revenueStreamFilter === 'COMMISSION' ? 'active' : ''}`}
+                      onClick={() => handleSetRevenueStreamFilter('COMMISSION')}
+                    >
+                      <FiCheckCircle /> 5% Commission
+                    </button>
                   </div>
                 </div>
 
-                <div className="chart-container blurred-chart-container">
-                  {/* Blurred Background Chart */}
-                  <div className="blurred-chart-content">
-                    <ResponsiveContainer width="100%" height={400}>
-                      <LineChart data={performanceData.revenueData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={{ r: 6 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                {/* 2. Executive KPI Cards Grid */}
+                <div className="revenue-kpi-grid">
+                  {/* Card 1: Total Platform Revenue */}
+                  <div 
+                    className={`rev-kpi-card total-card ${revenueStreamFilter === 'ALL' ? 'highlighted' : ''}`}
+                    onClick={() => handleSetRevenueStreamFilter('ALL')}
+                  >
+                    <div className="rev-kpi-header">
+                      <span className="rev-kpi-label">Total Platform Revenue</span>
+                      <div className="rev-kpi-icon total"><FiDollarSign /></div>
+                    </div>
+                    <div className="rev-kpi-value-row">
+                      <span className="rev-currency">Rs.</span>
+                      <span className="rev-amount">
+                        {Number(revenueStats.totalIncomeLkr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="rev-code">LKR</span>
+                    </div>
+                    <div className="rev-kpi-footer">
+                      <span className="rev-kpi-tag total">
+                        <FiArrowUpRight /> All Monetization
+                      </span>
+                      <span className="rev-kpi-meta">{revenueStats.totalTransactions || 0} Total Events</span>
+                    </div>
                   </div>
 
-                  {/* Overlay Banner */}
-                  <div className="coming-soon-overlay">
-                    <div className="coming-soon-modal-card">
-                      <div className="coming-soon-icon-wrap">
-                        <FiLock className="coming-soon-lock-icon" />
-                      </div>
-                      <h4 className="coming-soon-heading">Comming on the next version</h4>
-                      <p className="coming-soon-desc">
-                        Revenue Growth Analytics and real-time financial tracking are currently under development and will be available in the upcoming version release.
-                      </p>
-                      <div className="coming-soon-pill-badge">
-                        <span>✨ Upcoming Feature</span>
-                      </div>
+                  {/* Card 2: Post Ad Boosting */}
+                  <div 
+                    className={`rev-kpi-card boost-card ${revenueStreamFilter === 'BOOST' ? 'highlighted' : ''}`}
+                    onClick={() => handleSetRevenueStreamFilter('BOOST')}
+                  >
+                    <div className="rev-kpi-header">
+                      <span className="rev-kpi-label">Provider Ad Boosting</span>
+                      <div className="rev-kpi-icon boost"><FiZap /></div>
                     </div>
+                    <div className="rev-kpi-value-row">
+                      <span className="rev-currency">Rs.</span>
+                      <span className="rev-amount">
+                        {Number(revenueStats.totalBoostRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="rev-code">LKR</span>
+                    </div>
+                    <div className="rev-kpi-footer">
+                      <span className="rev-kpi-tag boost">
+                        {revenueStats.totalBoostTransactions || 0} Boost Ads
+                      </span>
+                      <span className="rev-kpi-meta">{revenueStats.totalBoostSteps || 0} Boost Steps</span>
+                    </div>
+                  </div>
+
+                  {/* Card 3: 5% Booking Commission */}
+                  <div 
+                    className={`rev-kpi-card comm-card ${revenueStreamFilter === 'COMMISSION' ? 'highlighted' : ''}`}
+                    onClick={() => handleSetRevenueStreamFilter('COMMISSION')}
+                  >
+                    <div className="rev-kpi-header">
+                      <span className="rev-kpi-label">Service 5% Commission</span>
+                      <div className="rev-kpi-icon comm"><FiCheckCircle /></div>
+                    </div>
+                    <div className="rev-kpi-value-row">
+                      <span className="rev-currency">Rs.</span>
+                      <span className="rev-amount">
+                        {Number(revenueStats.totalCommissionRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="rev-code">LKR</span>
+                    </div>
+                    <div className="rev-kpi-footer">
+                      <span className="rev-kpi-tag comm">
+                        {revenueStats.totalCompletedBookings || 0} Completed Jobs
+                      </span>
+                      <span className="rev-kpi-meta">5% Direct Fee</span>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Gross GMV */}
+                  <div className="rev-kpi-card gmv-card">
+                    <div className="rev-kpi-header">
+                      <span className="rev-kpi-label">Marketplace Gross GMV</span>
+                      <div className="rev-kpi-icon gmv"><FiActivity /></div>
+                    </div>
+                    <div className="rev-kpi-value-row">
+                      <span className="rev-currency">Rs.</span>
+                      <span className="rev-amount">
+                        {Number(revenueStats.totalBookingVolume || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="rev-code">LKR</span>
+                    </div>
+                    <div className="rev-kpi-footer">
+                      <span className="rev-kpi-tag gmv">100% Volume</span>
+                      <span className="rev-kpi-meta">Total Service Value</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. High-End Interactive Chart */}
+                <div className="revenue-chart-box">
+                  <div className="revenue-chart-header">
+                    <div>
+                      <h4 className="revenue-chart-title">
+                        {revenueStreamFilter === 'ALL'
+                          ? 'Monthly Multi-Stream Revenue Dynamics'
+                          : revenueStreamFilter === 'BOOST'
+                          ? 'Provider Post Ad Boosting Trajectory'
+                          : 'Service Booking Platform 5% Commission Trajectory'}
+                      </h4>
+                      <span className="revenue-chart-caption">
+                        {revenueStreamFilter === 'ALL'
+                          ? 'Comparing total net earnings with individual stream contributions (LKR)'
+                          : `Visualizing monthly earnings for ${revenueStreamFilter === 'BOOST' ? 'Ad Boosting' : '5% Direct Commission'}`}
+                      </span>
+                    </div>
+                    <div className="revenue-chart-legend-pills">
+                      {revenueStreamFilter === 'ALL' && (
+                        <>
+                          <span className="leg-pill leg-total"><span className="leg-dot total"></span> Total Net</span>
+                          <span className="leg-pill leg-boost"><span className="leg-dot boost"></span> Ad Boost</span>
+                          <span className="leg-pill leg-comm"><span className="leg-dot comm"></span> 5% Commission</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="chart-container" style={{ padding: '8px 0 0 0' }}>
+                    <ResponsiveContainer width="100%" height={380}>
+                      <AreaChart data={performanceData.revenueData.map(d => ({
+                        ...d,
+                        totalRevenue: d.totalRevenue !== undefined ? d.totalRevenue : d.revenue || 0,
+                        boostRevenue: d.boostRevenue !== undefined ? d.boostRevenue : 0,
+                        commissionRevenue: d.commissionRevenue !== undefined ? d.commissionRevenue : 0,
+                      }))}>
+                        <defs>
+                          <linearGradient id="totalRevenueGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.55}/>
+                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0.02}/>
+                          </linearGradient>
+                          <linearGradient id="boostRevenueGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.50}/>
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.02}/>
+                          </linearGradient>
+                          <linearGradient id="commissionRevenueGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.50}/>
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" opacity={0.7} />
+                        <XAxis 
+                          dataKey="name" 
+                          stroke="#94a3b8" 
+                          tick={{ fill: '#64748b', fontSize: 13, fontWeight: 500 }} 
+                          axisLine={{ stroke: '#e2e8f0' }}
+                          tickLine={false}
+                        />
+                        <YAxis 
+                          stroke="#94a3b8" 
+                          tick={{ fill: '#64748b', fontSize: 12 }} 
+                          tickFormatter={(val) => `Rs. ${val >= 1000 ? (val/1000).toFixed(1) + 'k' : val}`}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <RechartsTooltip 
+                          formatter={(value, name) => [`Rs. ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`, name]}
+                          labelFormatter={(label) => `Month: ${label}`}
+                          contentStyle={{ 
+                            backgroundColor: 'rgba(255, 255, 255, 0.96)', 
+                            borderRadius: '12px', 
+                            border: '1px solid #e2e8f0', 
+                            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05)',
+                            padding: '12px 16px',
+                            backdropFilter: 'blur(8px)'
+                          }}
+                        />
+
+                        {revenueStreamFilter === 'ALL' && (
+                          <>
+                            <Area 
+                              type="monotone" 
+                              dataKey="totalRevenue" 
+                              name="Total Combined Revenue" 
+                              stroke="#4f46e5" 
+                              strokeWidth={3.5} 
+                              fillOpacity={1} 
+                              fill="url(#totalRevenueGrad)" 
+                              dot={{ r: 5, fill: '#4f46e5', stroke: '#ffffff', strokeWidth: 2 }}
+                              activeDot={{ r: 8, fill: '#3730a3', stroke: '#ffffff', strokeWidth: 2.5 }}
+                            />
+                            <Area 
+                              type="monotone" 
+                              dataKey="boostRevenue" 
+                              name="Post Ad Boosting Income" 
+                              stroke="#059669" 
+                              strokeWidth={2.2} 
+                              fillOpacity={0.12} 
+                              fill="url(#boostRevenueGrad)" 
+                              dot={{ r: 4, fill: '#059669', stroke: '#ffffff', strokeWidth: 1.5 }}
+                              activeDot={{ r: 7, fill: '#047857' }}
+                            />
+                            <Area 
+                              type="monotone" 
+                              dataKey="commissionRevenue" 
+                              name="Service 5% Commission" 
+                              stroke="#2563eb" 
+                              strokeWidth={2.2} 
+                              fillOpacity={0.12} 
+                              fill="url(#commissionRevenueGrad)" 
+                              dot={{ r: 4, fill: '#2563eb', stroke: '#ffffff', strokeWidth: 1.5 }}
+                              activeDot={{ r: 7, fill: '#1d4ed8' }}
+                            />
+                          </>
+                        )}
+
+                        {revenueStreamFilter === 'BOOST' && (
+                          <Area 
+                            type="monotone" 
+                            dataKey="boostRevenue" 
+                            name="Post Ad Boosting Income" 
+                            stroke="#059669" 
+                            strokeWidth={3.5} 
+                            fillOpacity={1} 
+                            fill="url(#boostRevenueGrad)" 
+                            dot={{ r: 6, fill: '#059669', stroke: '#ffffff', strokeWidth: 2 }}
+                            activeDot={{ r: 8, fill: '#047857', stroke: '#ffffff', strokeWidth: 2.5 }}
+                          />
+                        )}
+
+                        {revenueStreamFilter === 'COMMISSION' && (
+                          <Area 
+                            type="monotone" 
+                            dataKey="commissionRevenue" 
+                            name="Service Booking 5% Commission" 
+                            stroke="#2563eb" 
+                            strokeWidth={3.5} 
+                            fillOpacity={1} 
+                            fill="url(#commissionRevenueGrad)" 
+                            dot={{ r: 6, fill: '#2563eb', stroke: '#ffffff', strokeWidth: 2 }}
+                            activeDot={{ r: 8, fill: '#1d4ed8', stroke: '#ffffff', strokeWidth: 2.5 }}
+                          />
+                        )}
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
                 </div>
               </div>

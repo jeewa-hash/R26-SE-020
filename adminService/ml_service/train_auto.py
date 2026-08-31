@@ -55,25 +55,44 @@ if not os.path.exists(CSV_PATH):
 synthetic_df = pd.read_csv(CSV_PATH)
 new_records_df, new_record_ids, collection = fetch_new_records()
 
-# 2. දත්ත එකතු කිරීම සහ CSV එකට append කිරීම
-if not new_records_df.empty:
-    csv_columns = list(synthetic_df.columns)
-    new_records_df = new_records_df.reindex(columns=csv_columns)
-    new_records_df.to_csv(CSV_PATH, mode='a', header=False, index=False)
+# 2. දත්ත එකතු කිරීම සහ නව දත්ත ඒකාබද්ධ කිරීම
+csv_columns = list(synthetic_df.columns)
 
+if not new_records_df.empty:
+    new_records_df = new_records_df.reindex(columns=csv_columns)
     combined_df = pd.concat([synthetic_df, new_records_df], ignore_index=True)
-    print(f"[OK] Appended {len(new_records_df)} new records to CSV and merged for training.")
+    print(f"[OK] Merged {len(new_records_df)} new unsynced records from MongoDB Atlas into dataset.")
 else:
     combined_df = synthetic_df
-    print("[INFO] No new records to append; training on existing CSV only.")
+    print("[INFO] No new records to append; checking existing CSV dataset.")
 
-# 3. Feature Engineering - Extract date features
+# 3. 3-Year Historical Window Check (වසර 3කට වඩා පැරණි දත්ත ස්වයංක්‍රීයව මකා දැමීම)
+combined_df['ParsedDate'] = pd.to_datetime(combined_df['Date'], errors='coerce')
+
+# Cutoff date: Exactly 3 years before today (3 * 365 days)
+cutoff_date = pd.Timestamp.now() - pd.DateOffset(years=3)
+
+total_before = len(combined_df)
+combined_df = combined_df[combined_df['ParsedDate'] >= cutoff_date]
+total_purged = total_before - len(combined_df)
+
+if total_purged > 0:
+    print(f"[PURGE] Automatically removed {total_purged} records older than 3 years (prior to {cutoff_date.strftime('%Y-%m-%d')}).")
+else:
+    print(f"[INFO] All {len(combined_df)} records are within the active 3-year window (since {cutoff_date.strftime('%Y-%m-%d')}).")
+
+# Save cleaned, synchronized 3-year dataset back to CSV file
+valid_columns = [col for col in csv_columns if col in combined_df.columns]
+combined_df[valid_columns].to_csv(CSV_PATH, index=False)
+print(f"[OK] Updated '{CSV_PATH}' successfully with {len(combined_df)} active records.")
+
+# 4. Feature Engineering - Extract date features
 combined_df['Date'] = pd.to_datetime(combined_df['Date'])
 combined_df['Month'] = combined_df['Date'].dt.month
 combined_df['Day'] = combined_df['Date'].dt.day
 combined_df['DayOfWeek'] = combined_df['Date'].dt.dayofweek
 
-# 4. Processing & Training
+# 5. Processing & Training
 try:
     le_cat = LabelEncoder()
     combined_df['Category_Encoded'] = le_cat.fit_transform(combined_df['Category'])
@@ -97,11 +116,11 @@ try:
     X = combined_df[features]
     y = combined_df['Demand_Count']
 
-    print(f"[TRAINING] Training Random Forest Regressor on {len(combined_df)} total records...")
+    print(f"[TRAINING] Training Random Forest Regressor on {len(combined_df)} clean 3-year historical records...")
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X, y)
 
-    # 5. Model එක Save කිරීම
+    # 6. Model එක Save කිරීම
     if not os.path.exists('models'): 
         os.makedirs('models')
         

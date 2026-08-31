@@ -18,11 +18,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
 import { COLORS } from './theme';
-import { getStoredProviderAuth } from './services/providerAuthStorage';
+import { debugAuthStorage, getStoredProviderAuth } from './services/providerAuthStorage';
 import { getProviderJobs, getProviderQuotations, getProviderRequests } from './services/providerFlowApi';
 import { formatDate, formatFullDate, formatTime, isSameDay } from './utils/dateTimeFormatter';
 import {
   getBookingStart,
+  getBookingStatus,
   getBookingEnd,
   getBookingId,
   getQuotationId,
@@ -173,7 +174,11 @@ const QuoteCard = ({ quotation, onPress, isDark }) => {
       <View style={styles.badgeRow}>
         <Badge label={status.label} bg={status.bg} color={status.color} />
         {quotation.coordinationStatus ? (
-          <Badge label={quotation.coordinationStatus} bg={COLORS.infoSoft} color={COLORS.info} />
+          <Badge
+            label={getStatusStyle(quotation.coordinationStatus).label}
+            bg={COLORS.infoSoft}
+            color={COLORS.info}
+          />
         ) : null}
       </View>
       <View style={styles.infoBlock}>
@@ -187,7 +192,7 @@ const QuoteCard = ({ quotation, onPress, isDark }) => {
 const BookingCard = ({ booking, onPress, isDark }) => {
   const start = getBookingStart(booking);
   const end = getBookingEnd(booking);
-  const status = getStatusStyle(getStatus(booking));
+  const status = getStatusStyle(getBookingStatus(booking));
   const risk = getRiskStyle(booking.delayRiskLevel || booking.predictedDelayRiskLevel);
   return (
     <TouchableOpacity style={[styles.card, isDark && styles.cardDark]} activeOpacity={0.85} onPress={onPress}>
@@ -242,7 +247,9 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const [error, setError] = useState(null);
   const [backendWarning, setBackendWarning] = useState(null);
 
-  const normalizedRequests = useMemo(() => requests.map(normalizeRequest), [requests]);
+  const normalizedRequests = useMemo(() => requests
+    .filter((request) => String(request?.status || 'pending').toLowerCase() === 'pending')
+    .map(normalizeRequest), [requests]);
   const normalizedQuotes = useMemo(() => quotations.map((q) => normalizeQuotation(q, normalizedRequests)), [quotations, normalizedRequests]);
   const normalizedJobs = useMemo(() => jobs.map(normalizeBooking), [jobs]);
 
@@ -255,6 +262,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       setError(null);
       setBackendWarning(null);
       const auth = await getStoredProviderAuth();
+      await debugAuthStorage();
       if (!auth.isLoggedIn || !auth.providerId) {
         setProviderId(null);
         setRequests([]);
@@ -278,6 +286,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
 
         console.log('RAW PROVIDER REQUESTS:', rawRequests.length);
         console.log('FILTERED PROVIDER REQUESTS:', providerRequests.length);
+        console.log('Provider requests filter providerId:', auth.providerId);
         console.log('FIRST RAW REQUEST:', JSON.stringify(rawRequests[0], null, 2));
 
         setRequests(providerRequests);
@@ -299,6 +308,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
 
         console.log('RAW PROVIDER QUOTATIONS:', rawQuotations.length);
         console.log('FILTERED PROVIDER QUOTATIONS:', providerQuotations.length);
+        console.log('Provider quotations filter providerId:', auth.providerId);
 
         setQuotations(providerQuotations);
       } else {
@@ -312,6 +322,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
 
         console.log('RAW PROVIDER JOBS:', rawJobs.length);
         console.log('FILTERED PROVIDER JOBS:', providerJobs.length);
+        console.log('Provider jobs filter providerId:', auth.providerId);
 
         setJobs(providerJobs);
       } else {

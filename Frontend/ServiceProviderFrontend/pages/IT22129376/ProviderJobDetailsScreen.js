@@ -1,152 +1,119 @@
-// pages/IT22129376/ProviderJobDetailsScreen.js
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS } from './theme';
-import { completeProviderJob, reportProviderDelay, startProviderJob } from './services/providerFlowApi';
-import { formatDateTime, formatTime } from './utils/dateTimeFormatter';
-import { getBookingEnd, getBookingId, getBookingStart, getLocation, getRiskStyle, getServiceCategory, getServiceTitle, getSeekerName, getStatus, getStatusStyle } from './utils/providerFlowMapper';
+import { useFocusEffect } from '@react-navigation/native';
+import {
+  getBookingEndDate, getBookingId, getBookingStartDate, getBookingStatus,
+  getHumanLocation, getHumanSeekerName, getHumanServiceTitle,
+  getProviderBookingById, statusLabel, updateBookingLifecycle,
+} from '../../services/providerFlowApi';
+import { getStoredProviderAuth } from './services/providerAuthStorage';
 
-const Row = ({ label, value }) => (
-  <View style={styles.row}>
-    <Text style={styles.rowLabel}>{label}</Text>
-    <Text style={styles.rowValue}>{value || '-'}</Text>
-  </View>
-);
-
-const Badge = ({ label, bg, color }) => (
-  <View style={[styles.badge, { backgroundColor: bg }]}> 
-    <Text style={[styles.badgeText, { color }]}>{label}</Text>
-  </View>
-);
+const formatDateTime = (value) => value && !Number.isNaN(value.getTime())
+  ? value.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+  : 'Not scheduled';
 
 export default function ProviderJobDetailsScreen({ route, navigation }) {
-  const [booking, setBooking] = useState(route?.params?.booking || {});
-  const bookingId = route?.params?.bookingId || getBookingId(booking);
-  const [delayReason, setDelayReason] = useState('');
-  const [loadingAction, setLoadingAction] = useState(null);
+  const initialBooking = route?.params?.booking || {};
+  const [booking, setBooking] = useState(initialBooking);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [updating, setUpdating] = useState(false);
+  const [delayReason, setDelayReason] = useState('Provider needs additional time');
+  const [extraMinutes, setExtraMinutes] = useState('30');
+  const bookingId = getBookingId(booking) || getBookingId(initialBooking);
+  const status = getBookingStatus(booking);
 
-  const status = getStatusStyle(getStatus(booking));
-  const risk = getRiskStyle(booking.delayRiskLevel || booking.predictedDelayRiskLevel);
-
-  const runAction = async (actionName, fn, successStatus) => {
-    if (!bookingId) {
-      Alert.alert('Missing Booking', 'Booking ID was not found.');
+  const loadBooking = useCallback(async () => {
+    const { token, providerId } = await getStoredProviderAuth();
+    console.log('LOGGED PROVIDER ID:', providerId);
+    if (!token || !providerId || !bookingId) {
+      setError('Unable to load data right now. Please check your connection and try again.');
       return;
     }
-    setLoadingAction(actionName);
     try {
-      await fn();
-      setBooking((current) => ({ ...current, status: successStatus }));
-      Alert.alert('Success', `${actionName} updated successfully.`);
-    } catch (error) {
-      console.log(`${actionName} failed:`, error);
-      Alert.alert('Action Failed', error.message || `Could not update ${actionName}.`);
+      setLoading(true);
+      setError('');
+      const row = await getProviderBookingById(bookingId);
+      if (row && typeof row === 'object') setBooking(row);
+    } catch (loadError) {
+      console.log('Provider booking details load failed:', loadError?.message);
+      setError('Unable to load data right now. Please check your connection and try again.');
     } finally {
-      setLoadingAction(null);
+      setLoading(false);
+    }
+  }, [bookingId]);
+
+  useFocusEffect(useCallback(() => { loadBooking(); }, [loadBooking]));
+
+  const runAction = async (action, body = {}) => {
+    try {
+      setUpdating(true);
+      await updateBookingLifecycle(bookingId, action, body);
+      const messages = { 'confirm-ready': 'Ready confirmed.', start: 'Job started successfully.', 'report-delay': 'Delay reported successfully.', complete: 'Job completed successfully.' };
+      Alert.alert('Success', messages[action]);
+      await loadBooking();
+    } catch (actionError) {
+      Alert.alert('Update Failed', actionError?.message || 'Unable to update this job right now. Please try again.');
+    } finally {
+      setUpdating(false);
     }
   };
 
-  const handleStart = () => runAction('Start Job', () => startProviderJob(bookingId), 'IN_PROGRESS');
-  const handleComplete = () => runAction('Complete Job', () => completeProviderJob(bookingId), 'COMPLETED');
-  const handleDelay = () => {
-    if (!delayReason.trim()) {
-      Alert.alert('Delay Reason Required', 'Please add a short delay reason.');
-      return;
-    }
-    runAction('Report Delay', () => reportProviderDelay(bookingId, delayReason.trim()), 'DELAY_REPORTED');
-  };
+  const confirmAction = (title, message, action) => Alert.alert(title, message, [
+    { text: 'Cancel', style: 'cancel' }, { text: title, onPress: () => runAction(action) },
+  ]);
+
+  if (loading && !getBookingId(booking)) {
+    return <SafeAreaView style={styles.container}><View style={styles.loading}><ActivityIndicator color="#667eea" /><Text style={styles.row}>Loading...</Text></View></SafeAreaView>;
+  }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-      <LinearGradient colors={[COLORS.primary, COLORS.purple]} style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={23} color="#fff" />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Job Details</Text>
-          <Text style={styles.headerSub}>Manage provider job lifecycle</Text>
-        </View>
-      </LinearGradient>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}><Ionicons name="arrow-back" size={24} color="#111827" /></TouchableOpacity>
+        <Text style={styles.headerTitle}>Job Details</Text>
+      </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.card}>
-          <View style={styles.cardTop}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>{getServiceTitle(booking)}</Text>
-              <Text style={styles.subtitle}>{getServiceCategory(booking)}</Text>
+          <Text style={styles.title}>{getHumanServiceTitle(booking)}</Text>
+          <Text style={styles.status}>{statusLabel(status)}</Text>
+          <Text style={styles.row}>Scheduled: {formatDateTime(getBookingStartDate(booking))} – {formatDateTime(getBookingEndDate(booking))}</Text>
+          <Text style={styles.row}>Customer: {getHumanSeekerName(booking)}</Text>
+          <Text style={styles.row}>Location: {getHumanLocation(booking)}</Text>
+          <Text style={styles.row}>Amount: {Number(booking?.finalAmount || booking?.amount || 0) ? `LKR ${Number(booking?.finalAmount || booking?.amount).toLocaleString()}` : 'Not set'}</Text>
+          <Text style={styles.row}>Delay Risk: {booking?.delayRiskLevel || 'UNKNOWN'}</Text>
+          {status === 'CONFIRMED' ? <Text style={styles.info}>Booking confirmed</Text> : null}
+          {status === 'IN_PROGRESS' ? <Text style={styles.info}>Service in progress</Text> : null}
+          {status === 'COMPLETED' ? <Text style={styles.success}>Job completed</Text> : null}
+          {booking?.providerReadyConfirmed ? <Text style={styles.success}>Ready confirmed</Text> : null}
+          {status === 'DELAY_REPORTED' ? (
+            <View style={styles.delayBox}>
+              <Text style={styles.warning}>Delay reason: {booking?.delayInfo?.delayReason || 'Not provided'}</Text>
+              <Text style={styles.warning}>Additional delay: {booking?.delayInfo?.additionalDelayMins || booking?.delayInfo?.extraTimeMinutes || 0} minutes</Text>
+              <Text style={styles.warning}>Expected end: {booking?.delayInfo?.expectedEndTime ? new Date(booking.delayInfo.expectedEndTime).toLocaleString() : 'Not provided'}</Text>
+              <Text style={styles.warning}>Impact: {booking?.delayInfo?.delayImpactStatus || 'NONE'}</Text>
             </View>
+          ) : null}
+          {booking?.delayInfo?.delayImpactStatus === 'NEXT_BOOKING_AT_RISK' ? <Text style={styles.riskWarning}>This delay may affect your next scheduled job.</Text> : null}
+          {['CONFIRMED', 'IN_PROGRESS'].includes(status) ? <><TextInput style={styles.input} value={delayReason} onChangeText={setDelayReason} placeholder="Delay reason" /><TextInput style={styles.input} value={extraMinutes} onChangeText={setExtraMinutes} keyboardType="numeric" placeholder="Extra minutes" /></> : null}
+          <View style={styles.actions}>
+            {status === 'CONFIRMED' ? <><TouchableOpacity disabled={updating} style={styles.button} onPress={() => runAction('confirm-ready')}><Text style={styles.buttonText}>Confirm Ready</Text></TouchableOpacity><TouchableOpacity disabled={updating} style={styles.button} onPress={() => confirmAction('Start Job', 'Start this job now?', 'start')}><Text style={styles.buttonText}>Start Job</Text></TouchableOpacity></> : null}
+            {['CONFIRMED', 'IN_PROGRESS'].includes(status) ? <TouchableOpacity disabled={updating} style={styles.warningButton} onPress={() => runAction('report-delay', { delayReason, extraTimeMinutes: Number(extraMinutes) || 30 })}><Text style={styles.warningButtonText}>Report Delay</Text></TouchableOpacity> : null}
+            {['IN_PROGRESS', 'DELAY_REPORTED'].includes(status) ? <TouchableOpacity disabled={updating} style={styles.successButton} onPress={() => confirmAction('Complete Job', 'Mark this job as completed?', 'complete')}><Text style={styles.successButtonText}>Complete Job</Text></TouchableOpacity> : null}
           </View>
-
-          <View style={styles.badgeRow}>
-            <Badge label={status.label} bg={status.bg} color={status.color} />
-            <Badge label={risk.label} bg={risk.bg} color={risk.color} />
-          </View>
-
-          <Row label="Booking ID" value={bookingId} />
-          <Row label="Seeker" value={getSeekerName(booking)} />
-          <Row label="Scheduled Start" value={formatDateTime(getBookingStart(booking))} />
-          <Row label="Scheduled End" value={formatDateTime(getBookingEnd(booking))} />
-          <Row label="Time Window" value={`${formatTime(getBookingStart(booking))} - ${formatTime(getBookingEnd(booking))}`} />
-          <Row label="Location" value={getLocation(booking)} />
-          <Row label="Final Amount" value={booking.finalAmount || booking.price ? `LKR ${booking.finalAmount || booking.price}` : '-'} />
-          <Row label="Coordination Status" value={booking.coordinationStatus || booking.finalDecision} />
-          <Row label="Notes" value={booking.notes || booking.description} />
         </View>
-
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Provider Actions</Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={handleStart} disabled={loadingAction !== null}>
-            {loadingAction === 'Start Job' ? <ActivityIndicator color="#fff" /> : <><Ionicons name="play-outline" size={19} color="#fff" /><Text style={styles.primaryButtonText}>Start Job</Text></>}
-          </TouchableOpacity>
-
-          <TextInput
-            style={styles.delayInput}
-            value={delayReason}
-            onChangeText={setDelayReason}
-            placeholder="Delay reason, e.g. traffic delay"
-            placeholderTextColor="#9CA3AF"
-            multiline
-          />
-          <TouchableOpacity style={styles.warningButton} onPress={handleDelay} disabled={loadingAction !== null}>
-            {loadingAction === 'Report Delay' ? <ActivityIndicator color="#fff" /> : <><Ionicons name="warning-outline" size={19} color="#fff" /><Text style={styles.primaryButtonText}>Report Delay</Text></>}
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.successButton} onPress={handleComplete} disabled={loadingAction !== null}>
-            {loadingAction === 'Complete Job' ? <ActivityIndicator color="#fff" /> : <><Ionicons name="checkmark-done-outline" size={19} color="#fff" /><Text style={styles.primaryButtonText}>Complete Job</Text></>}
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ height: 80 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.bg },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingBottom: 26, gap: 12, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#fff', fontSize: 24, fontWeight: '900' },
-  headerSub: { color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 3, fontWeight: '600' },
-  content: { padding: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 22, padding: 16, borderWidth: 1, borderColor: COLORS.border, marginBottom: 14 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 },
-  title: { color: COLORS.text, fontSize: 20, fontWeight: '900' },
-  subtitle: { color: COLORS.muted, fontSize: 13, fontWeight: '700', marginTop: 4 },
-  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-  badgeText: { fontSize: 11, fontWeight: '900' },
-  row: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-  rowLabel: { color: COLORS.muted, fontSize: 12, fontWeight: '800', marginBottom: 4 },
-  rowValue: { color: COLORS.text, fontSize: 14, fontWeight: '700', lineHeight: 20 },
-  sectionTitle: { color: COLORS.text, fontSize: 17, fontWeight: '900', marginBottom: 12 },
-  primaryButton: { backgroundColor: COLORS.primary, borderRadius: 16, height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 },
-  warningButton: { backgroundColor: COLORS.warning, borderRadius: 16, height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 },
-  successButton: { backgroundColor: COLORS.success, borderRadius: 16, height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
-  delayInput: { height: 86, backgroundColor: '#F9FAFB', borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 12, color: COLORS.text, marginBottom: 12, textAlignVertical: 'top', fontWeight: '700' },
+  container: { flex: 1, backgroundColor: '#F9FAFB' }, header: { paddingTop: 48, paddingHorizontal: 16, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff' },
+  backButton: { marginRight: 12 }, headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' }, content: { padding: 16 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 18 }, title: { fontSize: 20, fontWeight: '800', color: '#111827' }, status: { marginTop: 8, color: '#6366F1', fontWeight: '800' }, row: { marginTop: 12, color: '#4B5563', fontSize: 15 },
+  info: { marginTop: 12, color: '#2563EB', fontWeight: '800' }, success: { marginTop: 12, color: '#047857', fontWeight: '800' }, delayBox: { marginTop: 12, backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10 }, warning: { color: '#B45309', marginBottom: 5 }, riskWarning: { marginTop: 12, color: '#B45309', backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10, fontWeight: '700' },
+  error: { color: '#B91C1C', backgroundColor: '#FEE2E2', padding: 12, borderRadius: 10, marginBottom: 12 }, input: { marginTop: 12, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, padding: 12, color: '#111827' }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
+  button: { backgroundColor: '#667eea', borderRadius: 10, padding: 12 }, buttonText: { color: '#fff', fontWeight: '800' }, warningButton: { backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12 }, warningButtonText: { color: '#B45309', fontWeight: '800' }, successButton: { backgroundColor: '#D1FAE5', borderRadius: 10, padding: 12 }, successButtonText: { color: '#047857', fontWeight: '800' },
 });

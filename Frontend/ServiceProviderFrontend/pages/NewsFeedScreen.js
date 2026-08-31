@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useContext } from 'react';
+import React, { useState, useMemo, useEffect, useContext, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -11,9 +11,11 @@ import {
 } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { CATEGORIES, CATEGORY_COLORS } from '../constants/feedData';
 import { JOB_STATUS } from '../constants/jobStatus';
 import { useAppliedJobs } from '../context/AppliedJobsContext';
@@ -24,8 +26,29 @@ import MidAnnouncementCard from '../components/feed/MidAnnouncementCard';
 import HeaderSection from '../components/HeaderSection';
 import i18n from '../locales';
 import { ThemeContext } from '../context/ThemeContext';
+import { getStoredProviderAuth } from './IT22129376/services/providerAuthStorage';
+import {
+  getProviderJobs,
+  getProviderOngoingJobs,
+  getProviderQuotations,
+  getProviderRequests,
+} from './IT22129376/services/providerFlowApi';
 
 const { width } = Dimensions.get('window');
+
+const getProviderIdFromItem = (item) =>
+  item?.providerId?._id ||
+  item?.providerId ||
+  item?.provider?._id ||
+  item?.provider?.id ||
+  item?.providerSnapshot?.providerId?._id ||
+  item?.providerSnapshot?.providerId ||
+  '';
+
+const belongsToProvider = (item, providerId) => {
+  const itemProviderId = getProviderIdFromItem(item);
+  return !itemProviderId || String(itemProviderId) === String(providerId);
+};
 
 // ── Inline Applied Jobs View ──
 function AppliedJobsView({ isDark }) {
@@ -151,10 +174,67 @@ export default function NewsFeedScreen() {
   const [viewerId, setViewerId] = useState(null);
   const [userName, setUserName] = useState('Kasun');
   const [userAvatar, setUserAvatar] = useState(null);
+  const [summary, setSummary] = useState({ pending: 0, waiting: 0, scheduled: 0, ongoing: 0, completed: 0, rejected: 0 });
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState(false);
 
   const C = isDark
     ? { bg: '#0F0F0F', card: '#1C1C1E', text: '#F2F2F7', textSub: '#8E8E93', border: '#2C2C2E', subCard: '#2A2A2A' }
     : { bg: '#F8FAFC', card: '#FFFFFF', text: '#111827', textSub: '#6B7280', border: '#E5E7EB', subCard: '#F9FAFB' };
+
+  const loadProviderSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    setSummaryError(false);
+    try {
+      const auth = await getStoredProviderAuth();
+      if (!auth.isLoggedIn || !auth.providerId) throw new Error('Provider authentication required');
+      console.log('LOGGED PROVIDER ID:', auth.providerId);
+
+      const results = await Promise.allSettled([
+        getProviderRequests(auth.providerId),
+        getProviderQuotations(auth.providerId),
+        getProviderJobs(auth.providerId),
+        getProviderOngoingJobs(auth.providerId),
+      ]);
+      if (results.some((result) => result.status === 'rejected')) {
+        throw new Error('One or more provider summary APIs failed');
+      }
+
+      const requests = (results[0].value.rawList || []).filter((item) => belongsToProvider(item, auth.providerId));
+      const quotations = (results[1].value.rawList || []).filter((item) => belongsToProvider(item, auth.providerId));
+      const bookings = (results[2].value.rawList || []).filter((item) => belongsToProvider(item, auth.providerId));
+      const ongoingBookings = (results[3].value.rawList || []).filter((item) => belongsToProvider(item, auth.providerId));
+
+      setSummary({
+        pending: requests.filter((item) => String(item.status || '').toLowerCase() === 'pending').length,
+        waiting: quotations.filter((item) => String(item.status || '').toUpperCase() === 'SENT').length,
+        scheduled: bookings.filter((item) => item.bookingStatus === 'CONFIRMED').length,
+        ongoing: ongoingBookings.filter((item) => ['IN_PROGRESS', 'DELAY_REPORTED'].includes(item.bookingStatus)).length,
+        completed: bookings.filter((item) => item.bookingStatus === 'COMPLETED').length,
+        rejected: quotations.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED').length,
+      });
+    } catch (error) {
+      console.log('Provider summary load error:', error?.message);
+      setSummaryError(true);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    loadProviderSummary();
+  }, [loadProviderSummary]));
+
+  const openMyJobs = () => navigation.getParent()?.navigate('Bookings');
+
+  const summaryCards = [
+    { key: 'pending', label: 'Pending Requests', icon: 'pending-actions', color: '#F59E0B' },
+    { key: 'waiting', label: 'Waiting for Seeker', icon: 'hourglass-top', color: '#8B5CF6' },
+    { key: 'scheduled', label: 'Scheduled', icon: 'event-available', color: '#10B981' },
+    { key: 'ongoing', label: 'Ongoing', icon: 'engineering', color: '#3B82F6' },
+    { key: 'completed', label: 'Completed', icon: 'task-alt', color: '#059669' },
+    { key: 'rejected', label: 'Not Selected', icon: 'cancel', color: '#EF4444' },
+  ];
 
   // Category icons mapping
   const getCategoryIcon = (category) => {
@@ -192,8 +272,9 @@ export default function NewsFeedScreen() {
 
     const fetchNotificationsCount = async () => {
       try {
-        const token = await AsyncStorage.getItem('userToken');
-        const userId = (await AsyncStorage.getItem('userId')) || '69fc31f3cfe41c4d62e6f9ee';
+        const auth = await getStoredProviderAuth();
+        const token = auth.token;
+        const userId = auth.providerId;
 
         let count = 0;
         try {
@@ -237,8 +318,9 @@ export default function NewsFeedScreen() {
     let mounted = true;
     const load = async () => {
       try {
-        const token = await AsyncStorage.getItem('userToken');
-        const storedProviderId = (await AsyncStorage.getItem('userId')) || null;
+        const auth = await getStoredProviderAuth();
+        const token = auth.token;
+        const storedProviderId = auth.providerId;
         if (mounted) setViewerId(storedProviderId);
 
         if (!token) {
@@ -385,6 +467,37 @@ export default function NewsFeedScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        <View style={styles.summarySection}>
+          <Text style={[styles.summaryTitle, { color: C.text }]}>My Work Summary</Text>
+          {summaryLoading ? (
+            <Text style={[styles.summaryMessage, { color: C.textSub }]}>Loading provider summary...</Text>
+          ) : summaryError ? (
+            <Text style={[styles.summaryMessage, { color: C.textSub }]}>Unable to load provider summary right now.</Text>
+          ) : (
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.summaryCards}>
+                {summaryCards.map((card) => (
+                  <TouchableOpacity
+                    key={card.key}
+                    style={[styles.summaryCard, { backgroundColor: C.card, borderColor: C.border }]}
+                    onPress={openMyJobs}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.summaryIcon, { backgroundColor: `${card.color}18` }]}>
+                      <MaterialIcons name={card.icon} size={20} color={card.color} />
+                    </View>
+                    <Text style={[styles.summaryCount, { color: C.text }]}>{summary[card.key]}</Text>
+                    <Text style={[styles.summaryLabel, { color: C.textSub }]}>{card.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              {Object.values(summary).every((count) => count === 0) ? (
+                <Text style={[styles.summaryEmpty, { color: C.textSub }]}>No active provider work yet. New requests, quotations, and bookings will appear here.</Text>
+              ) : null}
+            </>
+          )}
+        </View>
+
         {/* Slideshow - Top */}
         <View style={styles.slideshowContainer}>
           <AnnouncementSlideshow />
@@ -409,27 +522,29 @@ export default function NewsFeedScreen() {
                   style={[
                     styles.quickCategoryChip,
                     isActive && styles.quickCategoryChipActive,
-                    { 
-                      backgroundColor: isActive ? color : (isDark ? '#2C2C2E' : '#F3F4F6'),
-                      borderColor: isActive ? color : (isDark ? '#3A3A3C' : '#E5E7EB'),
-                    }
+                    !isActive && {
+                      backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                      borderColor: isDark ? '#334155' : '#E2E8F0',
+                    },
                   ]}
                   activeOpacity={0.7}
                 >
-                  <MaterialIcons 
-                    name={icon} 
-                    size={18} 
-                    color={isActive ? '#FFFFFF' : (isDark ? '#8E8E93' : '#6B7280')} 
-                  />
-                  <Text style={[
-                    styles.quickCategoryText,
-                    isActive && styles.quickCategoryTextActive,
-                    { color: isActive ? '#FFFFFF' : (isDark ? '#F2F2F7' : '#1F2937') }
-                  ]}>
-                    {cat}
-                  </Text>
-                  {isActive && (
-                    <View style={styles.activeIndicator} />
+                  {isActive ? (
+                    <LinearGradient
+                      colors={[color, color + 'BB']}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                      style={styles.chipGradient}
+                    >
+                      <MaterialIcons name={icon} size={17} color="#FFF" />
+                      <Text style={[styles.quickCategoryText, styles.quickCategoryTextActive, { color: '#FFF' }]}>
+                        {cat}
+                      </Text>
+                    </LinearGradient>
+                  ) : (
+                    <>
+                      <MaterialIcons name={icon} size={17} color={isDark ? '#94A3B8' : '#64748B'} />
+                      <Text style={[styles.quickCategoryText, { color: isDark ? '#CBD5E1' : '#374151' }]}>{cat}</Text>
+                    </>
                   )}
                 </TouchableOpacity>
               );
@@ -484,14 +599,15 @@ export default function NewsFeedScreen() {
             <View style={[styles.recentSection, { paddingHorizontal: 20 }]}>
               <View style={styles.sectionHeader}>
                 <View>
-                  <Text style={[styles.sectionTitle, { color: C.text }]}>
-                    Recent Opportunities
-                  </Text>
+                  <View style={styles.sectionAccentRow}>
+                    <LinearGradient colors={['#7C3AED', '#4F46E5']} style={styles.sectionAccent} />
+                    <Text style={[styles.sectionTitle, { color: C.text }]}>Recent Opportunities</Text>
+                  </View>
                   <Text style={[styles.sectionSubtitle, { color: C.textSub }]}>
                     Latest service requests near you
                   </Text>
                 </View>
-                <View style={[styles.resultBadge, { backgroundColor: isDark ? '#2C2C2E' : '#F3E8FF' }]}>
+                <View style={[styles.resultBadge, { backgroundColor: isDark ? '#1E293B' : '#F3E8FF' }]}>
                   <Text style={[styles.resultBadgeText, { color: isDark ? '#A78BFA' : '#7C3AED' }]}>
                     {filteredPosts.length} jobs
                   </Text>
@@ -534,6 +650,15 @@ export default function NewsFeedScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingBottom: 20 },
+  summarySection: { paddingTop: 16, marginBottom: 4 },
+  summaryTitle: { paddingHorizontal: 20, fontSize: 18, fontWeight: '800', marginBottom: 12 },
+  summaryMessage: { paddingHorizontal: 20, fontSize: 13, marginBottom: 12 },
+  summaryCards: { paddingHorizontal: 20, gap: 10, paddingBottom: 8 },
+  summaryCard: { width: 132, borderWidth: 1, borderRadius: 16, padding: 13 },
+  summaryIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  summaryCount: { fontSize: 22, fontWeight: '900' },
+  summaryLabel: { fontSize: 12, fontWeight: '700', marginTop: 3 },
+  summaryEmpty: { paddingHorizontal: 20, fontSize: 13, lineHeight: 19, marginTop: 4, marginBottom: 8 },
 
   // Slideshow
   slideshowContainer: {

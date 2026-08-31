@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import dns from "node:dns";
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
 import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
 import logger from "./utils/logger.js";

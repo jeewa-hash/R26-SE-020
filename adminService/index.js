@@ -44,6 +44,8 @@ app.get('/', (req, res) => {
     res.send('🚀 R26-SE-020 Backend Server is Running!');
 });
 
+const { initBookingWatcher } = require('./controllers/mlDataController');
+
 // --- Server Port ---
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
@@ -51,4 +53,7 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on: http://localhost:${PORT}`);
     console.log(`📂 ML Data Logging: http://localhost:${PORT}/api/test-log`);
     console.log(`----------------------------------------------`);
+    
+    // Start Real-Time Watcher for Bookings -> service_data_for_csvs
+    initBookingWatcher();
 });

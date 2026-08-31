@@ -15,8 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { ThemeContext } from '../context/ThemeContext';
 import { LanguageContext } from '../context/LanguageContext';
 import SettingsScreen from '../screens/SettingsScreen';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { clearCredentials } from '../utils/biometricAuth';
+import { clearAllAuthStorage } from '../pages/IT22129376/services/providerAuthStorage';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
@@ -30,7 +29,7 @@ const LANGUAGES = [
 const SIDEBAR_MENU = [
   { id: '1', icon: 'edit', label: 'Edit Profile', route: 'EditProfile', color: '#2563EB', bg: '#EFF6FF' },
   { id: '2', icon: 'rate-review', label: 'Submit Inquiry', route: 'SubmitInquiry', color: '#7C3AED', bg: '#F5F3FF' },
-  { id: '3', icon: 'emoji-events', label: 'My Badges', route: 'Badges', color: '#F59E0B', bg: '#FFFBEB' },
+  { id: '3', icon: 'emoji-events', label: 'Requested Qutations', route: 'Badges', color: '#F59E0B', bg: '#FFFBEB' },
   { id: '4', icon: 'credit-card', label: 'Subscription', route: 'Subscription', color: '#059669', bg: '#ECFDF5' },
   { id: '5', icon: 'settings', label: 'Settings', route: 'Settings', color: '#6B7280', bg: '#F9FAFB' },
   { id: '6', icon: 'help-outline', label: 'Help & Support', route: 'Help', color: '#0891B2', bg: '#ECFEFF' },
@@ -105,27 +104,7 @@ export default function ProfileHeader({
   };
 
   const handleLogout = async () => {
-    try {
-      await clearCredentials();
-    } catch (e) {}
-
-    const keysToClear = [
-      'userToken',
-      'token',
-      'authToken',
-      'accessToken',
-      'userId',
-      'providerId',
-      'seekerId',
-      'userRole',
-      'role',
-      'user',
-      'currentUser',
-      'provider',
-      'seeker',
-    ];
-    await AsyncStorage.multiRemove(keysToClear);
-    console.log('LOGOUT: all auth keys cleared');
+    await clearAllAuthStorage();
 
     navigation.dispatch(
       CommonActions.reset({

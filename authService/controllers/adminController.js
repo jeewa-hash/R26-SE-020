@@ -178,6 +178,175 @@ exports.logout = async (req, res) => {
   }
 };
 
+// Request Password Reset OTP
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid registered email address.' });
+    }
+
+    const admin = await Admin.findOne({ email: email.toLowerCase().trim() });
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'No administrator account found with this email address.' });
+    }
+
+    if (admin.isBlocked) {
+      return res.status(403).json({ success: false, message: 'This administrator account is currently suspended. Please contact system support.' });
+    }
+
+    // Generate 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+
+    admin.otp = otp;
+    admin.otpExpires = otpExpires;
+    await admin.save();
+
+    // Send OTP via Email
+    try {
+      const { sendAdminPasswordResetOTPEmail } = require('../utils/emailService');
+      await sendAdminPasswordResetOTPEmail(admin.email, admin.fullName, otp);
+    } catch (emailErr) {
+      console.error('Failed to send OTP email via primary helper, attempting fallback...', emailErr);
+      const fallbackMailOptions = {
+        from: '"WorkWave Security" <assigmentgroupy@gmail.com>',
+        to: admin.email,
+        subject: '🔐 Admin Password Reset OTP - WorkWave',
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #4f46e5;">WorkWave Admin Password Reset</h2>
+            <p>Hello <strong>${admin.fullName}</strong>,</p>
+            <p>Your 6-digit password reset verification code is:</p>
+            <div style="background: #0f172a; color: #38bdf8; font-size: 28px; font-weight: bold; padding: 15px; border-radius: 8px; text-align: center; letter-spacing: 6px;">
+              ${otp}
+            </div>
+            <p style="margin-top: 15px; color: #64748b; font-size: 13px;">This code will expire in 10 minutes. Do not share it with anyone.</p>
+          </div>
+        `
+      };
+      await transporter.sendMail(fallbackMailOptions);
+    }
+
+    // Create Audit Log entry
+    await createAuditLog({
+      action: 'Password Reset OTP Requested',
+      category: 'Admin',
+      admin: { _id: admin._id, fullName: admin.fullName, email: admin.email },
+      target: { id: admin._id, name: admin.fullName, type: 'Admin' }
+    });
+
+    res.json({
+      success: true,
+      message: `A 6-digit verification code has been sent to ${admin.email}.`,
+      email: admin.email
+    });
+  } catch (err) {
+    console.error('Error in forgotPassword:', err);
+    res.status(500).json({ success: false, message: 'Failed to process password reset request. Please try again.' });
+  }
+};
+
+// Verify Password Reset OTP
+exports.verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: 'Email and 6-digit OTP code are required.' });
+    }
+
+    const admin = await Admin.findOne({ email: email.toLowerCase().trim() });
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'Administrator account not found.' });
+    }
+
+    if (!admin.otp || !admin.otpExpires) {
+      return res.status(400).json({ success: false, message: 'No active OTP request found. Please request a new verification code.' });
+    }
+
+    if (new Date() > new Date(admin.otpExpires)) {
+      return res.status(400).json({ success: false, message: 'Verification code has expired. Please request a new code.' });
+    }
+
+    if (admin.otp.toString().trim() !== otp.toString().trim()) {
+      return res.status(400).json({ success: false, message: 'Invalid verification code. Please check and try again.' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Verification code confirmed successfully.',
+      verified: true
+    });
+  } catch (err) {
+    console.error('Error in verifyOTP:', err);
+    res.status(500).json({ success: false, message: 'Failed to verify code. Please try again.' });
+  }
+};
+
+// Reset Password with Verified OTP
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Email, OTP, and new password are required.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long.' });
+    }
+
+    const admin = await Admin.findOne({ email: email.toLowerCase().trim() });
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'Administrator account not found.' });
+    }
+
+    if (!admin.otp || !admin.otpExpires) {
+      return res.status(400).json({ success: false, message: 'No active OTP request found. Please request a new verification code.' });
+    }
+
+    if (new Date() > new Date(admin.otpExpires)) {
+      return res.status(400).json({ success: false, message: 'Verification code has expired. Please request a new code.' });
+    }
+
+    if (admin.otp.toString().trim() !== otp.toString().trim()) {
+      return res.status(400).json({ success: false, message: 'Invalid verification code. Please check and try again.' });
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    admin.password = hashedPassword;
+    admin.otp = null;
+    admin.otpExpires = null;
+    await admin.save();
+
+    // Create Audit Log
+    await createAuditLog({
+      action: 'Password Reset Completed',
+      category: 'Admin',
+      admin: { _id: admin._id, fullName: admin.fullName, email: admin.email },
+      target: { id: admin._id, name: admin.fullName, type: 'Admin' }
+    });
+
+    // Send Success Email
+    try {
+      const { sendAdminPasswordResetSuccessEmail } = require('../utils/emailService');
+      await sendAdminPasswordResetSuccessEmail(admin.email, admin.fullName);
+    } catch (e) {
+      console.warn('Could not send password reset success email:', e.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Your password has been successfully reset! You can now sign in with your new password.'
+    });
+  } catch (err) {
+    console.error('Error in resetPassword:', err);
+    res.status(500).json({ success: false, message: 'Failed to reset password. Please try again.' });
+  }
+};
+
 // Get current admin profile
 exports.getProfile = async (req, res) => {
   try {
@@ -333,8 +502,14 @@ exports.getAllUsers = async (req, res) => {
 // Get real user growth data for analytics
 exports.getUserGrowthData = async (req, res) => {
   try {
-    const seekers = await Seeker.find({}, 'createdAt');
-    const providers = await Provider.find({}, 'createdAt');
+    const { district } = req.query;
+    const query = {};
+    if (district && district !== 'All' && district !== 'All Districts') {
+      query.district = { $regex: new RegExp(`^${district}$`, 'i') };
+    }
+
+    const seekers = await Seeker.find(query, 'createdAt district');
+    const providers = await Provider.find(query, 'createdAt district');
 
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const currentYear = new Date().getFullYear();
@@ -750,70 +925,78 @@ exports.createAuditLogInternal = async (req, res) => {
   }
 };
 
-// Dispatch High Demand Alerts to Providers
+// Dispatch High Demand Alerts to Providers and Seekers
 exports.dispatchHighDemandAlerts = async (req, res) => {
   try {
     const { category, district, timeframe, avgDemand, confidence } = req.body;
     
-    // Check if we already sent this specific alert today
-    const todayStr = new Date().toISOString().split('T')[0];
-    
-    const existingLog = await HighDemandAlertLog.findOne({
-      category,
-      district,
-      timeframe,
-      date: todayStr
-    });
-
-    if (existingLog) {
-      return res.status(200).json({ message: 'Alerts already dispatched for this category, district, and timeframe today. Skipping to prevent spam.' });
-    }
-
-    // Find verified, active providers in the district and category
-    const query = {
-      role: 'ServiceProvider',
-      isVerified: true,
+    // Find active providers in the district and category (case-insensitive regex)
+    const providerQuery = {
       isBlocked: false,
     };
-    if (district !== 'All Districts') query.district = district;
-    if (category !== 'All Categories') query.category = category;
-
-    const providers = await Provider.find(query);
-
-    // Also Dispatch notifications to Seekers in that district
-    // This helps seekers know when demand is high so they can book in advance
-    const seekers = await Seeker.find({ 
-      district: district === 'All Districts' ? { $exists: true } : district,
-      isEmailVerified: true,
-      isBlocked: false
-    });
-
-    if (providers.length === 0 && seekers.length === 0) {
-      // Record log even if no one found, to not retry
-      await HighDemandAlertLog.create({ category, district, timeframe, date: todayStr });
-      return res.status(200).json({ message: 'No providers or seekers found to send alerts to.' });
+    if (district && district !== 'All Districts' && district !== 'All') {
+      providerQuery.district = { $regex: new RegExp(`^${district}$`, 'i') };
+    }
+    if (category && category !== 'All Categories' && category !== 'All') {
+      providerQuery.category = { $regex: new RegExp(`^${category}$`, 'i') };
     }
 
-    // Dispatch notifications to Providers (Emails skipped as per requirement)
+    const providers = await Provider.find(providerQuery);
+
+    // Find active seekers in that district
+    const seekerQuery = {
+      isBlocked: false,
+    };
+    if (district && district !== 'All Districts' && district !== 'All') {
+      seekerQuery.district = { $regex: new RegExp(`^${district}$`, 'i') };
+    }
+
+    const seekers = await Seeker.find(seekerQuery);
+
+    const socketUtil = require('../utils/socket');
+    let ioInstance = null;
+    try {
+      ioInstance = socketUtil.getIO();
+    } catch (e) {
+      // socket io might not be initialized
+    }
+
+    // Dispatch notifications to Providers
     for (const provider of providers) {
-      await ProviderNotification.create({
+      const pNotif = await ProviderNotification.create({
         providerId: provider._id,
         title: `🚀 High Demand Alert: ${category}!`,
         message: `High demand predicted for ${category} in ${district} for ${timeframe}. Stay active to grab more job requests and increase your earnings!`,
-        type: 'high_demand_alert'
+        type: 'high_demand_alert',
+        category: 'admin',
+        isRead: false
       });
+
+      if (ioInstance) {
+        ioInstance.to(provider._id.toString()).emit('new_notification', pNotif);
+        ioInstance.to(provider._id.toString()).emit('notification', pNotif);
+      }
     }
 
+    // Dispatch notifications to Seekers
     for (const seeker of seekers) {
-      await SeekerNotification.create({
+      const sNotif = await SeekerNotification.create({
         seekerId: seeker._id,
         title: `🚀 High Demand Alert: ${category}!`,
         message: `We're seeing high demand for ${category} in ${district} for ${timeframe}. Book your service early to ensure availability!`,
-        type: 'high_demand_alert'
+        type: 'high_demand_alert',
+        category: 'admin',
+        isRead: false
       });
+
+      if (ioInstance) {
+        ioInstance.to(seeker._id.toString()).emit('new_notification', sNotif);
+        ioInstance.to(seeker._id.toString()).emit('notification', sNotif);
+      }
     }
 
-    // Save to tracking DB
+    // Log to tracking DB
+    const todayStr = new Date().toISOString().split('T')[0];
     await HighDemandAlertLog.create({ category, district, timeframe, date: todayStr });
 
     // Optional: Log to AuditLog
@@ -822,12 +1005,56 @@ exports.dispatchHighDemandAlerts = async (req, res) => {
       category: 'Demand Forecasting',
       admin: req.user,
       target: { name: `Alerts sent to ${providers.length} providers and ${seekers.length} seekers`, type: 'ALERT' },
-      metadata: { category, district, timeframe }
+      metadata: { category, district, timeframe, confidence, avgDemand }
     });
 
-    res.status(200).json({ message: `High Demand alerts successfully sent to ${providers.length} providers and ${seekers.length} seekers.` });
+    console.log(`✅ High Demand Alerts sent: ${providers.length} providers, ${seekers.length} seekers (${district} - ${category})`);
+
+    res.status(200).json({ 
+      success: true,
+      message: `High Demand alerts successfully sent to ${providers.length} providers and ${seekers.length} seekers.`,
+      dispatchedCount: { providers: providers.length, seekers: seekers.length }
+    });
   } catch (err) {
     console.error('Error dispatching high demand alerts:', err);
     res.status(500).json({ message: 'Internal server error while dispatching alerts' });
   }
 };
+
+/**
+ * Direct Internal Dispatch to Provider Notification & Real-time Socket
+ */
+exports.notifyProviderInternal = async (req, res) => {
+  try {
+    const { providerId, title, message, type, category } = req.body;
+    if (!providerId) {
+      return res.status(400).json({ success: false, message: 'Provider ID is required' });
+    }
+
+    const pNotif = await ProviderNotification.create({
+      providerId,
+      title: title || 'WorkWave Notification',
+      message: message || '',
+      type: type || 'admin',
+      category: category || 'admin',
+      isRead: false,
+    });
+
+    try {
+      const ioInstance = socketModule.getIO();
+      if (ioInstance) {
+        ioInstance.to(providerId.toString()).emit('new_notification', pNotif);
+        ioInstance.to(providerId.toString()).emit('notification', pNotif);
+        console.log(`[SOCKET EMITTED] to room ${providerId}`);
+      }
+    } catch (e) {
+      console.warn('Socket emit warning in notifyProviderInternal:', e.message);
+    }
+
+    return res.status(200).json({ success: true, notification: pNotif });
+  } catch (err) {
+    console.error('notifyProviderInternal error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+

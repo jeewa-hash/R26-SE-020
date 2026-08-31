@@ -1,7 +1,8 @@
 // pages/IT22129376/services/providerAuthStorage.js
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getUserIdFromJwt, getRoleFromJwt } from '../utils/jwtHelpers';
+import { decodeJwt, getUserIdFromJwt, getRoleFromJwt } from '../utils/jwtHelpers';
+import { clearCredentials } from '../../../utils/biometricAuth';
 
 export const AUTH_KEYS = [
   'userToken',
@@ -25,30 +26,55 @@ export const AUTH_KEYS = [
 export const clearAllAuthStorage = async () => {
   try {
     await AsyncStorage.multiRemove(AUTH_KEYS);
-    console.log('LOGOUT: all auth keys cleared');
   } catch (error) {
-    console.warn('Error clearing auth storage:', error?.message);
+    console.log('AsyncStorage clear warning:', error?.message);
   }
+  try {
+    await clearCredentials();
+  } catch (error) {
+    console.log('SecureStore clear warning:', error?.message);
+  }
+  console.log('AUTH CLEAR: all AsyncStorage and SecureStore auth cleared');
 };
 
-export const saveProviderLogin = async ({ token, user, role }) => {
+export const saveProviderLogin = async ({ token, user, role, response }) => {
   if (!token || typeof token !== 'string') {
     throw new Error('Valid token is required to save provider login.');
   }
 
   const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
-  const safeUser = user || {};
+  const loginResponse = response || {};
+  const safeUser = user || loginResponse?.provider || loginResponse?.user || loginResponse?.data?.provider || loginResponse?.data?.user || {};
 
   const jwtUserId = getUserIdFromJwt(cleanToken);
   const jwtRole = getRoleFromJwt(cleanToken);
 
-  const providerId =
+  const responseProviderId =
+    loginResponse?.provider?._id ||
+    loginResponse?.provider?.id ||
+    loginResponse?.user?._id ||
+    loginResponse?.user?.id ||
+    loginResponse?.data?.provider?._id ||
+    loginResponse?.data?.provider?.id ||
+    loginResponse?.data?.user?._id ||
+    loginResponse?.data?.user?.id ||
+    loginResponse?.userId ||
+    loginResponse?.providerId ||
+    loginResponse?.data?.userId ||
+    loginResponse?.data?.providerId ||
+    loginResponse?._id ||
+    loginResponse?.id ||
     safeUser?._id ||
-    safeUser?.id ||
-    safeUser?.userId ||
-    safeUser?.providerId ||
+    safeUser?.id;
+
+  const providerId =
     jwtUserId ||
+    responseProviderId ||
     null;
+
+  if (jwtUserId && responseProviderId && String(jwtUserId) !== String(responseProviderId)) {
+    console.warn('AUTH ID MISMATCH:', { idFromToken: jwtUserId, idFromResponse: responseProviderId });
+  }
 
   const finalRole =
     safeUser?.role ||
@@ -64,6 +90,7 @@ export const saveProviderLogin = async ({ token, user, role }) => {
   // Clear all old keys before saving new provider session
   await clearAllAuthStorage();
 
+  const normalizedUser = { ...safeUser, _id: String(providerId), id: String(providerId), role: finalRole };
   const entries = [
     ['userToken', cleanToken],
     ['token', cleanToken],
@@ -75,9 +102,9 @@ export const saveProviderLogin = async ({ token, user, role }) => {
     ['userRole', String(finalRole)],
     ['role', String(finalRole)],
 
-    ['user', JSON.stringify(safeUser)],
-    ['currentUser', JSON.stringify(safeUser)],
-    ['provider', JSON.stringify(safeUser)],
+    ['user', JSON.stringify(normalizedUser)],
+    ['currentUser', JSON.stringify(normalizedUser)],
+    ['provider', JSON.stringify(normalizedUser)],
   ];
 
   if (String(finalRole).toLowerCase().includes('seeker')) {
@@ -94,8 +121,23 @@ export const saveProviderLogin = async ({ token, user, role }) => {
     providerId: String(providerId),
     userId: String(providerId),
     role: finalRole,
-    user: safeUser,
+    user: normalizedUser,
   };
+};
+
+const readStoredObject = async (key) => {
+  try {
+    const value = await AsyncStorage.getItem(key);
+    return value ? JSON.parse(value) : {};
+  } catch (error) {
+    return {};
+  }
+};
+
+export const debugAuthStorage = async () => {
+  const values = await AsyncStorage.multiGet(AUTH_KEYS);
+  console.log('===== AUTH STORAGE DEBUG =====');
+  values.forEach(([key, value]) => console.log(key, value));
 };
 
 export const getStoredProviderAuth = async () => {
@@ -112,44 +154,48 @@ export const getStoredProviderAuth = async () => {
     (await AsyncStorage.getItem('userRole')) ||
     (await AsyncStorage.getItem('role'));
 
-  const storedUserRaw =
-    (await AsyncStorage.getItem('user')) ||
-    (await AsyncStorage.getItem('provider')) ||
-    (await AsyncStorage.getItem('currentUser'));
+  const [storedProvider, storedUser, storedCurrentUser] = await Promise.all([
+    readStoredObject('provider'),
+    readStoredObject('user'),
+    readStoredObject('currentUser'),
+  ]);
 
-  let storedUser = {};
-
-  try {
-    storedUser = storedUserRaw ? JSON.parse(storedUserRaw) : {};
-  } catch (error) {
-    storedUser = {};
-  }
-
-  const jwtUserId = getUserIdFromJwt(token);
+  const decodedToken = decodeJwt(token);
+  const tokenIsCurrent = decodedToken && (!decodedToken.exp || decodedToken.exp * 1000 > Date.now());
+  const jwtUserId = tokenIsCurrent ? getUserIdFromJwt(token) : null;
   const jwtRole = getRoleFromJwt(token);
 
-  // Exact resolution order:
-  // 1. stored providerId
-  // 2. stored userId
-  // 3. storedUser._id
-  // 4. storedUser.id
-  // 5. storedUser.userId
-  // 6. storedUser.providerId
-  // 7. JWT user id fallback
   const providerId =
+    jwtUserId ||
     storedProviderId ||
     storedUserId ||
+    storedProvider?._id ||
+    storedProvider?.id ||
     storedUser?._id ||
     storedUser?.id ||
-    storedUser?.userId ||
-    storedUser?.providerId ||
-    jwtUserId ||
+    storedCurrentUser?._id ||
+    storedCurrentUser?.id ||
     null;
 
+  if (jwtUserId && (String(storedProviderId || '') !== String(jwtUserId) || String(storedUserId || '') !== String(jwtUserId))) {
+    console.warn('PROVIDER AUTH STORAGE MISMATCH. Normalizing from token.', {
+      idFromToken: jwtUserId,
+      storedProviderId,
+      storedUserId,
+    });
+    await AsyncStorage.multiSet([
+      ['providerId', String(jwtUserId)],
+      ['userId', String(jwtUserId)],
+    ]);
+    console.log('Provider auth normalized from token');
+  }
+
   const role =
+    (tokenIsCurrent ? jwtRole : null) ||
     storedRole ||
+    storedProvider?.role ||
     storedUser?.role ||
-    jwtRole ||
+    storedCurrentUser?.role ||
     'ServiceProvider';
 
   console.log('STORED PROVIDER AUTH:', {
@@ -163,8 +209,8 @@ export const getStoredProviderAuth = async () => {
     providerId: providerId ? String(providerId) : null,
     userId: providerId ? String(providerId) : null,
     role,
-    user: storedUser,
-    isLoggedIn: Boolean(token && providerId),
+    user: Object.keys(storedProvider).length ? storedProvider : storedUser,
+    isLoggedIn: Boolean(tokenIsCurrent && providerId),
   };
 };
 
@@ -195,4 +241,5 @@ export default {
   buildAuthHeaders,
   clearProviderAuth,
   clearAllAuthStorage,
+  debugAuthStorage,
 };

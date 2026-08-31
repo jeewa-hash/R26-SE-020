@@ -1,8 +1,10 @@
 import express from "express";
 import {
   createFeedback,
+  getAllFeedbacks,
   getProviderFeedback,
   getServiceFeedback,
+  getBookingFeedbackStatus,
   updateFeedback,
   deleteFeedback
 } from "../controllers/feedbackController.js";
@@ -13,7 +15,9 @@ const router = express.Router();
 router.post("/", createFeedback);
 
 // READ
+router.get("/", getAllFeedbacks);
 router.get("/provider/:providerId", getProviderFeedback);
+router.get("/booking/:bookingId", getBookingFeedbackStatus);
 router.get("/service/:serviceId", getServiceFeedback);
 
 // UPDATE

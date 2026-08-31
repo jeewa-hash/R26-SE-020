@@ -6,7 +6,15 @@ import {
   ActivityIndicator,
   StyleSheet,
   AppState,
+  LogBox,
 } from 'react-native';
+
+LogBox.ignoreLogs([
+  'expo-notifications: Android Push notifications',
+  'Android Push notifications (remote notifications)',
+  'Push notifications functionality provided by expo-notifications was removed from Expo Go',
+  'warnOfExpoGoPushUsage',
+]);
 import {
   NavigationContainer,
   useNavigationContainerRef,
@@ -34,9 +42,12 @@ import {
   isBiometricAvailable,
   promptBiometric,
   getAppLockEnabled,
-  clearCredentials,
+  getToken,
   hasStoredCredentials,
 } from './utils/biometricAuth';
+import { decodeJwt, getUserIdFromJwt, getRoleFromJwt } from './utils/jwtHelpers';
+import { clearAllAuthStorage } from './pages/IT22129376/services/providerAuthStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Screens
 import LoginScreen from './screens/LoginScreen';
@@ -45,8 +56,11 @@ import BottomTabNavigator from './navigation/BottomTabNavigator';
 import PortfolioGalleryScreen from './pages/PortfolioGalleryScreen';
 import CreatePostScreen from './pages/CreatePostScreen';
 import SubmitInquiryScreen from './screens/SubmitInquiryScreen';
+import CheckoutScreen from './pages/CheckoutScreen';
 import ProviderPostDetailScreen from './screens/ProviderPostDetailScreen';
 import AppliedJobsScreen from './pages/AppliedJobsScreen';
+import BoostSuccessScreen from './pages/BoostSuccess';
+import ProfileScreen from './pages/ProfileScreen';
 import ProviderJobDetailsScreen from './pages/IT22129376/ProviderJobDetailsScreen';
 import ProviderRequestDetailsScreen from './pages/IT22129376/ProviderRequestDetailsScreen';
 import ProviderQuotationFormScreen from './pages/IT22129376/ProviderQuotationFormScreen';
@@ -91,11 +105,30 @@ function AppContent() {
 
   const initApp = async () => {
     try {
-      const tokenExists = await hasStoredCredentials();
+      const secureToken = await getToken();
+      const decodedToken = secureToken ? decodeJwt(secureToken) : null;
+      const tokenIsCurrent = decodedToken && (!decodedToken.exp || decodedToken.exp * 1000 > Date.now());
+      const idFromToken = tokenIsCurrent ? getUserIdFromJwt(secureToken) : null;
+      const roleFromToken = secureToken ? getRoleFromJwt(secureToken) : null;
       const lockEnabled = await getAppLockEnabled();
+      const tokenExists = Boolean(secureToken && idFromToken);
 
       setHasToken(tokenExists);
       setAppLockEnabled(lockEnabled);
+
+      if (tokenExists) {
+        await AsyncStorage.multiSet([
+          ['userToken', secureToken],
+          ['token', secureToken],
+          ['accessToken', secureToken],
+          ['userId', String(idFromToken)],
+          ['providerId', String(idFromToken)],
+          ['userRole', String(roleFromToken || 'ServiceProvider')],
+          ['role', String(roleFromToken || 'ServiceProvider')],
+        ]);
+      } else {
+        await clearAllAuthStorage();
+      }
 
       if (tokenExists && lockEnabled) {
         setIsLocked(true);
@@ -110,7 +143,7 @@ function AppContent() {
   const handleUnlock = () => setIsLocked(false);
 
   const handlePasswordFallback = async () => {
-    await clearCredentials();
+    await clearAllAuthStorage();
     setHasToken(false);
     setIsLocked(false);
     if (navigationRef.isReady()) {
@@ -153,8 +186,15 @@ function AppContent() {
               component={SubmitInquiryScreen}
               options={{ headerShown: true, title: 'Submit Inquiry' }}
             />
+            <Stack.Screen
+              name="CheckoutScreen"
+              component={CheckoutScreen}
+              options={{ headerShown: false }}
+            />
             <Stack.Screen name="ProviderPostDetail" component={ProviderPostDetailScreen} />
             <Stack.Screen name="AppliedJobs" component={AppliedJobsScreen} />
+            <Stack.Screen name="BoostSuccess" component={BoostSuccessScreen} options={{ title: 'Success' }} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="IT22129376ProviderJobDetails" component={ProviderJobDetailsScreen} />
             <Stack.Screen name="IT22129376ProviderRequestDetails" component={ProviderRequestDetailsScreen} />
             <Stack.Screen name="IT22129376ProviderQuotationForm" component={ProviderQuotationFormScreen} />

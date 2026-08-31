@@ -52,6 +52,7 @@ router.post('/logout', seekerAuthController.logout);
 // Get user by ID
 router.get('/user/:id', seekerAuthController.getUserById);
 router.put('/user/:userId', seekerAuthController.updateProfileById);
+router.get('/recommendations/:seekerId', seekerAuthController.getProviderRecommendations);
 // Notification Routes
 router.get('/notifications', seekerAuthController.verifyToken, seekerAuthController.getNotifications);
 router.patch('/notifications/:id/read', seekerAuthController.verifyToken, seekerAuthController.markAsRead);

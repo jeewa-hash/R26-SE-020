@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Image,
   ActivityIndicator,
   StatusBar,
   RefreshControl,
@@ -18,7 +19,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL } from '../config';
 import { useTheme } from '../hooks/useTheme';
 
 const { width } = Dimensions.get('window');
@@ -28,10 +29,10 @@ const SEEKER_API = `http://${IP_ADDRESS}:6000`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
 
 export default function RequestQuotationDetailsScreen({ route, navigation }) {
-  const { requestId } = route.params || {};
+  const { requestId, quoteId, request: initialRequest } = route.params || {};
   const { isDarkMode } = useTheme();
 
-  const [request, setRequest] = useState(null);
+  const [request, setRequest] = useState(initialRequest || null);
   const [quotations, setQuotations] = useState([]);
   const [providersMap, setProvidersMap] = useState({});
   const [loading, setLoading] = useState(true);
@@ -74,9 +75,8 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
   const fetchRequestDetails = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      if (!token) return;
       const response = await fetch(`${SEEKER_API}/request-quotations/${requestId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (response.ok) {
         const data = await response.json();
@@ -86,6 +86,10 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
       console.warn('Failed to fetch request details:', err);
     }
   }, [requestId]);
+
+  useEffect(() => {
+    setRequest(initialRequest || null);
+  }, [requestId, initialRequest]);
 
   // ─────────────────────────────────────────────────────────────
   // Fetch quotations
@@ -105,7 +109,15 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
       if (!response.ok) throw new Error(`Failed: ${response.status}`);
       const data = await response.json();
       if (data.success && data.data) {
-        setQuotations(data.data.filter((q) => q.providerRequestId === requestId));
+        const requestQuotations = data.data.filter(
+          (quote) => String(quote.providerRequestId) === String(requestId)
+        );
+
+        setQuotations(
+          quoteId
+            ? requestQuotations.filter((quote) => String(quote._id) === String(quoteId))
+            : requestQuotations
+        );
       } else {
         setQuotations([]);
       }
@@ -116,7 +128,7 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [requestId]);
+  }, [requestId, quoteId]);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -136,43 +148,6 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
     setRefreshing(true);
     Promise.all([fetchProviders(), fetchRequestDetails(), fetchQuotations()]).finally(() =>
       setRefreshing(false)
-    );
-  };
-
-  // ─────────────────────────────────────────────────────────────
-  // Accept quotation
-  // ─────────────────────────────────────────────────────────────
-  const handleAccept = (quote) => {
-    Alert.alert(
-      'Accept Quotation',
-      `Accept quotation of LKR ${quote.price}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Accept',
-          onPress: async () => {
-            try {
-              const token = await AsyncStorage.getItem('userToken');
-              const res = await fetch(`${PROVIDER_API}/${quote._id}/accept`, {
-                method: 'PATCH',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-              });
-              const data = await res.json();
-              if (data.success) {
-                Alert.alert('Success', 'Quotation accepted!');
-                fetchQuotations();
-              } else {
-                Alert.alert('Error', data.message || 'Failed to accept.');
-              }
-            } catch {
-              Alert.alert('Error', 'Network error.');
-            }
-          },
-        },
-      ]
     );
   };
 
@@ -227,6 +202,16 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
       },
       finalDecision: null,
     });
+  };
+
+  const getProviderPhotoUrl = (provider) => {
+    const imagePath = provider?.profileImage || provider?.profilePicture || provider?.avatar;
+    if (!imagePath) return null;
+
+    const normalizedPath = imagePath.replace(/\\/g, '/');
+    return normalizedPath.startsWith('http')
+      ? normalizedPath
+      : `${AUTH_SERVICE_URL}/${normalizedPath.replace(/^\/+/, '')}`;
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -317,6 +302,9 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
             {/* ── Request Details Card ── */}
             {request && (
               <View style={[styles.requestCard, isDarkMode && styles.requestCardDark]}>
+                <Text style={[styles.requestSummaryTitle, isDarkMode && styles.textDark]}>
+                  Request Summary
+                </Text>
                 <View style={styles.requestHeader}>
                   <View style={[styles.requestIconContainer, isDarkMode && styles.requestIconContainerDark]}>
                     <Ionicons name="construct-outline" size={24} color={isDarkMode ? '#818cf8' : '#667eea'} />
@@ -420,6 +408,7 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
                 const providerData = providersMap[quote.providerId] || {};
                 const provider = providerData.provider || {};
                 const providerName = provider.name || quote.providerName || 'Provider';
+                const providerPhotoUrl = getProviderPhotoUrl(provider);
 
                 return (
                   <View key={quote._id} style={[styles.quoteCard, isDarkMode && styles.quoteCardDark]}>
@@ -430,14 +419,18 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
                         onPress={() => navigateToProviderProfile(quote.providerId)}
                         activeOpacity={0.7}
                       >
-                        <LinearGradient
-                          colors={['#667eea', '#764ba2']}
-                          style={styles.providerAvatar}
-                        >
-                          <Text style={styles.providerInitial}>
-                            {providerName.charAt(0).toUpperCase()}
-                          </Text>
-                        </LinearGradient>
+                        {providerPhotoUrl ? (
+                          <Image source={{ uri: providerPhotoUrl }} style={styles.providerAvatar} />
+                        ) : (
+                          <LinearGradient
+                            colors={['#667eea', '#764ba2']}
+                            style={styles.providerAvatar}
+                          >
+                            <Text style={styles.providerInitial}>
+                              {providerName.charAt(0).toUpperCase()}
+                            </Text>
+                          </LinearGradient>
+                        )}
                         <View>
                           <Text style={[styles.providerName, isDarkMode && styles.textDark]}>
                             {providerName}
@@ -500,23 +493,7 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
                       ) : null}
                     </View>
 
-                    {/* Accept button (only for SENT/pending quotes) */}
-                    {quote.status === 'SENT' && (
-                      <TouchableOpacity
-                        style={styles.acceptButton}
-                        onPress={() => handleAccept(quote)}
-                      >
-                        <LinearGradient
-                          colors={['#10B981', '#059669']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.acceptGradient}
-                        >
-                          <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                          <Text style={styles.acceptButtonText}>Accept Quotation</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    )}
+                    {/* Accept button removed entirely */}
                   </View>
                 );
               })
@@ -631,6 +608,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     shadowColor: '#000',
     shadowOpacity: 0.35,
+  },
+  requestSummaryTitle: {
+    color: '#1F2937',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 14,
   },
   requestHeader: {
     flexDirection: 'row',
@@ -858,6 +841,7 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   providerInitial: {
     fontSize: 17,
@@ -962,24 +946,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     flex: 1,
     lineHeight: 19,
-  },
-
-  // ── Accept button ──
-  acceptButton: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  acceptGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 13,
-    gap: 8,
-  },
-  acceptButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 15,
   },
 
   // ── Shared text overrides ──

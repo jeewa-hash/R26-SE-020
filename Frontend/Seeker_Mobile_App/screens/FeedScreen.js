@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/BottomNav';
 import { IP_ADDRESS } from '../config';
 import { useTheme } from '../hooks/useTheme';
+import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
 
 // ======================================================
 // API BASE URLS
@@ -139,7 +140,8 @@ export default function FeedScreen({ navigation }) {
 
         return {
           id: ad._id,
-          providerId: ad.providerId || ad._id,
+          postId: ad._id,
+          providerId: ad.providerId,
           providerName: ad.providerName || 'Provider',
           userName: ad.providerName || 'Provider',
           userAvatar: avatar,
@@ -267,89 +269,6 @@ export default function FeedScreen({ navigation }) {
     setQuoteNotes(`I would like to request a quote for ${ad.title}.`);
     setQuoteLocation(ad.location || '');
     setQuoteModalVisible(true);
-  };
-
-  // ======================================================
-  // SUBMIT REQUEST QUOTATION
-  // ======================================================
-  const handleSubmitQuote = async () => {
-    if (!selectedAdForQuote) return;
-
-    const seekerId = await getCurrentUserId();
-    const token =
-      (await AsyncStorage.getItem('userToken')) ||
-      (await AsyncStorage.getItem('token'));
-
-    if (!token) {
-      Alert.alert('Error', 'You must be logged in to request a quotation.');
-      return;
-    }
-
-    const payload = {
-      seekerId: seekerId || 'seeker_user',
-      providerId: selectedAdForQuote.providerId,
-      sessionId: `FEED-${Date.now()}`,
-      detectedCategory: selectedAdForQuote.category || 'General',
-      detectedObject: selectedAdForQuote.title || 'Service',
-      modelConfidence: null,
-      stepBreakdown: [],
-      briefDescription:
-        quoteNotes.trim() ||
-        selectedAdForQuote.description ||
-        selectedAdForQuote.title,
-      urgencyLevel:
-        selectedAdForQuote.urgency === 'high'
-          ? 'High'
-          : selectedAdForQuote.urgency === 'medium'
-          ? 'Medium'
-          : 'Normal',
-      serviceLocation:
-        quoteLocation.trim() || selectedAdForQuote.location || '',
-    };
-
-    setIsSubmittingQuote(true);
-
-    try {
-      const response = await fetch(QUOTATION_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (response.status === 201 || response.status === 200 || data.success) {
-        Alert.alert(
-          'Quotation Request Sent',
-          `Your quotation request has been sent to ${selectedAdForQuote.providerName}.`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                setQuoteModalVisible(false);
-                setSelectedAdForQuote(null);
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          'Failed to Send',
-          data.message || 'Unable to send quotation request. Please try again.'
-        );
-      }
-    } catch (error) {
-      console.error('QUOTATION REQUEST ERROR:', error);
-      Alert.alert(
-        'Network Error',
-        `Could not connect to the quotation server at ${QUOTATION_API_URL}.\nMake sure the backend is running.`
-      );
-    } finally {
-      setIsSubmittingQuote(false);
-    }
   };
 
   // ======================================================
@@ -584,135 +503,28 @@ export default function FeedScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* ====================================================== */}
-      {/* REQUEST QUOTATION MODAL                                 */}
-      {/* ====================================================== */}
-      <Modal
-        animationType="slide"
-        transparent
+      <RequestQuotationModal
         visible={quoteModalVisible}
-        onRequestClose={() => setQuoteModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, isDarkMode && styles.modalContainerDark]}>
-            {/* Modal Header */}
-            <View style={[styles.modalHeader, isDarkMode && styles.modalHeaderDark]}>
-              <View>
-                <Text style={[styles.modalTitle, isDarkMode && styles.textDark]}>
-                  Request Quotation
-                </Text>
-                <Text style={[styles.modalSubtitle, isDarkMode && styles.textMutedDark]}>
-                  To: {selectedAdForQuote?.providerName || 'Provider'}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setQuoteModalVisible(false)}
-                style={styles.modalCloseBtn}
-              >
-                <Ionicons
-                  name="close"
-                  size={22}
-                  color={isDarkMode ? '#94A3B8' : '#6B7280'}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {/* Modal Body */}
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              {/* Selected Ad Summary */}
-              <View
-                style={[
-                  styles.selectedAdSummary,
-                  isDarkMode && styles.selectedAdSummaryDark,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.summaryAdTitle,
-                    isDarkMode && styles.summaryAdTitleDark,
-                  ]}
-                >
-                  {selectedAdForQuote?.title}
-                </Text>
-                <Text
-                  style={[
-                    styles.summaryAdCategory,
-                    isDarkMode && styles.summaryAdCategoryDark,
-                  ]}
-                >
-                  Category: {selectedAdForQuote?.category}
-                </Text>
-              </View>
-
-              {/* Requirements / Notes */}
-              <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>
-                Requirements & Details
-              </Text>
-              <TextInput
-                style={[styles.textAreaInput, isDarkMode && styles.inputDark]}
-                multiline
-                numberOfLines={4}
-                value={quoteNotes}
-                onChangeText={setQuoteNotes}
-                placeholder="Describe what work needs to be done..."
-                placeholderTextColor={isDarkMode ? '#94A3B8' : '#9CA3AF'}
-              />
-
-              {/* Service Location */}
-              <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>
-                Service Location
-              </Text>
-              <TextInput
-                style={[styles.textInput, isDarkMode && styles.inputDark]}
-                value={quoteLocation}
-                onChangeText={setQuoteLocation}
-                placeholder="Enter your address or city..."
-                placeholderTextColor={isDarkMode ? '#94A3B8' : '#9CA3AF'}
-              />
-
-              {/* Action Buttons */}
-              <View style={styles.modalButtonsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.modalCancelButton,
-                    isDarkMode && styles.modalCancelButtonDark,
-                  ]}
-                  onPress={() => setQuoteModalVisible(false)}
-                  disabled={isSubmittingQuote}
-                >
-                  <Text
-                    style={[
-                      styles.modalCancelText,
-                      isDarkMode && styles.textMutedDark,
-                    ]}
-                  >
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.modalSubmitButton,
-                    isSubmittingQuote && styles.disabledButton,
-                  ]}
-                  onPress={handleSubmitQuote}
-                  disabled={isSubmittingQuote}
-                  activeOpacity={0.8}
-                >
-                  {isSubmittingQuote ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="send" size={16} color="#fff" />
-                      <Text style={styles.modalSubmitText}>Send Request</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        provider={selectedAdForQuote}
+        seekerId={currentUserId}
+        sessionData={{
+          sessionId: selectedAdForQuote?.sessionId || `AD-${selectedAdForQuote?.postId || selectedAdForQuote?.id}`,
+          detectedCategory: selectedAdForQuote?.category || "General",
+          detectedObject: selectedAdForQuote?.title || "Service",
+          modelConfidence: null,
+          stepBreakdown: [],
+          briefDescription: selectedAdForQuote?.description || quoteNotes || "Service request",
+        }}
+        initialDescription={quoteNotes}
+        defaultLocation={quoteLocation || selectedAdForQuote?.location || ""}
+        defaultUrgency={selectedAdForQuote?.urgency || "Normal"}
+        onClose={() => setQuoteModalVisible(false)}
+        onSuccess={() => {
+          setQuoteModalVisible(false);
+          setSelectedAdForQuote(null);
+          Alert.alert("Request sent", "Quotation request sent successfully. You can track provider responses in My Jobs.");
+        }}
+      />
 
       <BottomNav />
     </SafeAreaView>
