@@ -39,6 +39,8 @@ export default function CreatePostScreen({ navigation }) {
   });
   const [result, setResult] = useState(null);
   const [tagInput, setTagInput] = useState('');
+  const [penaltyRestricted, setPenaltyRestricted] = useState(false);
+  const [penaltyRatio, setPenaltyRatio] = useState('3/3');
 
   useEffect(() => {
     const fetchProviderInfo = async () => {
@@ -46,6 +48,24 @@ export default function CreatePostScreen({ navigation }) {
         const token = await AsyncStorage.getItem('userToken');
         const userId = await AsyncStorage.getItem('userId');
         
+        // Check penalty score & restrictions
+        if (userId) {
+          try {
+            const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
+            const statusRes = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
+              if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
+                setPenaltyRestricted(true);
+                setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+              }
+            }
+          } catch (e) {
+            console.log('Error checking penalty status in CreatePost:', e.message);
+          }
+        }
+
         const res = await fetch(`${CONFIG.AUTH_SERVICE_URL}/profile`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
@@ -202,7 +222,6 @@ export default function CreatePostScreen({ navigation }) {
             text: "Use Template Draft",
             style: "default",
             onPress: () => {
-              // Build a quick client-side draft so the user isn't blocked
               const label = form.specificLabel || form.serviceLabel || "your service";
               const provider = providerInfo.providerName || "Our team";
               const loc = providerInfo.location || "your area";
@@ -229,6 +248,11 @@ export default function CreatePostScreen({ navigation }) {
     }
   };
 
+  const handleCopy = (text) => {
+    Clipboard.setString(text);
+    Alert.alert('Copied!', 'Post content copied to clipboard.');
+  };
+
   const addTag = () => {
     if (tagInput.trim() && !form.tags.includes(tagInput.trim())) {
       setForm({...form, tags: [...form.tags, tagInput.trim()]});
@@ -238,6 +262,29 @@ export default function CreatePostScreen({ navigation }) {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: C.bg }]} showsVerticalScrollIndicator={false}>
+      {/* Penalty Restriction Alert Banner */}
+      {penaltyRestricted && (
+        <View style={styles.penaltyAlertCard}>
+          <View style={styles.penaltyAlertHeader}>
+            <MaterialIcons name="warning" size={22} color="#EF4444" />
+            <Text style={styles.penaltyAlertTitle}>Posting Restricted ({penaltyRatio})</Text>
+          </View>
+          <Text style={styles.penaltyAlertDesc}>
+            Your penalty score has reached <Text style={{ fontWeight: 'bold', color: '#EF4444' }}>{penaltyRatio}</Text> due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.
+            {'\n\n'}
+            Please submit an inquiry for your missed bookings immediately to get approval from the Administrator and restore your account access.
+          </Text>
+          <TouchableOpacity
+            style={styles.penaltyAlertBtn}
+            onPress={() => navigation.navigate('SubmitInquiry')}
+            activeOpacity={0.85}
+          >
+            <MaterialIcons name="rate-review" size={16} color="#FFFFFF" />
+            <Text style={styles.penaltyAlertBtnText}>Submit Inquiry for Missed Bookings</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Header Section */}
       <View style={styles.headerSection}>
         <View style={styles.headerIconContainer}>
@@ -839,5 +886,54 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+
+  // ── Penalty Restriction Banner Styles ──
+  penaltyAlertCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 4,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  penaltyAlertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  penaltyAlertTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  penaltyAlertDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#7F1D1D',
+    marginBottom: 12,
+  },
+  penaltyAlertBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#DC2626',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  penaltyAlertBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
 });
