@@ -1,21 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, StyleSheet, TouchableOpacity, TextInput, Platform } from 'react-native';
 import { Text, Avatar, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ThemeContext } from '../context/ThemeContext';
 
 export default function BidModal({ job, onDismiss }) {
+  const { isDark } = useContext(ThemeContext) || {};
   const [bidAmount, setBidAmount] = useState(job?.minPrice || 50);
   
   const handleIncrement = () => setBidAmount(prev => prev + 5);
   const handleDecrement = () => setBidAmount(prev => prev > 5 ? prev - 5 : prev);
 
+  const C = isDark
+    ? {
+        modalBg: '#1c1c1e',
+        text: '#F2F2F7',
+        textSub: '#8E8E93',
+        border: '#2c2c2e',
+        cardBg: '#2a2a2a',
+        stepBg: '#3a3a3c',
+        stepIcon: '#F2F2F7',
+      }
+    : {
+        modalBg: '#FFFFFF',
+        text: '#1F2937',
+        textSub: '#6B7280',
+        border: '#E5E7EB',
+        cardBg: '#F9FAFB',
+        stepBg: '#FFFFFF',
+        stepIcon: '#1F2937',
+      };
+
   return (
-    <View style={styles.modalContent}>
+    <View style={[styles.modalContent, { backgroundColor: C.modalBg }]}>
       {/* 1. Header with Countdown */}
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.title}>Place Your Bid</Text>
-          <Text style={styles.subtitle}>{job?.title || 'Garden Landscaping'}</Text>
+          <Text style={[styles.title, { color: C.text }]}>Place Your Bid</Text>
+          <Text style={[styles.subtitle, { color: C.textSub }]}>{job?.title || 'Garden Landscaping'}</Text>
         </View>
         <View style={styles.timerBadge}>
           <MaterialCommunityIcons name="clock-outline" size={16} color="#EF4444" />
@@ -25,34 +47,34 @@ export default function BidModal({ job, onDismiss }) {
 
       {/* 2. Market Insights */}
       <View style={styles.insightsRow}>
-        <View style={styles.insightCard}>
-          <Text style={styles.insightLabel}>Average Bid</Text>
-          <Text style={styles.insightValue}>$45.00</Text>
+        <View style={[styles.insightCard, { backgroundColor: C.cardBg, borderColor: C.border }]}>
+          <Text style={[styles.insightLabel, { color: C.textSub }]}>Average Bid</Text>
+          <Text style={[styles.insightValue, { color: C.text }]}>$45.00</Text>
         </View>
-        <View style={[styles.insightCard, styles.activeInsight]}>
+        <View style={[styles.insightCard, isDark ? { backgroundColor: '#2e1065', borderColor: '#7c3aed' } : styles.activeInsight]}>
           <Text style={[styles.insightLabel, { color: '#7C3AED' }]}>Top Bid</Text>
           <Text style={[styles.insightValue, { color: '#7C3AED' }]}>$62.00</Text>
         </View>
       </View>
 
       {/* 3. Modern Bid Stepper */}
-      <View style={styles.bidPickerContainer}>
-        <TouchableOpacity onPress={handleDecrement} style={styles.stepBtn}>
-          <MaterialCommunityIcons name="minus" size={28} color="#1F2937" />
+      <View style={[styles.bidPickerContainer, { backgroundColor: isDark ? '#2a2a2a' : '#F3F4F6' }]}>
+        <TouchableOpacity onPress={handleDecrement} style={[styles.stepBtn, { backgroundColor: C.stepBg }]}>
+          <MaterialCommunityIcons name="minus" size={28} color={C.stepIcon} />
         </TouchableOpacity>
         
         <View style={styles.inputWrapper}>
-          <Text style={styles.currencySymbol}>$</Text>
+          <Text style={[styles.currencySymbol, { color: C.text }]}>$</Text>
           <TextInput
-            style={styles.bidInput}
+            style={[styles.bidInput, { color: C.text }]}
             value={bidAmount.toString()}
             keyboardType="numeric"
-            onChangeText={(val) => setBidAmount(Number(val))}
+            onChangeText={(val) => setBidAmount(Number(val) || 0)}
           />
         </View>
 
-        <TouchableOpacity onPress={handleIncrement} style={styles.stepBtn}>
-          <MaterialCommunityIcons name="plus" size={28} color="#1F2937" />
+        <TouchableOpacity onPress={handleIncrement} style={[styles.stepBtn, { backgroundColor: C.stepBg }]}>
+          <MaterialCommunityIcons name="plus" size={28} color={C.stepIcon} />
         </TouchableOpacity>
       </View>
 
@@ -67,7 +89,7 @@ export default function BidModal({ job, onDismiss }) {
           Confirm Bid
         </Button>
         <TouchableOpacity style={styles.cancelBtn} onPress={onDismiss}>
-          <Text style={styles.cancelText}>Maybe Later</Text>
+          <Text style={[styles.cancelText, { color: C.textSub }]}>Maybe Later</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -76,7 +98,6 @@ export default function BidModal({ job, onDismiss }) {
 
 const styles = StyleSheet.create({
   modalContent: {
-    backgroundColor: '#FFF',
     padding: 24,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
@@ -92,8 +113,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  title: { fontSize: 22, fontWeight: '800', color: '#1F2937' },
-  subtitle: { fontSize: 14, color: '#6B7280', marginTop: 2 },
+  title: { fontSize: 22, fontWeight: '800' },
+  subtitle: { fontSize: 14, marginTop: 2 },
   timerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -112,24 +133,21 @@ const styles = StyleSheet.create({
   },
   insightCard: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
     padding: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   activeInsight: {
     backgroundColor: '#F5F3FF',
     borderColor: '#C4B5FD',
   },
-  insightLabel: { fontSize: 11, color: '#6B7280', fontWeight: '600', textTransform: 'uppercase' },
-  insightValue: { fontSize: 18, fontWeight: '800', color: '#1F2937', marginTop: 4 },
+  insightLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
+  insightValue: { fontSize: 18, fontWeight: '800', marginTop: 4 },
 
   bidPickerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
     borderRadius: 24,
     padding: 8,
     marginBottom: 30,
@@ -137,7 +155,6 @@ const styles = StyleSheet.create({
   stepBtn: {
     width: 50,
     height: 50,
-    backgroundColor: '#FFF',
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
@@ -151,8 +168,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 30,
   },
-  currencySymbol: { fontSize: 24, fontWeight: '700', color: '#1F2937', marginRight: 4 },
-  bidInput: { fontSize: 36, fontWeight: '800', color: '#1F2937', textAlign: 'center', minWidth: 80 },
+  currencySymbol: { fontSize: 24, fontWeight: '700', marginRight: 4 },
+  bidInput: { fontSize: 36, fontWeight: '800', textAlign: 'center', minWidth: 80 },
 
   footer: { gap: 12 },
   confirmBtn: {
@@ -162,5 +179,5 @@ const styles = StyleSheet.create({
   },
   confirmBtnLabel: { fontSize: 16, fontWeight: '700', paddingVertical: 4 },
   cancelBtn: { paddingVertical: 10, alignItems: 'center' },
-  cancelText: { color: '#9CA3AF', fontWeight: '600' },
-});
+  cancelText: { fontWeight: '600' },
+});

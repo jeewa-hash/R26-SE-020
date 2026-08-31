@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View,
   ScrollView,
@@ -6,11 +6,13 @@ import {
   StyleSheet,
   Dimensions,
   TextInput,
+  StatusBar,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAppliedJobs } from '../context/AppliedJobsContext';
+import { ThemeContext } from '../context/ThemeContext';
 import { JOB_STATUS } from '../constants/jobStatus';
 import { CATEGORY_COLORS } from '../constants/feedData';
 
@@ -26,10 +28,35 @@ const STATUS_FILTERS = [
 ];
 
 export default function AppliedJobsScreen() {
+  const { isDark } = useContext(ThemeContext) || {};
   const { t } = useTranslation();
   const { appliedJobs, getJobsByStatus, updateJobStatus, getStatusCounts } = useAppliedJobs();
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const C = isDark
+    ? {
+        bg: '#0f0f0f',
+        card: '#1c1c1e',
+        text: '#F2F2F7',
+        textSub: '#8E8E93',
+        border: '#2c2c2e',
+        chipBg: '#2a2a2a',
+        chipBorder: '#3a3a3c',
+        searchBg: '#1c1c1e',
+        searchBorder: '#2c2c2e',
+      }
+    : {
+        bg: '#F8FAFC',
+        card: '#FFFFFF',
+        text: '#111111',
+        textSub: '#6B7280',
+        border: '#E2E8F0',
+        chipBg: '#F3F4F6',
+        chipBorder: '#E5E7EB',
+        searchBg: '#FFFFFF',
+        searchBorder: '#E5E7EB',
+      };
 
   const isSi = require('../locales').default.language === 'si';
   const statusCounts = getStatusCounts();
@@ -42,12 +69,13 @@ export default function AppliedJobsScreen() {
 
   if (appliedJobs.length === 0) {
     return (
-      <View style={styles.emptyState}>
+      <View style={[styles.emptyState, { backgroundColor: C.bg }]}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <View style={styles.emptyStateIcon}>
           <MaterialIcons name="assignment" size={48} color="#C4B5FD" />
         </View>
-        <Text style={styles.emptyStateTitle}>No applications yet</Text>
-        <Text style={styles.emptyStateText}>
+        <Text style={[styles.emptyStateTitle, { color: C.text }]}>No applications yet</Text>
+        <Text style={[styles.emptyStateText, { color: C.textSub }]}>
           Browse available jobs and apply to get started
         </Text>
       </View>
@@ -56,24 +84,25 @@ export default function AppliedJobsScreen() {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: C.bg }]}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       {/* Search Bar */}
       <View style={styles.searchWrapper}>
-        <View style={styles.searchContainer}>
-          <MaterialIcons name="search" size={20} color="#9CA3AF" />
+        <View style={[styles.searchContainer, { backgroundColor: C.searchBg, borderColor: C.searchBorder }]}>
+          <MaterialIcons name="search" size={20} color={C.textSub} />
           <TextInput
             placeholder="Search applications..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            style={styles.searchInput}
-            placeholderTextColor="#9CA3AF"
+            style={[styles.searchInput, { color: C.text }]}
+            placeholderTextColor={C.textSub}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <MaterialIcons name="close" size={20} color="#9CA3AF" />
+              <MaterialIcons name="close" size={20} color={C.textSub} />
             </TouchableOpacity>
           )}
         </View>
@@ -94,19 +123,21 @@ export default function AppliedJobsScreen() {
               key={filter.key}
               style={[
                 styles.filterChip,
+                { backgroundColor: C.chipBg, borderColor: C.chipBorder },
                 isActive && styles.filterChipActive,
-                filter.key !== 'all' && isActive && { backgroundColor: filter.color },
+                filter.key !== 'all' && isActive && { backgroundColor: filter.color, borderColor: filter.color },
               ]}
               onPress={() => setSelectedStatus(filter.key)}
             >
               <MaterialIcons
                 name={filter.icon}
                 size={16}
-                color={isActive ? '#FFFFFF' : filter.key !== 'all' ? filter.color : '#6B7280'}
+                color={isActive ? '#FFFFFF' : filter.key !== 'all' ? filter.color : C.textSub}
               />
               <Text
                 style={[
                   styles.filterChipText,
+                  { color: C.textSub },
                   isActive && styles.filterChipTextActive,
                 ]}
               >
@@ -116,12 +147,14 @@ export default function AppliedJobsScreen() {
                 <View
                   style={[
                     styles.filterCount,
+                    { backgroundColor: isDark ? '#374151' : '#E5E7EB' },
                     isActive && styles.filterCountActive,
                   ]}
                 >
                   <Text
                     style={[
                       styles.filterCountText,
+                      { color: C.textSub },
                       isActive && styles.filterCountTextActive,
                     ]}
                   >
@@ -136,12 +169,12 @@ export default function AppliedJobsScreen() {
 
       {/* Results Count */}
       <View style={styles.resultsHeader}>
-        <Text style={styles.resultsText}>
+        <Text style={[styles.resultsText, { color: C.textSub }]}>
           {filteredJobs.length} {filteredJobs.length === 1 ? 'application' : 'applications'}
         </Text>
       </View>
 
-      {/* Applied Jobs List Container (Standard View instead of nested ScrollView) */}
+      {/* Applied Jobs List Container */}
       <View style={styles.appliedList}>
         {filteredJobs.map((job) => {
           const status =
@@ -155,7 +188,7 @@ export default function AppliedJobsScreen() {
             .slice(0, 2);
 
           return (
-            <View key={job.id} style={styles.appliedCard}>
+            <View key={job.id} style={[styles.appliedCard, { backgroundColor: C.card, borderColor: C.border, borderWidth: isDark ? 1 : 0 }]}>
               <View style={[styles.appliedCardStatus, { backgroundColor: status.color }]} />
 
               <View style={styles.appliedCardContent}>
@@ -167,10 +200,10 @@ export default function AppliedJobsScreen() {
                   </View>
 
                   <View style={styles.appliedInfo}>
-                    <Text style={styles.appliedName}>{job.customer}</Text>
+                    <Text style={[styles.appliedName, { color: C.text }]}>{job.customer}</Text>
                     <View style={styles.appliedMeta}>
-                      <MaterialIcons name="location-on" size={12} color="#9CA3AF" />
-                      <Text style={styles.appliedMetaText}>
+                      <MaterialIcons name="location-on" size={12} color={C.textSub} />
+                      <Text style={[styles.appliedMetaText, { color: C.textSub }]}>
                         {typeof job.location === 'object'
                           ? job.location.address ||
                             job.location.city ||
@@ -178,11 +211,11 @@ export default function AppliedJobsScreen() {
                             'Unknown location'
                           : job.location || 'Unknown location'}
                       </Text>
-                      <View style={styles.appliedMetaDot} />
+                      <View style={[styles.appliedMetaDot, { backgroundColor: C.border }]} />
                       <View
                         style={[
                           styles.appliedCategory,
-                          { backgroundColor: categoryColor + '10' },
+                          { backgroundColor: categoryColor + '15' },
                         ]}
                       >
                         <Text style={[styles.appliedCategoryText, { color: categoryColor }]}>
@@ -192,17 +225,17 @@ export default function AppliedJobsScreen() {
                     </View>
                   </View>
 
-                  <Text style={styles.appliedBudget}>{job.budget}</Text>
+                  <Text style={[styles.appliedBudget, { color: '#6366F1' }]}>{job.budget}</Text>
                 </View>
 
-                <Text style={styles.appliedDescription} numberOfLines={2}>
+                <Text style={[styles.appliedDescription, { color: C.textSub }]} numberOfLines={2}>
                   {job.description}
                 </Text>
 
                 <View style={styles.appliedFooter}>
                   <View style={styles.appliedDate}>
-                    <MaterialIcons name="access-time" size={12} color="#9CA3AF" />
-                    <Text style={styles.appliedDateText}>
+                    <MaterialIcons name="access-time" size={12} color={C.textSub} />
+                    <Text style={[styles.appliedDateText, { color: C.textSub }]}>
                       Applied{' '}
                       {new Date(job.appliedAt).toLocaleDateString('en-US', {
                         day: 'numeric',

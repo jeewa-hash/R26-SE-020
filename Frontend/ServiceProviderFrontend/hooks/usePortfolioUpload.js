@@ -20,35 +20,11 @@ import { useState, useRef, useCallback } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE_URL = __DEV__
-  ?  'http://192.168.56.1:5000'        // Provider ML Engine runs on port 5000
-  : 'https://your-production-api.com';
+import { CONFIG } from '../config';
 
 const MAX_IMAGES = 5;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tag generation from your Flask response fields
-// Your predictor returns label (key) + category — we map these to display tags.
-// ─────────────────────────────────────────────────────────────────────────────
-
-const LABEL_TAGS = {
-  electrical_repair:            ['electrical', 'repaired', 'fixed', 'wiring', 'indoor'],
-  plumbing_repair:              ['plumbing', 'pipe', 'fixed', 'leak-free', 'residential'],
-  furniture_repair:             ['furniture', 'wood', 'repaired', 'restored', 'crafted'],
-  roofing_repair:               ['roofing', 'tiles', 'waterproof', 'repaired', 'exterior'],
-  painting_renovation:          ['painted', 'fresh-coat', 'walls', 'finish', 'interior'],
-  house_cleaning:               ['clean', 'sanitized', 'spotless', 'after', 'deep-clean'],
-  post_construction_cleaning:   ['construction', 'debris', 'clean', 'after', 'polished'],
-  move_in_out_cleaning:         ['move-out', 'empty', 'clean', 'sanitized', 'ready'],
-  sofa_carpet_curtain_cleaning: ['sofa', 'carpet', 'fabric', 'clean', 'stain-free'],
-  garden_cleaning:              ['garden', 'clean', 'trimmed', 'leaves', 'cleared'],
-  garden_maintenance:           ['garden', 'maintained', 'grass', 'hedge', 'neat'],
-  landscaping_design:           ['landscaping', 'design', 'outdoor', 'aesthetic', 'garden'],
-  planting:                     ['planting', 'plants', 'garden', 'green', 'outdoor'],
-};
-
-// Human-readable label from the key your Flask /services endpoint returns
+// Human-readable label fallback from the key
 const LABEL_DISPLAY = {
   electrical_repair:            'Electrical Repair',
   plumbing_repair:              'Plumbing Repair',
@@ -68,38 +44,36 @@ const LABEL_DISPLAY = {
 /**
  * Maps one item from data.images (Flask predictor output) to the shape
  * PortfolioTagScreen and PortfolioContext expect.
- *
- * We don't know the exact predictor.py output shape, so we handle
- * multiple common field names gracefully with fallbacks.
  */
 function mapFlaskItemToPortfolio(flaskItem, originalImage) {
-  // Your predictor likely returns one of these field names — handle all variants
-  const labelKey   = flaskItem.label ?? flaskItem.class_key ?? flaskItem.predicted_class ?? 'other';
-  const category   = flaskItem.category
-                  ?? flaskItem.label_display
-                  ?? LABEL_DISPLAY[labelKey]
-                  ?? 'Unclassified';
-  const confidence = flaskItem.confidence ?? flaskItem.score ?? 0;
-  const rejected   = flaskItem.rejected ?? (labelKey === 'other') ?? false;
-  const reason     = flaskItem.reason ?? flaskItem.rejection_reason ?? null;
+  const labelKey = flaskItem.service ?? flaskItem.label_key ?? flaskItem.label ?? 'other';
+  const label = flaskItem.label ?? LABEL_DISPLAY[labelKey] ?? 'Service Work';
+  const category = flaskItem.category ?? flaskItem.category_group ?? 'General';
+  const confidence = typeof flaskItem.confidence === 'number' ? flaskItem.confidence : 0;
+  const clipConfidence = typeof flaskItem.clip_confidence === 'number' ? flaskItem.clip_confidence : 0;
+  const rejected = flaskItem.rejected ?? false;
+  const reason = flaskItem.reason ?? flaskItem.error ?? null;
 
   return {
-    // From ImagePicker — always present
-    uri:      originalImage.uri,
-    width:    originalImage.width,
-    height:   originalImage.height,
+    id: flaskItem.id ?? flaskItem._id ?? `${Date.now()}_${Math.random()}`,
+    uri: originalImage.uri,
+    width: originalImage.width,
+    height: originalImage.height,
     fileName: originalImage.fileName,
+    image_url: flaskItem.image_url ?? '',
 
-    // From Flask predictor
-    category,
-    confidence:   parseFloat(confidence.toFixed(3)),
-    specific_label: flaskItem.specific_label ?? null,
-    tags:         rejected ? [] : (Array.isArray(flaskItem.tags) ? flaskItem.tags : []),
-    micro_skills: [],    // your predictor doesn't return micro-skills yet — empty for now
-    passed:       !rejected,
-    note:         rejected
-                    ? (reason ?? 'This photo does not appear to show a home service. Please retake it.')
-                    : null,
+    service: labelKey,
+    label: label,
+    category: category,
+    category_group: category,
+    specific_label: flaskItem.specific_label ?? label,
+    confidence: parseFloat(confidence.toFixed(1)),
+    clip_confidence: parseFloat(clipConfidence.toFixed(1)),
+    quality: flaskItem.quality ?? { label: confidence >= 80 ? 'High Quality' : 'Good Quality', color: confidence >= 80 ? 'green' : 'amber' },
+    tags: rejected ? [] : (Array.isArray(flaskItem.tags) ? flaskItem.tags : []),
+    clip_matches: flaskItem.clip_matches ?? [],
+    passed: !rejected,
+    note: rejected ? (reason ?? 'This photo does not appear to show a home service. Please retake it.') : null,
   };
 }
 
@@ -193,14 +167,13 @@ export function usePortfolioUpload() {
         throw new Error('Please log in again. Authorization token is missing.');
       }
 
-      const response = await fetch(`${API_BASE_URL}/predict`, {
+      const response = await fetch(`${CONFIG.ML_SERVICE_URL}/predict`, {
         method:  'POST',
         headers: {
-          // Flask ML middleware requires the same Bearer token as the provider API.
+          // Flask ML middleware requires Bearer token
           Authorization: `Bearer ${token}`,
-          // Do not set multipart Content-Type manually; fetch adds the boundary.
         },
-        body:    formData,
+        body: formData,
       });
 
       if (cancelledRef.current) return;
@@ -209,7 +182,7 @@ export function usePortfolioUpload() {
 
       // Flask returns 422 + rejected:true when ALL images are irrelevant
       if (response.status === 422 || data.rejected === true) {
-        const detail = data.detail ?? data.error ?? 'Please upload photos that show a home service.';
+        const detail = data.detail ?? data.error ?? data.reason ?? 'Please upload photos that show a home service.';
         throw new Error(detail);
       }
 
@@ -218,17 +191,18 @@ export function usePortfolioUpload() {
       }
 
       // ── Map Flask items → PortfolioTagScreen shape ─────────────────
-      // data.images is an array parallel to selectedImages
       const flaskItems = data.images ?? [];
 
       const enriched = selectedImages.map((img, index) => {
         const flaskItem = flaskItems[index];
         if (!flaskItem) {
-          // Shouldn't happen — safety fallback
           return {
+            id: `${Date.now()}_${index}`,
             uri: img.uri, width: img.width, height: img.height,
             fileName: img.fileName, category: 'Unclassified',
-            confidence: 0, tags: [], micro_skills: [], passed: false,
+            label: 'Service Work', specific_label: 'Service Work',
+            confidence: 0, clip_confidence: 0, quality: { label: 'Needs Review', color: 'red' },
+            tags: [], passed: false,
             note: 'No result returned for this image.',
           };
         }
@@ -256,6 +230,7 @@ export function usePortfolioUpload() {
       clearProgressTimers();
       setProgress(100);
       setAiResults(enriched);
+      setImages(enriched);
 
       setTimeout(() => {
         if (!cancelledRef.current) {
@@ -274,7 +249,7 @@ export function usePortfolioUpload() {
       Alert.alert(
         'AI Processing Failed',
         err.message.includes('Network') || err.message.includes('fetch')
-          ? `Cannot reach the server at ${API_BASE_URL}.\n\nCheck:\n• Flask is running (python app.py)\n• Your phone and PC are on the same WiFi\n• The IP address in API_BASE_URL is correct`
+          ? `Cannot reach the server at ${CONFIG.ML_SERVICE_URL}.\n\nCheck:\n• ML Engine is running on port 5000\n• IP address is configured correctly in config.js`
           : err.message,
         [{ text: 'OK' }]
       );
