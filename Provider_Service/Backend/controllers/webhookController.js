@@ -2,6 +2,7 @@
 import Stripe from "stripe";
 import Transaction from "../models/Transaction.js";
 import AdPost from "../models/AdPost.js";
+import { processBillPaymentSuccess } from "../services/commissionBillingService.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -24,30 +25,37 @@ export const handleStripeWebhook = async (req, res) => {
   // Handle successful checkout completion
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
-    const { adPostId, providerId, boostAmount, totalCharged } = session.metadata;
+    const metadata = session.metadata || {};
 
     try {
-      // 1. Prevent duplicate logs using Stripe Session ID
-      const existingTx = await Transaction.findOne({ stripeSessionId: session.id });
+      if (metadata.type === "COMMISSION_SERVICE_CHARGE") {
+        // Handle commission service charge payment
+        await processBillPaymentSuccess(session.id, session);
+        console.log(`✅ Commission bill payment processed via Webhook for session ${session.id}`);
+      } else {
+        // Handle Ad post boost payment
+        const { adPostId, providerId, boostAmount, totalCharged } = metadata;
 
-      if (!existingTx) {
-        // 2. Save transaction ledger
-        await Transaction.create({
-          adPostId,
-          providerId,
-          stripeSessionId: session.id,
-          boostAmount: Number(boostAmount),
-          amountPaid: Number(totalCharged),
-          currency: session.currency,
-          status: "completed",
-        });
+        const existingTx = await Transaction.findOne({ stripeSessionId: session.id });
 
-        // 3. Update ad post priority
-        await AdPost.findByIdAndUpdate(adPostId, {
-          $inc: { priority: Number(boostAmount) },
-        });
+        if (!existingTx && adPostId) {
+          await Transaction.create({
+            type: "boost",
+            adPostId,
+            providerId,
+            stripeSessionId: session.id,
+            boostAmount: Number(boostAmount) || 0,
+            amountPaid: Number(totalCharged) || 0,
+            currency: session.currency || "lkr",
+            status: "completed",
+          });
 
-        console.log(`✅ Transaction logged & priority boosted for Post ${adPostId}`);
+          await AdPost.findByIdAndUpdate(adPostId, {
+            $inc: { priority: Number(boostAmount) || 0 },
+          });
+
+          console.log(`✅ Transaction logged & priority boosted for Post ${adPostId}`);
+        }
       }
     } catch (dbError) {
       console.error("❌ Database Update Error in Webhook:", dbError.message);

@@ -18,6 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 
@@ -30,7 +31,7 @@ export default function FeedbackScreen() {
   const navigation = useNavigation();
   const { isDarkMode } = useTheme();
   const route = useRoute();
-  const { service, providerName, serviceTitle, providerId, serviceId } = route.params || {
+  const { service, providerName, serviceTitle, providerId, serviceId, bookingId } = route.params || {
     service: {
       title: "Electrical Wiring",
       provider: "Apex Electrical",
@@ -160,10 +161,7 @@ export default function FeedbackScreen() {
       
       // Submit review to backend
       const reviewData = {
-        serviceId: serviceId || service?.id,
-        providerId: providerId,
-        providerName: providerName,
-        serviceTitle: serviceTitle || service?.title,
+        bookingId: bookingId || serviceId || service?.id,
         rating: rating,
         reviewText: reviewText.trim(),
         recommendation: recommendation,
@@ -172,10 +170,17 @@ export default function FeedbackScreen() {
         createdAt: new Date().toISOString(),
       };
       
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        Alert.alert("Sign in required", "Please sign in to submit feedback.");
+        return;
+      }
+
       const response = await fetch(`${API_BASE_URL}/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(reviewData),
       });
@@ -194,7 +199,7 @@ export default function FeedbackScreen() {
           ]
         );
       } else {
-        Alert.alert("Error", data.error || "Failed to submit review. Please try again.");
+        Alert.alert("Error", data.message || "Failed to submit review. Please try again.");
       }
     } catch (error) {
       console.error('Submit review error:', error);

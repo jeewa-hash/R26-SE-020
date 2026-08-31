@@ -22,6 +22,9 @@ const notificationSchema = new mongoose.Schema(
         "QUOTE_ACCEPTED",
         "NEW_MESSAGE",
         "BOOKING_CANCELLED",
+        "COMMISSION_PAID",
+        "COMMISSION_DUE",
+        "ACCOUNT_SUSPENDED",
       ],
     },
     title: {

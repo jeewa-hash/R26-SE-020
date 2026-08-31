@@ -21,7 +21,6 @@ import { IP_ADDRESS } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 
-// Use the IP from config
 const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 
 export default function FeedScreen({ navigation }) {
@@ -33,7 +32,7 @@ export default function FeedScreen({ navigation }) {
   const [userId, setUserId] = useState(null);
   const [token, setToken] = useState(null);
 
-  // Load user data from storage
+  // ─── Load user data ──────────────────────────────────────
   useEffect(() => {
     const loadUserData = async () => {
       try {
@@ -48,7 +47,7 @@ export default function FeedScreen({ navigation }) {
     loadUserData();
   }, []);
 
-  // Fetch posts when userId is available
+  // ─── Fetch posts when userId is available ──────────────
   useEffect(() => {
     if (userId && token) {
       fetchPosts();
@@ -68,9 +67,7 @@ export default function FeedScreen({ navigation }) {
     return unsubscribe;
   }, [navigation, userId, token]);
 
-  // =======================================================
-  // FETCH USER'S POSTS
-  // =======================================================
+  // ─── FETCH USER'S POSTS ──────────────────────────────────
   const fetchPosts = async () => {
     if (!userId || !token) {
       setLoading(false);
@@ -108,8 +105,7 @@ export default function FeedScreen({ navigation }) {
             }
           ),
           timeAgo: formatTimeAgo(post.createdAt),
-          // Keep responseCount if you still need it for something else
-          responseCount: post.comments || 0,
+          responseCount: post.appliedBy ? post.appliedBy.length : 0,
         }));
 
         setPosts(formattedPosts);
@@ -128,9 +124,7 @@ export default function FeedScreen({ navigation }) {
     }
   };
 
-  // =======================================================
-  // FORMAT TIME
-  // =======================================================
+  // ─── FORMAT TIME ──────────────────────────────────────────
   const formatTimeAgo = (timestamp) => {
     if (!timestamp) return 'Just now';
 
@@ -144,17 +138,13 @@ export default function FeedScreen({ navigation }) {
     return `${Math.floor(diff / 86400)}d ago`;
   };
 
-  // =======================================================
-  // REFRESH
-  // =======================================================
+  // ─── REFRESH ──────────────────────────────────────────────
   const onRefresh = () => {
     setRefreshing(true);
     fetchPosts();
   };
 
-  // =======================================================
-  // EDIT POST
-  // =======================================================
+  // ─── EDIT POST ────────────────────────────────────────────
   const handleEditPost = (post) => {
     navigation.navigate('CreatePostScreen', {
       editMode: true,
@@ -162,9 +152,7 @@ export default function FeedScreen({ navigation }) {
     });
   };
 
-  // =======================================================
-  // DELETE ALERT
-  // =======================================================
+  // ─── DELETE ALERT ─────────────────────────────────────────
   const handleDeletePost = (post) => {
     Alert.alert(
       'Delete Post',
@@ -180,9 +168,7 @@ export default function FeedScreen({ navigation }) {
     );
   };
 
-  // =======================================================
-  // DELETE POST
-  // =======================================================
+  // ─── DELETE POST ──────────────────────────────────────────
   const deletePost = async (postId) => {
     try {
       if (!token) {
@@ -218,17 +204,21 @@ export default function FeedScreen({ navigation }) {
     }
   };
 
-  // =======================================================
-  // VIEW RESPONSES
-  // =======================================================
-  const handleViewResponses = (postId) => {
-    // Navigate to a screen that shows the providers who responded
-    navigation.navigate('PostResponsesScreen', { postId });
+  // ─── VIEW RESPONSES – Navigate to PostResponsesScreen ──
+  const handleViewResponses = (post) => {
+    navigation.navigate('PostResponsesScreen', {
+      postId: post.id,
+      post: {
+        title: post.title,
+        description: post.description,
+        image: post.image,
+        category: post.category,
+        urgency: post.urgency,
+      },
+    });
   };
 
-  // =======================================================
-  // URGENCY STYLE
-  // =======================================================
+  // ─── URGENCY STYLE ────────────────────────────────────────
   const getUrgencyStyle = (urgency) => {
     switch (urgency) {
       case 'high':
@@ -242,9 +232,7 @@ export default function FeedScreen({ navigation }) {
     }
   };
 
-  // =======================================================
-  // LOADING
-  // =======================================================
+  // ─── LOADING ──────────────────────────────────────────────
   if (loading) {
     return (
       <SafeAreaView
@@ -283,9 +271,7 @@ export default function FeedScreen({ navigation }) {
     );
   }
 
-  // =======================================================
-  // NOT LOGGED IN
-  // =======================================================
+  // ─── NOT LOGGED IN ────────────────────────────────────────
   if (!userId || !token) {
     return (
       <SafeAreaView
@@ -330,6 +316,7 @@ export default function FeedScreen({ navigation }) {
     );
   }
 
+  // ─── MAIN UI ──────────────────────────────────────────────
   return (
     <SafeAreaView
       style={[
@@ -479,7 +466,7 @@ export default function FeedScreen({ navigation }) {
                   />
                 )}
 
-                {/* FOOTER - Removed bids count, kept date/time */}
+                {/* FOOTER */}
                 <View style={styles.postFooter}>
                   <View style={styles.footerItem}>
                     <Ionicons
@@ -516,48 +503,38 @@ export default function FeedScreen({ navigation }) {
                   </View>
                 </View>
 
-                {/* ACTION BUTTONS - Now includes View Responses */}
+                {/* ─── ACTION BUTTONS (SMALLER & SIMPLER) ─── */}
                 <View style={styles.actionButtons}>
                   {/* EDIT */}
                   <TouchableOpacity
-                    style={styles.editButton}
+                    style={[styles.actionBtn, styles.editBtn, isDarkMode && styles.editBtnDark]}
                     onPress={() => handleEditPost(post)}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons
-                      name="create-outline"
-                      size={18}
-                      color="#667eea"
-                    />
-
-                    <Text style={styles.editButtonText}>Edit</Text>
+                    <Ionicons name="create-outline" size={16} color="#667eea" />
+                    <Text style={[styles.actionBtnText, styles.editBtnText]}>Edit</Text>
                   </TouchableOpacity>
 
                   {/* DELETE */}
                   <TouchableOpacity
-                    style={styles.deleteButton}
+                    style={[styles.actionBtn, styles.deleteBtn, isDarkMode && styles.deleteBtnDark]}
                     onPress={() => handleDeletePost(post)}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons
-                      name="trash-outline"
-                      size={18}
-                      color="#EF4444"
-                    />
-
-                    <Text style={styles.deleteButtonText}>Delete</Text>
+                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                    <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
                   </TouchableOpacity>
 
-                  {/* VIEW RESPONSES (NEW) */}
+                  {/* RESPONSES */}
                   <TouchableOpacity
-                    style={styles.responsesButton}
-                    onPress={() => handleViewResponses(post.id)}
+                    style={[styles.actionBtn, styles.responsesBtn, isDarkMode && styles.responsesBtnDark]}
+                    onPress={() => handleViewResponses(post)}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons
-                      name="people-outline"
-                      size={18}
-                      color="#10B981"
-                    />
-
-                    <Text style={styles.responsesButtonText}>Responses</Text>
+                    <Ionicons name="people-outline" size={16} color="#10B981" />
+                    <Text style={[styles.actionBtnText, styles.responsesBtnText]}>
+                      Responses {post.responseCount > 0 ? `(${post.responseCount})` : ''}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -622,6 +599,7 @@ export default function FeedScreen({ navigation }) {
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -759,69 +737,72 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 
-  // Removed responseText style
-
+  // ─── ACTION BUTTONS (SMALLER & SIMPLER) ────────────────
   actionButtons: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
+    justifyContent: 'space-between',
+    gap: 6,
+    marginTop: 2,
   },
 
-  editButton: {
+  actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 12,
+    gap: 4,
+    paddingVertical: 6,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#667eea',
     backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 1,
+    elevation: 0,
   },
 
-  editButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
+  actionBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Edit button
+  editBtn: {
+    borderColor: '#667eea',
+    backgroundColor: '#EEF2FF',
+  },
+  editBtnDark: {
+    borderColor: '#818cf8',
+    backgroundColor: '#242f4d',
+  },
+  editBtnText: {
     color: '#667eea',
   },
 
-  deleteButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
-    backgroundColor: '#fff',
+  // Delete button
+  deleteBtn: {
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
   },
-
-  deleteButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
+  deleteBtnDark: {
+    borderColor: '#F87171',
+    backgroundColor: '#242f4d',
+  },
+  deleteBtnText: {
     color: '#EF4444',
   },
 
-  // New "Responses" button style
-  responsesButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D1FAE5',
-    backgroundColor: '#fff',
+  // Responses button
+  responsesBtn: {
+    borderColor: '#6EE7B7',
+    backgroundColor: '#ECFDF5',
   },
-
-  responsesButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
+  responsesBtnDark: {
+    borderColor: '#34D399',
+    backgroundColor: '#242f4d',
+  },
+  responsesBtnText: {
     color: '#10B981',
   },
 

@@ -2,14 +2,32 @@ import mongoose from "mongoose";
 
 const transactionSchema = new mongoose.Schema(
   {
+    type: {
+      type: String,
+      enum: ["boost", "commission_service_charge"],
+      default: "boost",
+      index: true,
+    },
     adPostId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "AdPost",
-      required: true,
+      required: false,
+      default: null,
+    },
+    billingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CommissionBilling",
+      required: false,
+      default: null,
+    },
+    billingMonth: {
+      type: String,
+      default: null,
     },
     providerId: {
       type: String,
       required: true,
+      index: true,
     },
     stripeSessionId: {
       type: String,
@@ -18,7 +36,8 @@ const transactionSchema = new mongoose.Schema(
     },
     boostAmount: {
       type: Number,
-      required: true,
+      required: false,
+      default: 0,
     },
     amountPaid: {
       type: Number, // In LKR

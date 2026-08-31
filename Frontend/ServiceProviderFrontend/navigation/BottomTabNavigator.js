@@ -10,7 +10,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ThemeContext } from '../context/ThemeContext';
 import { IP_ADDRESS } from '../config';
 import { clearCredentials } from '../utils/biometricAuth';
+import { io } from 'socket.io-client';
 
+const API_URL = `http://${IP_ADDRESS}:4003`;
 const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
 
 // Import Screens
@@ -22,6 +24,7 @@ import ChatScreen from '../pages/ChatScreen';
 import QuotationTemplate from '../pages/QuotationTemplate';
 import NotificationsScreen from '../pages/NotificationsScreen';
 import InboxScreen from '../pages/InboxScreen';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -43,7 +46,7 @@ function HomeStack() {
 // `isCenter` marks the raised, glowing middle button (now the Notifications tab)
 const TABS = [
   { name: 'HomeTab', label: 'Home', icon: 'home-outline', iconActive: 'home' },
-  { name: 'Bookings', label: 'Bookings', icon: 'calendar-outline', iconActive: 'calendar' },
+  { name: 'Bookings', label: 'My Jobs', icon: 'briefcase-outline', iconActive: 'briefcase' },
   { name: 'NotificationsTab', label: 'Alerts', icon: 'bell-outline', iconActive: 'bell', isCenter: true },
   { name: 'Earnings', label: 'Earnings', icon: 'wallet-outline', iconActive: 'wallet' },
   { name: 'Profile', label: 'Profile', icon: 'account-outline', iconActive: 'account' },
@@ -153,112 +156,215 @@ export default function BottomTabNavigator() {
   const [activeAlertBanner, setActiveAlertBanner] = useState(null);
   const seenNotificationIdsRef = useRef(new Set());
   const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
+  const socketRef = useRef(null);
 
-  // Security Watchdog: Periodically check suspension & new approval/rejection notifications without refresh
+  // Real-Time Notification Socket and Security Watchdog
   useEffect(() => {
-    const checkStatusAndNotifications = async () => {
-      if (isLoggingOutRef.current) return;
+    let intervalId = null;
+
+    const setupRealTimeAndWatchdog = async () => {
+      const userId = (await AsyncStorage.getItem('userId')) || '69fc31f3cfe41c4d62e6f9ee';
+      const token = await AsyncStorage.getItem('userToken');
+
+      // 1. Socket.io Real-time connection (Instant Notification Push)
       try {
-        const userId = (await AsyncStorage.getItem('userId')) || '69fc31f3cfe41c4d62e6f9ee';
-        if (!userId) return;
-
-        // 1. Check Suspension Status
-        const response = await fetch(`${ADMIN_API_URL}/api/inquiries/provider-status/${userId}`);
-        const data = await response.json();
-
-        if (response.ok && data.isBlocked) {
-          isLoggingOutRef.current = true;
-          const untilDate = data.blockedUntil ? new Date(data.blockedUntil).toLocaleDateString() : 'Admin unlocks';
-
-          await AsyncStorage.removeItem('userToken');
-          await AsyncStorage.removeItem('userRole');
-          await AsyncStorage.removeItem('userId');
-          await clearCredentials();
-
-          Alert.alert(
-            '⚠️ Account Suspended',
-            `Your account has been suspended for 1 Month (30 Days) due to 3 consecutive inquiry rejections. Access is restricted until ${untilDate}.\n\nYou have been logged out.`,
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'Login' }],
-                  });
-                },
-              },
-            ],
-            { cancelable: false }
-          );
-
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Login' }],
+        if (!socketRef.current) {
+          socketRef.current = io(API_URL, {
+            transports: ['websocket'],
+            reconnection: true,
           });
-          return;
-        }
 
-        // 2. Check for New Unread Approval & Rejection Notifications (Real-time without refresh)
-        const notifRes = await fetch(`${ADMIN_API_URL}/api/inquiries/notifications/${userId}`);
-        const notifData = await notifRes.json();
-        if (notifRes.ok && Array.isArray(notifData.data)) {
-          const anyUnread = notifData.data.some((n) => !n.isRead);
-          setHasUnreadNotifs(anyUnread);
+          socketRef.current.on('connect', () => {
+            if (userId) {
+              socketRef.current.emit('join_notification_room', userId);
+              socketRef.current.emit('join', userId);
+            }
+          });
 
-          const unreadNotifs = notifData.data.filter(
-            (n) =>
-              !n.isRead &&
-              (n.type === 'inquiry_rejected' || n.type === 'inquiry_approved') &&
-              !seenNotificationIdsRef.current.has(n._id)
-          );
-          if (unreadNotifs.length > 0) {
-            const latestNotif = unreadNotifs[0];
-            seenNotificationIdsRef.current.add(latestNotif._id);
-            setActiveAlertBanner(latestNotif);
-          }
+          const handleIncomingNotif = (newNotif) => {
+            if (!newNotif || !newNotif._id) return;
+            const notifId = newNotif._id.toString();
+            if (!seenNotificationIdsRef.current.has(notifId)) {
+              seenNotificationIdsRef.current.add(notifId);
+              setHasUnreadNotifs(true);
+              setActiveAlertBanner(newNotif);
+            }
+          };
+
+          socketRef.current.on('new_notification', handleIncomingNotif);
+          socketRef.current.on('notification', handleIncomingNotif);
         }
-      } catch (err) {
-        // silent
+      } catch (sockErr) {
+        console.warn('Socket connection error in TabNavigator:', sockErr.message);
       }
+
+      // 2. Periodic Watchdog (every 2.5s)
+      const checkStatusAndNotifications = async () => {
+        if (isLoggingOutRef.current) return;
+        try {
+          const currentUserId = (await AsyncStorage.getItem('userId')) || userId;
+          const currentToken = (await AsyncStorage.getItem('userToken')) || token;
+          if (!currentUserId) return;
+
+          // Check Suspension Status
+          const response = await fetch(`${ADMIN_API_URL}/api/inquiries/provider-status/${currentUserId}`);
+          const data = await response.json();
+
+          if (response.ok && data.isBlocked) {
+            isLoggingOutRef.current = true;
+            const untilDate = data.blockedUntil ? new Date(data.blockedUntil).toLocaleDateString() : 'Admin unlocks';
+
+            await AsyncStorage.removeItem('userToken');
+            await AsyncStorage.removeItem('userRole');
+            await AsyncStorage.removeItem('userId');
+            await clearCredentials();
+
+            Alert.alert(
+              '⚠️ Account Suspended',
+              `Your account has been suspended for 1 Month (30 Days) due to 3 consecutive inquiry rejections. Access is restricted until ${untilDate}.\n\nYou have been logged out.`,
+              [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: 'Login' }],
+                    });
+                  },
+                },
+              ],
+              { cancelable: false }
+            );
+
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login' }],
+            });
+            return;
+          }
+
+          // Check for Unread Notifications from Admin API & Auth API
+          let allNotifs = [];
+
+          try {
+            const notifRes = await fetch(`${ADMIN_API_URL}/api/inquiries/notifications/${currentUserId}`);
+            const notifData = await notifRes.json();
+            if (notifRes.ok && Array.isArray(notifData.data)) {
+              allNotifs = [...allNotifs, ...notifData.data];
+            }
+          } catch (e) {
+            // silent
+          }
+
+          if (currentToken) {
+            try {
+              const authNotifRes = await fetch(`${API_URL}/notifications`, {
+                headers: { Authorization: `Bearer ${currentToken}` },
+              });
+              const authNotifData = await authNotifRes.json();
+              if (authNotifRes.ok && Array.isArray(authNotifData)) {
+                allNotifs = [...allNotifs, ...authNotifData];
+              }
+            } catch (e) {
+              // silent
+            }
+          }
+
+          if (allNotifs.length > 0) {
+            const anyUnread = allNotifs.some((n) => !n.isRead);
+            setHasUnreadNotifs(anyUnread);
+
+            const unreadPriorityNotifs = allNotifs.filter(
+              (n) =>
+                !n.isRead &&
+                (n.type === 'inquiry_rejected' ||
+                  n.type === 'inquiry_approved' ||
+                  n.type === 'high_demand_alert' ||
+                  (n.title && n.title.includes('High Demand'))) &&
+                !seenNotificationIdsRef.current.has(n._id?.toString())
+            );
+
+            if (unreadPriorityNotifs.length > 0) {
+              const latestNotif = unreadPriorityNotifs[0];
+              seenNotificationIdsRef.current.add(latestNotif._id?.toString());
+              setActiveAlertBanner(latestNotif);
+            }
+          }
+        } catch (err) {
+          // silent
+        }
+      };
+
+      checkStatusAndNotifications();
+      intervalId = setInterval(checkStatusAndNotifications, 2500);
     };
 
-    checkStatusAndNotifications();
-    const interval = setInterval(checkStatusAndNotifications, 2500); // 2.5s fast real-time poll
-    return () => clearInterval(interval);
+    setupRealTimeAndWatchdog();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
   }, [navigation]);
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Real-Time Floating In-App Alert Banner (Approved or Rejected) */}
+      {/* Real-Time Floating In-App Alert Banner (Demand Alerts, Approved or Rejected) */}
       {activeAlertBanner && (
         <View style={styles.floatingBannerContainer}>
           <LinearGradient
-            colors={activeAlertBanner.type === 'inquiry_approved' ? 
-              ['#ECFDF5', '#D1FAE5'] : 
-              ['#FEF2F2', '#FEE2E2']}
-            style={[
-              styles.floatingBannerCard,
-            ]}
+            colors={
+              activeAlertBanner.type === 'high_demand_alert' ||
+              (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
+                ? ['#EEF2FF', '#E0E7FF']
+                : activeAlertBanner.type === 'inquiry_approved'
+                ? ['#ECFDF5', '#D1FAE5']
+                : ['#FEF2F2', '#FEE2E2']
+            }
+            style={[styles.floatingBannerCard]}
           >
             <View
               style={[
                 styles.floatingBannerIconWrap,
-                activeAlertBanner.type === 'inquiry_approved'
+                activeAlertBanner.type === 'high_demand_alert' ||
+                (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
+                  ? { backgroundColor: '#C7D2FE' }
+                  : activeAlertBanner.type === 'inquiry_approved'
                   ? styles.floatingBannerIconWrapApproved
                   : styles.floatingBannerIconWrapRejected,
               ]}
             >
               <MaterialIcons
-                name={activeAlertBanner.type === 'inquiry_approved' ? 'check-circle' : 'error-outline'}
+                name={
+                  activeAlertBanner.type === 'high_demand_alert' ||
+                  (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
+                    ? 'trending-up'
+                    : activeAlertBanner.type === 'inquiry_approved'
+                    ? 'check-circle'
+                    : 'error-outline'
+                }
                 size={24}
-                color={activeAlertBanner.type === 'inquiry_approved' ? '#059669' : '#dc2626'}
+                color={
+                  activeAlertBanner.type === 'high_demand_alert' ||
+                  (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
+                    ? '#4F46E5'
+                    : activeAlertBanner.type === 'inquiry_approved'
+                    ? '#059669'
+                    : '#dc2626'
+                }
               />
             </View>
             <View style={{ flex: 1 }}>
               <Text
                 style={[
                   styles.floatingBannerTitle,
+                  (activeAlertBanner.type === 'high_demand_alert' ||
+                    (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))) && {
+                    color: '#3730A3',
+                  },
                   activeAlertBanner.type === 'inquiry_approved' && { color: '#065f46' },
                 ]}
               >
@@ -271,20 +377,44 @@ export default function BottomTabNavigator() {
                 <TouchableOpacity
                   style={[
                     styles.floatingBannerActionBtn,
-                    activeAlertBanner.type === 'inquiry_approved' && { backgroundColor: '#059669' },
+                    (activeAlertBanner.type === 'high_demand_alert' ||
+                      (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand')))
+                      ? { backgroundColor: '#4F46E5' }
+                      : activeAlertBanner.type === 'inquiry_approved'
+                      ? { backgroundColor: '#059669' }
+                      : { backgroundColor: '#dc2626' },
                   ]}
                   onPress={() => {
+                    const isDemandAlert =
+                      activeAlertBanner.type === 'high_demand_alert' ||
+                      (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'));
                     setActiveAlertBanner(null);
-                    navigation.navigate('SubmitInquiry');
+                    if (isDemandAlert) {
+                      navigation.navigate('Notifications');
+                    } else {
+                      navigation.navigate('SubmitInquiry');
+                    }
                   }}
                 >
                   <MaterialIcons
-                    name={activeAlertBanner.type === 'inquiry_approved' ? 'verified' : 'replay'}
+                    name={
+                      activeAlertBanner.type === 'high_demand_alert' ||
+                      (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
+                        ? 'notifications'
+                        : activeAlertBanner.type === 'inquiry_approved'
+                        ? 'verified'
+                        : 'replay'
+                    }
                     size={14}
                     color="#ffffff"
                   />
                   <Text style={styles.floatingBannerActionBtnText}>
-                    {activeAlertBanner.type === 'inquiry_approved' ? 'View Status' : 'Re-submit Now'}
+                    {activeAlertBanner.type === 'high_demand_alert' ||
+                    (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
+                      ? 'View Alert'
+                      : activeAlertBanner.type === 'inquiry_approved'
+                      ? 'View Status'
+                      : 'Re-submit Now'}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -324,7 +454,22 @@ export default function BottomTabNavigator() {
             key={tab.name}
             name={tab.name}
             component={SCREENS[tab.name]}
-            options={{
+            options={({ route }) => ({
+      // Hide floating tab bar dynamically when opening sub-screens like ChatScreen
+      tabBarStyle: ((routeName) => {
+        const hiddenScreens = ['ChatScreen', 'QuotationTemplate', 'InboxScreen'];
+        if (hiddenScreens.includes(routeName)) {
+          return { display: 'none' };
+        }
+        return [
+          styles.tabBar,
+          {
+            backgroundColor: C.bar,
+            borderColor: C.barBorder,
+            shadowColor: C.shadowColor,
+          },
+        ];
+      })(getFocusedRouteNameFromRoute(route)),
               tabBarIcon: ({ focused }) =>
                 tab.isCenter ? (
                   <CenterTabItem
@@ -353,7 +498,7 @@ export default function BottomTabNavigator() {
                     />
                   )
                 : undefined,
-            }}
+            })}
           />
         ))}
       </Tab.Navigator>

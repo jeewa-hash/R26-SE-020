@@ -21,7 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
-import { useChat } from '../context/ChatContext'; // <-- Added import
+import { useChat } from '../context/ChatContext';
 
 const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
@@ -54,7 +54,7 @@ const groupBySession = (requests) => {
 
 export default function BookingsScreen({ navigation }) {
   const { isDarkMode } = useTheme();
-  const { createOrGetChat } = useChat(); // <-- Destructure from useChat
+  const { createOrGetChat } = useChat();
 
   const [groupedBookings, setGroupedBookings] = useState([]);
   const [providersMap, setProvidersMap] = useState({});
@@ -64,8 +64,6 @@ export default function BookingsScreen({ navigation }) {
   const [expandedSessions, setExpandedSessions] = useState({});
 
   const [totalSessions, setTotalSessions] = useState(0);
-  const [confirmedSessions, setConfirmedSessions] = useState(0);
-  const [pendingSessions, setPendingSessions] = useState(0);
 
   // ─────────────────────────────────────────────────────────────
   // Fetch all providers into a map keyed by provider id
@@ -128,16 +126,7 @@ export default function BookingsScreen({ navigation }) {
         setGroupedBookings(groups);
 
         const total = groups.length;
-        const confirmed = groups.filter((g) =>
-          g.requests.some((r) => r.status === 'confirmed')
-        ).length;
-        const pending = groups.filter((g) =>
-          g.requests.every((r) => r.status === 'pending')
-        ).length;
-
         setTotalSessions(total);
-        setConfirmedSessions(confirmed);
-        setPendingSessions(pending);
 
         const providerMap = await fetchProviders();
         setProvidersMap(providerMap);
@@ -258,9 +247,9 @@ export default function BookingsScreen({ navigation }) {
   };
 
   // ─────────────────────────────────────────────────────────────
-  //  FIXED: handleMessage – creates/gets chat and navigates correctly
+  //  UPDATED: handleMessage – now passes booking details to ChatScreen
   // ─────────────────────────────────────────────────────────────
-  const handleMessage = async (request) => {
+  const handleMessage = async (request, group = {}) => {
     try {
       const currentUserId = await AsyncStorage.getItem('userId');
       if (!currentUserId) {
@@ -280,12 +269,33 @@ export default function BookingsScreen({ navigation }) {
       const name = provider?.name || `Provider ${String(receiverId).slice(-4)}`;
       const avatar = getProviderImage(receiverId);
 
+      // ─── Extract booking request details ──────────────────
+      const postTitle = request.detectedObject || request.detectedCategory || group?.detectedObject || group?.detectedCategory || 'Service Request';
+      const postDescription = request.briefDescription || group?.briefDescription || '';
+      const postCategory = 'Service Request';
+      const postUrgency = request.urgencyLevel || group?.urgencyLevel || 'Normal';
+      const postImage = request.images?.[0] || request.photos?.[0] || request.image || group?.images?.[0] || null;
+
+      // ─── Clean initial prompt for FB/Insta post inquiry ───
+      const initialMessage = `Hi! I would like to discuss this service request with you.`;
+
       navigation.navigate('ChatScreen', {
         chatId,
         userId: receiverId,
         userName: name,
         userAvatar: avatar,
         userRole: 'Provider',
+        // ─── Pass booking details as post context ──────────
+        source: 'booking',
+        isBooking: true,
+        postId: request._id || request.sessionId || group?.sessionId,
+        requestId: request._id || request.sessionId || group?.sessionId,
+        postTitle: postTitle,
+        postDescription: postDescription,
+        postImage: postImage,
+        postCategory: postCategory,
+        postUrgency: postUrgency,
+        initialMessage: initialMessage,
       });
     } catch (error) {
       console.error('Error starting chat:', error);
@@ -374,7 +384,7 @@ export default function BookingsScreen({ navigation }) {
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Bookings</Text>
+        <Text style={styles.headerTitle}>My Requests</Text>
         <TouchableOpacity
           style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
           onPress={onRefresh}
@@ -390,24 +400,6 @@ export default function BookingsScreen({ navigation }) {
           </Text>
           <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
             Total
-          </Text>
-        </View>
-        <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
-        <View style={styles.statCard}>
-          <Text style={[styles.statNumber, { color: '#10B981' }]}>
-            {confirmedSessions}
-          </Text>
-          <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
-            Confirmed
-          </Text>
-        </View>
-        <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
-        <View style={styles.statCard}>
-          <Text style={[styles.statNumber, { color: '#F59E0B' }]}>
-            {pendingSessions}
-          </Text>
-          <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
-            Pending
           </Text>
         </View>
       </View>
@@ -573,18 +565,20 @@ export default function BookingsScreen({ navigation }) {
                                   {pName}
                                 </Text>
                               </TouchableOpacity>
-                              <View style={[styles.providerStatusChip, { backgroundColor: pStatus.bg }]}>
-                                <Ionicons name={pStatus.icon} size={11} color={pStatus.color} />
-                                <Text style={[styles.providerStatusText, { color: pStatus.color }]}>
-                                  {pStatus.text}
-                                </Text>
-                              </View>
+                              {req.status !== 'pending' && req.status !== 'confirmed' && (
+                                <View style={[styles.providerStatusChip, { backgroundColor: pStatus.bg }]}>
+                                  <Ionicons name={pStatus.icon} size={11} color={pStatus.color} />
+                                  <Text style={[styles.providerStatusText, { color: pStatus.color }]}>
+                                    {pStatus.text}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
 
                             <View style={styles.providerActions}>
                               <TouchableOpacity
                                 style={[styles.iconBtn, isDarkMode && styles.iconBtnDark]}
-                                onPress={() => handleMessage(req)}
+                                onPress={() => handleMessage(req, group)}
                               >
                                 <Ionicons
                                   name="chatbubble-outline"
@@ -607,7 +601,7 @@ export default function BookingsScreen({ navigation }) {
                                     isDarkMode && styles.viewQuoteBtnTextDark,
                                   ]}
                                 >
-                                  Quote
+                                  View
                                 </Text>
                               </TouchableOpacity>
                             </View>

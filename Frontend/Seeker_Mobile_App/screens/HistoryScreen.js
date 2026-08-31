@@ -4,27 +4,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = Platform.OS === 'android' 
   ? 'http://10.0.2.2:6000'
   : 'http://localhost:6000';
 
+const COORDINATION_API_BASE_URL = Platform.OS === 'android'
+  ? 'http://10.0.2.2:5010'
+  : 'http://localhost:5010';
+
 export default function HistoryScreen({ navigation }) {
   const { isDarkMode } = useTheme();
   const [reviewsSubmitted, setReviewsSubmitted] = useState({});
   const [loading, setLoading] = useState(true);
-  
-  const completedServices = [
-    { id: 1, title: "Electrical Wiring", provider: "Apex Electrical", providerId: "apex_electrical", providerImage: "https://randomuser.me/api/portraits/men/1.jpg", date: "Mar 15, 2024", time: "2:00 PM", price: "$180", rating: 5, category: "Repairing" },
-    { id: 2, title: "Garden Maintenance", provider: "Green Thumb", providerId: "green_thumb", providerImage: "https://randomuser.me/api/portraits/men/2.jpg", date: "Mar 10, 2024", time: "10:00 AM", price: "$95", rating: 4, category: "Gardening" },
-    { id: 3, title: "House Deep Cleaning", provider: "Sparkle Clean", providerId: "sparkle_clean", providerImage: "https://randomuser.me/api/portraits/women/1.jpg", date: "Mar 5, 2024", time: "1:00 PM", price: "$150", rating: 5, category: "Cleaning" },
-    { id: 4, title: "AC Repair", provider: "Cool Air Solutions", providerId: "cool_air", providerImage: "https://randomuser.me/api/portraits/men/3.jpg", date: "Feb 28, 2024", time: "11:00 AM", price: "$220", rating: 5, category: "Repairing" },
-  ];
+  const [completedServices, setCompletedServices] = useState([]);
 
   // Check if service has been reviewed
-  const checkServiceReviewStatus = async (serviceId) => {
+  const checkServiceReviewStatus = async (bookingId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/feedback/service/${serviceId}`);
+      const response = await fetch(`${API_BASE_URL}/feedback/booking/${bookingId}`);
       const data = await response.json();
       return data.hasReviewed || false;
     } catch (error) {
@@ -40,15 +39,43 @@ export default function HistoryScreen({ navigation }) {
 
   const loadReviewStatuses = async () => {
     setLoading(true);
-    const statuses = {};
-    
-    for (const service of completedServices) {
-      const hasReviewed = await checkServiceReviewStatus(service.id);
-      statuses[service.id] = hasReviewed;
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) return;
+
+      const response = await fetch(`${COORDINATION_API_BASE_URL}/bookings/seeker/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Unable to load booking history');
+
+      const completed = (data.data || [])
+        .filter((booking) => booking.bookingStatus === 'COMPLETED')
+        .map((booking) => ({
+          id: booking._id,
+          title: 'Completed Service',
+          provider: 'Service Provider',
+          providerId: booking.providerId,
+          providerImage: 'https://randomuser.me/api/portraits/lego/1.jpg',
+          date: booking.scheduledDate,
+          time: booking.endTime,
+          price: `$${booking.finalAmount || 0}`,
+          rating: 0,
+          category: 'Service',
+        }));
+      setCompletedServices(completed);
+
+      const statuses = {};
+      for (const service of completed) {
+        statuses[service.id] = await checkServiceReviewStatus(service.id);
+      }
+      setReviewsSubmitted(statuses);
+    } catch (error) {
+      console.error('Error loading booking history:', error);
+      Alert.alert('Error', error.message || 'Unable to load booking history.');
+    } finally {
+      setLoading(false);
     }
-    
-    setReviewsSubmitted(statuses);
-    setLoading(false);
   };
 
   const renderStars = (rating) => {
@@ -68,7 +95,8 @@ export default function HistoryScreen({ navigation }) {
       providerName: service.provider,
       providerId: service.providerId,
       serviceTitle: service.title,
-      serviceId: service.id
+      serviceId: service.id,
+      bookingId: service.id,
     });
   };
 
@@ -592,3 +620,4 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 });
+

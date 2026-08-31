@@ -28,7 +28,7 @@ export default function PortfolioTagScreen({ images, onClose }) {
   const [tagMap, setTagMap] = useState(() => {
     const map = {};
     images.forEach((img, i) => {
-      map[img.uri] = AI_TAGS_POOL[i % AI_TAGS_POOL.length];
+      map[img.uri] = Array.isArray(img.tags) ? img.tags : [];
     });
     return map;
   });

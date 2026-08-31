@@ -15,8 +15,17 @@ module.exports = {
       console.log('Client connected:', socket.id);
 
       socket.on('join', (room) => {
-        socket.join(room);
-        console.log(`Socket ${socket.id} joined room: ${room}`);
+        if (room) {
+          socket.join(room.toString());
+          console.log(`Socket ${socket.id} joined room: ${room}`);
+        }
+      });
+
+      socket.on('join_notification_room', (userId) => {
+        if (userId) {
+          socket.join(userId.toString());
+          console.log(`Socket ${socket.id} joined notification room: ${userId}`);
+        }
       });
 
       socket.on('disconnect', () => {

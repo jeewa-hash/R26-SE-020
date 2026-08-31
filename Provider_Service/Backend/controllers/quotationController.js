@@ -4,7 +4,7 @@ import { sendRealtimeNotification } from "../sockets/notificationSocket.js";
 
 export const createQuotation = async (req, res) => {
   try {
-    const providerId = req.user?.id;
+    const providerId = req.user?.id || req.user?._id;
 
     if (!providerId) {
       return res.status(401).json({
@@ -62,6 +62,27 @@ export const createQuotation = async (req, res) => {
       });
     }
 
+    const providerSnapshot = {
+      providerId,
+      name:
+        req.user?.fullName ||
+        req.user?.name ||
+        req.user?.businessName ||
+        "Service Provider",
+      businessName:
+        req.user?.businessName ||
+        req.user?.companyName ||
+        req.user?.name ||
+        "",
+      phone:
+        req.user?.telephone ||
+        req.user?.phone ||
+        req.user?.mobile ||
+        "",
+      district: req.user?.district || req.user?.city || "",
+      profileImage: req.user?.profileImage || req.user?.avatar || "",
+    };
+
     // 1. Create Quotation in Database
     const quotation = await Quotation.create({
       providerRequestId,
@@ -74,6 +95,7 @@ export const createQuotation = async (req, res) => {
       estimatedDurationHours, // Chaw: save numeric duration for coordination
       durationText: durationText || `${estimatedDurationHours} Hours`, // Chaw: auto-generate display text if missing
       notes,
+      providerSnapshot,
       status: "SENT",
       coordinationStatus: "NOT_CHECKED", // Chaw: new quotation must be checked by Coordination Service
     });
@@ -294,7 +316,7 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw: endpoi
 
     const quotation = await Quotation.findByIdAndUpdate(
       id,
-      updateData,
+      { $set: updateData },
       { new: true }
     );
 
