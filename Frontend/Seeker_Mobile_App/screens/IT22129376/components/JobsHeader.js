@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 30,
-    fontWeight: '900',
+    fontWeight: '600',
     color: '#fff',
   },
   subtitle: {
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   },
   summaryNumber: {
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '600',
     color: '#fff',
   },
   summaryLabel: {

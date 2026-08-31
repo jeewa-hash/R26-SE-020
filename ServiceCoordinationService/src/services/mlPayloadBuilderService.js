@@ -29,9 +29,9 @@ const mapUrgencyToPriority = (urgencyLevel = "") => {
           providerQuotation.estimatedDurationHours ||
           1
       ),
-      distanceBetweenBookingsKm: 0, // Chaw: temporary default until location/travel calculation is connected
-      estimatedTravelTimeMins: 0, // Chaw: temporary default until maps/travel logic is connected
-      gapBetweenBookingsMins: scheduleEvaluation.conflictDetected ? 0 : 999, // Chaw: safe gap when no conflict is known
+      distanceBetweenBookingsKm: Number(scheduleEvaluation.distanceFromPreviousBookingKm || 0),
+      estimatedTravelTimeMins: Number(scheduleEvaluation.estimatedTravelTimeMins || 0),
+      gapBetweenBookingsMins: scheduleEvaluation.gapFromPreviousBookingMins ?? (scheduleEvaluation.conflictDetected ? 0 : 999),
       providerBookingsToday: Number(scheduleEvaluation.providerBookingsToday || 0),
       taskCompleted: 1, // Chaw: default positive historical signal for prospective booking
     };

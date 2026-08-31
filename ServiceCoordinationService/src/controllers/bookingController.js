@@ -1,4 +1,5 @@
 import Booking from "../models/Booking.js";
+import mongoose from "mongoose";
 import BidCoordination from "../models/BidCoordination.js";
 import BidPriceEvaluation from "../models/BidPriceEvaluation.js";
 import BidScheduleEvaluation from "../models/BidScheduleEvaluation.js";
@@ -85,6 +86,96 @@ const attachReminderFlags = (booking) => {
     reminder: calculateReminderFlags(plainBooking),
   };
 };
+
+const LIVE_SUMMARY_FIELDS = [
+  "_id", "externalSessionId", "externalRequestQuotationId", "externalQuotationId",
+  "seekerId", "providerId", "seekerSnapshot", "providerSnapshot", "serviceCategory",
+  "serviceSubcategory", "serviceLocation", "location", "scheduledDate",
+  "scheduledStartTime", "scheduledEndTime", "displayStartTime", "displayEndTime",
+  "startTime", "endTime", "estimatedDurationHours", "finalAmount", "currency",
+  "bookingStatus", "delayRiskLevel", "providerReadyConfirmed",
+  "providerReadyConfirmedAt", "actualStartTime", "actualEndTime", "completedAt",
+  "delayInfo", "timeline",
+].join(" ");
+const LIVE_SUMMARY_PROJECTION = Object.fromEntries(
+  LIVE_SUMMARY_FIELDS.split(" ").map((field) => [field, 1])
+);
+
+const getTodayRange = () => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+};
+
+const getNext15MinutesRange = () => {
+  const now = new Date();
+  return { now, next15: new Date(now.getTime() + 15 * 60 * 1000) };
+};
+
+const buildUserIdMatch = (fieldName, id) => {
+  const values = [String(id)];
+  if (mongoose.Types.ObjectId.isValid(id)) values.push(new mongoose.Types.ObjectId(id));
+  return { [fieldName]: { $in: values } };
+};
+
+const buildOwnerMatch = (owner, id) => ({
+  $or: [
+    buildUserIdMatch(`${owner}Id`, id),
+    buildUserIdMatch(`${owner}Snapshot.${owner}Id`, id),
+  ],
+});
+
+const getLiveSummary = async (req, res, owner) => {
+  try {
+    const id = req.params[`${owner}Id`] || req.user?.id;
+    if (!id) return res.status(400).json({ success: false, message: `${owner}Id is required` });
+
+    const expectedRole = owner === "provider" ? "ServiceProvider" : "Seeker";
+    if (req.user && req.user.role !== "Admin" &&
+        (req.user.role !== expectedRole || String(req.user.id) !== String(id))) {
+      return res.status(403).json({ success: false, message: "You can only view your own live summary" });
+    }
+
+    const ownerMatch = buildOwnerMatch(owner, id);
+    const { start, end } = getTodayRange();
+    const { now, next15 } = getNext15MinutesRange();
+    const withStatus = (bookingStatus, extra = {}) => ({
+      $and: [ownerMatch, { bookingStatus }, extra],
+    });
+
+    const [currentJob, delayedJob, nextBooking, startingSoonBooking, confirmedToday,
+      inProgress, delayed, completedToday] = await Promise.all([
+      Booking.collection.findOne(withStatus("IN_PROGRESS"), { projection: LIVE_SUMMARY_PROJECTION, sort: { actualStartTime: 1, scheduledStartTime: 1 } }),
+      Booking.collection.findOne(withStatus("DELAY_REPORTED"), { projection: LIVE_SUMMARY_PROJECTION, sort: { "delayInfo.reportedAt": -1, scheduledStartTime: 1 } }),
+      Booking.collection.findOne(withStatus("CONFIRMED", { scheduledStartTime: { $gte: now } }), { projection: LIVE_SUMMARY_PROJECTION, sort: { scheduledStartTime: 1 } }),
+      Booking.collection.findOne(withStatus("CONFIRMED", { scheduledStartTime: { $gte: now, $lte: next15 } }), { projection: LIVE_SUMMARY_PROJECTION, sort: { scheduledStartTime: 1 } }),
+      Booking.collection.countDocuments(withStatus("CONFIRMED", { scheduledStartTime: { $gte: start, $lte: end } })),
+      Booking.collection.countDocuments(withStatus("IN_PROGRESS")),
+      Booking.collection.countDocuments(withStatus("DELAY_REPORTED")),
+      Booking.collection.countDocuments(withStatus("COMPLETED", { completedAt: { $gte: start, $lte: end } })),
+    ]);
+
+    const data = {
+      ...(owner === "provider"
+        ? { currentJob, delayedJob }
+        : { currentService: currentJob, delayedService: delayedJob }),
+      nextBooking,
+      startingSoonBooking,
+      counts: { confirmedToday, inProgress, delayed, completedToday },
+      serverTime: new Date(),
+    };
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: `Failed to get ${owner} live summary`, error: error.message });
+  }
+};
+
+export const getProviderLiveSummary = (req, res) => getLiveSummary(req, res, "provider");
+export const getProviderLiveSummaryByProviderId = getProviderLiveSummary;
+export const getSeekerLiveSummary = (req, res) => getLiveSummary(req, res, "seeker");
+export const getSeekerLiveSummaryBySeekerId = getSeekerLiveSummary;
 
 export const getBookingsByProvider = async (req, res) => {
   try {
@@ -373,7 +464,12 @@ export const createBookingFromCoordination = async (req, res) => {
       providerSnapshot,
       serviceCategory: quotation?.serviceCategory || "",
       serviceSubcategory: quotation?.serviceSubcategory || "",
-      serviceLocation: "",
+      serviceLocation: coordination.serviceLocation || coordination.location?.address || "",
+      location: {
+        address: coordination.serviceLocation || coordination.location?.address || "",
+        lat: coordination.serviceLatitude ?? coordination.location?.lat ?? null,
+        lng: coordination.serviceLongitude ?? coordination.location?.lng ?? null,
+      },
 
       initialSchedule: {
         date: scheduledDate,
@@ -396,6 +492,9 @@ export const createBookingFromCoordination = async (req, res) => {
       currency: "LKR",
       mlPredictedDurationHours: scheduleEvaluation.mlPredictedDurationHours || null,
       conflictDetected: Boolean(scheduleEvaluation.conflictDetected),
+      distanceFromPreviousBookingKm: scheduleEvaluation.distanceFromPreviousBookingKm || 0,
+      estimatedTravelTimeMins: scheduleEvaluation.estimatedTravelTimeMins || 0,
+      gapFromPreviousBookingMins: scheduleEvaluation.gapFromPreviousBookingMins ?? null,
       timeline: [{ status: "CONFIRMED", message: "Booking confirmed", at: new Date() }],
 
       scheduleSource: selectedSuggestedSlot

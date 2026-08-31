@@ -81,6 +81,10 @@ const bidScheduleEvaluationSchema = new mongoose.Schema(
       default: "",
       trim: true,
     }, // Chaw: simple explanation for conflict
+    distanceFromPreviousBookingKm: { type: Number, default: 0 },
+    estimatedTravelTimeMins: { type: Number, default: 0 },
+    gapFromPreviousBookingMins: { type: Number, default: null },
+    travelInfoSource: { type: String, default: "NO_COORDINATES" },
 
     delayRiskLevel: {
       type: String,

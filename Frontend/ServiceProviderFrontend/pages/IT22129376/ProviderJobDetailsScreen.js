@@ -5,7 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   getBookingEndDate, getBookingId, getBookingStartDate, getBookingStatus,
   getHumanLocation, getHumanSeekerName, getHumanServiceTitle,
-  getProviderBookingById, statusLabel, updateBookingLifecycle,
+  getProviderBookingById, openLocationInMaps, statusLabel, updateBookingLifecycle,
 } from '../../services/providerFlowApi';
 import { getStoredProviderAuth } from './services/providerAuthStorage';
 
@@ -82,6 +82,9 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
           <Text style={styles.row}>Scheduled: {formatDateTime(getBookingStartDate(booking))} – {formatDateTime(getBookingEndDate(booking))}</Text>
           <Text style={styles.row}>Customer: {getHumanSeekerName(booking)}</Text>
           <Text style={styles.row}>Location: {getHumanLocation(booking)}</Text>
+          {getHumanLocation(booking) !== 'Location not provided' ? <TouchableOpacity style={styles.mapButton} onPress={() => openLocationInMaps({ latitude: booking?.location?.lat, longitude: booking?.location?.lng, address: getHumanLocation(booking), label: getHumanServiceTitle(booking) })}><Ionicons name="map-outline" size={17} color="#4F46E5" /><Text style={styles.mapButtonText}>Open in Maps</Text></TouchableOpacity> : null}
+          {Number(booking?.estimatedTravelTimeMins) > 0 ? <Text style={styles.row}>Estimated travel time: {Math.round(booking.estimatedTravelTimeMins)} mins</Text> : null}
+          {Number(booking?.distanceFromPreviousBookingKm) > 0 ? <Text style={styles.row}>Distance: {Number(booking.distanceFromPreviousBookingKm).toFixed(1)} km</Text> : null}
           <Text style={styles.row}>Amount: {Number(booking?.finalAmount || booking?.amount || 0) ? `LKR ${Number(booking?.finalAmount || booking?.amount).toLocaleString()}` : 'Not set'}</Text>
           <Text style={styles.row}>Delay Risk: {booking?.delayRiskLevel || 'UNKNOWN'}</Text>
           {status === 'CONFIRMED' ? <Text style={styles.info}>Booking confirmed</Text> : null}
@@ -111,9 +114,10 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' }, header: { paddingTop: 48, paddingHorizontal: 16, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff' },
-  backButton: { marginRight: 12 }, headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' }, content: { padding: 16 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 18 }, title: { fontSize: 20, fontWeight: '800', color: '#111827' }, status: { marginTop: 8, color: '#6366F1', fontWeight: '800' }, row: { marginTop: 12, color: '#4B5563', fontSize: 15 },
-  info: { marginTop: 12, color: '#2563EB', fontWeight: '800' }, success: { marginTop: 12, color: '#047857', fontWeight: '800' }, delayBox: { marginTop: 12, backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10 }, warning: { color: '#B45309', marginBottom: 5 }, riskWarning: { marginTop: 12, color: '#B45309', backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10, fontWeight: '700' },
+  backButton: { marginRight: 12 }, headerTitle: { fontSize: 20, fontWeight: '600', color: '#111827' }, content: { padding: 16 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 18 }, title: { fontSize: 20, fontWeight: '600', color: '#111827' }, status: { marginTop: 8, color: '#6366F1', fontWeight: '600' }, row: { marginTop: 12, color: '#4B5563', fontSize: 15 },
+  info: { marginTop: 12, color: '#2563EB', fontWeight: '600' }, success: { marginTop: 12, color: '#047857', fontWeight: '600' }, delayBox: { marginTop: 12, backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10 }, warning: { color: '#B45309', marginBottom: 5 }, riskWarning: { marginTop: 12, color: '#B45309', backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10, fontWeight: '600' },
   error: { color: '#B91C1C', backgroundColor: '#FEE2E2', padding: 12, borderRadius: 10, marginBottom: 12 }, input: { marginTop: 12, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, padding: 12, color: '#111827' }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
-  button: { backgroundColor: '#667eea', borderRadius: 10, padding: 12 }, buttonText: { color: '#fff', fontWeight: '800' }, warningButton: { backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12 }, warningButtonText: { color: '#B45309', fontWeight: '800' }, successButton: { backgroundColor: '#D1FAE5', borderRadius: 10, padding: 12 }, successButtonText: { color: '#047857', fontWeight: '800' },
+  button: { backgroundColor: '#667eea', borderRadius: 10, padding: 12 }, buttonText: { color: '#fff', fontWeight: '600' }, warningButton: { backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12 }, warningButtonText: { color: '#B45309', fontWeight: '600' }, successButton: { backgroundColor: '#D1FAE5', borderRadius: 10, padding: 12 }, successButtonText: { color: '#047857', fontWeight: '600' },
+  mapButton: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#EEF2FF', borderRadius: 10 }, mapButtonText: { color: '#4F46E5', fontWeight: '600' },
 });

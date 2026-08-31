@@ -85,6 +85,13 @@ const requestQuotationSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    serviceLatitude: { type: Number, default: null },
+    serviceLongitude: { type: Number, default: null },
+    location: {
+      address: { type: String, default: "", trim: true },
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+    },
 
     preferredStartTime: { // Chaw - Added seeker preferred start time for the job
       type: Date,

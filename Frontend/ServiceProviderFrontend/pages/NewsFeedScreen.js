@@ -8,6 +8,9 @@ import {
   Platform,
   Alert,
   StatusBar,
+  ActivityIndicator,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -33,6 +36,16 @@ import {
   getProviderQuotations,
   getProviderRequests,
 } from './IT22129376/services/providerFlowApi';
+import {
+  getBookingEndDate,
+  getBookingId,
+  getBookingStartDate,
+  getHumanLocation,
+  getHumanSeekerName,
+  getHumanServiceTitle,
+  getProviderLiveSummary,
+  updateBookingLifecycle,
+} from '../services/providerFlowApi';
 
 const { width } = Dimensions.get('window');
 
@@ -177,6 +190,13 @@ export default function NewsFeedScreen() {
   const [summary, setSummary] = useState({ pending: 0, waiting: 0, scheduled: 0, ongoing: 0, completed: 0, rejected: 0 });
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState(false);
+  const [liveSummary, setLiveSummary] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(true);
+  const [liveError, setLiveError] = useState(false);
+  const [liveUpdating, setLiveUpdating] = useState(false);
+  const [delayBooking, setDelayBooking] = useState(null);
+  const [delayReason, setDelayReason] = useState('Provider needs additional time');
+  const [additionalDelayMinutes, setAdditionalDelayMinutes] = useState('30');
 
   const C = isDark
     ? { bg: '#0F0F0F', card: '#1C1C1E', text: '#F2F2F7', textSub: '#8E8E93', border: '#2C2C2E', subCard: '#2A2A2A' }
@@ -224,6 +244,112 @@ export default function NewsFeedScreen() {
   useFocusEffect(useCallback(() => {
     loadProviderSummary();
   }, [loadProviderSummary]));
+
+  const loadLiveSummary = useCallback(async (showLoading = false) => {
+    if (showLoading) setLiveLoading(true);
+    setLiveError(false);
+    try {
+      const auth = await getStoredProviderAuth();
+      if (!auth?.providerId) throw new Error('Provider authentication required');
+      setLiveSummary(await getProviderLiveSummary(auth.providerId));
+    } catch (error) {
+      console.log('Provider live summary load error:', error?.message);
+      setLiveError(true);
+    } finally {
+      setLiveLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    loadLiveSummary(true);
+    const interval = setInterval(() => loadLiveSummary(false), 30000);
+    return () => clearInterval(interval);
+  }, [loadLiveSummary]));
+
+  const openLiveJob = (booking) => {
+    const rootNavigation = navigation.getParent()?.getParent();
+    (rootNavigation || navigation).navigate('IT22129376ProviderJobDetails', { booking, bookingId: getBookingId(booking) });
+  };
+
+  const runLiveAction = async (booking, action, payload = {}) => {
+    try {
+      setLiveUpdating(true);
+      await updateBookingLifecycle(getBookingId(booking), action, payload);
+      const messages = { start: 'Job started successfully.', 'report-delay': 'Delay reported successfully.', complete: 'Job completed successfully.' };
+      Alert.alert('Success', messages[action]);
+      setDelayBooking(null);
+      await Promise.all([loadLiveSummary(false), loadProviderSummary()]);
+    } catch (error) {
+      Alert.alert('Update Failed', 'Unable to update this job right now. Please try again.');
+    } finally {
+      setLiveUpdating(false);
+    }
+  };
+
+  const submitDelay = () => {
+    const minutes = Number(additionalDelayMinutes);
+    if (!delayReason.trim() || !Number.isFinite(minutes) || minutes <= 0) {
+      Alert.alert('Delay details required', 'Enter a delay reason and additional minutes greater than zero.');
+      return;
+    }
+    runLiveAction(delayBooking, 'report-delay', { delayReason: delayReason.trim(), extraTimeMinutes: minutes });
+  };
+
+  const formatLiveTime = (value) => {
+    const date = value instanceof Date ? value : new Date(value);
+    return value && !Number.isNaN(date.getTime())
+      ? date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+      : 'Not scheduled';
+  };
+
+  const getTimeRemainingLabel = (value) => {
+    const target = new Date(value);
+    if (!value || Number.isNaN(target.getTime())) return '';
+    const minutes = Math.round((target.getTime() - Date.now()) / 60000);
+    if (minutes <= 0) return 'Starting now';
+    if (minutes < 60) return `Starts in ${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours < 24) return mins ? `Starts in ${hours}h ${mins}m` : `Starts in ${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `Starts in ${days} day${days > 1 ? 's' : ''}`;
+  };
+
+  const renderLiveStatus = () => {
+    if (liveLoading) return <View style={[styles.liveState, { backgroundColor: C.card, borderColor: C.border }]}><ActivityIndicator color="#7C3AED" /><Text style={{ color: C.textSub }}>Loading today’s work...</Text></View>;
+    if (liveError) return <View style={[styles.liveState, { backgroundColor: C.card, borderColor: C.border }]}><MaterialIcons name="error-outline" size={23} color="#EF4444" /><Text style={{ color: C.textSub }}>Unable to load live job status right now.</Text><TouchableOpacity onPress={() => loadLiveSummary(true)}><Text style={styles.liveRetry}>Try again</Text></TouchableOpacity></View>;
+
+    const ongoing = liveSummary?.delayedJob || liveSummary?.currentJob || null;
+    const next = liveSummary?.startingSoonBooking || liveSummary?.nextBooking || null;
+    const renderSection = (booking, kind) => {
+      const delayed = booking?.bookingStatus === 'DELAY_REPORTED';
+      const soon = kind === 'next' && booking === liveSummary?.startingSoonBooking;
+      const color = delayed ? '#D97706' : kind === 'current' ? '#2563EB' : soon ? '#7C3AED' : '#059669';
+      const start = getBookingStartDate(booking);
+      const end = booking?.delayInfo?.expectedEndTime || getBookingEndDate(booking);
+      return <View style={styles.liveInnerSection}>
+        <View style={styles.liveSectionHeader}><Text style={[styles.liveInnerLabel, { color: C.text }]}>{kind === 'current' ? 'In Progress Booking' : 'Next Booking'}</Text><Text style={[styles.liveInnerStatus, { color }]}>{kind === 'current' ? (delayed ? 'Delay reported' : 'Job in progress') : (soon ? `Starting soon · ${getTimeRemainingLabel(start)}` : getTimeRemainingLabel(start))}</Text></View>
+        <Text style={[styles.liveServiceTitle, { color: C.text }]}>{getHumanServiceTitle(booking)}</Text>
+        <Text style={[styles.liveDetail, { color: C.textSub }]}>Customer: {getHumanSeekerName(booking)}</Text>
+        <Text style={[styles.liveDetail, { color: C.textSub }]}>Location: {getHumanLocation(booking)}</Text>
+        {kind === 'current' ? <Text style={[styles.liveDetail, { color: C.textSub }]}>{delayed ? `Reason: ${booking?.delayInfo?.delayReason || 'Not provided'}` : `Started: ${formatLiveTime(booking.actualStartTime || start)}`}</Text> : <Text style={[styles.liveDetail, { color: C.textSub }]}>Starts: {formatLiveTime(start)}</Text>}
+        {kind === 'current' ? <Text style={[styles.liveDetail, { color: C.textSub }]}>Expected end: {formatLiveTime(end)}</Text> : null}
+        {booking?.delayInfo?.delayImpactStatus === 'NEXT_BOOKING_AT_RISK' ? <Text style={styles.liveRisk}>This delay may affect your next scheduled job.</Text> : null}
+        <View style={styles.liveActions}>
+          <TouchableOpacity disabled={liveUpdating} style={[styles.liveButton, { backgroundColor: color }]} onPress={() => openLiveJob(booking)}><Text style={styles.liveButtonText}>View Job</Text></TouchableOpacity>
+          {kind === 'current' && !delayed ? <TouchableOpacity disabled={liveUpdating} style={styles.liveOutlineButton} onPress={() => setDelayBooking(booking)}><Text style={[styles.liveOutlineText, { color }]}>Report Delay</Text></TouchableOpacity> : null}
+          {kind === 'current' ? <TouchableOpacity disabled={liveUpdating} style={styles.liveOutlineButton} onPress={() => runLiveAction(booking, 'complete')}><Text style={[styles.liveOutlineText, { color }]}>Complete</Text></TouchableOpacity> : null}
+          {soon ? <TouchableOpacity disabled={liveUpdating} style={styles.liveOutlineButton} onPress={() => runLiveAction(booking, 'start')}><Text style={[styles.liveOutlineText, { color }]}>Start Job</Text></TouchableOpacity> : null}
+        </View>
+      </View>;
+    };
+    const emptySection = (kind, message) => <View style={styles.liveInnerSection}><Text style={[styles.liveInnerLabel, { color: C.text }]}>{kind}</Text><Text style={[styles.liveDetail, styles.liveEmptyText, { color: C.textSub }]}>{message}</Text></View>;
+    return <View style={[styles.liveCard, { backgroundColor: C.card, borderColor: C.border }]}>
+      {ongoing ? renderSection(ongoing, 'current') : emptySection('In Progress Booking', 'No in-progress booking')}
+      <View style={[styles.liveDivider, { backgroundColor: C.border }]} />
+      {next ? renderSection(next, 'next') : emptySection('Next Booking', 'No upcoming confirmed booking')}
+    </View>;
+  };
 
   const openMyJobs = () => navigation.getParent()?.navigate('Bookings');
 
@@ -503,6 +629,12 @@ export default function NewsFeedScreen() {
           <AnnouncementSlideshow />
         </View>
 
+        <View style={styles.liveSection}>
+          <Text style={[styles.unlockFeatureLabel, { color: C.textSub }]}>Unlock New Feature</Text>
+          <Text style={[styles.summaryTitle, styles.liveTitle, { color: C.text }]}>Live Job Status</Text>
+          {renderLiveStatus()}
+        </View>
+
         {/* Quick Categories - Horizontal Scrolling */}
         <View style={styles.quickCategoriesWrapper}>
           <ScrollView
@@ -643,6 +775,14 @@ export default function NewsFeedScreen() {
           </View>
         )}
       </ScrollView>
+      <Modal visible={Boolean(delayBooking)} transparent animationType="fade" onRequestClose={() => setDelayBooking(null)}>
+        <View style={styles.modalBackdrop}><View style={[styles.delayModal, { backgroundColor: C.card }]}>
+          <Text style={[styles.delayModalTitle, { color: C.text }]}>Report Delay</Text>
+          <TextInput style={[styles.delayInput, { color: C.text, borderColor: C.border }]} placeholder="Delay reason" placeholderTextColor={C.textSub} value={delayReason} onChangeText={setDelayReason} />
+          <TextInput style={[styles.delayInput, { color: C.text, borderColor: C.border }]} placeholder="Additional delay minutes" placeholderTextColor={C.textSub} keyboardType="numeric" value={additionalDelayMinutes} onChangeText={setAdditionalDelayMinutes} />
+          <View style={styles.modalActions}><TouchableOpacity style={styles.modalCancel} onPress={() => setDelayBooking(null)}><Text style={{ color: C.textSub, fontWeight: '700' }}>Cancel</Text></TouchableOpacity><TouchableOpacity disabled={liveUpdating} style={styles.modalSubmit} onPress={submitDelay}><Text style={styles.liveButtonText}>{liveUpdating ? 'Submitting...' : 'Submit'}</Text></TouchableOpacity></View>
+        </View></View>
+      </Modal>
     </View>
   );
 }
@@ -659,6 +799,36 @@ const styles = StyleSheet.create({
   summaryCount: { fontSize: 22, fontWeight: '900' },
   summaryLabel: { fontSize: 12, fontWeight: '700', marginTop: 3 },
   summaryEmpty: { paddingHorizontal: 20, fontSize: 13, lineHeight: 19, marginTop: 4, marginBottom: 8 },
+  liveSection: { paddingTop: 16, paddingHorizontal: 20 },
+  unlockFeatureLabel: { fontSize: 13, fontWeight: '500', marginBottom: 4 },
+  liveTitle: { paddingHorizontal: 0, fontWeight: '600' },
+  liveState: { minHeight: 92, borderWidth: 1, borderRadius: 16, padding: 16, gap: 9, alignItems: 'center', justifyContent: 'center' },
+  liveRetry: { color: '#7C3AED', fontWeight: '800' },
+  liveCard: { borderWidth: 1, borderRadius: 18, padding: 16 },
+  liveBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
+  liveSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 7 },
+  liveInnerSection: { paddingVertical: 2 },
+  liveInnerLabel: { fontSize: 14, fontWeight: '600' },
+  liveInnerStatus: { fontSize: 12, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
+  liveDivider: { height: 1, marginVertical: 15 },
+  liveBadgeTitle: { fontSize: 14, fontWeight: '600', textTransform: 'uppercase' },
+  liveServiceTitle: { fontSize: 18, fontWeight: '500', marginBottom: 8 },
+  liveDetail: { fontSize: 13, lineHeight: 20 },
+  liveEmptyText: { marginTop: 8 },
+  liveRemaining: { fontSize: 13, fontWeight: '800', marginTop: 6 },
+  liveRisk: { color: '#DC2626', fontSize: 13, fontWeight: '800', marginTop: 8 },
+  liveActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  liveButton: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  liveButtonText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
+  liveOutlineButton: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: 'rgba(255,255,255,0.65)' },
+  liveOutlineText: { fontSize: 13, fontWeight: '600' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', padding: 22 },
+  delayModal: { width: '100%', maxWidth: 420, borderRadius: 20, padding: 20 },
+  delayModalTitle: { fontSize: 20, fontWeight: '900', marginBottom: 15 },
+  delayInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 12, marginBottom: 11 },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 4 },
+  modalCancel: { paddingHorizontal: 15, paddingVertical: 11 },
+  modalSubmit: { backgroundColor: '#7C3AED', paddingHorizontal: 17, paddingVertical: 11, borderRadius: 10 },
 
   // Slideshow
   slideshowContainer: {

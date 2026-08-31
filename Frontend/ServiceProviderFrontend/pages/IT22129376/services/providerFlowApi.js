@@ -297,6 +297,11 @@ export const getProviderJobs = async (providerId = null) => {
       auth: true,
     })),
 
+    ...(providerId ? COORDINATION_URLS.map((base) => ({
+      url: `${base}/bookings/provider/${providerId}`,
+      auth: false,
+    })) : []),
+
     ...COORDINATION_URLS.map((base) => ({
       url: `${base}/calendar/provider/me`,
       auth: true,

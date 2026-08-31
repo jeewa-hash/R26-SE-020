@@ -23,6 +23,9 @@ export default function ScheduleEvaluationCard({ evaluation = {}, isDarkMode }) 
         <Row label="Final scheduling duration" value={formatDuration(evaluation.finalSchedulingDurationHours)} isDarkMode={isDarkMode} />
         <Row label="Buffer" value={`${evaluation.bufferMinutes || 0} mins`} isDarkMode={isDarkMode} />
         <Row label="Bookings today" value={`${evaluation.providerBookingsToday || 0}`} isDarkMode={isDarkMode} />
+        {Number(evaluation.distanceFromPreviousBookingKm) > 0 ? <Row label="Travel distance" value={`${Number(evaluation.distanceFromPreviousBookingKm).toFixed(1)} km`} isDarkMode={isDarkMode} /> : null}
+        {Number(evaluation.estimatedTravelTimeMins) > 0 ? <Row label="Estimated travel time" value={`${Math.round(evaluation.estimatedTravelTimeMins)} mins`} isDarkMode={isDarkMode} /> : null}
+        {evaluation.gapFromPreviousBookingMins != null ? <Row label="Travel check" value={Number(evaluation.gapFromPreviousBookingMins) >= Number(evaluation.estimatedTravelTimeMins || 0) ? 'OK' : 'Not enough travel time'} isDarkMode={isDarkMode} /> : null}
       </View>
       {evaluation.conflictReason ? <Text style={[styles.message, isDarkMode && styles.mutedDark]}>{evaluation.conflictReason}</Text> : null}
     </View>
@@ -42,11 +45,11 @@ const styles = StyleSheet.create({
   card: { backgroundColor: COLORS.card, borderRadius: 22, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#EEF2F7' },
   cardDark: { backgroundColor: COLORS.darkCard, borderColor: COLORS.darkBorder },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
-  title: { fontSize: 17, fontWeight: '900', color: COLORS.text },
+  title: { fontSize: 17, fontWeight: '600', color: COLORS.text },
   rows: { backgroundColor: '#F9FAFB', borderRadius: 16, padding: 12, gap: 10 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 14 },
-  label: { color: COLORS.muted, fontSize: 12, fontWeight: '700' },
-  value: { flex: 1, textAlign: 'right', color: COLORS.text, fontSize: 12, fontWeight: '900' },
+  label: { color: COLORS.muted, fontSize: 12, fontWeight: '600' },
+  value: { flex: 1, textAlign: 'right', color: COLORS.text, fontSize: 12, fontWeight: '600' },
   message: { color: COLORS.muted, fontSize: 13, lineHeight: 19, marginTop: 12 },
   textDark: { color: COLORS.darkText },
   mutedDark: { color: COLORS.darkMuted },

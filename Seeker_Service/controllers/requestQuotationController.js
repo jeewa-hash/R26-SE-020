@@ -17,6 +17,9 @@ export const createRequestQuotation = async (req, res) => {
       briefDescription,
       urgencyLevel,
       serviceLocation,
+      serviceLatitude,
+      serviceLongitude,
+      location,
       preferredStartTime, // Chaw - Added seeker preferred start time
       preferredEndTime, // Chaw - Added seeker preferred end time/window
       preferredTimeLabel, // Chaw - Added readable preferred time label
@@ -179,6 +182,9 @@ export const createRequestQuotation = async (req, res) => {
       });
     }
 
+    const resolvedServiceLocation = serviceLocation || location?.address || "";
+    const resolvedLatitude = serviceLatitude ?? location?.lat ?? null;
+    const resolvedLongitude = serviceLongitude ?? location?.lng ?? null;
     const request = await RequestQuotation.create({
       seekerId,
       providerId: finalProviderId,
@@ -190,7 +196,10 @@ export const createRequestQuotation = async (req, res) => {
       stepBreakdown,
       briefDescription,
       urgencyLevel,
-      serviceLocation,
+      serviceLocation: resolvedServiceLocation,
+      serviceLatitude: resolvedLatitude,
+      serviceLongitude: resolvedLongitude,
+      location: { address: resolvedServiceLocation, lat: resolvedLatitude, lng: resolvedLongitude },
       preferredStartTime: preferredStartTime || null, // Chaw - Save seeker preferred start time if provided
       preferredEndTime: preferredEndTime || null, // Chaw - Save seeker preferred end time if provided
       preferredTimeLabel: preferredTimeLabel || "", // Chaw - Save readable preferred time label

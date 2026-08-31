@@ -9,7 +9,7 @@ import { mapJobStatus } from '../utils/jobStatusMapper';
 import { formatCurrency, formatDateTime } from '../utils/dateTimeFormatter';
 
 export default function ScheduledJobCard({ booking, onPress, isDarkMode }) {
-  const mapped = mapJobStatus(booking.status);
+  const mapped = mapJobStatus(booking.bookingStatus || 'CONFIRMED');
 
   return (
     <TouchableOpacity style={[styles.card, isDarkMode && styles.cardDark]} onPress={onPress} activeOpacity={0.9}>
@@ -53,13 +53,13 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBox: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#ECFDF5', alignItems: 'center', justifyContent: 'center' },
   titleArea: { flex: 1 },
-  title: { fontSize: 17, fontWeight: '900', color: COLORS.text },
+  title: { fontSize: 17, fontWeight: '600', color: COLORS.text },
   provider: { fontSize: 12, fontWeight: '600', color: COLORS.muted, marginTop: 3 },
   detailsBox: { backgroundColor: '#F9FAFB', borderRadius: 16, padding: 12, marginTop: 14, gap: 8 },
   detailsBoxDark: { backgroundColor: '#ffffff08' },
   detailLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  detailLabel: { fontSize: 12, fontWeight: '700', color: COLORS.muted },
-  detailValue: { flex: 1, textAlign: 'right', fontSize: 13, fontWeight: '800', color: COLORS.text },
+  detailLabel: { fontSize: 12, fontWeight: '600', color: COLORS.muted },
+  detailValue: { flex: 1, textAlign: 'right', fontSize: 13, fontWeight: '600', color: COLORS.text },
   bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12 },
   source: { flex: 1, textAlign: 'right', color: COLORS.muted, fontSize: 12, fontWeight: '600' },
   buttonSpace: { marginTop: 14 },

@@ -32,9 +32,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBox: { width: 44, height: 44, borderRadius: 15, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' },
   titleArea: { flex: 1 },
-  title: { fontSize: 15, fontWeight: '900', color: COLORS.text },
+  title: { fontSize: 15, fontWeight: '600', color: COLORS.text },
   meta: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '600' },
-  amount: { color: COLORS.text, fontSize: 13, marginTop: 5, fontWeight: '900' },
+  amount: { color: COLORS.text, fontSize: 13, marginTop: 5, fontWeight: '600' },
   textDark: { color: COLORS.darkText },
   mutedDark: { color: COLORS.darkMuted },
 });

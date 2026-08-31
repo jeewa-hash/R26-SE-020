@@ -14,10 +14,19 @@ import {
   cancelBooking,
   getProviderMissedInquiries,
   getProviderEarningsSummary,
+  getProviderLiveSummary,
+  getProviderLiveSummaryByProviderId,
+  getSeekerLiveSummary,
+  getSeekerLiveSummaryBySeekerId,
 } from "../controllers/bookingController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+router.get("/provider/me/live-summary", protect(["ServiceProvider"]), getProviderLiveSummary);
+router.get("/provider/:providerId/live-summary", getProviderLiveSummaryByProviderId);
+router.get("/seeker/me/live-summary", protect(["Seeker"]), getSeekerLiveSummary);
+router.get("/seeker/:seekerId/live-summary", getSeekerLiveSummaryBySeekerId);
 
 router.get("/provider/me/earnings", protect(["ServiceProvider"]), getProviderEarningsSummary);
 router.get("/provider/me/missed-inquiries", protect(["ServiceProvider"]), getProviderMissedInquiries);

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Linking, Platform } from 'react-native';
 import {
   CONFIG,
   IP_ADDRESS,
@@ -166,6 +167,16 @@ export const getProviderOngoingBookings = async (providerId) => {
   }
 };
 
+export const getProviderLiveSummary = async (providerId) => {
+  if (!providerId) throw new Error('Provider ID is required.');
+  const payload = await requestFirstSuccess({
+    urls: COORDINATION_URLS,
+    paths: ['/bookings/provider/me/live-summary', `/bookings/provider/${providerId}/live-summary`],
+    label: 'provider live summary',
+  });
+  return payload?.data || payload;
+};
+
 export const updateBookingLifecycle = async (bookingId, action, body = {}) => {
   const payload = await requestFirstSuccess({
     urls: COORDINATION_URLS,
@@ -178,6 +189,10 @@ export const updateBookingLifecycle = async (bookingId, action, body = {}) => {
   });
   return payload?.data || payload?.booking || payload;
 };
+
+export const startBooking = (bookingId) => updateBookingLifecycle(bookingId, 'start');
+export const reportBookingDelay = (bookingId, payload) => updateBookingLifecycle(bookingId, 'report-delay', payload);
+export const completeBooking = (bookingId) => updateBookingLifecycle(bookingId, 'complete');
 
 export const submitProviderQuotation = async (payload) => {
   const responsePayload = await requestFirstSuccess({
@@ -329,4 +344,27 @@ export const statusLabel = (status) => {
     QUOTED: 'Quoted',
   };
   return map[value] || value || 'Pending';
+};
+
+export const openLocationInMaps = async ({ latitude, longitude, address, label }) => {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  const hasCoordinates = Number.isFinite(lat) && Number.isFinite(lng);
+  const safeLabel = encodeURIComponent(label || address || 'Service Location');
+  let url;
+  if (hasCoordinates) {
+    url = Platform.select({
+      ios: `http://maps.apple.com/?ll=${lat},${lng}&q=${safeLabel}`,
+      android: `geo:${lat},${lng}?q=${lat},${lng}(${safeLabel})`,
+      default: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+    });
+  } else if (address) {
+    url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+  } else return false;
+  try {
+    if (await Linking.canOpenURL(url)) { await Linking.openURL(url); return true; }
+  } catch (error) { console.log('Map open fallback:', error?.message); }
+  if (hasCoordinates) await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
+  else await Linking.openURL(url);
+  return true;
 };
