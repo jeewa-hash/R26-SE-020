@@ -115,8 +115,25 @@ export default function RequestQuotationModal({
   };
 
   const submit = async () => {
-    const providerIdValue = provider?._id || provider?.id || provider?.providerId || provider?.userId || provider?.applicantId;
-    const providerId = providerIdValue?._id || providerIdValue?.id || providerIdValue;
+    const explicitProviderId = firstValue(
+      provider?.providerId?._id,
+      provider?.providerId,
+      provider?.provider?._id,
+      provider?.provider?.id,
+      provider?.userId,
+      provider?.serviceProviderId,
+      provider?.serviceProvider?._id,
+      provider?.serviceProvider?.id,
+      provider?.applicantId
+    );
+    const fallbackProviderId = provider?._id || provider?.id;
+    const providerId = explicitProviderId || fallbackProviderId;
+    const selectedRecordId = provider?._id || provider?.id || provider?.postId;
+    const postId = provider?.postId || (
+      explicitProviderId && selectedRecordId && String(selectedRecordId) !== String(providerId)
+        ? selectedRecordId
+        : null
+    );
     const sessionId = firstValue(
       sessionData?.sessionId,
       sessionData?.session_id,
@@ -171,6 +188,7 @@ export default function RequestQuotationModal({
     const payload = {
       seekerId: resolvedSeekerId,
       providerId,
+      postId,
       sessionId,
       detectedCategory,
       detectedObject,

@@ -42,9 +42,9 @@ export default function ConfirmJobScreen({ route, navigation }) {
 
     try {
       const result = await createBookingFromCoordination(quote.coordinationId);
-      const booking = result?.data || result?.booking || result;
+      const booking = result?.data?.booking || result?.booking || result?.data || result;
 
-      Alert.alert('Job Confirmed', 'Your job has been confirmed successfully.', [
+      Alert.alert('Booking Confirmed', 'Booking confirmed successfully.', [
         {
           text: 'View Scheduled Jobs',
           onPress: () => navigation.navigate('MyJobsScreen', { refresh: Date.now(), booking }),

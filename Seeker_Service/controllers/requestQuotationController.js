@@ -8,6 +8,7 @@ export const createRequestQuotation = async (req, res) => {
     const {
       seekerId,
       providerId,
+      postId,
       sessionId,
       detectedCategory,
       detectedObject,
@@ -36,20 +37,65 @@ export const createRequestQuotation = async (req, res) => {
       });
     }
 
-    if (
-      !mongoose.Types.ObjectId.isValid(seekerId) ||
-      !mongoose.Types.ObjectId.isValid(providerId)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(seekerId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid seeker or provider ID",
+        message: "Invalid seeker ID",
       });
     }
+
+    let finalProviderId = providerId;
+    let finalPostId = postId || null;
+    const adLookupId = postId || providerId;
+    let providerAdResolved = false;
+
+    if (mongoose.Types.ObjectId.isValid(adLookupId)) {
+      try {
+        const providerServiceUrl = (process.env.PROVIDER_SERVICE_URL || "http://127.0.0.1:3002").replace(/\/$/, "");
+        const adResponse = await axios.get(`${providerServiceUrl}/api/provider/ads/${adLookupId}`, { timeout: 3000 });
+        const maybePost = adResponse.data?.data || adResponse.data?.post || adResponse.data;
+        if (maybePost?._id && maybePost?.providerId) {
+          finalProviderId = maybePost.providerId?._id || maybePost.providerId;
+          finalPostId = maybePost._id;
+          providerAdResolved = true;
+        }
+      } catch (lookupError) {
+        if (postId) {
+          console.warn("Provider ad lookup warning:", lookupError.message);
+        }
+      }
+    }
+
+    if (postId && !providerAdResolved) {
+      return res.status(400).json({
+        success: false,
+        message: "Unable to verify the selected provider post",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(finalProviderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid provider ID",
+      });
+    }
+
+    if (finalPostId && !mongoose.Types.ObjectId.isValid(finalPostId)) {
+      return res.status(400).json({ success: false, message: "Invalid post ID" });
+    }
+
+    console.log("REQUEST QUOTATION ID DEBUG:", {
+      incomingProviderId: providerId,
+      incomingPostId: postId,
+      finalProviderId,
+      finalPostId,
+      sessionId,
+    });
 
     // Check if provider is bookable / penalty-restricted
     try {
       const adminUrl = process.env.ADMIN_SERVICE_URL || "http://127.0.0.1:5001";
-      const bookableRes = await axios.get(`${adminUrl}/api/inquiries/check-bookable/${providerId}`, { timeout: 3000 });
+      const bookableRes = await axios.get(`${adminUrl}/api/inquiries/check-bookable/${finalProviderId}`, { timeout: 3000 });
       if (bookableRes.data) {
         const pStatus = bookableRes.data;
         if (pStatus.isRestricted || pStatus.isBlocked || (typeof pStatus.penaltyScore === "number" && pStatus.penaltyScore >= 3)) {
@@ -121,22 +167,22 @@ export const createRequestQuotation = async (req, res) => {
 
     const existingRequest = await RequestQuotation.findOne({
       seekerId,
-      providerId,
+      providerId: finalProviderId,
       sessionId,
     });
 
     if (existingRequest) {
       return res.status(409).json({
         success: false,
-        message:
-          "A request has already been sent to this provider for this session",
-        request: existingRequest,
+        message: "You have already requested a quotation from this provider for this service.",
+        data: existingRequest,
       });
     }
 
     const request = await RequestQuotation.create({
       seekerId,
-      providerId,
+      providerId: finalProviderId,
+      postId: finalPostId,
       sessionId,
       detectedCategory,
       detectedObject,
@@ -292,10 +338,10 @@ export const updateRequestStatus = async (req, res) => {
       });
     }
 
-    if (!["confirmed", "cancelled"].includes(status)) {
+    if (!["pending", "quoted", "accepted", "rejected", "cancelled", "expired"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Status must be confirmed or cancelled",
+        message: "Invalid request quotation status",
       });
     }
 
@@ -312,7 +358,7 @@ export const updateRequestStatus = async (req, res) => {
       });
     }
 
-    if (request.status !== "pending") {
+    if (["accepted", "rejected", "cancelled", "expired"].includes(request.status)) {
       return res.status(400).json({
         success: false,
         message: `Request is already ${request.status}`,
@@ -335,6 +381,42 @@ export const updateRequestStatus = async (req, res) => {
       message: "Server error",
       error: error.message,
     });
+  }
+};
+
+export const markSessionSelection = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { seekerId, acceptedRequestId } = req.body;
+
+    if (!sessionId || !mongoose.Types.ObjectId.isValid(seekerId) ||
+        !mongoose.Types.ObjectId.isValid(acceptedRequestId)) {
+      return res.status(400).json({ success: false, message: "Invalid session selection data" });
+    }
+
+    const selected = await RequestQuotation.findOne({
+      _id: acceptedRequestId,
+      seekerId,
+      sessionId,
+    });
+    if (!selected) {
+      return res.status(404).json({ success: false, message: "Selected request quotation not found" });
+    }
+
+    await RequestQuotation.updateMany(
+      { seekerId, sessionId, _id: { $ne: selected._id }, status: { $in: ["pending", "quoted"] } },
+      { $set: { status: "rejected" } }
+    );
+    selected.status = "accepted";
+    await selected.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Request quotation selection updated successfully",
+      data: selected,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Unable to update request selection", error: error.message });
   }
 };
 
@@ -723,22 +805,14 @@ export const getProviderRequestsbyProvider = async (req, res) => {
       });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(providerId)) {
+      return res.status(400).json({ success: false, message: "Invalid provider ID" });
+    }
+
     const requests = await RequestQuotation.find({
       $or: [
-        { providerId: providerId },
-        { selectedProviderId: providerId },
-        { assignedProviderId: providerId },
-
-        // If your schema stores providers as arrays
-        { providerIds: providerId },
-        { selectedProviderIds: providerId },
-        { assignedProviderIds: providerId },
-
-        // If your schema stores provider objects
-        { "provider.providerId": providerId },
-        { "providers.providerId": providerId },
-        { "selectedProviders.providerId": providerId },
-        { "assignedProviders.providerId": providerId },
+        { providerId },
+        { providerId: new mongoose.Types.ObjectId(providerId) },
       ],
     }).sort({ createdAt: -1 });
 
