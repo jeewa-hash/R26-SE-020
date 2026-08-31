@@ -4,7 +4,10 @@ import BidPriceEvaluation from "../models/BidPriceEvaluation.js";
 import BidScheduleEvaluation from "../models/BidScheduleEvaluation.js";
 import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
 import axios from "axios";
-import { updateProviderQuotationCoordination } from "../clients/providerServiceClient.js";
+import {
+  getProviderQuotationById,
+  updateProviderQuotationCoordination,
+} from "../clients/providerServiceClient.js";
 
 const canAccessBooking = (req, booking) => {
   if (req.user.role === "Admin") return true;
@@ -233,6 +236,42 @@ export const createBookingFromCoordination = async (req, res) => {
       endDate.getUTCMinutes()
     )}`;
 
+    let quotation = null;
+    try {
+      quotation = await getProviderQuotationById(
+        coordination.externalQuotationId
+      );
+    } catch (quotationError) {
+      console.warn(
+        "BOOKING PROVIDER SNAPSHOT WARNING:",
+        quotationError.message
+      );
+    }
+
+    const providerSnapshot = {
+      providerId: quotation?.providerId || coordination.providerId,
+      name:
+        quotation?.providerSnapshot?.name ||
+        quotation?.providerName ||
+        "Service Provider",
+      businessName:
+        quotation?.providerSnapshot?.businessName ||
+        quotation?.businessName ||
+        "",
+      phone: quotation?.providerSnapshot?.phone || "",
+      district: quotation?.providerSnapshot?.district || "",
+      profileImage: quotation?.providerSnapshot?.profileImage || "",
+    };
+
+    // Coordination Service has no local seeker profile lookup. Keep booking
+    // creation resilient while still storing a readable fallback snapshot.
+    const seekerSnapshot = {
+      seekerId: coordination.seekerId,
+      name: "Customer",
+      phone: "",
+      district: "",
+    };
+
     const booking = await Booking.create({
       postId: null,
       providerRequestId: null,
@@ -244,6 +283,8 @@ export const createBookingFromCoordination = async (req, res) => {
 
       seekerId: coordination.seekerId,
       providerId: coordination.providerId,
+      seekerSnapshot,
+      providerSnapshot,
 
       initialSchedule: {
         date: scheduledDate,
