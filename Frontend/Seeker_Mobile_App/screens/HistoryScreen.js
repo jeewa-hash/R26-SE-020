@@ -1,48 +1,104 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Platform, StatusBar, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  Platform,
+  StatusBar,
+  Alert,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:6000'
-  : 'http://localhost:6000';
+// -------------------- API Base URLs --------------------
+const API_BASE_URL =
+  Platform.OS === 'android' ? 'http://10.0.2.2:6000' : 'http://localhost:6000';
 
-const COORDINATION_API_BASE_URL = Platform.OS === 'android'
-  ? 'http://10.0.2.2:5010'
-  : 'http://localhost:5010';
+const COORDINATION_API_BASE_URL =
+  Platform.OS === 'android' ? 'http://10.0.2.2:5010' : 'http://localhost:5010';
 
 export default function HistoryScreen({ navigation }) {
   const { isDarkMode } = useTheme();
-  const [reviewsSubmitted, setReviewsSubmitted] = useState({});
+
+  // ---------- State ----------
   const [loading, setLoading] = useState(true);
   const [completedServices, setCompletedServices] = useState([]);
+  const [pointsEarnedMap, setPointsEarnedMap] = useState({}); // bookingId -> points
+  const [totalPointsEarned, setTotalPointsEarned] = useState(0);
+  const [feedbackMap, setFeedbackMap] = useState({}); // bookingId -> feedback
 
-  // Check if service has been reviewed
-  const checkServiceReviewStatus = async (bookingId) => {
+  // ---------- Helper: render stars ----------
+  const renderStars = (rating) => {
+    const stars = [];
+    for (let i = 1; i <= rating; i++) {
+      stars.push(<Ionicons key={i} name="star" size={14} color="#FBBF24" />);
+    }
+    for (let i = rating; i < 5; i++) {
+      stars.push(<Ionicons key={`empty-${i}`} name="star-outline" size={14} color="#D1D5DB" />);
+    }
+    return stars;
+  };
+
+  // ---------- Load reward points ----------
+  const loadRewardPoints = async (token) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/feedback/booking/${bookingId}`);
+      const response = await fetch(`${API_BASE_URL}/api/rewards/history?page=1&limit=500`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await response.json();
-      return data.hasReviewed || false;
+      if (!response.ok) throw new Error(data.error || 'Failed to load reward history');
+      const transactions = data.transactions || [];
+      const pointsMap = {};
+      let total = 0;
+      transactions.forEach((tx) => {
+        if (tx.type === 'EARN' && tx.referenceId) {
+          pointsMap[tx.referenceId] = tx.amount;
+          total += tx.amount;
+        }
+      });
+      setPointsEarnedMap(pointsMap);
+      setTotalPointsEarned(total);
     } catch (error) {
-      console.error('Error checking review status:', error);
-      return false;
+      console.warn('Error loading reward points:', error);
     }
   };
 
-  // Load review status for all services
-  useEffect(() => {
-    loadReviewStatuses();
-  }, []);
+  // ---------- Load user feedback ----------
+  const loadUserFeedback = async (token) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/feedback/user/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        const map = {};
+        data.data.forEach((fb) => {
+          map[fb.bookingId] = fb;
+        });
+        setFeedbackMap(map);
+      }
+    } catch (error) {
+      console.warn('Error loading user feedback:', error);
+    }
+  };
 
-  const loadReviewStatuses = async () => {
+  // ---------- Main data fetch ----------
+  const loadHistory = async () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('userToken');
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
+      // 1. Fetch completed bookings
       const response = await fetch(`${COORDINATION_API_BASE_URL}/bookings/seeker/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -54,9 +110,8 @@ export default function HistoryScreen({ navigation }) {
         .map((booking) => ({
           id: booking._id,
           title: 'Completed Service',
-          provider: 'Service Provider',
+          provider: 'Service Provider', // Replace with actual provider name if available
           providerId: booking.providerId,
-          providerImage: 'https://randomuser.me/api/portraits/lego/1.jpg',
           date: booking.scheduledDate,
           time: booking.endTime,
           price: `$${booking.finalAmount || 0}`,
@@ -65,11 +120,8 @@ export default function HistoryScreen({ navigation }) {
         }));
       setCompletedServices(completed);
 
-      const statuses = {};
-      for (const service of completed) {
-        statuses[service.id] = await checkServiceReviewStatus(service.id);
-      }
-      setReviewsSubmitted(statuses);
+      // 2. Load rewards & feedback in parallel
+      await Promise.all([loadRewardPoints(token), loadUserFeedback(token)]);
     } catch (error) {
       console.error('Error loading booking history:', error);
       Alert.alert('Error', error.message || 'Unable to load booking history.');
@@ -78,86 +130,92 @@ export default function HistoryScreen({ navigation }) {
     }
   };
 
-  const renderStars = (rating) => {
-    let stars = [];
-    for (let i = 1; i <= rating; i++) {
-      stars.push(<Ionicons key={i} name="star" size={14} color="#FBBF24" />);
-    }
-    for (let i = rating; i < 5; i++) {
-      stars.push(<Ionicons key={`empty-${i}`} name="star-outline" size={14} color="#FBBF24" />);
-    }
-    return stars;
-  };
+  useEffect(() => {
+    loadHistory();
+  }, []);
 
+  // ---------- Navigate to write review ----------
   const handleWriteReview = (service) => {
-    navigation.navigate('FeedbackScreen', { 
-      service: service,
+    navigation.navigate('FeedbackScreen', {
+      bookingId: service.id,
       providerName: service.provider,
       providerId: service.providerId,
       serviceTitle: service.title,
       serviceId: service.id,
-      bookingId: service.id,
     });
   };
 
+  // ---------- Rehire action ----------
   const handleRehire = (service) => {
     Alert.alert(
-      "Rehire Service",
+      'Rehire Service',
       `Would you like to hire ${service.provider} again?`,
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Yes", onPress: () => {
-          navigation.navigate('BiddingScreen', { 
-            prefill: { title: service.title, category: service.category }
-          });
-        }}
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes',
+          onPress: () => {
+            navigation.navigate('BiddingScreen', {
+              prefill: { title: service.title, category: service.category },
+            });
+          },
+        },
       ]
     );
   };
 
-  // Calculate stats
-  const totalSpent = completedServices.reduce((sum, service) => {
-    return sum + parseInt(service.price.replace('$', ''));
-  }, 0);
-  const averageRating = (completedServices.reduce((sum, service) => sum + service.rating, 0) / completedServices.length).toFixed(1);
+  // ---------- Compute stats ----------
+  const totalSpent = completedServices.reduce(
+    (sum, service) => sum + parseInt(service.price.replace('$', ''), 10),
+    0
+  );
+  const averageRating =
+    completedServices.length > 0
+      ? (
+          completedServices.reduce((sum, service) => sum + service.rating, 0) /
+          completedServices.length
+        ).toFixed(1)
+      : '0';
 
+  // ---------- Loading state ----------
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-        <StatusBar 
-          barStyle={isDarkMode ? "light-content" : "dark-content"} 
-          backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"} 
+        <StatusBar
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
         <LinearGradient
           colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
           style={styles.header}
         >
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Service History</Text>
-          <TouchableOpacity style={styles.filterButton}>
-            <Ionicons name="options-outline" size={22} color="#fff" />
+          <TouchableOpacity style={styles.pointsNavButton}>
+            <Ionicons name="star" size={22} color="#fff" />
           </TouchableOpacity>
         </LinearGradient>
         <View style={styles.loadingContainer}>
-          <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>Loading history...</Text>
+          <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
+            Loading history...
+          </Text>
         </View>
         <BottomNav />
       </SafeAreaView>
     );
   }
 
+  // ---------- Main render ----------
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      <StatusBar 
-        barStyle={isDarkMode ? "light-content" : "dark-content"} 
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"} 
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
       />
-      
-      {/* Header */}
+
+      {/* Header with navigation to Star Points */}
       <LinearGradient
         colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
         start={{ x: 0, y: 0 }}
@@ -168,23 +226,32 @@ export default function HistoryScreen({ navigation }) {
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Service History</Text>
-        <TouchableOpacity style={styles.filterButton}>
-          <Ionicons name="options-outline" size={22} color="#fff" />
+        <TouchableOpacity
+          style={styles.pointsNavButton}
+          onPress={() => navigation.navigate('StarPoints')}
+        >
+          <Ionicons name="star" size={22} color="#fff" />
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Stats Cards */}
+      {/* Stats Cards (including total points) */}
       <View style={[styles.statsContainer, isDarkMode && styles.statsContainerDark]}>
         <View style={styles.statCard}>
-          <View style={[styles.statIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' }]}>
+          <View
+            style={[styles.statIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' }]}
+          >
             <Ionicons name="checkmark-circle" size={20} color="#667eea" />
           </View>
-          <Text style={[styles.statNumber, isDarkMode && styles.textDark]}>{completedServices.length}</Text>
+          <Text style={[styles.statNumber, isDarkMode && styles.textDark]}>
+            {completedServices.length}
+          </Text>
           <Text style={[styles.statLabel, isDarkMode && styles.textMutedDark]}>Completed</Text>
         </View>
         <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
         <View style={styles.statCard}>
-          <View style={[styles.statIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#10B98115' }]}>
+          <View
+            style={[styles.statIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#10B98115' }]}
+          >
             <Ionicons name="cash-outline" size={20} color="#10B981" />
           </View>
           <Text style={[styles.statNumber, isDarkMode && styles.textDark]}>${totalSpent}</Text>
@@ -192,106 +259,156 @@ export default function HistoryScreen({ navigation }) {
         </View>
         <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
         <View style={styles.statCard}>
-          <View style={[styles.statIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#FBBF2415' }]}>
+          <View
+            style={[styles.statIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#FBBF2415' }]}
+          >
             <Ionicons name="star" size={20} color="#FBBF24" />
           </View>
           <Text style={[styles.statNumber, isDarkMode && styles.textDark]}>{averageRating}</Text>
           <Text style={[styles.statLabel, isDarkMode && styles.textMutedDark]}>Avg Rating</Text>
+        </View>
+        <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
+        <View style={styles.statCard}>
+          <View
+            style={[styles.statIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#8B5CF615' }]}
+          >
+            <Ionicons name="trophy-outline" size={20} color="#8B5CF6" />
+          </View>
+          <Text style={[styles.statNumber, isDarkMode && styles.textDark]}>{totalPointsEarned}</Text>
+          <Text style={[styles.statLabel, isDarkMode && styles.textMutedDark]}>Total Points</Text>
         </View>
       </View>
 
       {/* Section Title */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Past Services</Text>
-        <TouchableOpacity>
-          <Text style={styles.seeAllText}>See All</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('StarPoints')}>
+          <Text style={styles.seeAllText}>View Points</Text>
         </TouchableOpacity>
       </View>
 
       {/* History List */}
-      <ScrollView 
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {completedServices.map((service) => (
-          <View key={service.id} style={[styles.historyCard, isDarkMode && styles.historyCardDark]}>
-            <LinearGradient
-              colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#ffffff', '#f8f9fa']}
-              style={styles.cardGradient}
-            >
-              {/* Header */}
-              <View style={styles.cardHeader}>
-                <View style={styles.categoryContainer}>
-                  <View style={[styles.categoryIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' }]}>
-                    <Ionicons name="briefcase-outline" size={14} color="#667eea" />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {completedServices.map((service) => {
+          const points = pointsEarnedMap[service.id] || 0;
+          const feedback = feedbackMap[service.id];
+          const hasReviewed = !!feedback;
+
+          return (
+            <View key={service.id} style={[styles.historyCard, isDarkMode && styles.historyCardDark]}>
+              <LinearGradient
+                colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#ffffff', '#f8f9fa']}
+                style={styles.cardGradient}
+              >
+                {/* Card Header */}
+                <View style={styles.cardHeader}>
+                  <View style={styles.categoryContainer}>
+                    <View
+                      style={[
+                        styles.categoryIcon,
+                        { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' },
+                      ]}
+                    >
+                      <Ionicons name="briefcase-outline" size={14} color="#667eea" />
+                    </View>
+                    <Text style={[styles.serviceCategory, isDarkMode && styles.textDark]}>
+                      {service.category}
+                    </Text>
                   </View>
-                  <Text style={[styles.serviceCategory, isDarkMode && styles.textDark]}>{service.category}</Text>
+                  <Text style={styles.servicePrice}>{service.price}</Text>
                 </View>
-                <Text style={styles.servicePrice}>{service.price}</Text>
-              </View>
 
-              {/* Title & Provider */}
-              <Text style={[styles.serviceTitle, isDarkMode && styles.textDark]}>{service.title}</Text>
-              <Text style={[styles.serviceProvider, isDarkMode && styles.textMutedDark]}>{service.provider}</Text>
+                <Text style={[styles.serviceTitle, isDarkMode && styles.textDark]}>
+                  {service.title}
+                </Text>
+                <Text style={[styles.serviceProvider, isDarkMode && styles.textMutedDark]}>
+                  {service.provider}
+                </Text>
 
-              {/* Date & Time */}
-              <View style={styles.dateContainer}>
-                <View style={styles.dateItem}>
-                  <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                  <Text style={[styles.dateText, isDarkMode && styles.textMutedDark]}>{service.date}</Text>
+                {/* Date & Time */}
+                <View style={styles.dateContainer}>
+                  <View style={styles.dateItem}>
+                    <Ionicons name="calendar-outline" size={14} color="#6B7280" />
+                    <Text style={[styles.dateText, isDarkMode && styles.textMutedDark]}>
+                      {service.date}
+                    </Text>
+                  </View>
+                  <View style={styles.dateItem}>
+                    <Ionicons name="time-outline" size={14} color="#6B7280" />
+                    <Text style={[styles.dateText, isDarkMode && styles.textMutedDark]}>
+                      {service.time}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.dateItem}>
-                  <Ionicons name="time-outline" size={14} color="#6B7280" />
-                  <Text style={[styles.dateText, isDarkMode && styles.textMutedDark]}>{service.time}</Text>
+
+                {/* Points Earned */}
+                <View style={styles.pointsContainer}>
+                  <Ionicons name="star" size={14} color="#FBBF24" />
+                  <Text style={[styles.pointsText, isDarkMode && styles.textMutedDark]}>
+                    Earned: {points} points
+                  </Text>
                 </View>
-              </View>
 
-              {/* Rating */}
-              <View style={[styles.ratingContainer, isDarkMode && styles.ratingContainerDark]}>
-                <View style={styles.starsContainer}>{renderStars(service.rating)}</View>
-                <Text style={[styles.ratingText, isDarkMode && styles.textMutedDark]}>{service.rating}/5</Text>
-              </View>
-
-              {/* Action Buttons */}
-              <View style={styles.actionButtons}>
-                {!reviewsSubmitted[service.id] ? (
-                  <TouchableOpacity 
-                    style={[styles.reviewButton, isDarkMode && styles.reviewButtonDark]}
-                    onPress={() => handleWriteReview(service)}
+                {/* User's Feedback (if any) */}
+                {hasReviewed ? (
+                  <View
+                    style={[
+                      styles.userFeedbackContainer,
+                      isDarkMode && styles.userFeedbackContainerDark,
+                    ]}
                   >
-                    <Ionicons name="star-outline" size={18} color="#FBBF24" />
-                    <Text style={styles.reviewButtonText}>Write Review</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={[styles.reviewedBadge, isDarkMode && styles.reviewedBadgeDark]}>
-                    <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                    <Text style={styles.reviewedText}>Reviewed</Text>
+                    <View style={styles.userRating}>
+                      {renderStars(feedback.rating)}
+                      <Text style={[styles.userRatingText, isDarkMode && styles.textMutedDark]}>
+                        {feedback.rating}/5
+                      </Text>
+                    </View>
+                    <Text style={[styles.userReview, isDarkMode && styles.textMutedDark]} numberOfLines={2}>
+                      “{feedback.reviewText}”
+                    </Text>
                   </View>
+                ) : (
+                  <Text style={[styles.noReviewText, isDarkMode && styles.textMutedDark]}>
+                    No review yet
+                  </Text>
                 )}
-                <TouchableOpacity 
-                  style={styles.rehireButton}
-                  onPress={() => handleRehire(service)}
-                >
-                  <Ionicons name="refresh-outline" size={18} color="#fff" />
-                  <Text style={styles.rehireButtonText}>Rehire</Text>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </View>
-        ))}
 
-        {/* Empty State */}
+                {/* Action Buttons */}
+                <View style={styles.actionButtons}>
+                  {!hasReviewed ? (
+                    <TouchableOpacity
+                      style={[styles.reviewButton, isDarkMode && styles.reviewButtonDark]}
+                      onPress={() => handleWriteReview(service)}
+                    >
+                      <Ionicons name="star-outline" size={18} color="#FBBF24" />
+                      <Text style={styles.reviewButtonText}>Write Review</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={[styles.reviewedBadge, isDarkMode && styles.reviewedBadgeDark]}>
+                      <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                      <Text style={styles.reviewedText}>Reviewed</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity style={styles.rehireButton} onPress={() => handleRehire(service)}>
+                    <Ionicons name="refresh-outline" size={18} color="#fff" />
+                    <Text style={styles.rehireButtonText}>Rehire</Text>
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+            </View>
+          );
+        })}
+
         {completedServices.length === 0 && (
           <View style={styles.emptyContainer}>
             <View style={[styles.emptyIcon, isDarkMode && styles.emptyIconDark]}>
               <Ionicons name="calendar-outline" size={50} color="#D1D5DB" />
             </View>
             <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>No Service History</Text>
-            <Text style={[styles.emptySubtext, isDarkMode && styles.textMutedDark]}>Your completed services will appear here</Text>
-            <TouchableOpacity 
-              style={styles.exploreButton}
-              onPress={() => navigation.navigate('Home')}
-            >
+            <Text style={[styles.emptySubtext, isDarkMode && styles.textMutedDark]}>
+              Your completed services will appear here
+            </Text>
+            <TouchableOpacity style={styles.exploreButton} onPress={() => navigation.navigate('Home')}>
               <LinearGradient
                 colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#667eea', '#764ba2']}
                 style={styles.exploreGradient}
@@ -308,6 +425,7 @@ export default function HistoryScreen({ navigation }) {
   );
 }
 
+// ---------- Styles ----------
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -337,7 +455,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
   },
-  filterButton: {
+  pointsNavButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -351,12 +469,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 20,
     borderRadius: 20,
-    padding: 20,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 3,
+    flexWrap: 'wrap',
   },
   statsContainerDark: {
     backgroundColor: '#16213e',
@@ -364,6 +483,7 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     alignItems: 'center',
+    minWidth: 50,
   },
   statIcon: {
     width: 36,
@@ -374,18 +494,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#6B7280',
+    textAlign: 'center',
   },
   statDivider: {
     width: 1,
     backgroundColor: '#E5E7EB',
+    marginHorizontal: 4,
   },
   statDividerDark: {
     backgroundColor: '#2d3561',
@@ -471,7 +593,7 @@ const styles = StyleSheet.create({
   dateContainer: {
     flexDirection: 'row',
     gap: 16,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   dateItem: {
     flexDirection: 'row',
@@ -482,25 +604,46 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
-  ratingContainer: {
+  pointsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  pointsText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#FBBF24',
+  },
+  userFeedbackContainer: {
+    marginBottom: 12,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  userFeedbackContainerDark: {
+    borderTopColor: '#2d3561',
+  },
+  userRating: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    marginBottom: 4,
   },
-  ratingContainerDark: {
-    borderTopColor: '#2d3561',
-  },
-  starsContainer: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  ratingText: {
-    fontSize: 11,
+  userRatingText: {
+    fontSize: 13,
     color: '#6B7280',
+  },
+  userReview: {
+    fontSize: 14,
+    color: '#374151',
+    fontStyle: 'italic',
+  },
+  noReviewText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginBottom: 12,
+    paddingVertical: 4,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -620,4 +763,3 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 });
-

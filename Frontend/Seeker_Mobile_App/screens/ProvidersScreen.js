@@ -11,13 +11,12 @@ import {
   StatusBar,
   Alert,
   Image,
-  Modal,
-  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CONFIG, IP_ADDRESS } from "../config";
 import { useAuth } from "../context/AuthContext";
+import RequestQuotationModal from "./IT22129376/components/RequestQuotationModal";
 
 // --------------------------------------------------------------
 // 🔥 Build URL with IP from config
@@ -36,7 +35,6 @@ export default function ProvidersScreen({ route, navigation }) {
 
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [quotationModalVisible, setQuotationModalVisible] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [requestedProviderIds, setRequestedProviderIds] = useState(new Set());
 
   const summary = finalDecision?.summary || {};
@@ -49,8 +47,8 @@ export default function ProvidersScreen({ route, navigation }) {
         const storedUserId = await AsyncStorage.getItem("userId");
         if (storedUserId) {
           setSeekerId(storedUserId);
-        } else if (user?.id) {
-          setSeekerId(user.id);
+        } else if (user?.id || user?._id) {
+          setSeekerId(user.id || user._id);
         }
       } catch (error) {
         console.log("Error loading seeker ID:", error);
@@ -125,112 +123,6 @@ export default function ProvidersScreen({ route, navigation }) {
    * REQUEST QUOTATION
    * ==========================================================
    */
-  const handleRequestQuotation = async () => {
-    if (!seekerId) {
-      Alert.alert("Error", "You must be logged in to request a quotation.");
-      return;
-    }
-
-    const provider = selectedProvider?.provider;
-    const providerId = provider?.id || provider?._id;
-    if (!provider || !providerId) {
-      Alert.alert("Error", "Provider information is unavailable.");
-      return;
-    }
-
-    if (requestedProviderIds.has(String(providerId))) {
-      Alert.alert(
-        "Already Requested",
-        `You have already requested a quotation from ${getProviderName(provider)} for this service request.`
-      );
-      setQuotationModalVisible(false);
-      return;
-    }
-
-    const currentSessionId = sessionId || `SESSION-${Date.now()}`;
-
-    const stepBreakdown = summary.step_breakdown || [];
-    const briefDescription = summary.brief_description || "Service request";
-
-    const payload = {
-      seekerId: seekerId,
-      providerId: providerId,
-      sessionId: currentSessionId,
-      detectedCategory: summary.detected_category || "unknown",
-      detectedObject: summary.detected_object || "unknown",
-      modelConfidence: summary.model_confidence || null,
-      stepBreakdown: stepBreakdown,
-      briefDescription: briefDescription,
-      urgencyLevel: summary.urgency_level || "Normal",
-      serviceLocation: summary.provider_matching?.criteria?.service_location || "",
-    };
-
-    setIsSubmitting(true);
-
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
-        Alert.alert("Error", "You are not authenticated. Please log in again.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      const response = await fetch(QUOTATION_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (response.status === 201 || (response.status === 200 && data.success)) {
-        setRequestedProviderIds((prev) => new Set([...prev, String(providerId)]));
-        Alert.alert(
-          "Quotation Request Sent",
-          `Your quotation request has been sent to ${getProviderName(provider)}.\n\nYou can also request quotations from other providers in the list.`,
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                setQuotationModalVisible(false);
-                setIsSubmitting(false);
-              },
-            },
-          ]
-        );
-      } else if (response.status === 403 || data.error === "PROVIDER_RESTRICTED") {
-        Alert.alert(
-          "Provider Unavailable",
-          data.message || "This service provider cannot receive quotation requests at this time due to platform penalty limits (3/3). Please choose another verified professional.",
-          [{ text: "Understood", onPress: () => { setQuotationModalVisible(false); setIsSubmitting(false); } }]
-        );
-      } else if (response.status === 409) {
-        setRequestedProviderIds((prev) => new Set([...prev, String(providerId)]));
-        Alert.alert(
-          "Already Requested",
-          data.message || "A quotation request has already been sent to this provider for this session."
-        );
-        setQuotationModalVisible(false);
-        setIsSubmitting(false);
-      } else {
-        Alert.alert(
-          "Failed to Send",
-          data.message || "Unable to send quotation request. Please try again."
-        );
-        setIsSubmitting(false);
-      }
-    } catch (error) {
-      console.error("QUOTATION REQUEST ERROR:", error);
-      Alert.alert(
-        "Network Error",
-        `Could not connect to the server at ${QUOTATION_API_URL}.\nMake sure the backend is running and the IP/port is correct.`
-      );
-      setIsSubmitting(false);
-    }
-  };
 
   /*
    * ==========================================================
@@ -495,61 +387,24 @@ export default function ProvidersScreen({ route, navigation }) {
         )}
       </ScrollView>
 
-      {/* QUOTATION MODAL */}
-      <Modal
-        animationType="slide"
-        transparent
+      <RequestQuotationModal
         visible={quotationModalVisible}
-        onRequestClose={() => setQuotationModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Request Quotation</Text>
-              <TouchableOpacity onPress={() => setQuotationModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.modalBody}>
-              <Text style={styles.modalLabel}>
-                Service description for {getProviderName(selectedProvider?.provider)}
-              </Text>
-
-              <View style={styles.descriptionBox}>
-                <Text style={styles.descriptionText}>
-                  {finalDecision?.summary?.brief_description || "No description available."}
-                </Text>
-              </View>
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={styles.cancelModalButton}
-                  onPress={() => setQuotationModalVisible(false)}
-                  disabled={isSubmitting}
-                >
-                  <Text style={styles.cancelModalText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.sendModalButton, isSubmitting && styles.disabledButton]}
-                  onPress={handleRequestQuotation}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <>
-                      <Ionicons name="send" size={18} color="#fff" />
-                      <Text style={styles.sendModalText}>Send Request</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        provider={selectedProvider?.provider}
+        seekerId={seekerId}
+        sessionData={summary}
+        diagnosisData={finalDecision}
+        defaultLocation={summary.provider_matching?.criteria?.service_location || ""}
+        defaultUrgency={summary.urgency_level || "Normal"}
+        onClose={() => setQuotationModalVisible(false)}
+        onSuccess={(_, providerId) => {
+          setRequestedProviderIds((prev) => new Set([...prev, String(providerId)]));
+          setQuotationModalVisible(false);
+          Alert.alert(
+            "Request sent",
+            "Quotation request sent successfully. You can track provider responses in My Jobs."
+          );
+        }}
+      />
     </SafeAreaView>
   );
 }

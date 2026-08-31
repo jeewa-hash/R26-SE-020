@@ -1,4 +1,3 @@
-// models/RewardRedemption.js
 import mongoose from "mongoose";
 
 const rewardRedemptionSchema = new mongoose.Schema(
@@ -9,29 +8,15 @@ const rewardRedemptionSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    pointsSpent: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-    rewardItem: {
-      type: String,
-      required: true,
-    }, // e.g., "Gift Card", "Discount Voucher"
-    rewardValue: {
-      type: String,
-      default: "",
-    },
+    pointsSpent: { type: Number, required: true, min: 1 },
+    rewardItem: { type: String, required: true },
+    rewardValue: { type: String, default: "" },
     status: {
       type: String,
       enum: ["PENDING", "APPROVED", "REJECTED", "FULFILLED"],
       default: "PENDING",
     },
-    approvedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
-    },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     approvedAt: Date,
     fulfilledAt: Date,
     notes: String,

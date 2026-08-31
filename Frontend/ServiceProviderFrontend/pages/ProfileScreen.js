@@ -34,86 +34,49 @@ const getInitials = (name) =>
 
 export default function ProfileScreen({ navigation }) {
   const { isDark } = useContext(ThemeContext);
-  const { portfolioImages, getAllTags } = usePortfolio();
+  const { portfolioImages, portfolioCategories, specialization, loadPortfolio, getAllTags } = usePortfolio();
   const {
     images, processing, progress,
     showTagScreen, openGallery, cancelProcessing, resetAll,
   } = usePortfolioUpload();
 
   const [profileSkills, setProfileSkills] = useState([]);
-  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
-  const [penaltyRatio, setPenaltyRatio] = useState('3/3');
-  const [checkingPenalty, setCheckingPenalty] = useState(false);
-
-  const handleFabPress = async () => {
-    try {
-      setCheckingPenalty(true);
-      let userId = await AsyncStorage.getItem('userId');
-      if (!userId) {
-        const token = (await AsyncStorage.getItem('userToken')) || (await AsyncStorage.getItem('token'));
-        if (token) {
-          try {
-            const parts = token.split('.');
-            if (parts.length === 3) {
-              const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-              const decoded = JSON.parse(decodeURIComponent(escape(atob(base64))));
-              userId = decoded.id || decoded._id || decoded.userId || decoded.user?.id || decoded.user?._id;
-            }
-          } catch (_) { }
-        }
-      }
-      if (!userId) {
-        userId = '69fc31f3cfe41c4d62e6f9ee';
-      }
-
-      const adminUrl = CONFIG.ADMIN_SERVICE_URL || `http://${IP_ADDRESS || '192.168.1.38'}:5001`;
-      const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
-      if (res.ok) {
-        const statusData = await res.json();
-        const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
-        if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
-          setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
-          setShowPenaltyModal(true);
-          setCheckingPenalty(false);
-          return;
-        }
-      }
-    } catch (e) {
-      console.log('Error checking penalty status before posting:', e.message);
-    } finally {
-      setCheckingPenalty(false);
-    }
-    navigation.getParent()?.navigate('PostGeneration');
-  };
+  const [showAllSkills, setShowAllSkills] = useState(false);
+  const INITIAL_SKILLS_LIMIT = 6;
 
   useEffect(() => {
     const fetchSkills = async () => {
-      const token = await AsyncStorage.getItem('userToken');
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        if (!token) return;
 
-      const response = await fetch(
-        `${CONFIG.ML_SERVICE_URL}/portfolio/items`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        const response = await fetch(
+          `${CONFIG.ML_SERVICE_URL}/portfolio/items`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const skills = [
+            ...new Set(
+              (data.items || []).flatMap((item) =>
+                Array.isArray(item.tags) ? item.tags : []
+              )
+            ),
+          ];
+          setProfileSkills(skills);
         }
-      );
-
-      const data = await response.json();
-
-      const skills = [
-        ...new Set(
-          (data.items || []).flatMap((item) =>
-            Array.isArray(item.tags) ? item.tags : []
-          )
-        ),
-      ];
-
-      setProfileSkills(skills);
+      } catch (e) {
+        console.log('Error fetching skills from ML engine:', e);
+      }
     };
 
     fetchSkills();
-  }, []);
+  }, [portfolioImages]);
 
   // Profile data state
   const [profile, setProfile] = useState({
@@ -138,7 +101,6 @@ export default function ProfileScreen({ navigation }) {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        // Get token from AsyncStorage
         const token = await AsyncStorage.getItem('userToken');
 
         if (!token) {
@@ -171,14 +133,13 @@ export default function ProfileScreen({ navigation }) {
             gender: p.gender || 'Not specified',
             profileImage: p.profileImage || null,
             isVerified: p.isVerified || false,
-            jobs: 'N/A', // From hardcoded stats or backend if available
-            rating: 'N/A★', // From hardcoded stats or backend if available
-            completion: 'N/A%', // From hardcoded stats or backend if available
-            earned: 'N/AK', // From hardcoded stats or backend if available
+            jobs: 'N/A',
+            rating: 'N/A★',
+            completion: 'N/A%',
+            earned: 'N/AK',
           });
         }
       } catch (err) {
-        Alert.alert('Error', `Failed to load profile\n${err.message}`);
         console.log('Profile fetch error:', err);
       } finally {
         setLoading(false);
@@ -191,19 +152,26 @@ export default function ProfileScreen({ navigation }) {
   const allTags = getAllTags();
   const [showAddTooltip, setShowAddTooltip] = React.useState(false);
 
-  // Group portfolio images by their AI/user tags into categories for the horizontal scroller
-  const categoryMap = {};
-  portfolioImages.forEach((img) => {
-    const tags = img.tags && img.tags.length > 0 ? img.tags : ['Uncategorized'];
-    tags.forEach((tag) => {
-      if (!categoryMap[tag]) categoryMap[tag] = [];
-      categoryMap[tag].push(img);
+  // Categories computed from backend portfolioCategories or grouped local images
+  const categories = React.useMemo(() => {
+    if (portfolioCategories && portfolioCategories.length > 0) {
+      return portfolioCategories.map((c) => ({
+        name: c.label || c.category_group,
+        count: c.image_count || 1,
+        latest_image: c.latest_image,
+      }));
+    }
+    const categoryMap = {};
+    portfolioImages.forEach((img) => {
+      const name = img.label || img.category || 'General';
+      if (!categoryMap[name]) categoryMap[name] = 0;
+      categoryMap[name] += 1;
     });
-  });
-  const categories = Object.keys(categoryMap).map((tag) => ({
-    name: tag,
-    count: categoryMap[tag].length,
-  }));
+    return Object.keys(categoryMap).map((tag) => ({
+      name: tag,
+      count: categoryMap[tag],
+    }));
+  }, [portfolioCategories, portfolioImages]);
 
   const CATEGORY_COLORS = ['#2563EB', '#7C3AED', '#059669', '#F59E0B', '#DC2626', '#0891B2'];
 
@@ -213,6 +181,17 @@ export default function ProfileScreen({ navigation }) {
     setTimeout(() => setShowAddTooltip(false), 1600);
   };
 
+  const handleCloseTagScreen = () => {
+    resetAll();
+    loadPortfolio();
+  };
+
+  const displayedSkills = showAllSkills
+    ? profileSkills
+    : profileSkills.slice(0, INITIAL_SKILLS_LIMIT);
+
+  const remainingSkillsCount = Math.max(0, profileSkills.length - INITIAL_SKILLS_LIMIT);
+
   const C = isDark
     ? { bg: '#0f0f0f', card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', subCard: '#2a2a2a' }
     : { bg: '#F8FAFC', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#E2E8F0', subCard: '#F8FAFC' };
@@ -220,16 +199,10 @@ export default function ProfileScreen({ navigation }) {
   return (
     <View style={[styles.root, { backgroundColor: C.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-
-      <HeaderSection
+        
+      <HeaderSection 
         navigation={navigation}
-        //userName={userName}          // From your state: 'Kasun' or loaded from storage
-        //avatarUrl={userAvatar}       // From your state: null or loaded from storage
-        //search={search}              // Your search state
-        //onSearchChange={setSearch}   // Your search setter
-        //unreadCount={unreadCount}    // Your notification count
         onInboxPress={() => navigation.navigate('InboxScreen')}
-      // onMenuPress is optional - the HeaderSection now handles it internally
       />
 
       {/* ── Scrollable body ── */}
@@ -251,11 +224,20 @@ export default function ProfileScreen({ navigation }) {
           <Text style={[styles.profileHandle, { color: C.textSub }]}>{profile.district}</Text>
 
           <View style={styles.badgeRow}>
-
             <View style={styles.verifiedBadge}>
               <MaterialIcons name="verified" size={12} color="#2563EB" />
               <Text style={styles.verifiedBadgeText}>Verified</Text>
             </View>
+
+            {specialization?.awarded ? (
+              <View style={[styles.verifiedBadge, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
+                <MaterialIcons name="workspace-premium" size={13} color="#D97706" />
+                <Text style={[styles.verifiedBadgeText, { color: '#B45309', fontWeight: '800' }]}>
+                  {specialization.badge || 'Top Specialization'}: {specialization.specific_label || specialization.label}
+                </Text>
+              </View>
+            ) : null}
+
             <View style={styles.onlineBadge}>
               <View style={styles.onlineDotSmall} />
               <Text style={styles.onlineBadgeText}>Available</Text>
@@ -288,18 +270,22 @@ export default function ProfileScreen({ navigation }) {
           <Text style={[styles.bioText, { color: C.textSub }]}>
             {profile.bio}
           </Text>
-
         </View>
 
         <ServicesSection navigation={navigation} C={C} initialCategory={profile.category} />
         <ProviderPostsSection navigation={navigation} isDark={isDark} />
 
-        {/* ── Skills ── */}
+        {/* ── Skills & Expertise (Tags with See More toggle) ── */}
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
-          <Text style={[styles.sectionTitle, { color: C.text }]}>Skills & Expertise</Text>
-          <View style={styles.skillsWrap}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: C.text }]}>Skills & Expertise</Text>
+            <Text style={[styles.countBadgeTextSmall, { color: C.textSub }]}>
+              {profileSkills.length} Total Tags
+            </Text>
+          </View>
 
-            {profileSkills.map((tag) => (
+          <View style={styles.skillsWrap}>
+            {displayedSkills.map((tag) => (
               <View key={tag} style={[styles.skillChipAI, {
                 backgroundColor: isDark ? '#0d2820' : '#F0FDF4',
                 borderColor: isDark ? '#145040' : '#A7F3D0',
@@ -309,27 +295,47 @@ export default function ProfileScreen({ navigation }) {
               </View>
             ))}
           </View>
-          {allTags.length > 0 && (
-            <Text style={styles.aiTagNote}>✨ {profileSkills.length} tags detected by AI from your portfolio</Text>
+
+          {profileSkills.length > INITIAL_SKILLS_LIMIT && (
+            <TouchableOpacity
+              style={[styles.seeMoreTagsBtn, { borderColor: C.border, backgroundColor: C.subCard }]}
+              onPress={() => setShowAllSkills(!showAllSkills)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.seeMoreTagsText}>
+                {showAllSkills ? 'Show Less Tags' : `See More Tags (+${remainingSkillsCount} more)`}
+              </Text>
+              <MaterialIcons
+                name={showAllSkills ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+                size={16}
+                color="#16A34A"
+              />
+            </TouchableOpacity>
+          )}
+
+          {profileSkills.length > 0 && (
+            <Text style={styles.aiTagNote}>✨ {profileSkills.length} skills & tags verified by AI ML Engine</Text>
           )}
         </View>
 
-
-        {/* ── Portfolio ── */}
+        {/* ── Portfolio Section ── */}
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: C.text }]}>Portfolio</Text>
+            <TouchableOpacity onPress={() => navigation.getParent()?.navigate('PortfolioGallery')}>
+              <Text style={{ fontSize: 13, color: '#2563EB', fontWeight: '600' }}>View Gallery →</Text>
+            </TouchableOpacity>
           </View>
 
-          {portfolioImages.length === 0 ? (
+          {categories.length === 0 && portfolioImages.length === 0 ? (
             <TouchableOpacity style={[styles.portfolioEmpty, { backgroundColor: C.subCard, borderColor: C.border }]} onPress={openGallery}>
-              <MaterialIcons name="add-photo-alternate" size={32} color={Colors.primary} />
+              <MaterialIcons name="add-photo-alternate" size={32} color="#6366F1" />
               <Text style={[styles.portfolioEmptyTitle, { color: C.text }]}>Add Portfolio Images</Text>
-              <Text style={[styles.portfolioEmptySub, { color: C.textSub }]}>Upload work photos — AI will tag them automatically</Text>
+              <Text style={[styles.portfolioEmptySub, { color: C.textSub }]}>Upload work photos — AI ML Engine will classify and tag them</Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.portfolioContainer}>
-              {/* Corner "add more" button — only shown once the user has images */}
+              {/* Corner "add more" button */}
               <TouchableOpacity
                 style={[styles.addImageCorner, { borderColor: C.card }]}
                 onPress={handleAddPress}
@@ -358,14 +364,14 @@ export default function ProfileScreen({ navigation }) {
                       activeOpacity={0.85}
                       onPress={() => navigation.getParent()?.navigate('PortfolioGallery', { category: cat.name })}
                     >
-                      <MaterialIcons name="photo" size={30} color={color} />
+                      <MaterialIcons name="photo-library" size={28} color={color} />
 
                       <View style={styles.categoryCountBadge}>
                         <Text style={styles.categoryCountText}>{cat.count}</Text>
                       </View>
 
                       <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.78)']}
+                        colors={['transparent', 'rgba(0,0,0,0.80)']}
                         style={styles.categoryLabelGradient}
                       >
                         <Text style={styles.categoryLabelText} numberOfLines={1}>{cat.name}</Text>
@@ -411,7 +417,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={{ height: 110 }} />
       </ScrollView>
 
-      {/* ── Eye-Catching Round Floating Action Button ── */}
+      {/* ── Floating Action Button ── */}
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={handleFabPress}
@@ -439,7 +445,7 @@ export default function ProfileScreen({ navigation }) {
         onCancel={cancelProcessing}
       />
       {showTagScreen && images.length > 0 && (
-        <PortfolioTagScreen images={images} onClose={resetAll} />
+        <PortfolioTagScreen images={images} onClose={handleCloseTagScreen} />
       )}
 
       {/* ── Penalty Restriction Warning Modal ── */}
@@ -586,7 +592,13 @@ const styles = StyleSheet.create({
   skillText: { fontSize: 12, fontWeight: '500' },
   skillChipAI: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
   skillTextAI: { fontSize: 12, fontWeight: '500' },
-  aiTagNote: { fontSize: 11, color: '#16A34A', fontStyle: 'italic' },
+  aiTagNote:   { fontSize: 11, color: '#16A34A', fontStyle: 'italic', marginTop: 4 },
+  countBadgeTextSmall: { fontSize: 12, fontWeight: '600' },
+  seeMoreTagsBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 4, marginTop: 10, marginBottom: 4, paddingVertical: 8, borderRadius: 12, borderWidth: 1,
+  },
+  seeMoreTagsText: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
 
   portfolioEmpty: { alignItems: 'center', padding: 24, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed' },
   portfolioEmptyTitle: { fontSize: 14, fontWeight: 'bold', marginTop: 8, marginBottom: 4 },

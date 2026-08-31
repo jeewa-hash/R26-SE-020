@@ -713,7 +713,7 @@ export default function CreatePostScreen({ navigation }) {
           <Card.Actions style={styles.resultActions}>
             <TouchableOpacity
               style={[styles.saveButton, { backgroundColor: C.primary }]}
-              onPress={() => navigation.navigate('PostFeed')}
+              onPress={() => navigation.navigate('Profile')}
             >
               <MaterialIcons name="save" size={18} color={C.white} />
               <Text style={styles.saveButtonText}>Save to Feed</Text>

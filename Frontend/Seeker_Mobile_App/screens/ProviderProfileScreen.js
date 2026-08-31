@@ -12,12 +12,12 @@ import {
   StatusBar,
   Dimensions,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG, IP_ADDRESS } from '../config';
 import { useAuth } from '../context/AuthContext';
+import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
 
 const { width } = Dimensions.get('window');
 const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
@@ -36,40 +36,14 @@ export default function ProviderProfileScreen({ route, navigation }) {
   const portfolio = providerItem?.portfolio || {};
   const match = providerItem?.match || {};
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRequested, setIsRequested] = useState(Boolean(initialIsRequested));
-  const [restrictionInfo, setRestrictionInfo] = useState({
-    isRestricted: false,
-    penaltyScore: 0,
-    penaltyRatio: '0/3',
-    reason: '',
-  });
+  const [quotationModalVisible, setQuotationModalVisible] = useState(false);
+  const [seekerId, setSeekerId] = useState(user?.id || user?._id || null);
 
-  // Check if provider is bookable / restricted due to penalty score >= 3, unverified, or blocked
   useEffect(() => {
-    const fetchProviderStatus = async () => {
-      if (!providerId) return;
-      try {
-        const adminUrl = `http://${IP_ADDRESS}:5001`;
-        const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${providerId}`);
-        if (res.ok) {
-          const data = await res.json();
-          const score = typeof data.penaltyScore === 'number' ? data.penaltyScore : (data.activeMissedBookingsCount || 0);
-          if (data.isRestricted || data.isBlocked || score >= 3 || provider.isVerified === false) {
-            setRestrictionInfo({
-              isRestricted: true,
-              penaltyScore: score,
-              penaltyRatio: data.penaltyRatio || `${score}/3`,
-              reason: data.restrictionReason || 'Account restricted due to penalty score or administrative limits.',
-            });
-          }
-        }
-      } catch (err) {
-        console.log('Error checking provider status in profile:', err.message);
-      }
-    };
-    fetchProviderStatus();
-  }, [providerId, provider.isVerified]);
+    if (user?.id || user?._id) setSeekerId(user.id || user._id);
+    else AsyncStorage.getItem('userId').then(setSeekerId).catch(() => {});
+  }, [user]);
 
   // Check if this provider has already been requested for this seeker & session
   useEffect(() => {
@@ -135,123 +109,6 @@ export default function ProviderProfileScreen({ route, navigation }) {
    * REQUEST QUOTATION
    * ==========================================================
    */
-  const handleRequestQuotation = async () => {
-    if (restrictionInfo.isRestricted || isVerified === false || provider.isBlocked) {
-      Alert.alert(
-        'Provider Unavailable',
-        `This service provider cannot accept new quotation requests at this time because their penalty score exceeded the platform limit (${restrictionInfo.penaltyRatio || '3/3'}) or account verification is pending. Please select another verified professional.`,
-        [{ text: 'Understood' }]
-      );
-      return;
-    }
-
-    if (isRequested) {
-      Alert.alert(
-        'Already Requested',
-        `You have already requested a quotation from ${providerName}. Only 1 quotation request is allowed per provider for this service request.`
-      );
-      return;
-    }
-
-    if (!finalDecision) {
-      Alert.alert('Error', 'No service summary available. Please go back and try again.');
-      return;
-    }
-
-    const summary = finalDecision?.summary || {};
-    const sessionId = summary.session_id || finalDecision?.session_id || `SESSION-${Date.now()}`;
-
-    if (!providerId) {
-      Alert.alert('Error', 'Provider information is unavailable.');
-      return;
-    }
-
-    let seekerId = user?.id;
-    if (!seekerId) {
-      try {
-        seekerId = await AsyncStorage.getItem('userId');
-      } catch (e) {
-        console.log('Error getting seeker ID:', e);
-      }
-    }
-    if (!seekerId) {
-      Alert.alert('Error', 'You must be logged in to request a quotation.');
-      return;
-    }
-
-    const stepBreakdown = summary.step_breakdown || [];
-    const briefDescription = summary.brief_description || 'Service request';
-
-    const payload = {
-      seekerId: seekerId,
-      providerId: providerId,
-      sessionId: sessionId,
-      detectedCategory: summary.detected_category || 'unknown',
-      detectedObject: summary.detected_object || 'unknown',
-      modelConfidence: summary.model_confidence || null,
-      stepBreakdown: stepBreakdown,
-      briefDescription: briefDescription,
-      urgencyLevel: summary.urgency_level || 'Normal',
-      serviceLocation: summary.provider_matching?.criteria?.service_location || '',
-    };
-
-    setIsSubmitting(true);
-
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        Alert.alert('Error', 'You are not authenticated. Please log in again.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      const response = await fetch(QUOTATION_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (response.status === 201 || (response.status === 200 && data.success)) {
-        setIsRequested(true);
-        if (onQuotationRequested) {
-          onQuotationRequested(providerId);
-        }
-        Alert.alert(
-          'Quotation Request Sent',
-          `Your quotation request has been sent to ${providerName}.\n\nYou can also request quotations from other providers in the list.`,
-          [{ text: 'OK', onPress: () => setIsSubmitting(false) }]
-        );
-      } else if (response.status === 409) {
-        setIsRequested(true);
-        if (onQuotationRequested) {
-          onQuotationRequested(providerId);
-        }
-        Alert.alert(
-          'Already Requested',
-          data.message || 'A quotation request has already been sent to this provider for this session.'
-        );
-        setIsSubmitting(false);
-      } else {
-        Alert.alert(
-          'Failed to Send',
-          data.message || 'Unable to send quotation request. Please try again.'
-        );
-        setIsSubmitting(false);
-      }
-    } catch (error) {
-      console.error('QUOTATION REQUEST ERROR:', error);
-      Alert.alert(
-        'Network Error',
-        `Could not connect to the server at ${QUOTATION_API_URL}.\nMake sure the backend is running and the IP/port is correct.`
-      );
-      setIsSubmitting(false);
-    }
-  };
 
   const handleChat = () => {
     Alert.alert('Chat', `Start a conversation with ${providerName}?`, [
@@ -439,22 +296,34 @@ export default function ProviderProfileScreen({ route, navigation }) {
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={[styles.quoteButtonLarge, isSubmitting && styles.disabledButton]}
-              onPress={handleRequestQuotation}
-              disabled={isSubmitting}
+              style={styles.quoteButtonLarge}
+              onPress={() => setQuotationModalVisible(true)}
             >
-              {isSubmitting ? (
-                <ActivityIndicator color="#6366F1" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="document-text-outline" size={20} color="#6366F1" />
-                  <Text style={styles.quoteButtonTextLarge}>Get Quote</Text>
-                </>
-              )}
+              <Ionicons name="document-text-outline" size={20} color="#6366F1" />
+              <Text style={styles.quoteButtonTextLarge}>Get Quote</Text>
             </TouchableOpacity>
           )}
         </View>
       </ScrollView>
+      <RequestQuotationModal
+        visible={quotationModalVisible}
+        provider={provider}
+        seekerId={seekerId}
+        sessionData={finalDecision?.summary || {}}
+        diagnosisData={finalDecision || {}}
+        defaultLocation={finalDecision?.summary?.provider_matching?.criteria?.service_location || ''}
+        defaultUrgency={finalDecision?.summary?.urgency_level || 'Normal'}
+        onClose={() => setQuotationModalVisible(false)}
+        onSuccess={() => {
+          setQuotationModalVisible(false);
+          setIsRequested(true);
+          onQuotationRequested?.(providerId);
+          Alert.alert(
+            'Request sent',
+            'Quotation request sent successfully. You can track provider responses in My Jobs.'
+          );
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -722,53 +591,5 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
-  },
-  quoteButtonLargeDisabled: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    gap: 8,
-  },
-  quoteButtonTextLargeDisabled: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#94A3B8',
-  },
-
-  // ── Restriction Banner Styles ──
-  restrictionBanner: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1.5,
-    borderColor: '#FCA5A5',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  restrictionBannerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
-  },
-  restrictionBannerTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#DC2626',
-  },
-  restrictionBannerText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#991B1B',
   },
 });

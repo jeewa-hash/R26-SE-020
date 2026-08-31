@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useContext } from 'react';
 import {
   View,
   Modal,
@@ -9,10 +9,16 @@ import {
 import { Text } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../../theme';
+import { ThemeContext } from '../../context/ThemeContext';
 
 export default function AIProcessingModal({ visible, progress, imageCount, onCancel }) {
+  const { isDark } = useContext(ThemeContext) || {};
   const spinAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const C = isDark
+    ? { card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', track: '#2c2c2e' }
+    : { card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#E2E8F0', track: '#E2E8F0' };
 
   // Spin animation
   useEffect(() => {
@@ -47,7 +53,7 @@ export default function AIProcessingModal({ visible, progress, imageCount, onCan
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: C.card }]}>
 
           {/* AI Badge */}
           <View style={styles.aiBadge}>
@@ -57,38 +63,37 @@ export default function AIProcessingModal({ visible, progress, imageCount, onCan
 
           {/* Spinner */}
           <Animated.View style={[styles.spinnerWrapper, { transform: [{ scale: pulseAnim }] }]}>
-            <View style={styles.spinnerBg}>
+            <View style={[styles.spinnerBg, { backgroundColor: isDark ? '#1F2937' : '#EFF6FF' }]}>
               <Animated.View style={{ transform: [{ rotate }] }}>
-                <MaterialIcons name="refresh" size={48} color={Colors.primary} />
+                <MaterialIcons name="refresh" size={48} color="#6366F1" />
               </Animated.View>
             </View>
-            <View style={styles.sparkBadge}>
-              <MaterialIcons name="auto-awesome" size={14} color={Colors.white} />
+            <View style={[styles.sparkBadge, { borderColor: C.card }]}>
+              <MaterialIcons name="auto-awesome" size={14} color="#FFFFFF" />
             </View>
           </Animated.View>
 
           {/* Text */}
-          <Text style={styles.title}>Classifying Images...</Text>
-          <Text style={styles.subtitle}>
-            AI is analyzing your {imageCount} new {imageCount === 1 ? 'photo' : 'photos'} to
-            group them by service type.
+          <Text style={[styles.title, { color: C.text }]}>Analyzing & Predicting...</Text>
+          <Text style={[styles.subtitle, { color: C.textSub }]}>
+            ML Engine is running EfficientNet + CLIP on {imageCount} {imageCount === 1 ? 'photo' : 'photos'} to detect service type, specific work, and tags.
           </Text>
 
           {/* Progress */}
           <View style={styles.progressSection}>
             <View style={styles.progressLabelRow}>
-              <Text style={styles.progressLabel}>SYSTEM PROGRESS</Text>
+              <Text style={[styles.progressLabel, { color: C.textSub }]}>AI INFERENCE PROGRESS</Text>
               <Text style={styles.progressPercent}>{progress}%</Text>
             </View>
-            <View style={styles.progressTrack}>
+            <View style={[styles.progressTrack, { backgroundColor: C.track }]}>
               <View style={[styles.progressFill, { width: `${progress}%` }]} />
             </View>
           </View>
 
           {/* Cancel */}
-          <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-            <MaterialIcons name="close" size={18} color={Colors.textLight} />
-            <Text style={styles.cancelText}>Cancel Process</Text>
+          <TouchableOpacity style={[styles.cancelBtn, { borderColor: C.border }]} onPress={onCancel}>
+            <MaterialIcons name="close" size={18} color={C.textSub} />
+            <Text style={[styles.cancelText, { color: C.textSub }]}>Cancel Process</Text>
           </TouchableOpacity>
 
         </View>
@@ -100,13 +105,12 @@ export default function AIProcessingModal({ visible, progress, imageCount, onCan
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: 28,
   },
   card: {
-    backgroundColor: Colors.white,
     borderRadius: 24,
     padding: 28,
     alignItems: 'center',
@@ -124,7 +128,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    marginBottom: 24,
+    marginBottom: 22,
   },
   aiDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#16A34A' },
   aiText: { fontSize: 11, fontWeight: '800', color: '#16A34A', letterSpacing: 1 },
@@ -132,13 +136,12 @@ const styles = StyleSheet.create({
   // Spinner
   spinnerWrapper: {
     position: 'relative',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   spinnerBg: {
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: '#EFF6FF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -153,27 +156,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: Colors.white,
   },
 
   // Text
   title: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: 'bold',
-    color: Colors.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 13,
-    color: Colors.textLight,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
+    lineHeight: 19,
+    marginBottom: 22,
   },
 
   // Progress
-  progressSection: { width: '100%', marginBottom: 24 },
+  progressSection: { width: '100%', marginBottom: 22 },
   progressLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -182,23 +182,21 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: Colors.textLight,
     letterSpacing: 0.8,
   },
   progressPercent: {
     fontSize: 13,
     fontWeight: '800',
-    color: Colors.primary,
+    color: '#6366F1',
   },
   progressTrack: {
     height: 8,
-    backgroundColor: '#E2E8F0',
     borderRadius: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: Colors.primary,
+    backgroundColor: '#6366F1',
     borderRadius: 4,
   },
 
@@ -208,12 +206,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: Colors.border,
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 13,
     paddingHorizontal: 32,
     width: '100%',
     justifyContent: 'center',
   },
-  cancelText: { fontSize: 14, color: Colors.textLight, fontWeight: '600' },
-});
+  cancelText: { fontSize: 14, fontWeight: '600' },
+});
