@@ -38,6 +38,38 @@ export default function ProviderProfileScreen({ route, navigation }) {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRequested, setIsRequested] = useState(Boolean(initialIsRequested));
+  const [restrictionInfo, setRestrictionInfo] = useState({
+    isRestricted: false,
+    penaltyScore: 0,
+    penaltyRatio: '0/3',
+    reason: '',
+  });
+
+  // Check if provider is bookable / restricted due to penalty score >= 3, unverified, or blocked
+  useEffect(() => {
+    const fetchProviderStatus = async () => {
+      if (!providerId) return;
+      try {
+        const adminUrl = `http://${IP_ADDRESS}:5001`;
+        const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${providerId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const score = typeof data.penaltyScore === 'number' ? data.penaltyScore : (data.activeMissedBookingsCount || 0);
+          if (data.isRestricted || data.isBlocked || score >= 3 || provider.isVerified === false) {
+            setRestrictionInfo({
+              isRestricted: true,
+              penaltyScore: score,
+              penaltyRatio: data.penaltyRatio || `${score}/3`,
+              reason: data.restrictionReason || 'Account restricted due to penalty score or administrative limits.',
+            });
+          }
+        }
+      } catch (err) {
+        console.log('Error checking provider status in profile:', err.message);
+      }
+    };
+    fetchProviderStatus();
+  }, [providerId, provider.isVerified]);
 
   // Check if this provider has already been requested for this seeker & session
   useEffect(() => {
@@ -104,6 +136,15 @@ export default function ProviderProfileScreen({ route, navigation }) {
    * ==========================================================
    */
   const handleRequestQuotation = async () => {
+    if (restrictionInfo.isRestricted || isVerified === false || provider.isBlocked) {
+      Alert.alert(
+        'Provider Unavailable',
+        `This service provider cannot accept new quotation requests at this time because their penalty score exceeded the platform limit (${restrictionInfo.penaltyRatio || '3/3'}) or account verification is pending. Please select another verified professional.`,
+        [{ text: 'Understood' }]
+      );
+      return;
+    }
+
     if (isRequested) {
       Alert.alert(
         'Already Requested',
@@ -257,6 +298,23 @@ export default function ProviderProfileScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* Penalty / Account Restriction Alert Banner */}
+        {restrictionInfo.isRestricted && (
+          <View style={styles.restrictionBanner}>
+            <View style={styles.restrictionBannerHeader}>
+              <Ionicons name="alert-circle" size={22} color="#DC2626" />
+              <Text style={styles.restrictionBannerTitle}>
+                Provider Temporarily Unavailable ({restrictionInfo.penaltyRatio})
+              </Text>
+            </View>
+            <Text style={styles.restrictionBannerText}>
+              This service provider is currently restricted from accepting new quotations and bookings due to penalty points limit reached ({restrictionInfo.penaltyRatio}) or pending account verification.
+              {'\n\n'}
+              Please select another active verified professional for your requirement.
+            </Text>
+          </View>
+        )}
+
         {/* Contact */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Contact Information</Text>
@@ -352,7 +410,21 @@ export default function ProviderProfileScreen({ route, navigation }) {
             <Text style={styles.chatButtonTextLarge}>Chat</Text>
           </TouchableOpacity>
 
-          {isRequested ? (
+          {restrictionInfo.isRestricted ? (
+            <TouchableOpacity
+              style={styles.quoteButtonLargeDisabled}
+              onPress={() =>
+                Alert.alert(
+                  'Provider Unavailable',
+                  `This service provider cannot accept new quotation requests at this time due to penalty score (${restrictionInfo.penaltyRatio || '3/3'}). Please choose another professional.`
+                )
+              }
+              activeOpacity={0.7}
+            >
+              <Ionicons name="ban-outline" size={20} color="#94A3B8" />
+              <Text style={styles.quoteButtonTextLargeDisabled}>Unavailable</Text>
+            </TouchableOpacity>
+          ) : isRequested ? (
             <TouchableOpacity
               style={styles.quoteButtonLargeRequested}
               onPress={() =>
@@ -650,5 +722,53 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  quoteButtonLargeDisabled: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    gap: 8,
+  },
+  quoteButtonTextLargeDisabled: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+
+  // ── Restriction Banner Styles ──
+  restrictionBanner: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  restrictionBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  restrictionBannerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  restrictionBannerText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#991B1B',
   },
 });
