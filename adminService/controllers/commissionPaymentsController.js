@@ -147,8 +147,9 @@ exports.getMonthlyCommissionPayments = async (req, res) => {
 
     const paidCount = enrichedList.filter(b => b.status === 'PAID').length;
     const pendingCount = enrichedList.filter(b => b.status === 'PENDING').length;
-    const overdueCount = enrichedList.filter(b => b.status === 'OVERDUE').length;
     const suspendedCount = enrichedList.filter(b => b.status === 'SUSPENDED' || b.isSuspended).length;
+    const waivedCount = enrichedList.filter(b => b.status === 'WAIVED' || b.serviceChargeAmount === 0).length;
+    const overdueCount = enrichedList.filter(b => b.status === 'OVERDUE').length;
     const complianceRate = enrichedList.length > 0 ? ((paidCount / enrichedList.length) * 100).toFixed(1) : '100.0';
 
     // 5. Apply Requested Filters
@@ -198,8 +199,9 @@ exports.getMonthlyCommissionPayments = async (req, res) => {
         totalBillsCount: enrichedList.length,
         paidCount,
         pendingCount,
-        overdueCount,
         suspendedCount,
+        waivedCount,
+        overdueCount,
       },
       availableMonths,
     });
