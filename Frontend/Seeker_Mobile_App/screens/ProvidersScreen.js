@@ -1,5 +1,3 @@
-// screens/ProvidersScreen.js
-
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -16,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CONFIG, IP_ADDRESS } from "../config";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../hooks/useTheme";
 import RequestQuotationModal from "./IT22129376/components/RequestQuotationModal";
 
 // --------------------------------------------------------------
@@ -30,6 +29,7 @@ export default function ProvidersScreen({ route, navigation }) {
     initialMessage = "",
   } = route.params || {};
 
+  const { isDarkMode } = useTheme();
   const { user } = useAuth();
   const [seekerId, setSeekerId] = useState(null);
 
@@ -171,11 +171,17 @@ export default function ProvidersScreen({ route, navigation }) {
    */
   if (!finalDecision) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, isDarkMode && { backgroundColor: "#111827" }]}>
+        <StatusBar
+          barStyle={isDarkMode ? "light-content" : "dark-content"}
+          backgroundColor={isDarkMode ? "#111827" : "#F8F9FC"}
+        />
         <View style={styles.centerContainer}>
           <Ionicons name="alert-circle-outline" size={50} color="#6366F1" />
-          <Text style={styles.emptyTitle}>No matching results</Text>
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyTitle, isDarkMode && { color: "#F9FAFB" }]}>
+            No matching results
+          </Text>
+          <Text style={[styles.emptyText, isDarkMode && { color: "#9CA3AF" }]}>
             We could not find the provider matching results.
           </Text>
           <TouchableOpacity
@@ -195,33 +201,53 @@ export default function ProvidersScreen({ route, navigation }) {
    * ==========================================================
    */
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.safeArea, isDarkMode && { backgroundColor: "#111827" }]}>
+      <StatusBar
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
+        backgroundColor={isDarkMode ? "#111827" : "#F8F9FC"}
+      />
 
-
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.container, isDarkMode && { backgroundColor: "#111827" }]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* MATCH SUMMARY */}
-        <View style={styles.matchSummary}>
+        <View style={[styles.matchSummary, isDarkMode && { backgroundColor: "#064E3B" }]}>
           <View style={styles.matchIcon}>
-            <Ionicons name="checkmark-circle" size={26} color="#10B981" />
+            <Ionicons
+              name="checkmark-circle"
+              size={26}
+              color={isDarkMode ? "#34D399" : "#10B981"}
+            />
           </View>
           <View style={styles.matchSummaryContent}>
-            <Text style={styles.matchTitle}>
+            <Text style={[styles.matchTitle, isDarkMode && { color: "#A7F3D0" }]}>
               {totalMatchedProviders} provider{totalMatchedProviders !== 1 ? "s" : ""} found
             </Text>
-            <Text style={styles.matchSubtitle}>
+            <Text style={[styles.matchSubtitle, isDarkMode && { color: "#D1FAE5" }]}>
               Based on your service requirements and location
             </Text>
           </View>
         </View>
 
         {/* SERVICE INFORMATION */}
-        <View style={styles.serviceCard}>
+        <View
+          style={[
+            styles.serviceCard,
+            isDarkMode && {
+              backgroundColor: "#1F2937",
+              borderColor: "#374151",
+              borderWidth: 1,
+            },
+          ]}
+        >
           <View style={styles.serviceRow}>
             <Ionicons name="construct-outline" size={20} color="#6366F1" />
             <View style={styles.serviceContent}>
-              <Text style={styles.serviceLabel}>Service</Text>
-              <Text style={styles.serviceValue}>
+              <Text style={[styles.serviceLabel, isDarkMode && { color: "#9CA3AF" }]}>
+                Service
+              </Text>
+              <Text style={[styles.serviceValue, isDarkMode && { color: "#F9FAFB" }]}>
                 {providerMatching?.criteria?.service_category || "Service"}
               </Text>
             </View>
@@ -229,8 +255,10 @@ export default function ProvidersScreen({ route, navigation }) {
           <View style={styles.serviceRow}>
             <Ionicons name="location-outline" size={20} color="#6366F1" />
             <View style={styles.serviceContent}>
-              <Text style={styles.serviceLabel}>Location</Text>
-              <Text style={styles.serviceValue}>
+              <Text style={[styles.serviceLabel, isDarkMode && { color: "#9CA3AF" }]}>
+                Location
+              </Text>
+              <Text style={[styles.serviceValue, isDarkMode && { color: "#F9FAFB" }]}>
                 {providerMatching?.district_used ||
                   providerMatching?.criteria?.service_location ||
                   "Not specified"}
@@ -240,8 +268,10 @@ export default function ProvidersScreen({ route, navigation }) {
           <View style={styles.serviceRow}>
             <Ionicons name="flash-outline" size={20} color="#EF4444" />
             <View style={styles.serviceContent}>
-              <Text style={styles.serviceLabel}>Priority</Text>
-              <Text style={styles.serviceValue}>
+              <Text style={[styles.serviceLabel, isDarkMode && { color: "#9CA3AF" }]}>
+                Priority
+              </Text>
+              <Text style={[styles.serviceValue, isDarkMode && { color: "#F9FAFB" }]}>
                 {providerMatching?.criteria?.urgency_level || "Normal"}
               </Text>
             </View>
@@ -251,9 +281,11 @@ export default function ProvidersScreen({ route, navigation }) {
         {/* PROVIDER LIST */}
         {providers.length === 0 ? (
           <View style={styles.noProvidersContainer}>
-            <Ionicons name="search-outline" size={50} color="#9CA3AF" />
-            <Text style={styles.noProvidersTitle}>No providers found</Text>
-            <Text style={styles.noProvidersText}>
+            <Ionicons name="search-outline" size={50} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
+            <Text style={[styles.noProvidersTitle, isDarkMode && { color: "#F9FAFB" }]}>
+              No providers found
+            </Text>
+            <Text style={[styles.noProvidersText, isDarkMode && { color: "#9CA3AF" }]}>
               We couldn't find a matching provider for your requirements.
             </Text>
           </View>
@@ -267,19 +299,40 @@ export default function ProvidersScreen({ route, navigation }) {
             const imageUrl = getProfileImage(provider.profileImage);
 
             return (
-              <View key={provider.id || index} style={styles.providerCard}>
+              <View
+                key={provider.id || index}
+                style={[
+                  styles.providerCard,
+                  isDarkMode && {
+                    backgroundColor: "#1F2937",
+                    borderColor: "#374151",
+                    borderWidth: 1,
+                  },
+                ]}
+              >
                 <View style={styles.providerHeader}>
                   <View style={styles.profileSection}>
                     {imageUrl ? (
                       <Image source={{ uri: imageUrl }} style={styles.profileImage} />
                     ) : (
-                      <View style={styles.defaultProfile}>
+                      <View
+                        style={[
+                          styles.defaultProfile,
+                          isDarkMode && { backgroundColor: "#312E81" },
+                        ]}
+                      >
                         <Ionicons name="person" size={28} color="#6366F1" />
                       </View>
                     )}
                     <View style={styles.providerInfo}>
                       <View style={styles.nameRow}>
-                        <Text style={styles.providerName} numberOfLines={1}>
+                        <Text
+                          style={[
+                            styles.providerName,
+                            isDarkMode && { color: "#F9FAFB" },
+                          ]}
+                          numberOfLines={1}
+                        >
                           {providerName}
                         </Text>
                         {provider.isVerified && (
@@ -288,28 +341,84 @@ export default function ProvidersScreen({ route, navigation }) {
                       </View>
                       {renderStars()}
                       <View style={styles.providerCategory}>
-                        <Ionicons name="briefcase-outline" size={13} color="#6B7280" />
-                        <Text style={styles.categoryText} numberOfLines={1}>
+                        <Ionicons
+                          name="briefcase-outline"
+                          size={13}
+                          color={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                        />
+                        <Text
+                          style={[
+                            styles.categoryText,
+                            isDarkMode && { color: "#9CA3AF" },
+                          ]}
+                          numberOfLines={1}
+                        >
                           {provider.category || "Service Provider"}
                         </Text>
                       </View>
                     </View>
                   </View>
-                  <View style={provider.isVerified ? styles.verifiedBadge : styles.unverifiedBadge}>
-                    <Text style={provider.isVerified ? styles.verifiedText : styles.unverifiedText}>
+                  <View
+                    style={
+                      provider.isVerified
+                        ? isDarkMode
+                          ? [styles.verifiedBadge, { backgroundColor: "#064E3B" }]
+                          : styles.verifiedBadge
+                        : isDarkMode
+                        ? [styles.unverifiedBadge, { backgroundColor: "#374151" }]
+                        : styles.unverifiedBadge
+                    }
+                  >
+                    <Text
+                      style={
+                        provider.isVerified
+                          ? isDarkMode
+                            ? [styles.verifiedText, { color: "#34D399" }]
+                            : styles.verifiedText
+                          : isDarkMode
+                          ? [styles.unverifiedText, { color: "#9CA3AF" }]
+                          : styles.unverifiedText
+                      }
+                    >
                       {provider.isVerified ? "Verified" : "Unverified"}
                     </Text>
                   </View>
                 </View>
 
-                <View style={styles.providerDetails}>
+                <View
+                  style={[
+                    styles.providerDetails,
+                    isDarkMode && { borderColor: "#374151" },
+                  ]}
+                >
                   <View style={styles.detailItem}>
-                    <Ionicons name="location-outline" size={17} color="#6B7280" />
-                    <Text style={styles.detailText}>{provider.district || "Location unavailable"}</Text>
+                    <Ionicons
+                      name="location-outline"
+                      size={17}
+                      color={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                    />
+                    <Text
+                      style={[
+                        styles.detailText,
+                        isDarkMode && { color: "#D1D5DB" },
+                      ]}
+                    >
+                      {provider.district || "Location unavailable"}
+                    </Text>
                   </View>
                   <View style={styles.detailItem}>
-                    <Ionicons name="mail-outline" size={17} color="#6B7280" />
-                    <Text style={styles.detailText} numberOfLines={1}>
+                    <Ionicons
+                      name="mail-outline"
+                      size={17}
+                      color={isDarkMode ? "#9CA3AF" : "#6B7280"}
+                    />
+                    <Text
+                      style={[
+                        styles.detailText,
+                        isDarkMode && { color: "#D1D5DB" },
+                      ]}
+                      numberOfLines={1}
+                    >
                       {provider.email || "Email unavailable"}
                     </Text>
                   </View>
@@ -317,42 +426,118 @@ export default function ProvidersScreen({ route, navigation }) {
 
                 <View style={styles.matchDetails}>
                   {match.category_match && (
-                    <View style={styles.matchTag}>
-                      <Ionicons name="checkmark" size={14} color="#10B981" />
-                      <Text style={styles.matchTagText}>Category match</Text>
+                    <View
+                      style={[
+                        styles.matchTag,
+                        isDarkMode && { backgroundColor: "#064E3B" },
+                      ]}
+                    >
+                      <Ionicons
+                        name="checkmark"
+                        size={14}
+                        color={isDarkMode ? "#34D399" : "#10B981"}
+                      />
+                      <Text
+                        style={[
+                          styles.matchTagText,
+                          isDarkMode && { color: "#34D399" },
+                        ]}
+                      >
+                        Category match
+                      </Text>
                     </View>
                   )}
                   {match.district_match && (
-                    <View style={styles.matchTag}>
-                      <Ionicons name="checkmark" size={14} color="#10B981" />
-                      <Text style={styles.matchTagText}>Location match</Text>
+                    <View
+                      style={[
+                        styles.matchTag,
+                        isDarkMode && { backgroundColor: "#064E3B" },
+                      ]}
+                    >
+                      <Ionicons
+                        name="checkmark"
+                        size={14}
+                        color={isDarkMode ? "#34D399" : "#10B981"}
+                      />
+                      <Text
+                        style={[
+                          styles.matchTagText,
+                          isDarkMode && { color: "#34D399" },
+                        ]}
+                      >
+                        Location match
+                      </Text>
                     </View>
                   )}
                   {match.priority && (
-                    <View style={styles.priorityTag}>
-                      <Text style={styles.priorityTagText}>{match.priority}</Text>
+                    <View
+                      style={[
+                        styles.priorityTag,
+                        isDarkMode && { backgroundColor: "#312E81" },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.priorityTagText,
+                          isDarkMode && { color: "#A5B4FC" },
+                        ]}
+                      >
+                        {match.priority}
+                      </Text>
                     </View>
                   )}
                 </View>
 
                 {portfolio.total_images > 0 && (
                   <View style={styles.portfolioSection}>
-                    <Ionicons name="images-outline" size={16} color="#6366F1" />
-                    <Text style={styles.portfolioText}>
+                    <Ionicons
+                      name="images-outline"
+                      size={16}
+                      color={isDarkMode ? "#A5B4FC" : "#6366F1"}
+                    />
+                    <Text
+                      style={[
+                        styles.portfolioText,
+                        isDarkMode && { color: "#A5B4FC" },
+                      ]}
+                    >
                       {portfolio.total_images} portfolio image{portfolio.total_images !== 1 ? "s" : ""}
                     </Text>
                   </View>
                 )}
 
                 <View style={styles.buttonContainer}>
-                  <TouchableOpacity style={styles.profileButton} onPress={() => handleViewProfile(item)}>
-                    <Ionicons name="person-outline" size={18} color="#6366F1" />
-                    <Text style={styles.profileButtonText}>Profile</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.profileButton,
+                      isDarkMode && { backgroundColor: "#374151" },
+                    ]}
+                    onPress={() => handleViewProfile(item)}
+                  >
+                    <Ionicons
+                      name="person-outline"
+                      size={18}
+                      color={isDarkMode ? "#A5B4FC" : "#6366F1"}
+                    />
+                    <Text
+                      style={[
+                        styles.profileButtonText,
+                        isDarkMode && { color: "#A5B4FC" },
+                      ]}
+                    >
+                      Profile
+                    </Text>
                   </TouchableOpacity>
 
                   {requestedProviderIds.has(String(provider.id || provider._id)) ? (
                     <TouchableOpacity
-                      style={styles.quotationButtonRequested}
+                      style={[
+                        styles.quotationButtonRequested,
+                        isDarkMode && {
+                          backgroundColor: "#064E3B",
+                          borderColor: "#059669",
+                        },
+                      ]}
                       onPress={() =>
                         Alert.alert(
                           "Quotation Requested",
@@ -360,23 +545,54 @@ export default function ProvidersScreen({ route, navigation }) {
                         )
                       }
                     >
-                      <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-                      <Text style={styles.quotationButtonTextRequested}>Requested</Text>
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={18}
+                        color={isDarkMode ? "#34D399" : "#10B981"}
+                      />
+                      <Text
+                        style={[
+                          styles.quotationButtonTextRequested,
+                          isDarkMode && { color: "#34D399" },
+                        ]}
+                      >
+                        Requested
+                      </Text>
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
-                      style={styles.quotationButton}
+                      style={[
+                        styles.quotationButton,
+                        isDarkMode && {
+                          backgroundColor: "#1E1B4B",
+                          borderColor: "#6366F1",
+                        },
+                      ]}
                       onPress={() => {
                         setSelectedProvider(item);
                         setQuotationModalVisible(true);
                       }}
                     >
-                      <Ionicons name="document-text-outline" size={18} color="#6366F1" />
-                      <Text style={styles.quotationButtonText}>Get Quote</Text>
+                      <Ionicons
+                        name="document-text-outline"
+                        size={18}
+                        color={isDarkMode ? "#A5B4FC" : "#6366F1"}
+                      />
+                      <Text
+                        style={[
+                          styles.quotationButtonText,
+                          isDarkMode && { color: "#A5B4FC" },
+                        ]}
+                      >
+                        Get Quote
+                      </Text>
                     </TouchableOpacity>
                   )}
 
-                  <TouchableOpacity style={styles.chatButton} onPress={() => handleChat(item)}>
+                  <TouchableOpacity
+                    style={styles.chatButton}
+                    onPress={() => handleChat(item)}
+                  >
                     <Ionicons name="chatbubble-outline" size={18} color="#fff" />
                     <Text style={styles.chatButtonText}>Chat</Text>
                   </TouchableOpacity>

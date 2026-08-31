@@ -11,11 +11,11 @@ import {
   Alert,
   Modal,
   Dimensions,
-  useColorScheme,
 } from "react-native";
 import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplete";
 import { Ionicons } from "@expo/vector-icons";
 import { LanguageContext } from "../context/LanguageContext";
+import { useTheme } from "../hooks/useTheme";
 import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,8 +25,7 @@ const { width, height } = Dimensions.get("window");
 export default function FollowUpScreen({ route, navigation }) {
   const { initialMessage, backendResponse, source } = route.params;
   const { language } = useContext(LanguageContext);
-  const colorScheme = useColorScheme();
-  const isDarkMode = colorScheme === "dark";
+  const { isDarkMode } = useTheme();
 
   const [questionData, setQuestionData] = useState(null);
   const [sessionId, setSessionId] = useState(null);
@@ -665,7 +664,7 @@ const response = await fetch(endpoint, {
           =========================================== */}
 
           <View style={styles.successHeader}>
-            <View style={styles.successIconOuter}>
+            <View style={[styles.successIconOuter, isDarkMode && { backgroundColor: "#312E81" }]}>
               <View style={styles.successIconInner}>
                 <Ionicons
                   name="checkmark"
@@ -722,7 +721,10 @@ const response = await fetch(endpoint, {
           >
             <View style={styles.serviceHeaderRow}>
               <View
-                style={styles.serviceIconContainer}
+                style={[
+                  styles.serviceIconContainer,
+                  isDarkMode && { backgroundColor: "#060527ff" },
+                ]}
               >
                 <Ionicons
                   name="construct-outline"
@@ -759,14 +761,24 @@ const response = await fetch(endpoint, {
                 </Text>
               </View>
 
-              <View style={styles.readyBadge}>
+              <View
+                style={[
+                  styles.readyBadge,
+                  isDarkMode && { backgroundColor: "#13064eff" },
+                ]}
+              >
                 <Ionicons
                   name="checkmark-circle"
                   size={15}
-                  color="#16A34A"
+                  color={isDarkMode ? "#34D399" : "#16A34A"}
                 />
 
-                <Text style={styles.readyBadgeText}>
+                <Text
+                  style={[
+                    styles.readyBadgeText,
+                    isDarkMode && { color: "#34D399" },
+                  ]}
+                >
                   Ready
                 </Text>
               </View>
@@ -842,9 +854,10 @@ const response = await fetch(endpoint, {
               >
                 <View style={styles.cardTitleRow}>
                   <View
-                    style={
-                      styles.smallIconContainer
-                    }
+                    style={[
+                      styles.smallIconContainer,
+                      isDarkMode && { backgroundColor: "#312E81" },
+                    ]}
                   >
                     <Ionicons
                       name="location-outline"
@@ -1001,9 +1014,10 @@ const response = await fetch(endpoint, {
                     ]}
                   >
                     <Text
-                      style={
-                        styles.responseNumberText
-                      }
+                      style={[
+                        styles.responseNumberText,
+                        isDarkMode && { color: "#A5B4FC" },
+                      ]}
                     >
                       {index + 1}
                     </Text>
@@ -1301,8 +1315,8 @@ const response = await fetch(endpoint, {
           styles.safeArea,
           {
             backgroundColor: isDarkMode
-              ? "#1F2937"
-              : "#FFFFFF",
+              ? "#111827"
+              : "#F8FAFC",
           },
         ]}
       >
@@ -1314,8 +1328,8 @@ const response = await fetch(endpoint, {
           }
           backgroundColor={
             isDarkMode
-              ? "#1F2937"
-              : "#FFFFFF"
+              ? "#111827"
+              : "#F8FAFC"
           }
         />
 
@@ -1324,18 +1338,28 @@ const response = await fetch(endpoint, {
             styles.container,
             {
               backgroundColor: isDarkMode
-                ? "#1F2937"
-                : "#FFFFFF",
+                ? "#111827"
+                : "#F8FAFC",
             },
           ]}
         >
+          <Text
+            style={[
+              styles.quotationFloorHeader,
+              { color: isDarkMode ? "#A5B4FC" : "#4F46E5" },
+            ]}
+          >
+            Quotation Floor
+          </Text>
+
           {/* PROGRESS */}
 
           <View style={styles.progressSection}>
             <View
-              style={
-                styles.progressBarContainer
-              }
+              style={[
+                styles.progressBarContainer,
+                isDarkMode && { backgroundColor: "#374151" },
+              ]}
             >
               <View
                 style={[
@@ -1347,7 +1371,12 @@ const response = await fetch(endpoint, {
               />
             </View>
 
-            <Text style={styles.progressText}>
+            <Text
+              style={[
+                styles.progressText,
+                isDarkMode && { color: "#818CF8" },
+              ]}
+            >
               {progress}% Complete
             </Text>
           </View>
@@ -1361,7 +1390,7 @@ const response = await fetch(endpoint, {
                 {
                   color: isDarkMode
                     ? "#F9FAFB"
-                    : "#1F2937",
+                    : "#111827",
                 },
               ]}
             >
@@ -1373,8 +1402,12 @@ const response = await fetch(endpoint, {
                 styles.questionCard,
                 {
                   backgroundColor: isDarkMode
+                    ? "#1F2937"
+                    : "#FFFFFF",
+                  borderColor: isDarkMode
                     ? "#374151"
-                    : "#F3F4F6",
+                    : "#E2E8F0",
+                  borderWidth: 1,
                 },
               ]}
             >
@@ -1384,7 +1417,7 @@ const response = await fetch(endpoint, {
                   {
                     color: isDarkMode
                       ? "#F9FAFB"
-                      : "#1F2937",
+                      : "#111827",
                   },
                 ]}
               >
@@ -1400,11 +1433,11 @@ const response = await fetch(endpoint, {
               styles.locationPickerButton,
               {
                 backgroundColor: isDarkMode
-                  ? "#374151"
-                  : "#F3F4F6",
+                  ? "#1F2937"
+                  : "#FFFFFF",
                 borderColor: isDarkMode
-                  ? "#4B5563"
-                  : "#E5E7EB",
+                  ? "#374151"
+                  : "#E2E8F0",
               },
             ]}
             onPress={() =>
@@ -1895,8 +1928,8 @@ const response = await fetch(endpoint, {
         styles.safeArea,
         {
           backgroundColor: isDarkMode
-            ? "#1F2937"
-            : "#FFFFFF",
+            ? "#111827"
+            : "#F8FAFC",
         },
       ]}
     >
@@ -1908,8 +1941,8 @@ const response = await fetch(endpoint, {
         }
         backgroundColor={
           isDarkMode
-            ? "#1F2937"
-            : "#FFFFFF"
+            ? "#111827"
+            : "#F8FAFC"
         }
       />
 
@@ -1918,18 +1951,28 @@ const response = await fetch(endpoint, {
           styles.container,
           {
             backgroundColor: isDarkMode
-              ? "#1F2937"
-              : "#FFFFFF",
+              ? "#111827"
+              : "#F8FAFC",
           },
         ]}
-      >
+        >
+          <Text
+            style={[
+              styles.quotationFloorHeader,
+              { color: isDarkMode ? "#A5B4FC" : "#4F46E5" },
+            ]}
+          >
+            Quotation Floor
+          </Text>
+
         {/* PROGRESS */}
 
         <View style={styles.progressSection}>
           <View
-            style={
-              styles.progressBarContainer
-            }
+            style={[
+              styles.progressBarContainer,
+              isDarkMode && { backgroundColor: "#374151" },
+            ]}
           >
             <View
               style={[
@@ -1941,7 +1984,12 @@ const response = await fetch(endpoint, {
             />
           </View>
 
-          <Text style={styles.progressText}>
+          <Text
+            style={[
+              styles.progressText,
+              isDarkMode && { color: "#818CF8" },
+            ]}
+          >
             {progress}% Complete
           </Text>
         </View>
@@ -1955,7 +2003,7 @@ const response = await fetch(endpoint, {
               {
                 color: isDarkMode
                   ? "#F9FAFB"
-                  : "#1F2937",
+                  : "#111827",
               },
             ]}
           >
@@ -1968,8 +2016,13 @@ const response = await fetch(endpoint, {
               {
                 backgroundColor:
                   isDarkMode
+                    ? "#1F2937"
+                    : "#FFFFFF",
+                borderColor:
+                  isDarkMode
                     ? "#374151"
-                    : "#F3F4F6",
+                    : "#E2E8F0",
+                borderWidth: 1,
               },
             ]}
           >
@@ -1979,7 +2032,7 @@ const response = await fetch(endpoint, {
                 {
                   color: isDarkMode
                     ? "#F9FAFB"
-                    : "#1F2937",
+                    : "#111827",
                 },
               ]}
             >
@@ -1992,6 +2045,7 @@ const response = await fetch(endpoint, {
 
         <ScrollView
           style={styles.optionsSection}
+          contentContainerStyle={{ paddingBottom: 10 }}
           showsVerticalScrollIndicator={
             false
           }
@@ -2005,12 +2059,12 @@ const response = await fetch(endpoint, {
                   {
                     backgroundColor:
                       isDarkMode
-                        ? "#374151"
+                        ? "#1F2937"
                         : "#FFFFFF",
                     borderColor:
                       isDarkMode
-                        ? "#4B5563"
-                        : "#E5E7EB",
+                        ? "#374151"
+                        : "#E2E8F0",
                   },
 
                   selectedOption ===
@@ -2019,7 +2073,7 @@ const response = await fetch(endpoint, {
                     {
                       backgroundColor:
                         isDarkMode
-                          ? "#4C1D95"
+                          ? "#1E1B4B"
                           : "#EEF2FF",
                       borderColor:
                         "#6366F1",
@@ -2042,8 +2096,8 @@ const response = await fetch(endpoint, {
                       {
                         borderColor:
                           isDarkMode
-                            ? "#6B7280"
-                            : "#D1D5DB",
+                            ? "#64748B"
+                            : "#CBD5E1",
                       },
                       selectedOption ===
                         opt &&
@@ -2066,7 +2120,7 @@ const response = await fetch(endpoint, {
                       {
                         color: isDarkMode
                           ? "#F9FAFB"
-                          : "#1F2937",
+                          : "#1E293B",
                       },
                       selectedOption ===
                         opt &&
@@ -2099,12 +2153,19 @@ const response = await fetch(endpoint, {
               borderTopColor:
                 isDarkMode
                   ? "#374151"
-                  : "#E5E7EB",
+                  : "#E2E8F0",
             },
           ]}
         >
           <TouchableOpacity
-            style={styles.backBtn}
+            style={[
+              styles.backBtn,
+              {
+                backgroundColor: isDarkMode ? "#1F2937" : "#F1F5F9",
+                borderColor: isDarkMode ? "#374151" : "#E2E8F0",
+                borderWidth: 1,
+              },
+            ]}
             onPress={() =>
               navigation.goBack()
             }
@@ -2114,8 +2175,8 @@ const response = await fetch(endpoint, {
                 styles.backBtnText,
                 {
                   color: isDarkMode
-                    ? "#9CA3AF"
-                    : "#6B7280",
+                    ? "#CBD5E1"
+                    : "#475569",
                 },
               ]}
             >
@@ -2161,7 +2222,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
 
   centerContainer: {
@@ -2197,15 +2259,15 @@ const styles = StyleSheet.create({
   // =====================================================
 
   progressSection: {
-    marginBottom: 24,
+    marginBottom: 18,
   },
 
   progressBarContainer: {
-    height: 5,
+    height: 6,
     backgroundColor: "#E5E7EB",
     borderRadius: 3,
     overflow: "hidden",
-    marginBottom: 8,
+    marginBottom: 6,
   },
 
   progressBar: {
@@ -2218,31 +2280,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6366F1",
     textAlign: "right",
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
   // =====================================================
   // QUESTION
   // =====================================================
 
+  quotationFloorHeader: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginBottom: 12,
+  },
+
   headerSection: {
-    marginBottom: 24,
+    marginBottom: 18,
   },
 
   mainTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 16,
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+    marginBottom: 14,
   },
 
   questionCard: {
-    padding: 16,
-    borderRadius: 12,
+    padding: 18,
+    borderRadius: 16,
   },
 
   questionText: {
     fontSize: 16,
-    fontWeight: "500",
+    fontWeight: "600",
     lineHeight: 24,
   },
 
@@ -2254,10 +2325,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 16,
-    borderRadius: 12,
+    paddingVertical: 15,
+    paddingHorizontal: 16,
+    borderRadius: 14,
     marginBottom: 10,
-    borderWidth: 1,
+    borderWidth: 1.5,
+    minHeight: 56,
   },
 
   optionItemSelected: {
@@ -2271,13 +2344,13 @@ const styles = StyleSheet.create({
   },
 
   radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    marginRight: 14,
   },
 
   radioCircleSelected: {
@@ -2285,15 +2358,17 @@ const styles = StyleSheet.create({
   },
 
   radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: "#6366F1",
   },
 
   optionText: {
     fontSize: 15,
     flex: 1,
+    fontWeight: "500",
+    lineHeight: 22,
   },
 
   optionTextSelected: {
@@ -2309,26 +2384,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 16,
+    paddingTop: 14,
+    paddingBottom: 6,
     borderTopWidth: 1,
-    marginTop: 16,
+    marginTop: "auto",
   },
 
   backBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   backBtnText: {
-    fontSize: 16,
-    fontWeight: "500",
+    fontSize: 15,
+    fontWeight: "600",
   },
 
   nextBtn: {
     backgroundColor: "#9CA3AF",
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 12,
+    minWidth: 105,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   nextBtnActive: {
@@ -2336,8 +2418,8 @@ const styles = StyleSheet.create({
   },
 
   nextBtnText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "700",
     color: "#FFFFFF",
   },
 

@@ -138,13 +138,13 @@ function AppNavigator({ initialRouteName }) {
       <Stack.Screen
         name="FollowUpScreen"
         component={FollowUpScreen}
-        options={{ title: t('nav_follow_up') }}
+         options={{ headerShown: false }}
       />
 
       <Stack.Screen
         name="ProvidersScreen"
         component={ProvidersScreen}
-        options={{ title: t('nav_providers') }}
+        options={{ headerShown: false }}
       />
 
       <Stack.Screen
