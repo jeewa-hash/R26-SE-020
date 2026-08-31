@@ -3,14 +3,13 @@ import { View, Text, StyleSheet, Platform, Alert, TouchableOpacity } from 'react
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemeContext } from '../context/ThemeContext';
 import { IP_ADDRESS } from '../config';
-import { clearCredentials } from '../utils/biometricAuth';
 import { io } from 'socket.io-client';
+import { clearAllAuthStorage, getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 
 const API_URL = `http://${IP_ADDRESS}:4003`;
 const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
@@ -163,8 +162,9 @@ export default function BottomTabNavigator() {
     let intervalId = null;
 
     const setupRealTimeAndWatchdog = async () => {
-      const userId = (await AsyncStorage.getItem('userId')) || '69fc31f3cfe41c4d62e6f9ee';
-      const token = await AsyncStorage.getItem('userToken');
+      const auth = await getStoredProviderAuth();
+      const userId = auth.providerId;
+      const token = auth.token;
 
       // 1. Socket.io Real-time connection (Instant Notification Push)
       try {
@@ -202,8 +202,8 @@ export default function BottomTabNavigator() {
       const checkStatusAndNotifications = async () => {
         if (isLoggingOutRef.current) return;
         try {
-          const currentUserId = (await AsyncStorage.getItem('userId')) || userId;
-          const currentToken = (await AsyncStorage.getItem('userToken')) || token;
+          const currentUserId = userId;
+          const currentToken = token;
           if (!currentUserId) return;
 
           // Check Suspension Status
@@ -214,10 +214,7 @@ export default function BottomTabNavigator() {
             isLoggingOutRef.current = true;
             const untilDate = data.blockedUntil ? new Date(data.blockedUntil).toLocaleDateString() : 'Admin unlocks';
 
-            await AsyncStorage.removeItem('userToken');
-            await AsyncStorage.removeItem('userRole');
-            await AsyncStorage.removeItem('userId');
-            await clearCredentials();
+            await clearAllAuthStorage();
 
             Alert.alert(
               '⚠️ Account Suspended',

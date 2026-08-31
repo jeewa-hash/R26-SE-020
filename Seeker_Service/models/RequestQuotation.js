@@ -32,6 +32,12 @@ const requestQuotationSchema = new mongoose.Schema(
       required: true,
     },
 
+    postId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
+
     sessionId: {
       type: String,
       required: true,

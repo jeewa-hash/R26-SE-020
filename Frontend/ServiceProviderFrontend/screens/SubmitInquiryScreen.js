@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
+import { getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 
 const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
 
@@ -35,7 +35,8 @@ export default function SubmitInquiryScreen({ navigation, route }) {
 
   const loadMissedServices = async () => {
     try {
-      const userId = (await AsyncStorage.getItem('userId')) || '69fc31f3cfe41c4d62e6f9ee';
+      const { providerId: userId } = await getStoredProviderAuth();
+      if (!userId) return;
 
       const response = await fetch(`${ADMIN_API_URL}/api/inquiries/missed-bookings/${userId}`);
       const data = await response.json();
@@ -127,7 +128,8 @@ export default function SubmitInquiryScreen({ navigation, route }) {
 
     setLoading(true);
     try {
-      const userId = (await AsyncStorage.getItem('userId')) || '69fc31f3cfe41c4d62e6f9ee';
+      const { providerId: userId } = await getStoredProviderAuth();
+      if (!userId) throw new Error('Provider authentication required');
       const isResubmission = selectedBooking.inquiryStatus === 'REJECTED';
 
       const formData = new FormData();

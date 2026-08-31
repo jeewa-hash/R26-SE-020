@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG } from '../config';
+import { clearAllAuthStorage } from '../pages/IT22129376/services/providerAuthStorage';
 
 const createApi = (baseURL) => {
   const instance = axios.create({ baseURL, timeout: 15000 });
@@ -24,13 +25,7 @@ const createApi = (baseURL) => {
     (response) => response,
     async (error) => {
       if (error.response?.status === 401) {
-        const keysToClear = [
-          'userToken', 'token', 'authToken', 'accessToken',
-          'userId', 'providerId', 'seekerId', 'userRole', 'role',
-          'user', 'currentUser', 'provider', 'seeker',
-        ];
-        await AsyncStorage.multiRemove(keysToClear).catch(() => {});
-        console.log('LOGOUT: all auth keys cleared');
+        await clearAllAuthStorage().catch(() => {});
       }
       return Promise.reject(error);
     }

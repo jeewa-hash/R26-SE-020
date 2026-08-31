@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
 import { COLORS } from './theme';
-import { getStoredProviderAuth } from './services/providerAuthStorage';
+import { debugAuthStorage, getStoredProviderAuth } from './services/providerAuthStorage';
 import { getProviderJobs, getProviderQuotations, getProviderRequests } from './services/providerFlowApi';
 import { formatDate, formatFullDate, formatTime, isSameDay } from './utils/dateTimeFormatter';
 import {
@@ -261,6 +261,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       setError(null);
       setBackendWarning(null);
       const auth = await getStoredProviderAuth();
+      await debugAuthStorage();
       if (!auth.isLoggedIn || !auth.providerId) {
         setProviderId(null);
         setRequests([]);
@@ -284,6 +285,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
 
         console.log('RAW PROVIDER REQUESTS:', rawRequests.length);
         console.log('FILTERED PROVIDER REQUESTS:', providerRequests.length);
+        console.log('Provider requests filter providerId:', auth.providerId);
         console.log('FIRST RAW REQUEST:', JSON.stringify(rawRequests[0], null, 2));
 
         setRequests(providerRequests);
@@ -305,6 +307,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
 
         console.log('RAW PROVIDER QUOTATIONS:', rawQuotations.length);
         console.log('FILTERED PROVIDER QUOTATIONS:', providerQuotations.length);
+        console.log('Provider quotations filter providerId:', auth.providerId);
 
         setQuotations(providerQuotations);
       } else {
@@ -318,6 +321,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
 
         console.log('RAW PROVIDER JOBS:', rawJobs.length);
         console.log('FILTERED PROVIDER JOBS:', providerJobs.length);
+        console.log('Provider jobs filter providerId:', auth.providerId);
 
         setJobs(providerJobs);
       } else {
