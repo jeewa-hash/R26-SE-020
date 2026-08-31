@@ -106,9 +106,8 @@ export const createRequestQuotation = async (req, res) => {
     if (existingRequest) {
       return res.status(409).json({
         success: false,
-        message:
-          "A request has already been sent to this provider for this session",
-        request: existingRequest,
+        message: "You have already requested a quotation from this provider for this service.",
+        data: existingRequest,
       });
     }
 
@@ -270,10 +269,10 @@ export const updateRequestStatus = async (req, res) => {
       });
     }
 
-    if (!["confirmed", "cancelled"].includes(status)) {
+    if (!["pending", "quoted", "accepted", "rejected", "cancelled", "expired"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Status must be confirmed or cancelled",
+        message: "Invalid request quotation status",
       });
     }
 
@@ -290,7 +289,7 @@ export const updateRequestStatus = async (req, res) => {
       });
     }
 
-    if (request.status !== "pending") {
+    if (["accepted", "rejected", "cancelled", "expired"].includes(request.status)) {
       return res.status(400).json({
         success: false,
         message: `Request is already ${request.status}`,
@@ -313,6 +312,42 @@ export const updateRequestStatus = async (req, res) => {
       message: "Server error",
       error: error.message,
     });
+  }
+};
+
+export const markSessionSelection = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { seekerId, acceptedRequestId } = req.body;
+
+    if (!sessionId || !mongoose.Types.ObjectId.isValid(seekerId) ||
+        !mongoose.Types.ObjectId.isValid(acceptedRequestId)) {
+      return res.status(400).json({ success: false, message: "Invalid session selection data" });
+    }
+
+    const selected = await RequestQuotation.findOne({
+      _id: acceptedRequestId,
+      seekerId,
+      sessionId,
+    });
+    if (!selected) {
+      return res.status(404).json({ success: false, message: "Selected request quotation not found" });
+    }
+
+    await RequestQuotation.updateMany(
+      { seekerId, sessionId, _id: { $ne: selected._id }, status: { $in: ["pending", "quoted"] } },
+      { $set: { status: "rejected" } }
+    );
+    selected.status = "accepted";
+    await selected.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Request quotation selection updated successfully",
+      data: selected,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Unable to update request selection", error: error.message });
   }
 };
 

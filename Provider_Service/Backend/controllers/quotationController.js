@@ -1,6 +1,9 @@
 import Quotation from "../models/Quotation.js";
 import Notification from "../models/Notification.js";
 import { sendRealtimeNotification } from "../sockets/notificationSocket.js";
+import axios from "axios";
+
+const SEEKER_SERVICE_URL = (process.env.SEEKER_SERVICE_URL || "http://localhost:6000").replace(/\/$/, "");
 
 export const createQuotation = async (req, res) => {
   try {
@@ -23,6 +26,8 @@ export const createQuotation = async (req, res) => {
       estimatedDurationHours, // Chaw: added numeric duration for coordination calculation
       durationText = "",
       notes = "",
+      serviceCategory = "",
+      serviceSubcategory = "",
     } = req.body;
 
     // Validate essential parameters from the Seeker's request payload
@@ -95,6 +100,8 @@ export const createQuotation = async (req, res) => {
       estimatedDurationHours, // Chaw: save numeric duration for coordination
       durationText: durationText || `${estimatedDurationHours} Hours`, // Chaw: auto-generate display text if missing
       notes,
+      serviceCategory,
+      serviceSubcategory,
       providerSnapshot,
       status: "SENT",
       coordinationStatus: "NOT_CHECKED", // Chaw: new quotation must be checked by Coordination Service
@@ -119,6 +126,11 @@ export const createQuotation = async (req, res) => {
     if (io) {
       sendRealtimeNotification(io, seekerId, notification);
     }
+
+    axios.patch(`${SEEKER_SERVICE_URL}/request-quotations/${providerRequestId}/status`, {
+      providerId,
+      status: "quoted",
+    }).catch((error) => console.warn("REQUEST QUOTATION STATUS WARNING:", error.message));
 
     return res.status(201).json({
       success: true,
@@ -204,6 +216,20 @@ export const acceptQuotation = async (req, res) => {
       });
     }
 
+    if (quotation.status === "ACCEPTED") {
+      return res.status(200).json({ success: true, message: "Quotation is already accepted.", data: quotation });
+    }
+
+    const acceptedForSession = await Quotation.findOne({
+      externalSessionId: quotation.externalSessionId,
+      seekerId: quotation.seekerId,
+      status: "ACCEPTED",
+      _id: { $ne: quotation._id },
+    });
+    if (acceptedForSession) {
+      return res.status(409).json({ success: false, message: "A quotation has already been accepted for this service." });
+    }
+
     if (quotation.status !== "SENT") {
       return res.status(400).json({
         success: false,
@@ -224,7 +250,33 @@ export const acceptQuotation = async (req, res) => {
     }
 
     quotation.status = "ACCEPTED";
+    quotation.acceptedAt = new Date();
     await quotation.save();
+
+    await Quotation.updateMany(
+      {
+        externalSessionId: quotation.externalSessionId,
+        seekerId: quotation.seekerId,
+        _id: { $ne: quotation._id },
+        status: "SENT",
+      },
+      {
+        $set: {
+          status: "REJECTED",
+          rejectedAt: new Date(),
+          rejectionReason: "Seeker selected another provider",
+        },
+      }
+    );
+
+    try {
+      await axios.patch(
+        `${SEEKER_SERVICE_URL}/request-quotations/session/${encodeURIComponent(quotation.externalSessionId)}/selection`,
+        { seekerId: quotation.seekerId, acceptedRequestId: quotation.providerRequestId }
+      );
+    } catch (error) {
+      console.warn("REQUEST QUOTATION SELECTION WARNING:", error.message);
+    }
 
     // Notify Provider that Seeker accepted
     const notification = await Notification.create({
@@ -243,7 +295,7 @@ export const acceptQuotation = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Quotation accepted.",
+      message: "Quotation accepted successfully.",
       data: quotation,
     });
   } catch (error) {
@@ -274,6 +326,9 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw: endpoi
       "CHECKING",
       "CAN_ACCEPT",
       "AVAILABLE_WITH_CAUTION",
+      "NEEDS_RESCHEDULE",
+      "CONFLICT_DETECTED",
+      "REJECTED_BY_COORDINATION",
       "RESCHEDULE_REQUIRED",
       "REJECTED_DUE_TO_CONFLICT",
     ];
@@ -284,6 +339,7 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw: endpoi
       "ACCEPTED",
       "REJECTED",
       "EXPIRED",
+      "CANCELLED",
     ];
 
     if (!allowedCoordinationStatuses.includes(coordinationStatus)) {
@@ -340,6 +396,16 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw: endpoi
       message: "Failed to update quotation coordination.",
       error: error.message,
     });
+  }
+};
+
+export const getQuotationsBySession = async (req, res) => {
+  try {
+    const quotations = await Quotation.find({ externalSessionId: req.params.sessionId })
+      .sort({ price: 1, createdAt: 1 });
+    return res.status(200).json({ success: true, count: quotations.length, data: quotations });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to fetch session quotations.", error: error.message });
   }
 };
 

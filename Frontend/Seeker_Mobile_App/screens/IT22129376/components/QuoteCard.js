@@ -10,6 +10,21 @@ import { formatCurrency, formatDateTime, formatDuration } from '../utils/dateTim
 
 export default function QuoteCard({ quote, onPress, onCheckCoordination, isDarkMode }) {
   const mapped = mapCoordinationDecision(quote.coordinationDecision);
+  const duration = Number(quote.estimatedDurationHours);
+  const hourlyRate = duration > 0 ? Number(quote.quotedPrice) / duration : null;
+  const quoteStatus = String(quote.status || 'SENT').toUpperCase();
+  const actionLabel = quoteStatus === 'ACCEPTED'
+    ? 'Booking Confirmed'
+    : quoteStatus === 'REJECTED'
+    ? 'Not Selected'
+    : quote.coordinationDecision === 'NOT_CHECKED'
+    ? 'Check Availability'
+    : ['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationDecision)
+    ? 'Accept & Schedule'
+    : ['NEEDS_RESCHEDULE', 'RESCHEDULE_REQUIRED'].includes(quote.coordinationDecision)
+    ? 'Request Reschedule'
+    : 'View Suggested Times';
+  const actionDisabled = ['ACCEPTED', 'REJECTED'].includes(quoteStatus);
 
   return (
     <TouchableOpacity style={[styles.card, isDarkMode && styles.cardDark]} onPress={onPress} activeOpacity={0.9}>
@@ -41,6 +56,11 @@ export default function QuoteCard({ quote, onPress, onCheckCoordination, isDarkM
       </View>
 
       <Text style={[styles.note, isDarkMode && styles.mutedDark]} numberOfLines={2}>{quote.note}</Text>
+      {hourlyRate !== null ? (
+        <Text style={[styles.hourlyRate, isDarkMode && styles.mutedDark]}>
+          {formatCurrency(hourlyRate)} per hour
+        </Text>
+      ) : null}
 
       <View style={styles.actionRow}>
         <View style={styles.actionFlex}>
@@ -48,10 +68,10 @@ export default function QuoteCard({ quote, onPress, onCheckCoordination, isDarkM
         </View>
         <View style={styles.actionFlex}>
           <ActionButton
-            label={quote.coordinationDecision === 'NOT_CHECKED' ? 'Check Risk' : 'View Result'}
+            label={actionLabel}
             variant="primary"
             icon="rule"
-            onPress={onCheckCoordination || onPress}
+            onPress={actionDisabled ? undefined : (onCheckCoordination || onPress)}
           />
         </View>
       </View>
@@ -87,6 +107,7 @@ const styles = StyleSheet.create({
   offerLabel: { fontSize: 11, fontWeight: '700', color: COLORS.muted, marginBottom: 4 },
   offerValue: { fontSize: 13, fontWeight: '800', color: COLORS.text },
   note: { fontSize: 13, color: COLORS.muted, lineHeight: 18, marginTop: 12 },
+  hourlyRate: { fontSize: 12, fontWeight: '800', color: COLORS.muted, marginTop: 8 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   actionFlex: { flex: 1 },
   textDark: { color: COLORS.darkText },

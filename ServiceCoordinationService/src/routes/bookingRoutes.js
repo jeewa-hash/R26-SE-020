@@ -22,6 +22,7 @@ router.get("/provider/me", protect(["ServiceProvider"]), getBookingsByProvider);
 router.get("/provider/:providerId/earnings", getProviderEarningsSummary);
 router.get("/provider/:providerId", getBookingsByProvider);
 router.get("/seeker/me", protect(["Seeker"]), getBookingsBySeeker);
+router.get("/seeker/:seekerId", getBookingsBySeeker);
 
 router.get("/post/:postId", getBookingByPost);
 router.post("/coordination/:coordinationId",protect(["Seeker"]),createBookingFromCoordination); // Chaw: seeker creates booking from accepted bid coordination

@@ -173,7 +173,11 @@ const QuoteCard = ({ quotation, onPress, isDark }) => {
       <View style={styles.badgeRow}>
         <Badge label={status.label} bg={status.bg} color={status.color} />
         {quotation.coordinationStatus ? (
-          <Badge label={quotation.coordinationStatus} bg={COLORS.infoSoft} color={COLORS.info} />
+          <Badge
+            label={getStatusStyle(quotation.coordinationStatus).label}
+            bg={COLORS.infoSoft}
+            color={COLORS.info}
+          />
         ) : null}
       </View>
       <View style={styles.infoBlock}>
@@ -242,7 +246,9 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const [error, setError] = useState(null);
   const [backendWarning, setBackendWarning] = useState(null);
 
-  const normalizedRequests = useMemo(() => requests.map(normalizeRequest), [requests]);
+  const normalizedRequests = useMemo(() => requests
+    .filter((request) => String(request?.status || 'pending').toLowerCase() === 'pending')
+    .map(normalizeRequest), [requests]);
   const normalizedQuotes = useMemo(() => quotations.map((q) => normalizeQuotation(q, normalizedRequests)), [quotations, normalizedRequests]);
   const normalizedJobs = useMemo(() => jobs.map(normalizeBooking), [jobs]);
 

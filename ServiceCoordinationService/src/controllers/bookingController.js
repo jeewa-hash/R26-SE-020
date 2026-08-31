@@ -6,6 +6,7 @@ import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
 import axios from "axios";
 import {
   getProviderQuotationById,
+  acceptProviderQuotation,
   updateProviderQuotationCoordination,
 } from "../clients/providerServiceClient.js";
 
@@ -67,7 +68,7 @@ export const getBookingsBySeeker = async (req, res) => {
     }
 
     // ✅ Ensure the user can only view their own bookings (unless admin)
-    if (req.user.role === "Seeker" && req.user.id !== seekerId) {
+    if (req.user?.role === "Seeker" && req.user.id !== seekerId) {
       return res.status(403).json({
         success: false,
         message: "You can only view your own seeker bookings",
@@ -205,16 +206,22 @@ export const createBookingFromCoordination = async (req, res) => {
     }); // Chaw: detects whether seeker selected a coordinated alternative slot
 
     const existingBooking = await Booking.findOne({
-      bidCoordinationId: coordination._id,
-      bookingStatus: {
-        $ne: "CANCELLED",
-      },
+      bookingStatus: { $ne: "CANCELLED" },
+      $or: [
+        { bidCoordinationId: coordination._id },
+        {
+          externalSessionId: coordination.externalSessionId,
+          externalQuotationId: coordination.externalQuotationId,
+          seekerId: coordination.seekerId,
+          providerId: coordination.providerId,
+        },
+      ],
     });
 
     if (existingBooking) {
-      return res.status(400).json({
-        success: false,
-        message: "Booking already exists for this coordination",
+      return res.status(200).json({
+        success: true,
+        message: "Booking already exists for this quotation.",
         data: existingBooking,
       });
     }
@@ -295,6 +302,9 @@ export const createBookingFromCoordination = async (req, res) => {
       providerId: coordination.providerId,
       seekerSnapshot,
       providerSnapshot,
+      serviceCategory: quotation?.serviceCategory || "",
+      serviceSubcategory: quotation?.serviceSubcategory || "",
+      serviceLocation: "",
 
       initialSchedule: {
         date: scheduledDate,
@@ -305,11 +315,19 @@ export const createBookingFromCoordination = async (req, res) => {
       scheduledDate,
       startTime,
       endTime,
+      scheduledStartTime: startDate,
+      scheduledEndTime: endDate,
+      displayStartTime: startTime,
+      displayEndTime: endTime,
 
       estimatedDurationHours:
         scheduleEvaluation.finalSchedulingDurationHours,
 
       finalAmount: priceEvaluation.providerQuotedPrice,
+      currency: "LKR",
+      mlPredictedDurationHours: scheduleEvaluation.mlPredictedDurationHours || null,
+      conflictDetected: Boolean(scheduleEvaluation.conflictDetected),
+      timeline: [{ status: "CONFIRMED", message: "Booking confirmed", at: new Date() }],
 
       scheduleSource: selectedSuggestedSlot
         ? "COORDINATED_SUGGESTED_SLOT"
@@ -321,6 +339,7 @@ export const createBookingFromCoordination = async (req, res) => {
           : String(scheduleEvaluation.delayRiskLevel).toUpperCase(),
 
       bookingStatus: "CONFIRMED",
+      status: "CONFIRMED",
     });
 
     // Asynchronously log booking to ML Data (service_data_for_csvs) table in admin service
@@ -349,8 +368,12 @@ export const createBookingFromCoordination = async (req, res) => {
         coordination._id.toString(),
         scheduleEvaluation.requiredWindowStart,
         scheduleEvaluation.requiredWindowEnd,
-        "ACCEPTED"
-      ); // Chaw: mark Provider Quotation as ACCEPTED after booking is successfully created
+        null
+      );
+      await acceptProviderQuotation(
+        coordination.externalQuotationId,
+        req.headers.authorization || ""
+      );
     } catch (updateError) {
       providerQuotationUpdateWarning = updateError.message;
     }
@@ -417,6 +440,9 @@ export const startBooking = async (req, res) => {
     }
 
     booking.bookingStatus = "IN_PROGRESS";
+    booking.status = "IN_PROGRESS";
+    booking.actualStartTime = new Date();
+    booking.timeline.push({ status: "IN_PROGRESS", message: "Provider started the booking", at: new Date() });
 
     await booking.save();
 
@@ -467,6 +493,9 @@ export const completeBooking = async (req, res) => {
     }
 
     booking.bookingStatus = "COMPLETED";
+    booking.status = "COMPLETED";
+    booking.completedAt = new Date();
+    booking.timeline.push({ status: "COMPLETED", message: "Booking completed", at: new Date() });
     await booking.save();
 
     // -------- Award points automatically --------
@@ -550,6 +579,8 @@ export const reportBookingDelay = async (req, res) => {
     }
 
     booking.bookingStatus = "DELAY_REPORTED";
+    booking.status = "DELAY_REPORTED";
+    booking.timeline.push({ status: "DELAY_REPORTED", message: delayReason || "Delay reported", at: new Date() });
 
     booking.delayInfo = {
       delayReason,

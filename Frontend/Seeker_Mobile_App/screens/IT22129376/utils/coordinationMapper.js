@@ -15,6 +15,7 @@ export const mapCoordinationDecision = (decision) => {
         icon: 'report-problem',
       };
     case 'RESCHEDULE_REQUIRED':
+    case 'NEEDS_RESCHEDULE':
       return {
         label: 'Choose Another Time',
         message: 'The proposed time has a scheduling conflict. Please choose a suggested slot.',
@@ -22,6 +23,8 @@ export const mapCoordinationDecision = (decision) => {
         icon: 'event-repeat',
       };
     case 'REJECTED_DUE_TO_CONFLICT':
+    case 'CONFLICT_DETECTED':
+    case 'REJECTED_BY_COORDINATION':
       return {
         label: 'Cannot Schedule',
         message: 'The provider is not available for the selected time.',

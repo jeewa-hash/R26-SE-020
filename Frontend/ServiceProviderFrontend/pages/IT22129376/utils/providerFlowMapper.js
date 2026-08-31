@@ -18,7 +18,7 @@ export const getServiceTitle = (item) => item?.serviceSubcategory || item?.servi
 
 export const getServiceCategory = (item) => item?.serviceCategory || item?.category || item?.detectedCategory || item?.serviceType || 'Local Service';
 
-export const getSeekerName = (item) => item?.seekerSnapshot?.name || item?.customerSnapshot?.name || item?.seekerName || item?.customerName || item?.seekerId || 'Seeker';
+export const getSeekerName = (item) => item?.seekerSnapshot?.name || item?.customerSnapshot?.name || item?.seekerName || item?.customerName || 'You';
 
 export const getLocation = (item) => item?.serviceLocation?.address || item?.serviceLocation?.district || item?.location?.address || item?.district || item?.address || 'Location not available';
 
@@ -26,14 +26,20 @@ export const getStatus = (item) => String(item?.status || item?.bookingStatus ||
 
 export const getStatusStyle = (status) => {
   const value = String(status || '').toUpperCase();
+  if (value === 'CAN_ACCEPT') return { label: 'Available', bg: COLORS.successSoft, color: COLORS.success };
+  if (value === 'AVAILABLE_WITH_CAUTION') return { label: 'Available with Caution', bg: COLORS.warningSoft, color: COLORS.warning };
+  if (value.includes('CONFLICT')) return { label: 'Time Conflict', bg: COLORS.dangerSoft, color: COLORS.danger };
   if (value.includes('COMPLETED')) return { label: 'Completed', bg: COLORS.successSoft, color: COLORS.success };
   if (value.includes('IN_PROGRESS')) return { label: 'In Progress', bg: COLORS.infoSoft, color: COLORS.info };
-  if (value.includes('ACCEPTED') || value.includes('CONFIRMED')) return { label: 'Confirmed', bg: COLORS.successSoft, color: COLORS.success };
-  if (value.includes('SENT')) return { label: 'Quote Sent', bg: COLORS.infoSoft, color: COLORS.info };
+  if (value.includes('ACCEPTED')) return { label: 'Booking Confirmed', bg: COLORS.successSoft, color: COLORS.success };
+  if (value.includes('CONFIRMED')) return { label: 'Scheduled', bg: COLORS.successSoft, color: COLORS.success };
+  if (value.includes('SENT')) return { label: 'Waiting for Seeker', bg: COLORS.infoSoft, color: COLORS.info };
   if (value.includes('RESCHEDULE')) return { label: 'Reschedule', bg: COLORS.warningSoft, color: COLORS.warning };
   if (value.includes('DELAY')) return { label: 'Delay Reported', bg: COLORS.warningSoft, color: COLORS.warning };
-  if (value.includes('REJECT') || value.includes('CANCEL') || value.includes('EXPIRED')) return { label: 'Closed', bg: COLORS.dangerSoft, color: COLORS.danger };
-  return { label: 'Pending', bg: COLORS.warningSoft, color: COLORS.warning };
+  if (value.includes('REJECT')) return { label: 'Not Selected', bg: COLORS.dangerSoft, color: COLORS.danger };
+  if (value.includes('CANCEL')) return { label: 'Cancelled', bg: COLORS.dangerSoft, color: COLORS.danger };
+  if (value.includes('EXPIRED')) return { label: 'Expired', bg: COLORS.dangerSoft, color: COLORS.danger };
+  return { label: 'Pending Request', bg: COLORS.warningSoft, color: COLORS.warning };
 };
 
 export const getRiskStyle = (risk) => {

@@ -98,6 +98,23 @@ const bookingSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     }, // Chaw: final accepted provider quote amount
+    currency: { type: String, default: "LKR" },
+    serviceCategory: { type: String, default: "" },
+    serviceSubcategory: { type: String, default: "" },
+    serviceLocation: { type: String, default: "" },
+    scheduledStartTime: { type: Date, default: null },
+    scheduledEndTime: { type: Date, default: null },
+    displayStartTime: { type: String, default: "" },
+    displayEndTime: { type: String, default: "" },
+    mlPredictedDurationHours: { type: Number, default: null },
+    actualStartTime: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    conflictDetected: { type: Boolean, default: false },
+    timeline: [{
+      status: { type: String, default: "" },
+      message: { type: String, default: "" },
+      at: { type: Date, default: Date.now },
+    }],
     
     scheduleSource: {
       type: String,
@@ -227,6 +244,11 @@ const bookingSchema = new mongoose.Schema(
         "COMPLETED",
         "CANCELLED",
       ],
+      default: "CONFIRMED",
+    },
+    status: {
+      type: String,
+      enum: ["CONFIRMED", "IN_PROGRESS", "DELAY_REPORTED", "COMPLETED", "CANCELLED"],
       default: "CONFIRMED",
     },
 
