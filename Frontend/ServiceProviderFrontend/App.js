@@ -64,6 +64,7 @@ import ProfileScreen from './pages/ProfileScreen';
 import ProviderJobDetailsScreen from './pages/IT22129376/ProviderJobDetailsScreen';
 import ProviderRequestDetailsScreen from './pages/IT22129376/ProviderRequestDetailsScreen';
 import ProviderQuotationFormScreen from './pages/IT22129376/ProviderQuotationFormScreen';
+import ProviderAvailabilityScreen from './pages/IT22129376/ProviderAvailabilityScreen';
 
 
 const Stack = createStackNavigator();
@@ -198,6 +199,7 @@ function AppContent() {
             <Stack.Screen name="IT22129376ProviderJobDetails" component={ProviderJobDetailsScreen} />
             <Stack.Screen name="IT22129376ProviderRequestDetails" component={ProviderRequestDetailsScreen} />
             <Stack.Screen name="IT22129376ProviderQuotationForm" component={ProviderQuotationFormScreen} />
+            <Stack.Screen name="ProviderAvailability" component={ProviderAvailabilityScreen} />
 
           </Stack.Navigator>
         </NavigationContainer>

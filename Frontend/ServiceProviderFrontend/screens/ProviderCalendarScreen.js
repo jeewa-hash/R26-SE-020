@@ -1,9 +1,8 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
@@ -11,8 +10,9 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
+import { ThemeContext } from '../context/ThemeContext';
+import HeaderSection from '../components/HeaderSection';
 import { getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 import {
   getProviderRequests,
@@ -109,6 +109,15 @@ const getReminderText = (booking) => {
 };
 
 export default function ProviderCalendarScreen({ navigation }) {
+  const { isDark } = useContext(ThemeContext) || { isDark: false };
+  const C = {
+    bg: isDark ? '#0F172A' : '#F8FAFC',
+    card: isDark ? '#1E293B' : '#FFFFFF',
+    text: isDark ? '#F8FAFC' : '#1E293B',
+    muted: isDark ? '#94A3B8' : '#64748B',
+    border: isDark ? '#334155' : '#E2E8F0',
+    soft: isDark ? '#273449' : '#F1F5F9',
+  };
   const [providerId, setProviderId] = useState(null);
   const [activeTab, setActiveTab] = useState('Calendar');
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
@@ -295,7 +304,7 @@ export default function ProviderCalendarScreen({ navigation }) {
     const delayImpact = booking?.delayInfo?.delayImpactStatus;
 
     return (
-      <View key={getBookingId(booking)} style={styles.card}>
+      <View key={getBookingId(booking)} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
         {reminder ? (
           <View style={styles.reminderBanner}>
             <Ionicons name="notifications-outline" size={16} color="#B45309" />
@@ -305,34 +314,34 @@ export default function ProviderCalendarScreen({ navigation }) {
 
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleWrap}>
-            <Text style={styles.cardTitle}>{getHumanServiceTitle(booking)}</Text>
-            <Text style={styles.cardSubText}>{formatTime(start)} - {formatTime(end)}</Text>
+            <Text style={[styles.cardTitle, { color: C.text }]}>{getHumanServiceTitle(booking)}</Text>
+            <Text style={[styles.cardSubText, { color: C.muted }]}>{formatTime(start)} - {formatTime(end)}</Text>
           </View>
           {renderStatusBadge(status)}
         </View>
 
         <View style={styles.detailRow}>
           <Ionicons name="person-outline" size={15} color="#6B7280" />
-          <Text style={styles.detailText}>{getHumanSeekerName(booking)}</Text>
+          <Text style={[styles.detailText, { color: C.muted }]}>{getHumanSeekerName(booking)}</Text>
         </View>
         <View style={styles.detailRow}>
           <Ionicons name="location-outline" size={15} color="#6B7280" />
-          <Text style={styles.detailText}>{getHumanLocation(booking)}</Text>
+          <Text style={[styles.detailText, { color: C.muted }]}>{getHumanLocation(booking)}</Text>
         </View>
         <View style={styles.detailRow}>
           <Ionicons name="cash-outline" size={15} color="#6B7280" />
-          <Text style={styles.detailText}>{formatMoney(booking?.finalAmount || booking?.amount || booking?.price)}</Text>
+          <Text style={[styles.detailText, { color: C.muted }]}>{formatMoney(booking?.finalAmount || booking?.amount || booking?.price)}</Text>
         </View>
         {booking?.delayRiskLevel ? (
           <View style={styles.detailRow}>
             <Ionicons name="speedometer-outline" size={15} color="#6B7280" />
-            <Text style={styles.detailText}>Delay risk: {booking.delayRiskLevel}</Text>
+            <Text style={[styles.detailText, { color: C.muted }]}>Delay risk: {booking.delayRiskLevel}</Text>
           </View>
         ) : null}
         {booking?.delayInfo?.expectedEndTime ? (
           <View style={styles.detailRow}>
             <Ionicons name="time-outline" size={15} color="#6B7280" />
-            <Text style={styles.detailText}>Expected end: {formatTime(new Date(booking.delayInfo.expectedEndTime))}</Text>
+            <Text style={[styles.detailText, { color: C.muted }]}>Expected end: {formatTime(new Date(booking.delayInfo.expectedEndTime))}</Text>
           </View>
         ) : null}
         {booking?.delayInfo?.delayReason ? (
@@ -382,26 +391,26 @@ export default function ProviderCalendarScreen({ navigation }) {
   };
 
   const renderRequestCard = (request) => (
-    <View key={request?._id || request?.id} style={styles.card}>
+    <View key={request?._id || request?.id} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleWrap}>
-          <Text style={styles.cardTitle}>{getHumanServiceTitle(request)}</Text>
-          <Text style={styles.cardSubText}>{request?.preferredTimeLabel || 'Preferred time not set'}</Text>
+          <Text style={[styles.cardTitle, { color: C.text }]}>{getHumanServiceTitle(request)}</Text>
+          <Text style={[styles.cardSubText, { color: C.muted }]}>{request?.preferredTimeLabel || 'Preferred time not set'}</Text>
         </View>
         {renderStatusBadge(request?.status || 'pending')}
       </View>
       <View style={styles.detailRow}>
         <Ionicons name="person-outline" size={15} color="#6B7280" />
-        <Text style={styles.detailText}>{getHumanSeekerName(request)}</Text>
+        <Text style={[styles.detailText, { color: C.muted }]}>{getHumanSeekerName(request)}</Text>
       </View>
       <View style={styles.detailRow}>
         <Ionicons name="location-outline" size={15} color="#6B7280" />
-        <Text style={styles.detailText}>{getHumanLocation(request)}</Text>
+        <Text style={[styles.detailText, { color: C.muted }]}>{getHumanLocation(request)}</Text>
       </View>
       {request?.seekerBudgetAmount ? (
         <View style={styles.detailRow}>
           <Ionicons name="cash-outline" size={15} color="#6B7280" />
-          <Text style={styles.detailText}>Budget: {formatMoney(request.seekerBudgetAmount)}</Text>
+          <Text style={[styles.detailText, { color: C.muted }]}>Budget: {formatMoney(request.seekerBudgetAmount)}</Text>
         </View>
       ) : null}
       <TouchableOpacity style={styles.fullPrimaryButton} onPress={() => submitQuote(request)}>
@@ -418,26 +427,26 @@ export default function ProviderCalendarScreen({ navigation }) {
     const duration = Number(quotation?.estimatedDurationHours || quotation?.providerEstimatedDurationHours || 0);
     const hourly = price && duration ? price / duration : 0;
     return (
-      <View key={quotation?._id || quotation?.id} style={styles.card}>
+      <View key={quotation?._id || quotation?.id} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleWrap}>
-            <Text style={styles.cardTitle}>{getHumanServiceTitle(quotation)}</Text>
-            <Text style={styles.cardSubText}>{formatMoney(price)} · {duration || '-'} hour(s)</Text>
+            <Text style={[styles.cardTitle, { color: C.text }]}>{getHumanServiceTitle(quotation)}</Text>
+            <Text style={[styles.cardSubText, { color: C.muted }]}>{formatMoney(price)} · {duration || '-'} hour(s)</Text>
           </View>
           {renderStatusBadge(quotation?.status || quotation?.coordinationStatus || 'SENT')}
         </View>
-        {hourly ? <Text style={styles.detailText}>Rate: LKR {Math.round(hourly).toLocaleString()}/hr</Text> : null}
-        {quotation?.notes ? <Text style={styles.detailText}>Note: {quotation.notes}</Text> : null}
-        {quotation?.coordinationStatus ? <Text style={styles.detailText}>Availability: {statusLabel(quotation.coordinationStatus)}</Text> : null}
+        {hourly ? <Text style={[styles.detailText, { color: C.muted }]}>Rate: LKR {Math.round(hourly).toLocaleString()}/hr</Text> : null}
+        {quotation?.notes ? <Text style={[styles.detailText, { color: C.muted }]}>Note: {quotation.notes}</Text> : null}
+        {quotation?.coordinationStatus ? <Text style={[styles.detailText, { color: C.muted }]}>Availability: {statusLabel(quotation.coordinationStatus)}</Text> : null}
       </View>
     );
   };
 
   const renderEmpty = (icon, title, subtitle) => (
-    <View style={styles.emptyContainer}>
+    <View style={[styles.emptyContainer, { backgroundColor: C.card, borderColor: C.border }]}>
       <Ionicons name={icon} size={46} color="#9CA3AF" />
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptySubText}>{subtitle}</Text>
+      <Text style={[styles.emptyTitle, { color: C.text }]}>{title}</Text>
+      <Text style={[styles.emptySubText, { color: C.muted }]}>{subtitle}</Text>
     </View>
   );
 
@@ -455,17 +464,17 @@ export default function ProviderCalendarScreen({ navigation }) {
               <TouchableOpacity
                 key={item.key}
                 onPress={() => setSelectedDate(item.key)}
-                style={[styles.datePill, selected && styles.datePillActive]}
+                style={[styles.datePill, { backgroundColor: C.card, borderColor: C.border }, selected && styles.datePillActive]}
               >
-                <Text style={[styles.datePillLabel, selected && styles.datePillTextActive]}>{item.label}</Text>
-                <Text style={[styles.datePillDay, selected && styles.datePillTextActive]}>{item.day}</Text>
+                <Text style={[styles.datePillLabel, { color: C.muted }, selected && styles.datePillTextActive]}>{item.label}</Text>
+                <Text style={[styles.datePillDay, { color: C.text }, selected && styles.datePillTextActive]}>{item.day}</Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
 
-        <Text style={styles.sectionTitle}>{formatDateTitle(selectedDate)}</Text>
-        <Text style={styles.summaryText}>
+        <Text style={[styles.sectionTitle, { color: C.text }]}>{formatDateTitle(selectedDate)}</Text>
+        <Text style={[styles.summaryText, { color: C.muted }]}>
           {calendarBookings.length} jobs · {confirmed} confirmed · {inProgress} in progress · {completed} completed
         </Text>
 
@@ -499,24 +508,25 @@ export default function ProviderCalendarScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient colors={['#667eea', '#764ba2']} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
+    <View style={[styles.container, { backgroundColor: C.bg }]}>
+      <HeaderSection navigation={navigation} onInboxPress={() => navigation.navigate('InboxScreen')} />
+      <View style={[styles.header, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
         <View style={styles.headerTextWrap}>
-          <Text style={styles.headerTitle}>My Jobs</Text>
-          <Text style={styles.headerSubtitle}>Calendar, requests, quotes and ongoing work</Text>
+          <Text style={[styles.headerTitle, { color: C.text }]}>My Jobs</Text>
+          <Text style={[styles.headerSubtitle, { color: C.muted }]}>Calendar, requests, quotes and ongoing work</Text>
         </View>
-      </LinearGradient>
+        <TouchableOpacity style={[styles.refreshButton, { backgroundColor: C.soft }]} onPress={onRefresh}>
+          <Ionicons name="refresh" size={20} color="#7C3AED" />
+        </TouchableOpacity>
+      </View>
 
-      <View style={styles.tabsWrap}>
+      <View style={[styles.tabsWrap, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {TABS.map((tab) => {
             const active = activeTab === tab;
             return (
-              <TouchableOpacity key={tab} style={[styles.tabPill, active && styles.tabPillActive]} onPress={() => setActiveTab(tab)}>
-                <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab}</Text>
+              <TouchableOpacity key={tab} style={[styles.tabPill, { backgroundColor: C.soft }, active && styles.tabPillActive]} onPress={() => setActiveTab(tab)}>
+                <Text style={[styles.tabText, { color: C.muted }, active && styles.tabTextActive]}>{tab}</Text>
               </TouchableOpacity>
             );
           })}
@@ -530,30 +540,30 @@ export default function ProviderCalendarScreen({ navigation }) {
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#667eea" />
-            <Text style={styles.loadingText}>Loading provider jobs...</Text>
+            <Text style={[styles.loadingText, { color: C.muted }]}>Loading provider jobs...</Text>
           </View>
         ) : error ? (
-          <View style={styles.emptyContainer}>
+          <View style={[styles.emptyContainer, { backgroundColor: C.card, borderColor: C.border }]}>
             <Ionicons name="cloud-offline-outline" size={46} color="#9CA3AF" />
-            <Text style={styles.emptyTitle}>{error}</Text>
+            <Text style={[styles.emptyTitle, { color: C.text }]}>{error}</Text>
           </View>
         ) : renderBody()}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 18, flexDirection: 'row', alignItems: 'center' },
-  backButton: { marginRight: 14, padding: 4 },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  header: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 0.5 },
   headerTextWrap: { flex: 1 },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  headerSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.82)', marginTop: 3 },
-  tabsWrap: { backgroundColor: '#fff', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#EEF2F7' },
+  headerTitle: { fontSize: 24, fontWeight: '600', color: '#1E293B' },
+  headerSubtitle: { fontSize: 12, fontWeight: '400', color: '#64748B', marginTop: 3 },
+  refreshButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  tabsWrap: { backgroundColor: '#F8FAFC', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   tabPill: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: '#F3F4F6', marginLeft: 10 },
   tabPillActive: { backgroundColor: '#667eea' },
-  tabText: { color: '#6B7280', fontWeight: '700', fontSize: 13 },
+  tabText: { color: '#6B7280', fontWeight: '500', fontSize: 13 },
   tabTextActive: { color: '#fff' },
   content: { flex: 1, padding: 16 },
   loadingContainer: { alignItems: 'center', padding: 32 },
@@ -561,35 +571,35 @@ const styles = StyleSheet.create({
   dateStrip: { marginBottom: 14 },
   datePill: { width: 86, paddingVertical: 12, borderRadius: 16, backgroundColor: '#fff', marginRight: 10, alignItems: 'center', borderWidth: 1, borderColor: '#EEF2F7' },
   datePillActive: { backgroundColor: '#667eea', borderColor: '#667eea' },
-  datePillLabel: { color: '#6B7280', fontSize: 12, fontWeight: '700' },
-  datePillDay: { color: '#111827', fontSize: 20, fontWeight: '800', marginTop: 3 },
+  datePillLabel: { color: '#6B7280', fontSize: 12, fontWeight: '500' },
+  datePillDay: { color: '#111827', fontSize: 20, fontWeight: '600', marginTop: 3 },
   datePillTextActive: { color: '#fff' },
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#111827', marginTop: 6 },
+  sectionTitle: { fontSize: 20, fontWeight: '600', color: '#111827', marginTop: 6 },
   summaryText: { color: '#6B7280', marginTop: 4, marginBottom: 14, fontSize: 13 },
   card: { backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 13, borderWidth: 1, borderColor: '#EEF2F7', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 },
   cardTitleWrap: { flex: 1, paddingRight: 10 },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: '#111827' },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
   cardSubText: { marginTop: 4, fontSize: 13, color: '#6B7280' },
   statusBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
-  statusText: { fontSize: 11, fontWeight: '800' },
+  statusText: { fontSize: 11, fontWeight: '600' },
   detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
   detailText: { fontSize: 13, color: '#4B5563', marginLeft: 7, flex: 1 },
   warningText: { marginTop: 8, color: '#B45309', backgroundColor: '#FFFBEB', borderRadius: 10, padding: 9, fontSize: 12, fontWeight: '600' },
   reminderBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFBEB', borderRadius: 12, padding: 10, marginBottom: 12 },
-  reminderText: { color: '#92400E', fontSize: 12, fontWeight: '700', marginLeft: 8, flex: 1 },
+  reminderText: { color: '#92400E', fontSize: 12, fontWeight: '500', marginLeft: 8, flex: 1 },
   actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   secondaryButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#EEF2FF' },
-  secondaryButtonText: { color: '#4F46E5', fontWeight: '800', fontSize: 12 },
+  secondaryButtonText: { color: '#4F46E5', fontWeight: '600', fontSize: 12 },
   primaryButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#667eea' },
-  primaryButtonText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  primaryButtonText: { color: '#fff', fontWeight: '600', fontSize: 12 },
   fullPrimaryButton: { marginTop: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: '#667eea', alignItems: 'center' },
   fullSecondaryButton: { marginTop: 8, paddingVertical: 12, borderRadius: 12, backgroundColor: '#EEF2FF', alignItems: 'center' },
   warningButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#FEF3C7' },
-  warningButtonText: { color: '#B45309', fontWeight: '800', fontSize: 12 },
+  warningButtonText: { color: '#B45309', fontWeight: '600', fontSize: 12 },
   successButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#D1FAE5' },
-  successButtonText: { color: '#047857', fontWeight: '800', fontSize: 12 },
+  successButtonText: { color: '#047857', fontWeight: '600', fontSize: 12 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 18, padding: 30, borderWidth: 1, borderColor: '#EEF2F7' },
-  emptyTitle: { marginTop: 12, color: '#4B5563', fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  emptyTitle: { marginTop: 12, color: '#4B5563', fontSize: 16, fontWeight: '600', textAlign: 'center' },
   emptySubText: { marginTop: 5, color: '#9CA3AF', fontSize: 13, textAlign: 'center' },
 });

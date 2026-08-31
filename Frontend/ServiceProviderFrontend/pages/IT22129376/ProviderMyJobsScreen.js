@@ -8,15 +8,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  StatusBar,
-  Platform,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
+import HeaderSection from '../../components/HeaderSection';
 import { COLORS } from './theme';
 import { debugAuthStorage, getStoredProviderAuth } from './services/providerAuthStorage';
 import { getProviderJobs, getProviderOngoingJobs, getProviderQuotations, getProviderRequests } from './services/providerFlowApi';
@@ -417,6 +414,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const openJob = (booking) => navigation.navigate('IT22129376ProviderJobDetails', { booking, bookingId: getBookingId(booking) });
   const openRequest = (request) => navigation.navigate('IT22129376ProviderRequestDetails', { request, providerId });
   const openQuoteForm = (request) => navigation.navigate('IT22129376ProviderQuotationForm', { request, providerId });
+  const openAvailability = () => (navigation.getParent() || navigation).navigate('ProviderAvailability');
 
   const renderTimeline = () => {
     const hours = Array.from({ length: 14 }, (_, i) => i + 7);
@@ -429,6 +427,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
           </View>
           <Badge label={`${todayJobs.length} jobs`} bg={COLORS.primarySoft} color={COLORS.primary} />
         </View>
+        <TouchableOpacity style={styles.manageAvailabilityButton} onPress={openAvailability}><Ionicons name="calendar-outline" size={17} color={COLORS.primary} /><Text style={styles.manageAvailabilityText}>Manage Availability</Text></TouchableOpacity>
         {todayJobs.length === 0 ? (
           <EmptyState isDark={isDark} icon="calendar-clear-outline" title="No jobs today" message="Confirmed seeker bookings scheduled for today will appear here." />
         ) : (
@@ -489,22 +488,22 @@ export default function ProviderMyJobsScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, isDark && styles.safeAreaDark]}>
-      <StatusBar barStyle="light-content" backgroundColor={isDark ? COLORS.darkBg : COLORS.primary} />
-      <LinearGradient colors={isDark ? ['#0F1121', '#16213E'] : ['#5B6EF5', '#8B5CF6']} style={styles.header}>
+    <View style={[styles.safeArea, isDark && styles.safeAreaDark]}>
+      <HeaderSection navigation={navigation} onInboxPress={() => navigation.navigate('InboxScreen')} />
+      <View style={[styles.header, isDark && styles.headerDark]}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.headerTitle}>My Jobs</Text>
-            <Text style={styles.headerSubtitle}>Requests, quotations and scheduled bookings</Text>
+            <Text style={[styles.headerTitle, isDark && styles.textDark]}>My Jobs</Text>
+            <Text style={[styles.headerSubtitle, isDark && styles.textMutedDark]}>Requests, quotations and scheduled bookings</Text>
           </View>
-          <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}><Ionicons name="refresh" size={21} color="#fff" /></TouchableOpacity>
+          <TouchableOpacity style={[styles.refreshButton, isDark && styles.refreshButtonDark]} onPress={onRefresh}><Ionicons name="refresh" size={20} color={COLORS.primary} /></TouchableOpacity>
         </View>
         <View style={styles.statsRow}>
           <StatCard isDark={isDark} icon="mail-outline" value={normalizedRequests.length} label="Requests" color={COLORS.primary} bg={COLORS.primarySoft} />
           <StatCard isDark={isDark} icon="receipt-outline" value={normalizedQuotes.length} label="Quotes" color={COLORS.info} bg={COLORS.infoSoft} />
           <StatCard isDark={isDark} icon="briefcase-outline" value={scheduledJobs.length} label="Jobs" color={COLORS.success} bg={COLORS.successSoft} />
         </View>
-      </LinearGradient>
+      </View>
       <View style={[styles.tabBar, isDark && styles.tabBarDark]}>
         {TABS.map((tab) => {
           const active = activeTab === tab;
@@ -515,24 +514,26 @@ export default function ProviderMyJobsScreen({ navigation }) {
         {renderContent()}
         <View style={{ height: 110 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.bg },
   safeAreaDark: { backgroundColor: COLORS.darkBg },
-  header: { paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 22 : 16, paddingBottom: 26, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+  header: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 24, backgroundColor: COLORS.bg },
+  headerDark: { backgroundColor: COLORS.darkBg },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { color: '#fff', fontSize: 31, fontWeight: '600', letterSpacing: -0.8 },
-  headerSubtitle: { color: 'rgba(255,255,255,0.82)', fontSize: 13, marginTop: 4, fontWeight: '600' },
-  refreshButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  statsRow: { flexDirection: 'row', marginTop: 20, gap: 10 },
+  headerTitle: { color: COLORS.text, fontSize: 24, fontWeight: '600', letterSpacing: -0.4 },
+  headerSubtitle: { color: COLORS.muted, fontSize: 13, marginTop: 4, fontWeight: '400' },
+  refreshButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  refreshButtonDark: { backgroundColor: COLORS.darkCard },
+  statsRow: { flexDirection: 'row', marginTop: 16, gap: 10 },
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 18, padding: 12, alignItems: 'center' },
   statCardDark: { backgroundColor: COLORS.darkCard },
   statIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   statValue: { fontSize: 22, fontWeight: '600', color: COLORS.text },
-  statLabel: { color: COLORS.muted, fontSize: 11, fontWeight: '600', marginTop: 2 },
+  statLabel: { color: COLORS.muted, fontSize: 11, fontWeight: '400', marginTop: 2 },
   tabBar: { flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 12, marginTop: -18, padding: 5, borderRadius: 18, elevation: 5, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12 },
   tabBarDark: { backgroundColor: COLORS.darkCard },
   tab: { flex: 1, height: 36, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
@@ -545,10 +546,10 @@ const styles = StyleSheet.create({
   cardDark: { backgroundColor: COLORS.darkCard, borderColor: COLORS.darkBorder },
   cardTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   cardTitle: { flex: 1, color: COLORS.text, fontSize: 16, fontWeight: '600' },
-  cardSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '600' },
+  cardSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '400' },
   priceText: { color: COLORS.primary, fontSize: 17, fontWeight: '600' },
   infoBlock: { backgroundColor: '#F9FAFB', borderRadius: 16, padding: 12, marginTop: 12, gap: 6 },
-  infoLine: { color: COLORS.text, fontSize: 12, fontWeight: '600' },
+  infoLine: { color: COLORS.text, fontSize: 12, fontWeight: '400' },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, alignSelf: 'flex-start' },
   badgeText: { fontSize: 11, fontWeight: '600' },
@@ -560,7 +561,7 @@ const styles = StyleSheet.create({
   timelineCard: { backgroundColor: '#fff', borderRadius: 22, padding: 16, marginBottom: 18, borderWidth: 1, borderColor: COLORS.border },
   timelineHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   sectionTitle: { fontSize: 17, color: COLORS.text, fontWeight: '600' },
-  sectionSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '600' },
+  sectionSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '400' },
   timelineBody: { flexDirection: 'row', minHeight: 1008 },
   timeColumn: { width: 58 },
   timeSlot: { height: 72 },
@@ -570,11 +571,11 @@ const styles = StyleSheet.create({
   timelineJob: { position: 'absolute', left: 4, right: 0, backgroundColor: '#F8FAFF', borderRadius: 14, borderLeftWidth: 4, padding: 10, borderWidth: 1, borderColor: '#E0E7FF' },
   timelineJobTitle: { color: COLORS.text, fontWeight: '600', fontSize: 13 },
   timelineJobTime: { color: COLORS.primary, fontSize: 11, fontWeight: '600', marginTop: 4 },
-  timelineJobCustomer: { color: COLORS.muted, fontSize: 11, fontWeight: '600', marginTop: 3 },
+  timelineJobCustomer: { color: COLORS.muted, fontSize: 11, fontWeight: '400', marginTop: 3 },
   emptyCard: { backgroundColor: '#fff', borderRadius: 22, padding: 24, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   emptyIconBox: { width: 58, height: 58, borderRadius: 22, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   emptyTitle: { color: COLORS.text, fontSize: 16, fontWeight: '600', textAlign: 'center' },
-  emptyMessage: { color: COLORS.muted, fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 6, lineHeight: 18 },
+  emptyMessage: { color: COLORS.muted, fontSize: 13, fontWeight: '400', textAlign: 'center', marginTop: 6, lineHeight: 18 },
   stateCard: { backgroundColor: '#fff', borderRadius: 22, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   stateTitle: { marginTop: 12, color: COLORS.text, fontWeight: '600', fontSize: 17, textAlign: 'center' },
   stateMsg: { color: COLORS.muted, textAlign: 'center', marginTop: 8, lineHeight: 19 },
@@ -582,6 +583,8 @@ const styles = StyleSheet.create({
   warningCard: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 18, padding: 12, marginBottom: 14, flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   warningCardDark: { backgroundColor: '#2A2112', borderColor: '#92400E' },
   warningText: { flex: 1, color: '#92400E', fontSize: 12, fontWeight: '600', lineHeight: 17 },
+  manageAvailabilityButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderColor: '#C7D2FE', backgroundColor: '#EEF2FF', borderRadius: 11, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 14 },
+  manageAvailabilityText: { color: COLORS.primary, fontSize: 12, fontWeight: '600' },
   textDark: { color: COLORS.darkText },
   textMutedDark: { color: COLORS.darkMuted },
 });

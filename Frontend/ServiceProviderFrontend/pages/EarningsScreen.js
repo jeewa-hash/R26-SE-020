@@ -60,7 +60,6 @@ export default function EarningsScreen() {
     },
   });
 
-  // Dynamic Theme Colors
   const theme = {
     bg: isDark ? '#0F172A' : '#F8FAFC',
     cardBg: isDark ? '#1E293B' : '#FFFFFF',
@@ -104,7 +103,6 @@ export default function EarningsScreen() {
     await fetchBillingData();
   };
 
-  // Currency & Date formatting helpers
   const formatLkr = (num) => {
     const n = Number(num) || 0;
     return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -120,7 +118,6 @@ export default function EarningsScreen() {
     return `${day} ${month} ${year}`;
   };
 
-  // Calculations based on Period
   const currentBill = billingData?.currentMonthBill || null;
   const allBills = billingData?.bills || [];
   const lifetime = billingData?.lifetimeStats || {
@@ -133,6 +130,7 @@ export default function EarningsScreen() {
     totalBoostSteps: 0,
     boostCount: 0,
   };
+
   const adBoostStats = billingData?.adBoostStats || {
     totalSpentOnBoosts: 0,
     totalBoostSteps: 0,
@@ -169,7 +167,6 @@ export default function EarningsScreen() {
     displayAvgPerJob = displayJobsCount > 0 ? displayEarnings / displayJobsCount : 0;
     displayNetEarnings = Math.max(0, displayEarnings - yearPaidComm - displayBoostExpense);
   } else {
-    // All Time
     displayEarnings = lifetime.totalEarned;
     displayJobsCount = lifetime.completedBookingsTotal;
     displayCommissionDue = lifetime.totalCommissionPending;
@@ -177,15 +174,16 @@ export default function EarningsScreen() {
     displayNetEarnings = lifetime.netEarnings || Math.max(0, displayEarnings - lifetime.totalCommissionPaid - displayBoostExpense);
   }
 
-  // Dynamic Chart Data (Last 6 Months)
   const chartMonths = [];
   const now = new Date();
+
   for (let i = 5; i >= 0; i--) {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
     const mStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
     const label = MONTH_NAMES[d.getUTCMonth()];
     const foundBill = allBills.find((b) => b.billingMonth === mStr);
     const income = foundBill ? Number(foundBill.totalIncome) || 0 : 0;
+
     chartMonths.push({
       label,
       monthKey: mStr,
@@ -200,17 +198,19 @@ export default function EarningsScreen() {
     pct: Math.max(m.income / maxChartIncome, 0.06),
   }));
 
-  // Handle Stripe Payment for Service Charge
   const handlePayServiceCharge = async (billToPay) => {
     const bill = billToPay || currentBill;
+
     if (!bill || bill.serviceChargeAmount <= 0) {
       Alert.alert('No Payment Due', 'There are no outstanding 5% platform service charges for this period.');
       return;
     }
 
     setPaying(true);
+
     try {
       const res = await createCommissionCheckoutSession(bill._id, bill.billingMonth);
+
       if (res?.success && res?.url) {
         try {
           navigation.navigate('CheckoutScreen', { checkoutUrl: res.url });
@@ -241,7 +241,6 @@ export default function EarningsScreen() {
     <View style={[styles.root, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
-      {/* Decorative Glow Elements */}
       <View style={[styles.glowOrb1, { opacity: isDark ? 0.15 : 0.08 }]} />
       <View style={[styles.glowOrb2, { opacity: isDark ? 0.12 : 0.06 }]} />
 
@@ -250,15 +249,14 @@ export default function EarningsScreen() {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7C3AED']} />}
       >
-        {/* ── Shared Header (theme toggle lives here) ── */}
         <HeaderSection navigation={navigation} />
 
-        {/* ── Refresh pill row ── */}
         <View style={styles.refreshRow}>
           <View style={styles.screenBadge}>
             <MaterialCommunityIcons name="finance" size={13} color="#7C3AED" />
             <Text style={styles.screenBadgeText}>FINANCIAL HUB</Text>
           </View>
+
           <TouchableOpacity
             style={[styles.refreshBtn, { backgroundColor: theme.headerBtnBg, borderColor: theme.cardBorder }]}
             onPress={onRefresh}
@@ -273,22 +271,24 @@ export default function EarningsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Suspension Alert Banner (If Suspended) ── */}
         {isSuspended && (
           <Surface style={[styles.suspensionBanner, isDark && styles.suspensionBannerDark]} elevation={4}>
             <View style={styles.bannerHeader}>
               <View style={styles.bannerIconCircle}>
                 <MaterialCommunityIcons name="shield-alert" size={24} color="#DC2626" />
               </View>
+
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.bannerTitle}>Account Suspended</Text>
                 <Text style={styles.bannerSub}>Overdue Platform Fee</Text>
               </View>
             </View>
+
             <Text style={styles.bannerMessage}>
               Your account is suspended due to unpaid monthly platform service charges (5% commission) past the 3-day
               grace period. Features are blocked except the Payment Portal. Please pay below to restore access instantly.
             </Text>
+
             {urgentBill && urgentBill.status !== 'PAID' && (
               <TouchableOpacity
                 style={styles.urgentPayBtn}
@@ -311,7 +311,6 @@ export default function EarningsScreen() {
           </Surface>
         )}
 
-        {/* ── Hero Gradient Earnings Card ── */}
         <LinearGradient
           colors={isDark ? ['#312E81', '#4C1D95', '#6D28D9'] : ['#4F46E5', '#7C3AED', '#9333EA']}
           start={{ x: 0, y: 0 }}
@@ -329,6 +328,7 @@ export default function EarningsScreen() {
                   : 'LIFETIME GROSS EARNINGS'}
               </Text>
             </View>
+
             <View style={styles.periodBadge}>
               <Text style={styles.periodBadgeText}>{period}</Text>
             </View>
@@ -345,6 +345,7 @@ export default function EarningsScreen() {
               <MaterialCommunityIcons name="check-decagram" size={15} color="#A7F3D0" />
               <Text style={styles.heroTagText}>{displayJobsCount} Completed Jobs</Text>
             </View>
+
             <View style={styles.heroTagFee}>
               <MaterialCommunityIcons name="percent-outline" size={14} color="#FDE68A" />
               <Text style={styles.heroTagFeeText}>5% Fee: LKR {formatLkr(displayEarnings * 0.05)}</Text>
@@ -352,68 +353,69 @@ export default function EarningsScreen() {
           </View>
         </LinearGradient>
 
-        {/* ── 3-Box Outcome & Metric Highlights ── */}
         <View style={styles.metricRow}>
-          {/* 1. Net Profit Card */}
           <Surface style={[styles.metricCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]} elevation={1}>
             <View style={[styles.metricIconWrap, { backgroundColor: '#10B98118' }]}>
               <MaterialCommunityIcons name="cash-check" size={22} color="#10B981" />
             </View>
+
             <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Net Earnings</Text>
+
             <Text style={[styles.metricValue, { color: '#10B981' }]} numberOfLines={1}>
               LKR {formatLkr(displayNetEarnings)}
             </Text>
+
             <Text style={styles.metricSub}>After fees & boosts</Text>
           </Surface>
 
-          {/* 2. AdBoost Outcome Card */}
           <Surface style={[styles.metricCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]} elevation={1}>
             <View style={[styles.metricIconWrap, { backgroundColor: '#EC489918' }]}>
               <MaterialCommunityIcons name="rocket-launch" size={20} color="#EC4899" />
             </View>
+
             <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>AdBoost Outcome</Text>
+
             <Text style={[styles.metricValue, { color: '#EC4899' }]} numberOfLines={1}>
               {adBoostStats.boostCount} Boosts
             </Text>
+
             <Text style={[styles.metricSub]}>+{adBoostStats.totalBoostSteps} Priority Steps</Text>
           </Surface>
 
-          {/* 3. Boost Expense Card */}
           <Surface style={[styles.metricCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]} elevation={1}>
             <View style={[styles.metricIconWrap, { backgroundColor: '#F59E0B18' }]}>
               <MaterialCommunityIcons name="chart-bell-curve-cumulative" size={20} color="#F59E0B" />
             </View>
+
             <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Boost Investment</Text>
+
             <Text style={[styles.metricValue, { color: '#F59E0B' }]} numberOfLines={1}>
               LKR {formatLkr(adBoostStats.totalSpentOnBoosts)}
             </Text>
+
             <Text style={styles.metricSub}>Total spend</Text>
           </Surface>
         </View>
 
-        {/* ── 5% Platform Service Charge Commission Portal Card ── */}
         {urgentBill && (
           <Surface style={[styles.portalCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]} elevation={2}>
-            {/* Header with Payment Gateway Shield Icon */}
             <View style={styles.portalHeader}>
               <View style={styles.portalTitleWrap}>
-                <LinearGradient
-                  colors={['#3B82F6', '#2563EB']}
-                  style={styles.gatewayIconBadge}
-                >
+                <LinearGradient colors={['#3B82F6', '#2563EB']} style={styles.gatewayIconBadge}>
                   <MaterialCommunityIcons name="shield-check" size={20} color="#FFF" />
                 </LinearGradient>
+
                 <View>
                   <Text style={[styles.portalTitle, { color: theme.textPrimary }]}>
                     Monthly 5% Platform Charge
                   </Text>
+
                   <Text style={[styles.portalMonth, { color: theme.textSecondary }]}>
                     Billing Period: {urgentBill.billingMonth || 'Current'}
                   </Text>
                 </View>
               </View>
 
-              {/* Status Pill */}
               <View
                 style={[
                   styles.statusPill,
@@ -442,6 +444,7 @@ export default function EarningsScreen() {
                   }
                   style={{ marginRight: 4 }}
                 />
+
                 <Text
                   style={[
                     styles.statusPillText,
@@ -459,7 +462,6 @@ export default function EarningsScreen() {
 
             <View style={[styles.portalDivider, { backgroundColor: theme.divider }]} />
 
-            {/* Financial Rows */}
             <View style={styles.portalRow}>
               <Text style={[styles.portalLabel, { color: theme.textSecondary }]}>Monthly Income Earned:</Text>
               <Text style={[styles.portalVal, { color: theme.textPrimary }]}>
@@ -476,6 +478,7 @@ export default function EarningsScreen() {
 
             <View style={styles.portalRow}>
               <Text style={[styles.portalLabel, { color: theme.textSecondary }]}>Grace Period Due Date:</Text>
+
               <View style={styles.dueDateBadge}>
                 <MaterialCommunityIcons name="calendar-clock" size={13} color="#D97706" />
                 <Text style={styles.dueDateText}>
@@ -484,7 +487,6 @@ export default function EarningsScreen() {
               </View>
             </View>
 
-            {/* Pay Now Button with Stripe & Payment Gateway Icon */}
             {urgentBill.status !== 'PAID' && urgentBill.serviceChargeAmount > 0 && (
               <TouchableOpacity
                 style={styles.payGatewayBtn}
@@ -507,9 +509,11 @@ export default function EarningsScreen() {
                   ) : (
                     <>
                       <MaterialCommunityIcons name="credit-card-chip-outline" size={22} color="#FFF" style={{ marginRight: 8 }} />
+
                       <Text style={styles.payGatewayText}>
                         Pay 5% Fee (LKR {formatLkr(urgentBill.serviceChargeAmount)})
                       </Text>
+
                       <View style={styles.gatewaySecuredBadge}>
                         <MaterialIcons name="lock" size={12} color="#FFF" />
                         <Text style={styles.gatewaySecuredText}>STRIPE</Text>
@@ -520,10 +524,10 @@ export default function EarningsScreen() {
               </TouchableOpacity>
             )}
 
-            {/* Paid State Receipt */}
             {urgentBill.status === 'PAID' && (
               <View style={[styles.paidReceiptBox, { backgroundColor: isDark ? '#064E3B33' : '#F0FDF4' }]}>
                 <MaterialCommunityIcons name="check-decagram" size={20} color="#10B981" />
+
                 <View style={{ flex: 1 }}>
                   <Text style={styles.paidReceiptTitle}>Payment Settled in Full</Text>
                   <Text style={styles.paidReceiptSub}>
@@ -535,7 +539,6 @@ export default function EarningsScreen() {
           </Surface>
         )}
 
-        {/* ── Time Switcher Pills ── */}
         <View style={styles.pillContainer}>
           {['Month', 'Year', 'All Time'].map((p) => (
             <TouchableOpacity
@@ -559,13 +562,13 @@ export default function EarningsScreen() {
           ))}
         </View>
 
-        {/* ── Dynamic Monthly Earnings Chart ── */}
         <Surface style={[styles.chartCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]} elevation={1}>
           <View style={styles.chartHeaderRow}>
             <View>
               <Text style={[styles.chartTitle, { color: theme.textPrimary }]}>Performance History</Text>
               <Text style={[styles.chartSub, { color: theme.textSecondary }]}>6-Month Income Timeline</Text>
             </View>
+
             <View style={styles.chartLegend}>
               <View style={styles.legendDot} />
               <Text style={[styles.legendText, { color: theme.textSecondary }]}>Booking Income</Text>
@@ -578,6 +581,7 @@ export default function EarningsScreen() {
                 <Text style={[styles.barAmountText, { color: bar.active ? '#7C3AED' : theme.textMuted }]}>
                   {bar.income > 0 ? `${Math.round(bar.income / 1000)}k` : '0'}
                 </Text>
+
                 <View style={[styles.barTrack, { backgroundColor: theme.trackBg }]}>
                   <View
                     style={[
@@ -589,6 +593,7 @@ export default function EarningsScreen() {
                     ]}
                   />
                 </View>
+
                 <Text
                   style={[
                     styles.barLabel,
@@ -603,7 +608,6 @@ export default function EarningsScreen() {
           </View>
         </Surface>
 
-        {/* ── Detail Tabs (Overview | 5% Service Fees | AdBoost Outcome) ── */}
         <View style={styles.tabNavRow}>
           {[
             { key: 'overview', label: 'Overview', icon: 'view-grid-outline' },
@@ -626,6 +630,7 @@ export default function EarningsScreen() {
                 color={activeTab === t.key ? '#7C3AED' : theme.textSecondary}
                 style={{ marginRight: 6 }}
               />
+
               <Text
                 style={[
                   styles.tabNavText,
@@ -639,7 +644,6 @@ export default function EarningsScreen() {
           ))}
         </View>
 
-        {/* ── TAB CONTENT 1: OVERVIEW / STATEMENTS ── */}
         {activeTab === 'overview' && (
           <View>
             <View style={styles.sectionHeader}>
@@ -704,6 +708,7 @@ export default function EarningsScreen() {
                         LKR {formatLkr(b.totalIncome)}
                       </Text>
                     </View>
+
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={[styles.billDetailLabel, { color: theme.textMuted }]}>5% Service Fee</Text>
                       <Text style={[styles.billDetailVal, { color: '#7C3AED' }]}>
@@ -730,7 +735,6 @@ export default function EarningsScreen() {
           </View>
         )}
 
-        {/* ── TAB CONTENT 2: 5% PLATFORM COMMISSION DETAILS ── */}
         {activeTab === 'fees' && (
           <View>
             <Surface style={[styles.infoCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]} elevation={1}>
@@ -738,11 +742,12 @@ export default function EarningsScreen() {
                 <MaterialCommunityIcons name="information-outline" size={22} color="#6366F1" />
                 <Text style={[styles.infoCardTitle, { color: theme.textPrimary }]}>How 5% Commission Works</Text>
               </View>
+
               <Text style={[styles.infoCardBody, { color: theme.textSecondary }]}>
-                • <Text style={{ fontWeight: '700' }}>Rate:</Text> Exactly 5% of your gross earnings from completed bookings.
-                {'\n'}• <Text style={{ fontWeight: '700' }}>Billing Cycle:</Text> Monthly closing on the last day of each calendar month.
-                {'\n'}• <Text style={{ fontWeight: '700' }}>3-Day Grace Period:</Text> You have 3 days after month end (due by 3rd of next month at 23:59:59) to pay.
-                {'\n'}• <Text style={{ fontWeight: '700' }}>Suspension Protection:</Text> If unpaid past 3 days, account features are temporarily locked until settled via the secured Payment Portal.
+                • <Text style={{ fontWeight: '500' }}>Rate:</Text> Exactly 5% of your gross earnings from completed bookings.
+                {'\n'}• <Text style={{ fontWeight: '500' }}>Billing Cycle:</Text> Monthly closing on the last day of each calendar month.
+                {'\n'}• <Text style={{ fontWeight: '500' }}>3-Day Grace Period:</Text> You have 3 days after month end (due by 3rd of next month at 23:59:59) to pay.
+                {'\n'}• <Text style={{ fontWeight: '500' }}>Suspension Protection:</Text> If unpaid past 3 days, account features are temporarily locked until settled via the secured Payment Portal.
               </Text>
             </Surface>
 
@@ -764,7 +769,6 @@ export default function EarningsScreen() {
           </View>
         )}
 
-        {/* ── TAB CONTENT 3: ADBOOS OUTCOME BREAKDOWN ── */}
         {activeTab === 'boosts' && (
           <View>
             <LinearGradient
@@ -776,6 +780,7 @@ export default function EarningsScreen() {
                   <Text style={styles.boostBannerSub}>Ad Priority Acceleration</Text>
                   <Text style={styles.boostBannerTitle}>{adBoostStats.boostCount} Boost Campaigns</Text>
                 </View>
+
                 <View style={styles.boostStepsBadge}>
                   <MaterialCommunityIcons name="arrow-up-bold-circle" size={16} color="#FFF" />
                   <Text style={styles.boostStepsText}>+{adBoostStats.totalBoostSteps} Steps</Text>
@@ -813,15 +818,18 @@ export default function EarningsScreen() {
                     <View style={styles.boostTxIconWrap}>
                       <MaterialCommunityIcons name="rocket" size={20} color="#EC4899" />
                     </View>
+
                     <View>
                       <Text style={[styles.boostTxTitle, { color: theme.textPrimary }]}>
                         Priority Boost +{b.boostAmount}
                       </Text>
+
                       <Text style={[styles.boostTxDate, { color: theme.textSecondary }]}>
                         {formatDate(b.createdAt)}
                       </Text>
                     </View>
                   </View>
+
                   <Text style={styles.boostTxAmount}>- LKR {formatLkr(b.amountPaid)}</Text>
                 </Surface>
               ))
@@ -839,7 +847,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   scrollContent: { paddingHorizontal: 18 },
 
-  // Glowing Orbs
   glowOrb1: {
     position: 'absolute',
     top: -60,
@@ -849,6 +856,7 @@ const styles = StyleSheet.create({
     borderRadius: 120,
     backgroundColor: '#7C3AED',
   },
+
   glowOrb2: {
     position: 'absolute',
     top: 200,
@@ -859,7 +867,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#3B82F6',
   },
 
-  // Refresh Row (below HeaderSection)
   refreshRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -868,6 +875,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 16,
   },
+
   screenBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -877,7 +885,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 5,
   },
-  screenBadgeText: { fontSize: 11, fontWeight: '800', color: '#7C3AED', letterSpacing: 0.8 },
+
+  screenBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#7C3AED',
+    letterSpacing: 0.8,
+  },
+
   refreshBtn: {
     width: 38,
     height: 38,
@@ -887,7 +902,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 
-  // Suspension Banner
   suspensionBanner: {
     backgroundColor: '#FEF2F2',
     borderColor: '#FCA5A5',
@@ -896,11 +910,18 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
+
   suspensionBannerDark: {
     backgroundColor: '#450A0A',
     borderColor: '#7F1D1D',
   },
-  bannerHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+
+  bannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+
   bannerIconCircle: {
     width: 38,
     height: 38,
@@ -909,9 +930,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  bannerTitle: { fontSize: 16, fontWeight: '900', color: '#DC2626' },
-  bannerSub: { fontSize: 11, color: '#B91C1C', fontWeight: '600' },
-  bannerMessage: { fontSize: 12.5, color: '#991B1B', lineHeight: 18, marginBottom: 12 },
+
+  bannerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#DC2626',
+  },
+
+  bannerSub: {
+    fontSize: 11,
+    color: '#B91C1C',
+    fontWeight: '600',
+  },
+
+  bannerMessage: {
+    fontSize: 12.5,
+    color: '#991B1B',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+
   urgentPayBtn: {
     backgroundColor: '#DC2626',
     flexDirection: 'row',
@@ -920,9 +958,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 13,
   },
-  urgentPayBtnText: { color: '#FFF', fontWeight: '800', fontSize: 13.5 },
 
-  // Hero Card
+  urgentPayBtnText: {
+    color: '#FFF',
+    fontWeight: '600',
+    fontSize: 13.5,
+  },
+
   heroCard: {
     borderRadius: 24,
     padding: 22,
@@ -932,18 +974,53 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 18,
   },
-  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  heroLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  heroLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  heroLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  heroLabel: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+  },
+
   periodBadge: {
     backgroundColor: 'rgba(255,255,255,0.22)',
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 8,
   },
-  periodBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '800' },
-  heroAmount: { color: '#FFF', fontSize: 33, fontWeight: '900', marginVertical: 10 },
-  heroFooter: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+
+  periodBadgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  heroAmount: {
+    color: '#FFF',
+    fontSize: 33,
+    fontWeight: '600',
+    marginVertical: 10,
+  },
+
+  heroFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+
   heroTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -953,7 +1030,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 4,
   },
-  heroTagText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
+
+  heroTagText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
   heroTagFee: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -963,10 +1046,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 4,
   },
-  heroTagFeeText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
 
-  // 3-Box Metric Row
-  metricRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  heroTagFeeText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  metricRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+
   metricCard: {
     flex: 1,
     borderRadius: 18,
@@ -974,6 +1066,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
   },
+
   metricIconWrap: {
     width: 36,
     height: 36,
@@ -982,19 +1075,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
-  metricLabel: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
-  metricValue: { fontSize: 13, fontWeight: '800', marginVertical: 2, textAlign: 'center' },
-  metricSub: { fontSize: 9.5, color: '#94A3B8', textAlign: 'center', fontWeight: '500' },
 
-  // Payment Portal Card
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+
+  metricValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginVertical: 2,
+    textAlign: 'center',
+  },
+
+  metricSub: {
+    fontSize: 9.5,
+    color: '#94A3B8',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+
   portalCard: {
     borderRadius: 22,
     padding: 18,
     marginBottom: 14,
     borderWidth: 1,
   },
-  portalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  portalTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+  portalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  portalTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
   gatewayIconBadge: {
     width: 36,
     height: 36,
@@ -1002,13 +1122,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  portalTitle: { fontSize: 15, fontWeight: '800' },
-  portalMonth: { fontSize: 11.5, marginTop: 1 },
-  portalDivider: { height: 1, marginVertical: 12 },
-  portalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  portalLabel: { fontSize: 12.5, fontWeight: '500' },
-  portalVal: { fontSize: 13.5, fontWeight: '700' },
-  portalValHighlight: { fontSize: 15, fontWeight: '900' },
+
+  portalTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  portalMonth: {
+    fontSize: 11.5,
+    marginTop: 1,
+  },
+
+  portalDivider: {
+    height: 1,
+    marginVertical: 12,
+  },
+
+  portalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  portalLabel: {
+    fontSize: 12.5,
+    fontWeight: '500',
+  },
+
+  portalVal: {
+    fontSize: 13.5,
+    fontWeight: '500',
+  },
+
+  portalValHighlight: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
   dueDateBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1018,10 +1169,19 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     gap: 4,
   },
-  dueDateText: { fontSize: 11, fontWeight: '700', color: '#B45309' },
 
-  // Pay Button with Stripe & Gateway Icon
-  payGatewayBtn: { marginTop: 10, borderRadius: 14, overflow: 'hidden' },
+  dueDateText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#B45309',
+  },
+
+  payGatewayBtn: {
+    marginTop: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+
   payGatewayGradient: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -1029,7 +1189,15 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
-  payGatewayText: { color: '#FFF', fontWeight: '800', fontSize: 14, flex: 1, textAlign: 'left' },
+
+  payGatewayText: {
+    color: '#FFF',
+    fontWeight: '600',
+    fontSize: 14,
+    flex: 1,
+    textAlign: 'left',
+  },
+
   gatewaySecuredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1039,9 +1207,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     gap: 3,
   },
-  gatewaySecuredText: { color: '#FFF', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
 
-  // Status Pills
+  gatewaySecuredText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1049,13 +1222,35 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 10,
   },
-  statusPillText: { fontSize: 11, fontWeight: '800' },
-  statusPaid: { backgroundColor: '#DCFCE7' },
-  statusPaidText: { color: '#15803D' },
-  statusPending: { backgroundColor: '#FEF3C7' },
-  statusPendingText: { color: '#B45309' },
-  statusSuspended: { backgroundColor: '#FEE2E2' },
-  statusSuspendedText: { color: '#DC2626' },
+
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  statusPaid: {
+    backgroundColor: '#DCFCE7',
+  },
+
+  statusPaidText: {
+    color: '#15803D',
+  },
+
+  statusPending: {
+    backgroundColor: '#FEF3C7',
+  },
+
+  statusPendingText: {
+    color: '#B45309',
+  },
+
+  statusSuspended: {
+    backgroundColor: '#FEE2E2',
+  },
+
+  statusSuspendedText: {
+    color: '#DC2626',
+  },
 
   paidReceiptBox: {
     flexDirection: 'row',
@@ -1065,11 +1260,25 @@ const styles = StyleSheet.create({
     marginTop: 8,
     gap: 10,
   },
-  paidReceiptTitle: { fontSize: 13, fontWeight: '800', color: '#10B981' },
-  paidReceiptSub: { fontSize: 11, color: '#166534', marginTop: 1 },
 
-  // Pills
-  pillContainer: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  paidReceiptTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#10B981',
+  },
+
+  paidReceiptSub: {
+    fontSize: 11,
+    color: '#166534',
+    marginTop: 1,
+  },
+
+  pillContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+
   pill: {
     flex: 1,
     paddingVertical: 10,
@@ -1077,26 +1286,100 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
   },
-  pillText: { fontWeight: '800', fontSize: 12.5 },
 
-  // Chart Card
-  chartCard: { borderRadius: 22, padding: 18, marginBottom: 16, borderWidth: 1 },
-  chartHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  chartTitle: { fontSize: 15, fontWeight: '800' },
-  chartSub: { fontSize: 11, marginTop: 1 },
-  chartLegend: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#7C3AED' },
-  legendText: { fontSize: 11, fontWeight: '600' },
-  barsContainer: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 115 },
-  barWrap: { alignItems: 'center', width: (width - 110) / 6 },
-  barAmountText: { fontSize: 9.5, marginBottom: 4, fontWeight: '700' },
-  barTrack: { height: 75, width: 14, borderRadius: 10, justifyContent: 'flex-end' },
-  barFill: { width: 14, borderRadius: 10 },
-  barLabel: { fontSize: 11, marginTop: 8, fontWeight: '600' },
-  barLabelActive: { fontWeight: '800' },
+  pillText: {
+    fontWeight: '600',
+    fontSize: 12.5,
+  },
 
-  // Tab Navigation Row
-  tabNavRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  chartCard: {
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1,
+  },
+
+  chartHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+
+  chartTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  chartSub: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+
+  chartLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#7C3AED',
+  },
+
+  legendText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  barsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: 115,
+  },
+
+  barWrap: {
+    alignItems: 'center',
+    width: (width - 110) / 6,
+  },
+
+  barAmountText: {
+    fontSize: 9.5,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+
+  barTrack: {
+    height: 75,
+    width: 14,
+    borderRadius: 10,
+    justifyContent: 'flex-end',
+  },
+
+  barFill: {
+    width: 14,
+    borderRadius: 10,
+  },
+
+  barLabel: {
+    fontSize: 11,
+    marginTop: 8,
+    fontWeight: '600',
+  },
+
+  barLabelActive: {
+    fontWeight: '600',
+  },
+
+  tabNavRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+
   tabNavBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -1106,25 +1389,91 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  tabNavBtnActive: { borderColor: '#7C3AED', backgroundColor: '#7C3AED12' },
-  tabNavText: { fontSize: 12, fontWeight: '700' },
-  tabNavTextActive: { fontWeight: '800' },
 
-  // Section Headers
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: '800' },
-  sectionSubtitle: { fontSize: 12, fontWeight: '600' },
+  tabNavBtnActive: {
+    borderColor: '#7C3AED',
+    backgroundColor: '#7C3AED12',
+  },
 
-  // Bill Item Card
-  billItemCard: { borderRadius: 18, padding: 16, marginBottom: 12, borderWidth: 1 },
-  billItemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  billMonthTitle: { fontSize: 15, fontWeight: '800' },
-  billPeriodSub: { fontSize: 11.5, marginTop: 2 },
-  statusPillSmall: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  statusPillSmallText: { fontSize: 10, fontWeight: '800' },
-  billDetailsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 10, borderTopWidth: 1 },
-  billDetailLabel: { fontSize: 11, fontWeight: '600' },
-  billDetailVal: { fontSize: 14, fontWeight: '800', marginTop: 2 },
+  tabNavText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+
+  tabNavTextActive: {
+    fontWeight: '600',
+  },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  sectionSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  billItemCard: {
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+
+  billItemTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  billMonthTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  billPeriodSub: {
+    fontSize: 11.5,
+    marginTop: 2,
+  },
+
+  statusPillSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+
+  statusPillSmallText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+
+  billDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+
+  billDetailLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  billDetailVal: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+
   smallPayBtn: {
     backgroundColor: '#7C3AED',
     flexDirection: 'row',
@@ -1134,23 +1483,87 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     marginTop: 10,
   },
-  smallPayBtnText: { color: '#FFF', fontSize: 12, fontWeight: '800' },
 
-  // Info Card
-  infoCard: { borderRadius: 18, padding: 16, borderWidth: 1, marginBottom: 12 },
-  infoCardTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  infoCardTitle: { fontSize: 14.5, fontWeight: '800' },
-  infoCardBody: { fontSize: 12, lineHeight: 19 },
-  feeBreakdownRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  feeSummaryBox: { flex: 1, borderRadius: 14, padding: 14, borderWidth: 1, alignItems: 'center' },
-  feeSummaryLabel: { fontSize: 11, fontWeight: '600' },
-  feeSummaryVal: { fontSize: 15, fontWeight: '900', marginTop: 4 },
+  smallPayBtnText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 
-  // AdBoost Banner & Tx
-  boostHeroBanner: { borderRadius: 20, padding: 18, marginBottom: 16 },
-  boostBannerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  boostBannerSub: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '700' },
-  boostBannerTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', marginTop: 2 },
+  infoCard: {
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+
+  infoCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+
+  infoCardTitle: {
+    fontSize: 14.5,
+    fontWeight: '600',
+  },
+
+  infoCardBody: {
+    fontSize: 12,
+    lineHeight: 19,
+  },
+
+  feeBreakdownRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+
+  feeSummaryBox: {
+    flex: 1,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+
+  feeSummaryLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  feeSummaryVal: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+
+  boostHeroBanner: {
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+  },
+
+  boostBannerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  boostBannerSub: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+
+  boostBannerTitle: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+
   boostStepsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1160,8 +1573,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     gap: 4,
   },
-  boostStepsText: { color: '#FFF', fontSize: 12, fontWeight: '800' },
-  boostBannerFoot: { color: '#FFF', fontSize: 12, fontWeight: '700', marginTop: 10 },
+
+  boostStepsText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  boostBannerFoot: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 10,
+  },
 
   boostTxCard: {
     flexDirection: 'row',
@@ -1172,7 +1596,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
   },
-  boostTxLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+  boostTxLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
   boostTxIconWrap: {
     width: 36,
     height: 36,
@@ -1181,11 +1611,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  boostTxTitle: { fontSize: 13.5, fontWeight: '700' },
-  boostTxDate: { fontSize: 11, marginTop: 2 },
-  boostTxAmount: { fontSize: 14, fontWeight: '800', color: '#EC4899' },
 
-  emptyCard: { borderRadius: 18, padding: 24, alignItems: 'center', marginVertical: 10, borderWidth: 1 },
-  emptyText: { fontSize: 14, fontWeight: '700', marginTop: 8 },
-  emptySubText: { fontSize: 12, textAlign: 'center', marginTop: 4 },
+  boostTxTitle: {
+    fontSize: 13.5,
+    fontWeight: '500',
+  },
+
+  boostTxDate: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+
+  boostTxAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#EC4899',
+  },
+
+  emptyCard: {
+    borderRadius: 18,
+    padding: 24,
+    alignItems: 'center',
+    marginVertical: 10,
+    borderWidth: 1,
+  },
+
+  emptyText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 8,
+  },
+
+  emptySubText: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+  },
 });

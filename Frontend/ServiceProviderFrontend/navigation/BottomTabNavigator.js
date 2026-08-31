@@ -28,7 +28,6 @@ import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-// ─── Sub-Stack for News/Notifications ────────────────────────────────────────
 function HomeStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -41,8 +40,6 @@ function HomeStack() {
   );
 }
 
-// ─── Tab config ───────────────────────────────────────────────────────────────
-// `isCenter` marks the raised, glowing middle button (now the Notifications tab)
 const TABS = [
   { name: 'HomeTab', label: 'Home', icon: 'home-outline', iconActive: 'home' },
   { name: 'Bookings', label: 'My Jobs', icon: 'briefcase-outline', iconActive: 'briefcase' },
@@ -59,7 +56,6 @@ const SCREENS = {
   Profile: ProfileScreen,
 };
 
-// ─── Palettes — floating glass bar + glowing gradient center button ─────────
 const LIGHT = {
   bar: 'rgba(255,255,255,0.97)',
   barBorder: 'rgba(20,20,30,0.06)',
@@ -90,7 +86,6 @@ const DARK = {
   centerRing: 'rgba(91,110,245,0.28)',
 };
 
-// ─── Standard tab icon (icon + label + small pill indicator when active) ────
 function TabItem({ label, icon, iconActive, focused, C, hasNotif }) {
   const iconName = focused ? iconActive : icon;
 
@@ -102,10 +97,14 @@ function TabItem({ label, icon, iconActive, focused, C, hasNotif }) {
           size={24}
           color={focused ? C.activeIcon : C.inactiveIcon}
         />
+
         {hasNotif && <View style={styles.notifDot} />}
       </View>
+
       <Text
         numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.78}
         style={[
           styles.tabLabel,
           { color: focused ? C.activeLabel : C.inactiveLabel },
@@ -114,13 +113,18 @@ function TabItem({ label, icon, iconActive, focused, C, hasNotif }) {
       >
         {label}
       </Text>
-      <View style={[styles.activeDot, { backgroundColor: focused ? C.indicator : 'transparent' }]} />
+
+      <View
+        style={[
+          styles.activeDot,
+          { backgroundColor: focused ? C.indicator : 'transparent' },
+        ]}
+      />
     </View>
   );
 }
 
-// ─── Raised, glowing center button (Notifications) ─────────────────────────
-function CenterTabItem({ icon, iconActive, focused, C, hasNotif }) {
+function CenterTabItem({ label, icon, iconActive, focused, C, hasNotif }) {
   const iconName = focused ? iconActive : icon;
 
   return (
@@ -134,7 +138,7 @@ function CenterTabItem({ icon, iconActive, focused, C, hasNotif }) {
             styles.centerButton,
             {
               shadowColor: C.centerGlow,
-              transform: [{ scale: focused ? 1.06 : 1 }],
+              transform: [{ scale: focused ? 1.04 : 1 }],
             },
           ]}
         >
@@ -142,22 +146,34 @@ function CenterTabItem({ icon, iconActive, focused, C, hasNotif }) {
           {hasNotif && <View style={styles.centerNotifDot} />}
         </LinearGradient>
       </View>
+
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.78}
+        style={[
+          styles.centerLabel,
+          { color: focused ? C.activeLabel : C.inactiveLabel },
+          focused && styles.tabLabelActive,
+        ]}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
 
-// ─── Navigator ────────────────────────────────────────────────────────────────
 export default function BottomTabNavigator() {
   const { isDark } = useContext(ThemeContext);
   const C = isDark ? DARK : LIGHT;
   const navigation = useNavigation();
+
   const isLoggingOutRef = useRef(false);
   const [activeAlertBanner, setActiveAlertBanner] = useState(null);
   const seenNotificationIdsRef = useRef(new Set());
   const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
   const socketRef = useRef(null);
 
-  // Real-Time Notification Socket and Security Watchdog
   useEffect(() => {
     let intervalId = null;
 
@@ -166,7 +182,6 @@ export default function BottomTabNavigator() {
       const userId = auth.providerId;
       const token = auth.token;
 
-      // 1. Socket.io Real-time connection (Instant Notification Push)
       try {
         if (!socketRef.current) {
           socketRef.current = io(API_URL, {
@@ -183,7 +198,9 @@ export default function BottomTabNavigator() {
 
           const handleIncomingNotif = (newNotif) => {
             if (!newNotif || !newNotif._id) return;
+
             const notifId = newNotif._id.toString();
+
             if (!seenNotificationIdsRef.current.has(notifId)) {
               seenNotificationIdsRef.current.add(notifId);
               setHasUnreadNotifs(true);
@@ -198,21 +215,24 @@ export default function BottomTabNavigator() {
         console.warn('Socket connection error in TabNavigator:', sockErr.message);
       }
 
-      // 2. Periodic Watchdog (every 2.5s)
       const checkStatusAndNotifications = async () => {
         if (isLoggingOutRef.current) return;
+
         try {
           const currentUserId = userId;
           const currentToken = token;
+
           if (!currentUserId) return;
 
-          // Check Suspension Status
           const response = await fetch(`${ADMIN_API_URL}/api/inquiries/provider-status/${currentUserId}`);
           const data = await response.json();
 
           if (response.ok && data.isBlocked) {
             isLoggingOutRef.current = true;
-            const untilDate = data.blockedUntil ? new Date(data.blockedUntil).toLocaleDateString() : 'Admin unlocks';
+
+            const untilDate = data.blockedUntil
+              ? new Date(data.blockedUntil).toLocaleDateString()
+              : 'Admin unlocks';
 
             await clearAllAuthStorage();
 
@@ -237,15 +257,16 @@ export default function BottomTabNavigator() {
               index: 0,
               routes: [{ name: 'Login' }],
             });
+
             return;
           }
 
-          // Check for Unread Notifications from Admin API & Auth API
           let allNotifs = [];
 
           try {
             const notifRes = await fetch(`${ADMIN_API_URL}/api/inquiries/notifications/${currentUserId}`);
             const notifData = await notifRes.json();
+
             if (notifRes.ok && Array.isArray(notifData.data)) {
               allNotifs = [...allNotifs, ...notifData.data];
             }
@@ -258,7 +279,9 @@ export default function BottomTabNavigator() {
               const authNotifRes = await fetch(`${API_URL}/notifications`, {
                 headers: { Authorization: `Bearer ${currentToken}` },
               });
+
               const authNotifData = await authNotifRes.json();
+
               if (authNotifRes.ok && Array.isArray(authNotifData)) {
                 allNotifs = [...allNotifs, ...authNotifData];
               }
@@ -300,6 +323,7 @@ export default function BottomTabNavigator() {
 
     return () => {
       if (intervalId) clearInterval(intervalId);
+
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -309,7 +333,6 @@ export default function BottomTabNavigator() {
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Real-Time Floating In-App Alert Banner (Demand Alerts, Approved or Rejected) */}
       {activeAlertBanner && (
         <View style={styles.floatingBannerContainer}>
           <LinearGradient
@@ -321,7 +344,7 @@ export default function BottomTabNavigator() {
                 ? ['#ECFDF5', '#D1FAE5']
                 : ['#FEF2F2', '#FEE2E2']
             }
-            style={[styles.floatingBannerCard]}
+            style={styles.floatingBannerCard}
           >
             <View
               style={[
@@ -354,6 +377,7 @@ export default function BottomTabNavigator() {
                 }
               />
             </View>
+
             <View style={{ flex: 1 }}>
               <Text
                 style={[
@@ -367,15 +391,17 @@ export default function BottomTabNavigator() {
               >
                 {activeAlertBanner.title}
               </Text>
+
               <Text style={styles.floatingBannerMessage} numberOfLines={2}>
                 {activeAlertBanner.message}
               </Text>
+
               <View style={styles.floatingBannerActions}>
                 <TouchableOpacity
                   style={[
                     styles.floatingBannerActionBtn,
-                    (activeAlertBanner.type === 'high_demand_alert' ||
-                      (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand')))
+                    activeAlertBanner.type === 'high_demand_alert' ||
+                    (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
                       ? { backgroundColor: '#4F46E5' }
                       : activeAlertBanner.type === 'inquiry_approved'
                       ? { backgroundColor: '#059669' }
@@ -385,7 +411,9 @@ export default function BottomTabNavigator() {
                     const isDemandAlert =
                       activeAlertBanner.type === 'high_demand_alert' ||
                       (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'));
+
                     setActiveAlertBanner(null);
+
                     if (isDemandAlert) {
                       navigation.navigate('Notifications');
                     } else {
@@ -405,6 +433,7 @@ export default function BottomTabNavigator() {
                     size={14}
                     color="#ffffff"
                   />
+
                   <Text style={styles.floatingBannerActionBtnText}>
                     {activeAlertBanner.type === 'high_demand_alert' ||
                     (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
@@ -414,6 +443,7 @@ export default function BottomTabNavigator() {
                       : 'Re-submit Now'}
                   </Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity
                   style={styles.floatingBannerDismissBtn}
                   onPress={() => setActiveAlertBanner(null)}
@@ -422,6 +452,7 @@ export default function BottomTabNavigator() {
                 </TouchableOpacity>
               </View>
             </View>
+
             <TouchableOpacity
               style={styles.floatingBannerCloseIcon}
               onPress={() => setActiveAlertBanner(null)}
@@ -452,24 +483,27 @@ export default function BottomTabNavigator() {
             name={tab.name}
             component={SCREENS[tab.name]}
             options={({ route }) => ({
-      // Hide floating tab bar dynamically when opening sub-screens like ChatScreen
-      tabBarStyle: ((routeName) => {
-        const hiddenScreens = ['ChatScreen', 'QuotationTemplate', 'InboxScreen'];
-        if (hiddenScreens.includes(routeName)) {
-          return { display: 'none' };
-        }
-        return [
-          styles.tabBar,
-          {
-            backgroundColor: C.bar,
-            borderColor: C.barBorder,
-            shadowColor: C.shadowColor,
-          },
-        ];
-      })(getFocusedRouteNameFromRoute(route)),
+              tabBarStyle: ((routeName) => {
+                const hiddenScreens = ['ChatScreen', 'QuotationTemplate', 'InboxScreen'];
+
+                if (hiddenScreens.includes(routeName)) {
+                  return { display: 'none' };
+                }
+
+                return [
+                  styles.tabBar,
+                  {
+                    backgroundColor: C.bar,
+                    borderColor: C.barBorder,
+                    shadowColor: C.shadowColor,
+                  },
+                ];
+              })(getFocusedRouteNameFromRoute(route)),
+
               tabBarIcon: ({ focused }) =>
                 tab.isCenter ? (
                   <CenterTabItem
+                    label={tab.label}
                     icon={tab.icon}
                     iconActive={tab.iconActive}
                     focused={focused}
@@ -486,6 +520,7 @@ export default function BottomTabNavigator() {
                     hasNotif={tab.name === 'Earnings'}
                   />
                 ),
+
               tabBarButton: tab.isCenter
                 ? (props) => (
                     <TouchableOpacity
@@ -503,48 +538,62 @@ export default function BottomTabNavigator() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: Platform.OS === 'ios' ? 28 : 16,
-    height: 68,
-    borderRadius: 28,
+    left: 12,
+    right: 12,
+    bottom: Platform.OS === 'ios' ? 26 : 14,
+    height: 82,
+    borderRadius: 30,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 10 : 8,
     elevation: 15,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
     shadowRadius: 20,
   },
+
   tabItem: {
     flex: 1,
+    height: 64,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    paddingHorizontal: 2,
   },
+
   iconWrap: {
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    marginBottom: 4,
   },
+
   tabLabel: {
-    fontSize: 10.5,
-    letterSpacing: 0.2,
+    width: '100%',
+    fontSize: 10,
+    lineHeight: 13,
+    letterSpacing: 0,
+    textAlign: 'center',
+    fontWeight: '500',
   },
+
   tabLabelActive: {
-    fontWeight: '700',
+    fontWeight: '600',
   },
+
   activeDot: {
     width: 14,
     height: 3,
     borderRadius: 1.5,
-    marginTop: 2,
+    marginTop: 5,
   },
+
   notifDot: {
     position: 'absolute',
     top: -2,
@@ -556,29 +605,44 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#FFF',
   },
+
   centerTabButton: {
-    top: -26,
+    top: -18,
     flex: 1,
   },
+
   centerWrap: {
+    height: 78,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
+
   centerRing: {
     padding: 5,
     borderRadius: 34,
+    marginBottom: 2,
   },
+
   centerButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.42,
     shadowRadius: 12,
     elevation: 12,
   },
+
+  centerLabel: {
+    width: 70,
+    fontSize: 10,
+    lineHeight: 13,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+
   centerNotifDot: {
     position: 'absolute',
     top: 6,
@@ -590,6 +654,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#5B6EF5',
   },
+
   floatingBannerContainer: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 44 : 20,
@@ -598,6 +663,7 @@ const styles = StyleSheet.create({
     zIndex: 99999,
     elevation: 999,
   },
+
   floatingBannerCard: {
     borderRadius: 16,
     padding: 16,
@@ -612,6 +678,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
+
   floatingBannerIconWrap: {
     width: 40,
     height: 40,
@@ -620,34 +687,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 2,
   },
+
   floatingBannerIconWrapRejected: {
     backgroundColor: '#FEE2E2',
     borderWidth: 1,
     borderColor: '#FCA5A5',
   },
+
   floatingBannerIconWrapApproved: {
     backgroundColor: '#D1FAE5',
     borderWidth: 1,
     borderColor: '#6EE7B7',
   },
+
   floatingBannerTitle: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#991b1b',
     marginBottom: 4,
     letterSpacing: 0.3,
   },
+
   floatingBannerMessage: {
     fontSize: 13,
     color: '#4b5563',
     lineHeight: 18,
     marginBottom: 10,
   },
+
   floatingBannerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
+
   floatingBannerActionBtn: {
     backgroundColor: '#dc2626',
     paddingHorizontal: 12,
@@ -662,12 +735,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
   },
+
   floatingBannerActionBtnText: {
     color: '#ffffff',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 0.3,
   },
+
   floatingBannerDismissBtn: {
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -676,11 +751,13 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
     backgroundColor: '#FFFFFF',
   },
+
   floatingBannerDismissBtnText: {
     color: '#6b7280',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
+
   floatingBannerCloseIcon: {
     padding: 4,
     position: 'absolute',

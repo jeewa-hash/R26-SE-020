@@ -115,6 +115,7 @@ export const evaluateBidSchedule = async ({
     requiredWindowEnd,
     conflictDetected: !validation.isValid, // Chaw: mark conflict if schedule validator fails
     conflictReason: validation.isValid ? "" : validation.message, // Chaw: store readable conflict reason
+    availabilityMessage: validation.message,
     delayRiskLevel,
     providerBookingsToday: validation.providerBookingsToday || 0,
   };

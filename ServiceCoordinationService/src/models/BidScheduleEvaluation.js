@@ -85,6 +85,7 @@ const bidScheduleEvaluationSchema = new mongoose.Schema(
     estimatedTravelTimeMins: { type: Number, default: 0 },
     gapFromPreviousBookingMins: { type: Number, default: null },
     travelInfoSource: { type: String, default: "NO_COORDINATES" },
+    availabilityMessage: { type: String, default: "" },
 
     delayRiskLevel: {
       type: String,
