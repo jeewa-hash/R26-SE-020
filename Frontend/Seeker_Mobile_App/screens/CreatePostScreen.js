@@ -38,6 +38,7 @@ import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { LanguageContext } from '../context/LanguageContext';
+import { useTheme } from '../hooks/useTheme';
 
 
 // =======================================================
@@ -239,6 +240,8 @@ export default function CreatePostScreen() {
     useContext(
       LanguageContext
     );
+
+  const { isDarkMode } = useTheme(); // ✅ Dark mode
 
 
   // =====================================================
@@ -988,7 +991,7 @@ export default function CreatePostScreen() {
 
   return (
     <SafeAreaView
-      style={styles.container}
+      style={[styles.container, isDarkMode && styles.containerDark]}
     >
       <StatusBar
         barStyle="light-content"
@@ -1088,9 +1091,7 @@ export default function CreatePostScreen() {
         {/* FORM */}
 
         <View
-          style={
-            styles.formContainer
-          }
+          style={[styles.formContainer, isDarkMode && styles.formContainerDark]}
         >
 
           {/* TITLE */}
@@ -1098,38 +1099,31 @@ export default function CreatePostScreen() {
           <View
             style={[
               styles.inputContainer,
+              isDarkMode && styles.inputContainerDark,
               activeField ===
                 'title' &&
                 styles.inputContainerActive,
             ]}
           >
             <Text
-              style={
-                styles.inputLabel
-              }
+              style={[styles.inputLabel, isDarkMode && styles.textDark]}
             >
               Post Title
             </Text>
 
             <TextInput
-              style={
-                styles.titleInput
-              }
-
+              style={[styles.titleInput, isDarkMode && styles.textDark]}
               placeholder="What's your post about?"
-
+              placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
               value={title}
-
               onChangeText={
                 setTitle
               }
-
               onFocus={() =>
                 setActiveField(
                   'title'
                 )
               }
-
               onBlur={() =>
                 setActiveField(
                   null
@@ -1144,44 +1138,35 @@ export default function CreatePostScreen() {
           <View
             style={[
               styles.inputContainer,
+              isDarkMode && styles.inputContainerDark,
               activeField ===
                 'desc' &&
                 styles.inputContainerActive,
             ]}
           >
             <Text
-              style={
-                styles.inputLabel
-              }
+              style={[styles.inputLabel, isDarkMode && styles.textDark]}
             >
               Description
             </Text>
 
             <TextInput
-              style={
-                styles.descriptionInput
-              }
-
+              style={[styles.descriptionInput, isDarkMode && styles.textDark]}
               multiline
-
               numberOfLines={5}
-
               placeholder="Describe the issue, request, or service needed..."
-
+              placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
               value={
                 description
               }
-
               onChangeText={
                 setDescription
               }
-
               onFocus={() =>
                 setActiveField(
                   'desc'
                 )
               }
-
               onBlur={() =>
                 setActiveField(
                   null
@@ -1199,9 +1184,7 @@ export default function CreatePostScreen() {
             }
           >
             <Text
-              style={
-                styles.sectionTitle
-              }
+              style={[styles.sectionTitle, isDarkMode && styles.textDark]}
             >
               Upload Image
             </Text>
@@ -1238,9 +1221,7 @@ export default function CreatePostScreen() {
               </View>
             ) : (
               <TouchableOpacity
-                style={
-                  styles.uploadButton
-                }
+                style={[styles.uploadButton, isDarkMode && styles.uploadButtonDark]}
                 onPress={
                   pickImage
                 }
@@ -1252,17 +1233,13 @@ export default function CreatePostScreen() {
                 />
 
                 <Text
-                  style={
-                    styles.uploadText
-                  }
+                  style={[styles.uploadText, isDarkMode && styles.textDark]}
                 >
                   Tap to Upload Image
                 </Text>
 
                 <Text
-                  style={
-                    styles.uploadSubtext
-                  }
+                  style={[styles.uploadSubtext, isDarkMode && styles.textMutedDark]}
                 >
                   JPG, PNG up to 5MB
                 </Text>
@@ -1404,9 +1381,7 @@ export default function CreatePostScreen() {
           }
         >
           <View
-            style={
-              styles.previewModal
-            }
+            style={[styles.previewModal, isDarkMode && styles.previewModalDark]}
           >
             <ScrollView
               showsVerticalScrollIndicator={
@@ -1415,9 +1390,7 @@ export default function CreatePostScreen() {
             >
 
               <Text
-                style={
-                  styles.previewTitle
-                }
+                style={[styles.previewTitle, isDarkMode && styles.textDark]}
               >
                 ✨ AI Generated Preview
               </Text>
@@ -1437,17 +1410,13 @@ export default function CreatePostScreen() {
               )}
 
               <Text
-                style={
-                  styles.previewHeading
-                }
+                style={[styles.previewHeading, isDarkMode && styles.textDark]}
               >
                 Title
               </Text>
 
               <Text
-                style={
-                  styles.previewText
-                }
+                style={[styles.previewText, isDarkMode && styles.textMutedDark]}
               >
                 {
                   previewData?.title
@@ -1455,17 +1424,13 @@ export default function CreatePostScreen() {
               </Text>
 
               <Text
-                style={
-                  styles.previewHeading
-                }
+                style={[styles.previewHeading, isDarkMode && styles.textDark]}
               >
                 Description
               </Text>
 
               <Text
-                style={
-                  styles.previewText
-                }
+                style={[styles.previewText, isDarkMode && styles.textMutedDark]}
               >
                 {
                   previewData?.description
@@ -1473,17 +1438,13 @@ export default function CreatePostScreen() {
               </Text>
 
               <Text
-                style={
-                  styles.previewHeading
-                }
+                style={[styles.previewHeading, isDarkMode && styles.textDark]}
               >
                 Category
               </Text>
 
               <Text
-                style={
-                  styles.previewText
-                }
+                style={[styles.previewText, isDarkMode && styles.textMutedDark]}
               >
                 {
                   previewData?.category
@@ -1491,17 +1452,13 @@ export default function CreatePostScreen() {
               </Text>
 
               <Text
-                style={
-                  styles.previewHeading
-                }
+                style={[styles.previewHeading, isDarkMode && styles.textDark]}
               >
                 Urgency
               </Text>
 
               <Text
-                style={
-                  styles.previewText
-                }
+                style={[styles.previewText, isDarkMode && styles.textMutedDark]}
               >
                 {
                   previewData?.urgency
@@ -1509,9 +1466,7 @@ export default function CreatePostScreen() {
               </Text>
 
               <Text
-                style={
-                  styles.previewHeading
-                }
+                style={[styles.previewHeading, isDarkMode && styles.textDark]}
               >
                 Suggested Tags
               </Text>
@@ -1528,14 +1483,10 @@ export default function CreatePostScreen() {
                   ) => (
                     <View
                       key={idx}
-                      style={
-                        styles.tag
-                      }
+                      style={[styles.tag, isDarkMode && styles.tagDark]}
                     >
                       <Text
-                        style={
-                          styles.tagText
-                        }
+                        style={[styles.tagText, isDarkMode && styles.tagTextDark]}
                       >
                         #{tag}
                       </Text>
@@ -1554,6 +1505,7 @@ export default function CreatePostScreen() {
                   style={[
                     styles.modalButton,
                     styles.editButton,
+                    isDarkMode && styles.editButtonDark,
                   ]}
                   onPress={() =>
                     setPreviewVisible(
@@ -1562,9 +1514,7 @@ export default function CreatePostScreen() {
                   }
                 >
                   <Text
-                    style={
-                      styles.editButtonText
-                    }
+                    style={[styles.editButtonText, isDarkMode && styles.textMutedDark]}
                   >
                     Edit
                   </Text>
@@ -1625,6 +1575,10 @@ const styles =
       backgroundColor: '#F8F9FA',
     },
 
+    containerDark: {
+      backgroundColor: '#0f1121',
+    },
+
     scrollView: {
       flex: 1,
     },
@@ -1669,6 +1623,10 @@ const styles =
       paddingBottom: 120,
     },
 
+    formContainerDark: {
+      backgroundColor: '#0f1121',
+    },
+
     inputContainer: {
       backgroundColor: '#fff',
       borderRadius: 20,
@@ -1676,6 +1634,11 @@ const styles =
       marginBottom: 16,
       borderWidth: 1,
       borderColor: '#eee',
+    },
+
+    inputContainerDark: {
+      backgroundColor: '#16213e',
+      borderColor: '#2d3561',
     },
 
     inputContainerActive: {
@@ -1709,6 +1672,7 @@ const styles =
       fontSize: 16,
       fontWeight: '700',
       marginBottom: 14,
+      color: '#1F2937',
     },
 
     uploadButton: {
@@ -1719,6 +1683,11 @@ const styles =
       borderStyle: 'dashed',
       padding: 30,
       alignItems: 'center',
+    },
+
+    uploadButtonDark: {
+      backgroundColor: '#16213e',
+      borderColor: '#2d3561',
     },
 
     uploadText: {
@@ -1812,6 +1781,10 @@ const styles =
       maxHeight: '90%',
     },
 
+    previewModalDark: {
+      backgroundColor: '#16213e',
+    },
+
     previewTitle: {
       fontSize: 22,
       fontWeight: '700',
@@ -1831,6 +1804,7 @@ const styles =
       fontWeight: '700',
       marginTop: 12,
       marginBottom: 6,
+      color: '#1F2937',
     },
 
     previewText: {
@@ -1854,9 +1828,17 @@ const styles =
       marginBottom: 8,
     },
 
+    tagDark: {
+      backgroundColor: '#242f4d',
+    },
+
     tagText: {
       color: '#4F46E5',
       fontWeight: '600',
+    },
+
+    tagTextDark: {
+      color: '#818cf8',
     },
 
     modalButtons: {
@@ -1875,6 +1857,10 @@ const styles =
       backgroundColor: '#F3F4F6',
       paddingVertical: 14,
       alignItems: 'center',
+    },
+
+    editButtonDark: {
+      backgroundColor: '#242f4d',
     },
 
     editButtonText: {
@@ -1896,5 +1882,13 @@ const styles =
       fontSize: 16,
       fontWeight: '600',
       color: '#fff',
+    },
+
+    textDark: {
+      color: '#F8FAFC',
+    },
+
+    textMutedDark: {
+      color: '#94A3B8',
     },
   });

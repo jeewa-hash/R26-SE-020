@@ -28,14 +28,82 @@ export default function LoginScreen({ navigation }) {
         password
       });
 
-      await saveCredentials(response.data.token, response.data.role);
-      await AsyncStorage.setItem('userToken', response.data.token);
-      await AsyncStorage.setItem('userRole', response.data.role);
+      console.log('LOGIN RESPONSE:', response.data);
 
-      const userId = getUserIdFromJwt(response.data.token);
-      if (userId) {
-        await AsyncStorage.setItem('userId', String(userId));
+      const rawToken = response.data?.token || response.data?.accessToken || response.data?.data?.token;
+      const cleanToken = typeof rawToken === 'string' ? rawToken.replace(/^Bearer\s+/i, '').trim() : '';
+
+      const loggedUser =
+        response.data?.user ||
+        response.data?.provider ||
+        response.data?.data?.user ||
+        response.data?.data?.provider ||
+        {};
+
+      const jwtUserId = cleanToken ? getUserIdFromJwt(cleanToken) : null;
+      const userId =
+        loggedUser?._id ||
+        loggedUser?.id ||
+        loggedUser?.userId ||
+        loggedUser?.providerId ||
+        response.data?.userId ||
+        jwtUserId;
+
+      const role =
+        loggedUser?.role ||
+        response.data?.role ||
+        'ServiceProvider';
+
+      // Clear all old auth keys before saving new login
+      const keysToClear = [
+        'userToken',
+        'token',
+        'authToken',
+        'accessToken',
+        'userId',
+        'providerId',
+        'seekerId',
+        'userRole',
+        'role',
+        'user',
+        'currentUser',
+        'provider',
+        'seeker',
+      ];
+      await AsyncStorage.multiRemove(keysToClear);
+
+      const isProvider = String(role).toLowerCase() === 'serviceprovider' || String(role).toLowerCase().includes('provider');
+      const isSeeker = String(role).toLowerCase() === 'seeker' || String(role).toLowerCase().includes('seeker');
+
+      const itemsToSet = [
+        ['userToken', cleanToken],
+        ['token', cleanToken],
+        ['accessToken', cleanToken],
+        ['userId', String(userId || '')],
+        ['userRole', String(role)],
+        ['role', String(role)],
+        ['user', JSON.stringify(loggedUser)],
+        ['currentUser', JSON.stringify(loggedUser)],
+      ];
+
+      if (isProvider || !isSeeker) {
+        itemsToSet.push(['providerId', String(userId || '')]);
+        itemsToSet.push(['provider', JSON.stringify(loggedUser)]);
       }
+
+      if (isSeeker) {
+        itemsToSet.push(['seekerId', String(userId || '')]);
+        itemsToSet.push(['seeker', JSON.stringify(loggedUser)]);
+      }
+
+      await AsyncStorage.multiSet(itemsToSet);
+
+      if (cleanToken) {
+        await saveCredentials(cleanToken, role);
+      }
+
+      console.log('LOGIN SAVED USER ID:', userId);
+      console.log('LOGIN SAVED ROLE:', role);
 
       navigation.replace('Main');
       

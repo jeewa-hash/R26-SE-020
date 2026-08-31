@@ -3,8 +3,9 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { API_BASE_URL, AUTH_SERVICE_URL } from '../config';
-import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare, FiActivity, FiTrendingUp, FiBarChart2, FiFileText, FiUser } from 'react-icons/fi';
+import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare, FiActivity, FiTrendingUp, FiBarChart2, FiFileText, FiUser, FiMapPin } from 'react-icons/fi';
 import { HiOutlineShieldCheck } from 'react-icons/hi';
+import workwaveLogo from '../assets/logo.png';
 
 function Layout() {
   const navigate = useNavigate();
@@ -17,6 +18,20 @@ function Layout() {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   useEffect(() => {
+    // Initialize Theme Mode
+    const savedTheme = localStorage.getItem('admin_theme') || 'light';
+    let effectiveTheme = savedTheme;
+    if (savedTheme === 'system') {
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      effectiveTheme = prefersDark ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', effectiveTheme);
+    if (effectiveTheme === 'dark') {
+      document.body.classList.add('dark-theme');
+    } else {
+      document.body.classList.remove('dark-theme');
+    }
+
     if (Notification.permission === 'default') {
       Notification.requestPermission();
     }
@@ -50,11 +65,33 @@ function Layout() {
       console.log('New real-time notification received:', notification);
       setNotifications((prev) => [notification, ...prev]);
       
-      // Optional: Play sound or show browser notification
-      if (Notification.permission === 'granted') {
+      const isMuted = localStorage.getItem('admin_mute_notifications') === 'true';
+      const soundEnabled = localStorage.getItem('admin_sound_alerts') !== 'false';
+      const pushEnabled = localStorage.getItem('admin_browser_push') !== 'false';
+
+      // Only show push notification if not muted and push enabled
+      if (!isMuted && pushEnabled && Notification.permission === 'granted') {
         new window.Notification(notification.title, {
           body: notification.message,
         });
+      }
+
+      // Play chime if not muted and sound enabled
+      if (!isMuted && soundEnabled) {
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+          osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.35);
+        } catch (e) {}
       }
     });
 
@@ -62,6 +99,38 @@ function Layout() {
       socket.disconnect();
     };
   }, []);
+
+  // Admin Inactivity Session Lock Listener
+  useEffect(() => {
+    const timeoutSetting = localStorage.getItem('admin_session_timeout') || '60';
+    if (timeoutSetting === 'never') return;
+
+    const timeoutMinutes = parseInt(timeoutSetting, 10) || 60;
+    const timeoutMs = timeoutMinutes * 60 * 1000;
+
+    let lastActivity = Date.now();
+    const updateActivity = () => {
+      lastActivity = Date.now();
+    };
+
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    events.forEach((evt) => window.addEventListener(evt, updateActivity));
+
+    const checkInterval = setInterval(() => {
+      const currentToken = localStorage.getItem('adminToken');
+      if (currentToken && Date.now() - lastActivity > timeoutMs) {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
+        alert('Your session has timed out due to inactivity. Please log in again.');
+        navigate('/login');
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(checkInterval);
+      events.forEach((evt) => window.removeEventListener(evt, updateActivity));
+    };
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -142,14 +211,9 @@ function Layout() {
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <div className="sidebar-logo">
-            <div className="sidebar-logo-icon">
-              <HiOutlineShieldCheck />
-            </div>
-            <div>
-              <span className="sidebar-logo-text">WorkWave</span>
-              <span className="sidebar-logo-sub">Admin Panel</span>
-            </div>
+          <div className="sidebar-brand-container">
+            <img src={workwaveLogo} alt="WorkWave Logo" className="sidebar-brand-logo" />
+            <span className="sidebar-brand-badge">ADMIN PANEL</span>
           </div>
         </div>
 
@@ -176,6 +240,13 @@ function Layout() {
           >
             <span className="sidebar-link-icon"><FiUsers /></span>
             View Users
+          </NavLink>
+          <NavLink
+            to="/user-locations"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiMapPin /></span>
+            Geographic Distribution
           </NavLink>
           <NavLink
             to="/categories"
@@ -235,10 +306,13 @@ function Layout() {
           </NavLink>
 
           <div className="sidebar-section-label">System</div>
-          <div className="sidebar-link">
+          <NavLink
+            to="/settings"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
             <span className="sidebar-link-icon"><FiSettings /></span>
             Settings
-          </div>
+          </NavLink>
           <NavLink
             to="/profile"
             className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
@@ -266,9 +340,7 @@ function Layout() {
       <div className="main-content">
         {/* Top Bar */}
         <header className="topbar">
-          <div className="topbar-left">
-            <span className="topbar-title">Admin Dashboard</span>
-          </div>
+          <div className="topbar-left"></div>
           <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* Notification Bell */}
             <div style={{ position: 'relative' }} ref={dropdownRef}>
@@ -477,7 +549,12 @@ function Layout() {
               )}
             </div>
 
-            <button className="topbar-icon-btn" title="Settings">
+            <button 
+              className="topbar-icon-btn" 
+              title="Settings"
+              onClick={() => navigate('/settings')}
+              style={{ cursor: 'pointer' }}
+            >
               <FiSettings />
             </button>
           </div>

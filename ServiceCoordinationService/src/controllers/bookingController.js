@@ -4,7 +4,10 @@ import BidPriceEvaluation from "../models/BidPriceEvaluation.js";
 import BidScheduleEvaluation from "../models/BidScheduleEvaluation.js";
 import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
 import axios from "axios";
-import { updateProviderQuotationCoordination } from "../clients/providerServiceClient.js";
+import {
+  getProviderQuotationById,
+  updateProviderQuotationCoordination,
+} from "../clients/providerServiceClient.js";
 
 const canAccessBooking = (req, booking) => {
   if (req.user.role === "Admin") return true;
@@ -15,9 +18,16 @@ const canAccessBooking = (req, booking) => {
 
 export const getBookingsByProvider = async (req, res) => {
   try {
-    const { providerId } = req.params;
+    const providerId = req.params.providerId || req.user?.id;
 
-    if (req.user.role === "ServiceProvider" && req.user.id !== providerId) {
+    if (!providerId) {
+      return res.status(400).json({
+        success: false,
+        message: "providerId is required",
+      });
+    }
+
+    if (req.user && req.user.role === "ServiceProvider" && req.user.id !== providerId.toString()) {
       return res.status(403).json({
         success: false,
         message: "You can only view your own provider bookings",
@@ -236,6 +246,42 @@ export const createBookingFromCoordination = async (req, res) => {
       endDate.getUTCMinutes()
     )}`;
 
+    let quotation = null;
+    try {
+      quotation = await getProviderQuotationById(
+        coordination.externalQuotationId
+      );
+    } catch (quotationError) {
+      console.warn(
+        "BOOKING PROVIDER SNAPSHOT WARNING:",
+        quotationError.message
+      );
+    }
+
+    const providerSnapshot = {
+      providerId: quotation?.providerId || coordination.providerId,
+      name:
+        quotation?.providerSnapshot?.name ||
+        quotation?.providerName ||
+        "Service Provider",
+      businessName:
+        quotation?.providerSnapshot?.businessName ||
+        quotation?.businessName ||
+        "",
+      phone: quotation?.providerSnapshot?.phone || "",
+      district: quotation?.providerSnapshot?.district || "",
+      profileImage: quotation?.providerSnapshot?.profileImage || "",
+    };
+
+    // Coordination Service has no local seeker profile lookup. Keep booking
+    // creation resilient while still storing a readable fallback snapshot.
+    const seekerSnapshot = {
+      seekerId: coordination.seekerId,
+      name: "Customer",
+      phone: "",
+      district: "",
+    };
+
     const booking = await Booking.create({
       postId: null,
       providerRequestId: null,
@@ -247,6 +293,8 @@ export const createBookingFromCoordination = async (req, res) => {
 
       seekerId: coordination.seekerId,
       providerId: coordination.providerId,
+      seekerSnapshot,
+      providerSnapshot,
 
       initialSchedule: {
         date: scheduledDate,
@@ -274,6 +322,19 @@ export const createBookingFromCoordination = async (req, res) => {
 
       bookingStatus: "CONFIRMED",
     });
+
+    // Asynchronously log booking to ML Data (service_data_for_csvs) table in admin service
+    try {
+      const adminUrl = process.env.ADMIN_SERVICE_URL || "http://localhost:5001";
+      axios.post(`${adminUrl}/api/log-booking-ml`, {
+        bookingId: booking._id.toString(),
+        providerId: booking.providerId?.toString(),
+        seekerId: booking.seekerId?.toString(),
+        scheduledDate: booking.scheduledDate,
+      }).catch((e) => console.warn('ML booking log warning:', e.message));
+    } catch (e) {
+      // non-blocking
+    }
 
     coordination.status = "accepted";
     await coordination.save();

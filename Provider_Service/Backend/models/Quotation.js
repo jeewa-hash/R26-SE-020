@@ -33,6 +33,33 @@ const quotationSchema = new mongoose.Schema(
       index: true,
     }, // Chaw: removed User ref because user data belongs to Auth/User Service
 
+    providerSnapshot: {
+      providerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "ServiceProvider",
+      },
+      name: {
+        type: String,
+        default: "",
+      },
+      businessName: {
+        type: String,
+        default: "",
+      },
+      phone: {
+        type: String,
+        default: "",
+      },
+      district: {
+        type: String,
+        default: "",
+      },
+      profileImage: {
+        type: String,
+        default: "",
+      },
+    },
+
     price: {
       type: Number,
       required: true,

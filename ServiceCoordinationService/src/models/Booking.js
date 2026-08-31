@@ -20,6 +20,50 @@ const bookingSchema = new mongoose.Schema(
       index: true,
     },
 
+    seekerSnapshot: {
+      seekerId: {
+        type: mongoose.Schema.Types.ObjectId,
+      },
+      name: {
+        type: String,
+        default: "",
+      },
+      phone: {
+        type: String,
+        default: "",
+      },
+      district: {
+        type: String,
+        default: "",
+      },
+    },
+
+    providerSnapshot: {
+      providerId: {
+        type: mongoose.Schema.Types.ObjectId,
+      },
+      name: {
+        type: String,
+        default: "",
+      },
+      businessName: {
+        type: String,
+        default: "",
+      },
+      phone: {
+        type: String,
+        default: "",
+      },
+      district: {
+        type: String,
+        default: "",
+      },
+      profileImage: {
+        type: String,
+        default: "",
+      },
+    },
+
     providerRequestId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,

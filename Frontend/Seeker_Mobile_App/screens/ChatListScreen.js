@@ -16,20 +16,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function ChatListScreen() {
   const navigation = useNavigation();
   const { isDarkMode } = useTheme();
-  const { chats, currentUserId, fetchChats } = useChat();
+  const { chats, currentUserId, fetchChats, unreadCount } = useChat();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [providerMap, setProviderMap] = useState({});
+  const totalUnreadMessages = Object.values(unreadCount).reduce(
+    (total, count) => total + Number(count || 0),
+    0
+  );
 
-  // Helper to build full image URL
+  // ─── Helper: build full image URL from relative path ──
   const buildImageUrl = (imagePath) => {
     if (!imagePath) return null;
     if (imagePath.startsWith('http')) return imagePath;
-    // If relative, prepend auth service base (where images are stored)
+    // Relative path (e.g., "uploads/profileImage-xxx.jpg")
+    // Prepend auth service base URL (where images are served)
     return `${AUTH_SERVICE_URL}/${imagePath.replace(/^\/+/, '')}`;
   };
 
-  // Load all providers
+  // ─── Load all providers ──────────────────────────────────
   useEffect(() => {
     const loadProviders = async () => {
       try {
@@ -55,7 +60,7 @@ export default function ChatListScreen() {
           }
         }
 
-        // Fetch from portfolio endpoint
+        // Fetch from portfolio endpoint (which returns provider data including profileImage)
         const url = `${PROVIDER_API_BASE}/portfolio/all-providers`;
         console.log(`📡 Fetching ${url}`);
         const res = await axios.get(url);
@@ -68,6 +73,7 @@ export default function ChatListScreen() {
             if (p && p.id) {
               map[p.id] = {
                 name: p.name || `Provider ${p.id.slice(-4)}`,
+                // ✅ Build full URL using the auth service base
                 avatar: buildImageUrl(p.profileImage) || `https://i.pravatar.cc/150?u=${p.id}`,
                 role: 'ServiceProvider',
               };
@@ -103,6 +109,7 @@ export default function ChatListScreen() {
     loadProviders();
   }, []);
 
+  // ─── Fetch chats when user is logged in ────────────────
   useEffect(() => {
     if (currentUserId) {
       fetchChats(currentUserId);
@@ -125,21 +132,25 @@ export default function ChatListScreen() {
     };
   };
 
+  // ─── Filter chats – use live unreadCount ────────────────
   const filteredChats = chats.filter(chat => {
     const otherId = getOtherUser(chat.members);
     const info = getProviderInfo(otherId);
     const matchesSearch = info.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const chatUnread = unreadCount[chat._id] || 0;
     if (selectedFilter === 'unread') {
-      return matchesSearch && (chat.unreadCount || 0) > 0;
+      return matchesSearch && chatUnread > 0;
     }
     return matchesSearch;
   });
 
+  // ─── Render each chat item ──────────────────────────────
   const renderChatItem = ({ item }) => {
     const otherId = getOtherUser(item.members);
     const info = getProviderInfo(otherId);
     const lastMsg = item.lastMessage?.text || 'No messages yet';
     const time = item.updatedAt ? new Date(item.updatedAt).toLocaleTimeString() : '';
+    const chatUnread = unreadCount[item._id] || 0;
 
     return (
       <TouchableOpacity
@@ -163,9 +174,9 @@ export default function ChatListScreen() {
             <Text style={[styles.lastMessage, isDarkMode && styles.textMutedDark]} numberOfLines={1}>
               {lastMsg}
             </Text>
-            {(item.unreadCount || 0) > 0 && (
+            {chatUnread > 0 && (
               <View style={styles.unreadBadge}>
-                <Text style={styles.unreadText}>{item.unreadCount}</Text>
+                <Text style={styles.unreadText}>{chatUnread}</Text>
               </View>
             )}
           </View>
@@ -187,7 +198,16 @@ export default function ChatListScreen() {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Messages</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.headerTitle}>Messages</Text>
+            {totalUnreadMessages > 0 && (
+              <View style={styles.headerUnreadBadge}>
+                <Text style={styles.headerUnreadText}>
+                  {totalUnreadMessages > 99 ? '99+' : totalUnreadMessages}
+                </Text>
+              </View>
+            )}
+          </View>
           <TouchableOpacity style={styles.newChatButton}>
             <Ionicons name="create-outline" size={24} color="#fff" />
           </TouchableOpacity>
@@ -225,7 +245,7 @@ export default function ChatListScreen() {
   );
 }
 
-// ─── Styles (unchanged) ──────────────────────────────────────
+// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
   containerDark: { backgroundColor: '#1a1a2e' },
@@ -233,6 +253,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20 },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ffffff20', justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerUnreadBadge: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EF4444' },
+  headerUnreadText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   newChatButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ffffff20', justifyContent: 'center', alignItems: 'center' },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 16, marginTop: 16, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
   searchContainerDark: { backgroundColor: '#16213e', borderColor: '#2d3561' },
