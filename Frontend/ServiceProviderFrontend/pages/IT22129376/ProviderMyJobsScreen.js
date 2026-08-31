@@ -417,6 +417,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const openJob = (booking) => navigation.navigate('IT22129376ProviderJobDetails', { booking, bookingId: getBookingId(booking) });
   const openRequest = (request) => navigation.navigate('IT22129376ProviderRequestDetails', { request, providerId });
   const openQuoteForm = (request) => navigation.navigate('IT22129376ProviderQuotationForm', { request, providerId });
+  const openAvailability = () => (navigation.getParent() || navigation).navigate('ProviderAvailability');
 
   const renderTimeline = () => {
     const hours = Array.from({ length: 14 }, (_, i) => i + 7);
@@ -429,6 +430,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
           </View>
           <Badge label={`${todayJobs.length} jobs`} bg={COLORS.primarySoft} color={COLORS.primary} />
         </View>
+        <TouchableOpacity style={styles.manageAvailabilityButton} onPress={openAvailability}><Ionicons name="calendar-outline" size={17} color={COLORS.primary} /><Text style={styles.manageAvailabilityText}>Manage Availability</Text></TouchableOpacity>
         {todayJobs.length === 0 ? (
           <EmptyState isDark={isDark} icon="calendar-clear-outline" title="No jobs today" message="Confirmed seeker bookings scheduled for today will appear here." />
         ) : (
@@ -582,6 +584,8 @@ const styles = StyleSheet.create({
   warningCard: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 18, padding: 12, marginBottom: 14, flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   warningCardDark: { backgroundColor: '#2A2112', borderColor: '#92400E' },
   warningText: { flex: 1, color: '#92400E', fontSize: 12, fontWeight: '600', lineHeight: 17 },
+  manageAvailabilityButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderColor: '#C7D2FE', backgroundColor: '#EEF2FF', borderRadius: 11, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 14 },
+  manageAvailabilityText: { color: COLORS.primary, fontSize: 12, fontWeight: '600' },
   textDark: { color: COLORS.darkText },
   textMutedDark: { color: COLORS.darkMuted },
 });

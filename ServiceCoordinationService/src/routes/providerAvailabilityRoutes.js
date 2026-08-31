@@ -2,10 +2,21 @@ import express from "express";
 import {
   upsertProviderAvailability,
   getProviderAvailability,
+  createAvailabilitySlot,
+  updateAvailabilitySlot,
+  deleteAvailabilitySlot,
+  updateAvailabilityStatus,
 } from "../controllers/providerAvailabilityController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+router.get("/provider/me", protect(["ServiceProvider"]), getProviderAvailability);
+router.get("/provider/:providerId", protect(["ServiceProvider", "Admin"]), getProviderAvailability);
+router.post("/provider/me", protect(["ServiceProvider"]), createAvailabilitySlot);
+router.patch("/provider/me/status", protect(["ServiceProvider"]), updateAvailabilityStatus);
+router.put("/:availabilityId", protect(["ServiceProvider"]), updateAvailabilitySlot);
+router.delete("/:availabilityId", protect(["ServiceProvider"]), deleteAvailabilitySlot);
 
 router.post(
   "/",

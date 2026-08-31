@@ -28,6 +28,7 @@ export default function ScheduleEvaluationCard({ evaluation = {}, isDarkMode }) 
         {evaluation.gapFromPreviousBookingMins != null ? <Row label="Travel check" value={Number(evaluation.gapFromPreviousBookingMins) >= Number(evaluation.estimatedTravelTimeMins || 0) ? 'OK' : 'Not enough travel time'} isDarkMode={isDarkMode} /> : null}
       </View>
       {evaluation.conflictReason ? <Text style={[styles.message, isDarkMode && styles.mutedDark]}>{evaluation.conflictReason}</Text> : null}
+      {!evaluation.conflictReason && evaluation.availabilityMessage ? <Text style={[styles.message, isDarkMode && styles.mutedDark]}>{evaluation.availabilityMessage}</Text> : null}
     </View>
   );
 }

@@ -22,6 +22,17 @@ const unavailableSlotSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const availableSlotSchema = new mongoose.Schema({
+  date: { type: String, default: "" },
+  startTime: { type: String, default: "" },
+  endTime: { type: String, default: "" },
+  startDateTime: { type: Date, default: null },
+  endDateTime: { type: Date, default: null },
+  isAvailable: { type: Boolean, default: true },
+  slotType: { type: String, default: "AVAILABLE" },
+  notes: { type: String, default: "" },
+});
+
 const providerAvailabilitySchema = new mongoose.Schema(
   {
     providerId: {
@@ -60,6 +71,8 @@ const providerAvailabilitySchema = new mongoose.Schema(
     },
 
     unavailableSlots: [unavailableSlotSchema],
+
+    availableSlots: { type: [availableSlotSchema], default: [] },
 
     maxBookingsPerDay: {
       type: Number,

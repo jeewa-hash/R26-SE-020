@@ -12,14 +12,18 @@ export async function validateProviderSchedule({
   requestedStartTime,
   requestedEndTime,
 }) {
-  const availability = await ProviderAvailability.findOne({ providerId });
+  let availability = await ProviderAvailability.findOne({ providerId });
+  let availabilityWarning = "";
 
   if (!availability) {
-    return {
-      isValid: false,
-      validationStatus: "CONFLICT",
-      message: "Provider availability is not configured",
-      providerBookingsToday: 0,
+    availabilityWarning = "Provider availability is not fully configured. Schedule check used existing bookings only.";
+    availability = {
+      isActive: true,
+      availableDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      workingHours: { start: "00:00", end: "23:59" },
+      unavailableSlots: [],
+      availableSlots: [],
+      maxBookingsPerDay: Number.MAX_SAFE_INTEGER,
     };
   }
 
@@ -32,9 +36,13 @@ export async function validateProviderSchedule({
     };
   }
 
+  const configuredSlots = (availability.availableSlots || []).filter((slot) => slot.isAvailable && slot.date === requestedDate);
   const requestedDay = getDayName(requestedDate);
 
-  if (!availability.availableDays.includes(requestedDay)) {
+  if (configuredSlots.length > 0) {
+    const containingSlot = configuredSlots.find((slot) => requestedStartTime >= slot.startTime && requestedEndTime <= slot.endTime);
+    if (!containingSlot) return { isValid: false, validationStatus: "CONFLICT", message: "Provider is not available at the proposed time.", providerBookingsToday: 0 };
+  } else if (!availability.availableDays.includes(requestedDay)) {
     return {
       isValid: false,
       validationStatus: "CONFLICT",
@@ -48,7 +56,7 @@ export async function validateProviderSchedule({
   const workingStart = timeToMinutes(availability.workingHours.start);
   const workingEnd = timeToMinutes(availability.workingHours.end);
 
-  if (requestStart < workingStart || requestEnd > workingEnd) {
+  if (configuredSlots.length === 0 && (requestStart < workingStart || requestEnd > workingEnd)) {
     return {
       isValid: false,
       validationStatus: "CONFLICT",
@@ -121,8 +129,8 @@ export async function validateProviderSchedule({
 
   return {
     isValid: true,
-    validationStatus: "VALIDATED",
-    message: "Provider schedule is available",
+    validationStatus: availabilityWarning ? "VALIDATED_WITH_CAUTION" : "VALIDATED",
+    message: availabilityWarning || "Provider is available at the proposed time.",
     providerBookingsToday: providerBookingsToday.length,
   };
 }
