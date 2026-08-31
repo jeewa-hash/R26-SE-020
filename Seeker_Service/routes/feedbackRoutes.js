@@ -5,8 +5,11 @@ import {
   getServiceFeedback,
   getBookingFeedbackStatus,
   updateFeedback,
-  deleteFeedback
+  deleteFeedback,
+  getUserFeedback,
+  getProviderAverageRatings,
 } from "../controllers/feedbackController.js";
+import { authMiddleware } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -17,6 +20,11 @@ router.post("/", createFeedback);
 router.get("/provider/:providerId", getProviderFeedback);
 router.get("/booking/:bookingId", getBookingFeedbackStatus);
 router.get("/service/:serviceId", getServiceFeedback);
+router.get("/user/me", authMiddleware, getUserFeedback);
+
+// INTERNAL – provider score aggregation (called by ML image-classifier service)
+router.get("/provider-scores", getProviderAverageRatings);
+router.get("/provider-scores/:providerId", getProviderAverageRatings);
 
 // UPDATE
 router.put("/:id", updateFeedback);
@@ -24,4 +32,4 @@ router.put("/:id", updateFeedback);
 // DELETE
 router.delete("/:id", deleteFeedback);
 
-export default router;
+export default router;

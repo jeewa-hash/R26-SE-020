@@ -87,7 +87,6 @@ export const createFeedback = async (req, res) => {
 
     const feedback = new Feedback({
       bookingId: String(booking._id),
-      // Do not trust provider/service/user IDs sent by the client.
       serviceId: String(booking._id),
       providerId: String(booking.providerId),
       userId: String(booking.seekerId),
@@ -163,6 +162,26 @@ export const getServiceFeedback = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error"
+    });
+  }
+};
+
+/* =========================
+   GET FEEDBACK FOR LOGGED-IN USER (NEW)
+========================= */
+export const getUserFeedback = async (req, res) => {
+  try {
+    const userId = req.user.id; // from authMiddleware
+    const feedbacks = await Feedback.find({ userId }).sort({ createdAt: -1 });
+    return res.status(200).json({
+      success: true,
+      count: feedbacks.length,
+      data: feedbacks,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server error",
     });
   }
 };
@@ -246,6 +265,92 @@ export const getBookingFeedbackStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error"
+    });
+  }
+};
+
+/* =========================
+   GET PROVIDER AVERAGE RATINGS (INTERNAL – used by ML image classifier)
+   Returns aggregated rating stats for ALL providers (or one if :id given)
+========================= */
+export const getProviderAverageRatings = async (req, res) => {
+  try {
+    const { providerId } = req.params; // optional – only present on /:id route
+
+    const matchStage = providerId
+      ? { $match: { providerId } }
+      : { $match: {} };
+
+    const pipeline = [
+      matchStage,
+      {
+        $group: {
+          _id: "$providerId",
+          avgRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+          recommendedCount: {
+            $sum: { $cond: [{ $eq: ["$recommendation", true] }, 1, 0] }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          providerId: "$_id",
+          avgRating: { $round: ["$avgRating", 2] },
+          totalReviews: 1,
+          recommendationRate: {
+            $cond: [
+              { $gt: ["$totalReviews", 0] },
+              {
+                $round: [
+                  {
+                    $multiply: [
+                      { $divide: ["$recommendedCount", "$totalReviews"] },
+                      100
+                    ]
+                  },
+                  1
+                ]
+              },
+              0
+            ]
+          }
+        }
+      },
+      { $sort: { avgRating: -1 } }
+    ];
+
+    const scores = await Feedback.aggregate(pipeline);
+
+    // Return as a flat map { providerId: { avgRating, totalReviews, recommendationRate } }
+    // when all providers are requested – easier for the ML service to consume.
+    if (!providerId) {
+      const scoresMap = {};
+      scores.forEach((s) => {
+        scoresMap[s.providerId] = {
+          avgRating: s.avgRating,
+          totalReviews: s.totalReviews,
+          recommendationRate: s.recommendationRate
+        };
+      });
+      return res.status(200).json({ success: true, scores: scoresMap });
+    }
+
+    // Single provider
+    if (scores.length === 0) {
+      return res.status(200).json({
+        success: true,
+        scores: { avgRating: 0, totalReviews: 0, recommendationRate: 0 }
+      });
+    }
+
+    return res.status(200).json({ success: true, scores: scores[0] });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server error"
     });
   }
 };
