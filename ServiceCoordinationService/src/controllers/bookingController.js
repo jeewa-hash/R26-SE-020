@@ -811,11 +811,6 @@ export const getProviderMissedInquiries = async (req, res) => {
   }
 };
 
-/**
- * Get provider earnings summary from completed bookings
- * Returns total completed earnings, count, and optional month/year filter
- * Used by Provider Service for billing & 5% commission calculation
- */
 export const getProviderEarningsSummary = async (req, res) => {
   try {
     const providerId = req.params.providerId || req.user?.id;

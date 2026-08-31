@@ -1,10 +1,11 @@
 // components/portfolio/ServicesSection.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG } from '../../config';
+import { ThemeContext } from '../../context/ThemeContext';
 
 const CATEGORY_META = {
   plumbing:   { icon: 'plumbing',            color: '#2563EB' },
@@ -13,14 +14,20 @@ const CATEGORY_META = {
   cleaning:   { icon: 'cleaning-services',   color: '#059669' },
   painting:   { icon: 'format-paint',        color: '#DC2626' },
   roofing:    { icon: 'home-repair-service', color: '#0891B2' },
+  gardening:  { icon: 'yard',                color: '#16A34A' },
+  repairing:  { icon: 'build',               color: '#D97706' },
 };
 const DEFAULT_META = { icon: 'build', color: '#6B7280' };
 
 const getMeta = (key) => CATEGORY_META[(key || '').toLowerCase()] || DEFAULT_META;
 
+const INITIAL_SERVICE_LIMIT = 4;
+
 export default function ServicesSection({ navigation, C, initialCategory, onAddServicePress }) {
+  const { isDark } = useContext(ThemeContext) || {};
   const [addedServices, setAddedServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAllServices, setShowAllServices] = useState(false);
 
   const fetchAddedServices = useCallback(async () => {
     try {
@@ -38,7 +45,6 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddS
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
 
-      // Response is one doc per classified image — group by service_key to get a square per service
       const raw = Array.isArray(data) ? data : data?.categories || [];
       const grouped = {};
       raw.forEach((item) => {
@@ -48,10 +54,11 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddS
             id: key,
             title: item.label,
             categoryGroup: item.category_group,
-            count: 0,
+            count: item.image_count || 1,
           };
+        } else {
+          grouped[key].count += (item.image_count || 1);
         }
-        grouped[key].count += 1;
       });
 
       setAddedServices(Object.values(grouped));
@@ -70,13 +77,19 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddS
     if (onAddServicePress) {
       onAddServicePress();
     } else {
-      navigation.navigate('AddService');
+      navigation.getParent()?.navigate('PortfolioGallery');
     }
   };
 
   const handleCategoryPress = (categoryLabel) => {
     navigation.getParent()?.navigate('PortfolioGallery', { category: categoryLabel });
   };
+
+  const displayedServices = showAllServices
+    ? addedServices
+    : addedServices.slice(0, INITIAL_SERVICE_LIMIT);
+
+  const remainingServicesCount = Math.max(0, addedServices.length - INITIAL_SERVICE_LIMIT);
 
   return (
     <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
@@ -105,7 +118,7 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddS
         )}
 
         {/* Services detected from tagged portfolio images */}
-        {addedServices.map((svc) => {
+        {displayedServices.map((svc) => {
           const meta = getMeta(svc.categoryGroup);
           return (
             <TouchableOpacity
@@ -125,6 +138,24 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddS
           );
         })}
       </View>
+
+      {/* See More / Show Less Button */}
+      {addedServices.length > INITIAL_SERVICE_LIMIT && (
+        <TouchableOpacity
+          style={[styles.seeMoreBtn, { borderColor: C.border, backgroundColor: C.subCard }]}
+          onPress={() => setShowAllServices(!showAllServices)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.seeMoreText}>
+            {showAllServices ? 'Show Less Services' : `See More Services (+${remainingServicesCount} more)`}
+          </Text>
+          <MaterialIcons
+            name={showAllServices ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+            size={16}
+            color="#2563EB"
+          />
+        </TouchableOpacity>
+      )}
 
       {loading && <Text style={[styles.loadingText, { color: C.textSub }]}>Loading services…</Text>}
       {!loading && !initialCategory && addedServices.length === 0 && (
@@ -153,6 +184,12 @@ const styles = StyleSheet.create({
   },
   countBadgeText: { fontSize: 9, color: '#fff', fontWeight: '700' },
   squareLabel:  { fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  seeMoreBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 4, marginTop: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1,
+  },
+  seeMoreText: { fontSize: 12, fontWeight: '600', color: '#2563EB' },
   loadingText:  { fontSize: 11, marginTop: 8, fontStyle: 'italic' },
   emptyText:    { fontSize: 12 },
 });
+
