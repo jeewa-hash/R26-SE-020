@@ -42,6 +42,31 @@ export const checkPaymentSuspension = async (req, res, next) => {
       });
     }
 
+    // 2. Check Penalty Score & Account Lock restrictions from Admin Service
+    try {
+      const adminUrl = process.env.ADMIN_SERVICE_URL || "http://localhost:5001";
+      const statusRes = await fetch(`${adminUrl}/api/inquiries/check-bookable/${providerId}`, {
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(2500),
+      });
+      if (statusRes.ok) {
+        const pStatus = await statusRes.json();
+        if (pStatus.isRestricted || pStatus.isBlocked || (typeof pStatus.penaltyScore === 'number' && pStatus.penaltyScore >= 3)) {
+          return res.status(403).json({
+            success: false,
+            error: "PENALTY_RESTRICTED",
+            isRestricted: true,
+            penaltyScore: pStatus.penaltyScore,
+            penaltyRatio: pStatus.penaltyRatio,
+            message:
+              `Posting and service actions are restricted. Your penalty score has reached ${pStatus.penaltyRatio || '3/3'} due to missed or cancelled bookings. Please submit an inquiry for your missed bookings to clear your penalty points.`,
+          });
+        }
+      }
+    } catch (penaltyErr) {
+      // Non-blocking fallback
+    }
+
     return next();
   } catch (error) {
     console.error("PAYMENT SUSPENSION MIDDLEWARE ERROR:", error.message);

@@ -744,6 +744,80 @@ exports.reviewInquiry = async (req, res) => {
 };
 
 /**
+ * Helper: Automatically dispatch penalty warning notification to provider
+ * when penalty score is 3/3 or higher.
+ */
+const dispatchPenaltyWarningNotification = async (providerId, penaltyCount, penaltyRatio, providerName) => {
+  try {
+    if (penaltyCount < 3) return;
+    const pIdStr = String(providerId);
+
+    // Prevent duplicate notification within 6 hours for the same provider
+    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const existing = await ProviderNotification.findOne({
+      providerId: pIdStr,
+      type: 'PENALTY_WARNING',
+      createdAt: { $gte: sixHoursAgo },
+    });
+
+    if (existing) {
+      return;
+    }
+
+    const title = `⚠️ Critical Penalty Alert (${penaltyRatio} Points)`;
+    const message = `Your penalty score has reached ${penaltyRatio} due to missed or cancelled bookings. Please submit an inquiry for your missed or cancelled bookings immediately. Until your penalty points are reduced below 3, posting new services and receiving new bookings from seekers will be restricted.`;
+
+    // 1. Direct insert into adminService ProviderNotification (FinanceManagement DB)
+    await ProviderNotification.create({
+      providerId: pIdStr,
+      title,
+      message,
+      type: 'PENALTY_WARNING',
+      isRead: false,
+      createdAt: new Date(),
+    });
+
+    // 2. Direct insert into Provider_Service DB (for ServiceProvider Mobile App)
+    try {
+      const providerMongoUri = process.env.PROVIDER_MONGO_URI || 
+        'mongodb+srv://jkumarasekara_db_user:vfDFrozTabkpXDCl@cluster0.xggs3th.mongodb.net/Provider_Service?retryWrites=true&w=majority';
+      const providerConn = await mongoose.createConnection(providerMongoUri).asPromise();
+      const notifColl = providerConn.collection('providernotifications');
+      await notifColl.insertOne({
+        providerId: pIdStr,
+        title,
+        message,
+        type: 'PENALTY_WARNING',
+        isRead: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      await providerConn.close();
+    } catch (dbErr) {
+      console.warn('Provider_Service DB penalty notification write note:', dbErr.message);
+    }
+
+    // 3. Dispatch real-time Socket notification via authService
+    try {
+      await fetch('http://localhost:4003/admin/notify-provider-internal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          providerId: pIdStr,
+          title,
+          message,
+          type: 'PENALTY_WARNING',
+        }),
+      });
+    } catch (sockErr) {
+      console.log('Socket dispatch penalty warning note:', sockErr.message);
+    }
+  } catch (err) {
+    console.error('Error dispatching penalty warning notification:', err.message);
+  }
+};
+
+/**
  * 5. GET /api/inquiries/penalty-registry
  * Fetch penalty point registry list for Admin Web App
  */
@@ -819,6 +893,13 @@ exports.getPenaltyRegistry = async (req, res) => {
       const penaltyCount = activeMissedCount;
       const penaltyRatio = `${penaltyCount}/3`;
 
+      // Dispatch system notification if penalty score is 3/3 or higher
+      if (penaltyCount >= 3) {
+        dispatchPenaltyWarningNotification(p._id, penaltyCount, penaltyRatio, p.name || p.email).catch(e => {
+          console.warn('Penalty warning dispatch background note:', e.message);
+        });
+      }
+
       // Inquiry status rule: Required for >= 3/3, Optional for 2/3, Not Required for <= 1/3
       let inquiryStatus = 'Not Required';
       if (penaltyCount >= 3 || p.isBlocked) {
@@ -883,6 +964,77 @@ exports.getPenaltyRegistry = async (req, res) => {
   } catch (error) {
     console.error('getPenaltyRegistry Error:', error.message);
     return res.status(500).json({ success: false, message: 'Failed to fetch penalty registry', error: error.message });
+  }
+};
+
+/**
+ * Explicitly sends a penalty warning notification on demand
+ * POST /api/inquiries/send-penalty-warning/:providerId
+ */
+exports.sendPenaltyWarning = async (req, res) => {
+  try {
+    const { providerId } = req.params;
+    const { penaltyCount, penaltyRatio } = req.body || {};
+
+    const provider = await Provider.findById(providerId);
+    if (!provider) {
+      return res.status(404).json({ success: false, message: 'Provider not found' });
+    }
+
+    const ratio = penaltyRatio || `${penaltyCount || 2}/3`;
+    const title = `⚠️ Critical Penalty Alert (${ratio} Points)`;
+    const message = `Your penalty score has reached ${ratio} due to missed or cancelled bookings. Please submit an inquiry for your missed or cancelled bookings immediately. Until your penalty points are reduced below 3, posting new services and receiving new bookings from seekers will be restricted.`;
+
+    await ProviderNotification.create({
+      providerId: String(providerId),
+      title,
+      message,
+      type: 'PENALTY_WARNING',
+      isRead: false,
+      createdAt: new Date(),
+    });
+
+    try {
+      const providerMongoUri = process.env.PROVIDER_MONGO_URI || 
+        'mongodb+srv://jkumarasekara_db_user:vfDFrozTabkpXDCl@cluster0.xggs3th.mongodb.net/Provider_Service?retryWrites=true&w=majority';
+      const providerConn = await mongoose.createConnection(providerMongoUri).asPromise();
+      const notifColl = providerConn.collection('providernotifications');
+      await notifColl.insertOne({
+        providerId: String(providerId),
+        title,
+        message,
+        type: 'PENALTY_WARNING',
+        isRead: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      await providerConn.close();
+    } catch (dbErr) {
+      console.warn('Provider_Service DB penalty notification write note:', dbErr.message);
+    }
+
+    try {
+      await fetch('http://localhost:4003/admin/notify-provider-internal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          providerId: String(providerId),
+          title,
+          message,
+          type: 'PENALTY_WARNING',
+        }),
+      });
+    } catch (sockErr) {
+      console.log('Socket dispatch penalty warning note:', sockErr.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Penalty warning notification successfully sent to provider ${provider.name || provider.email}`,
+    });
+  } catch (err) {
+    console.error('sendPenaltyWarning Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to send penalty warning', error: err.message });
   }
 };
 
