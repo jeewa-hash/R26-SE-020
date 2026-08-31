@@ -2,10 +2,22 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL, AUTH_SERVICE_URL } from '../config';
-import { FiArrowLeft, FiUser, FiMapPin, FiPhone, FiCreditCard, FiCheckCircle, FiXCircle, FiMessageSquare, FiMap } from 'react-icons/fi';
+import {
+  FiArrowLeft,
+  FiUser,
+  FiMapPin,
+  FiPhone,
+  FiCreditCard,
+  FiCheckCircle,
+  FiXCircle,
+  FiMessageSquare,
+  FiMap,
+  FiMail,
+} from 'react-icons/fi';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import './ProviderVerificationPage.css';
 
 // Fix for default marker icons in Leaflet
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -15,7 +27,7 @@ let DefaultIcon = L.icon({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
   iconSize: [25, 41],
-  iconAnchor: [12, 41]
+  iconAnchor: [12, 41],
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
@@ -37,7 +49,7 @@ function ProviderVerificationPage() {
         setLoading(true);
         const token = localStorage.getItem('adminToken');
         const response = await axios.get(`${API_BASE_URL}/providers/${id}/verify-details`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         setProvider(response.data);
         setError('');
@@ -58,18 +70,18 @@ function ProviderVerificationPage() {
       return;
     }
 
-    setActionLoading(true);
     try {
+      setActionLoading(true);
       const token = localStorage.getItem('adminToken');
       await axios.patch(
         `${API_BASE_URL}/providers/${id}/verify`,
-        { action },
+        { action: 'approve' },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       navigate('/nic-verifications');
     } catch (err) {
-      console.error(`Failed to ${action} provider`, err);
-      alert(err.response?.data?.message || `Failed to ${action} provider`);
+      console.error('Failed to approve provider', err);
+      alert(err.response?.data?.message || 'Failed to approve provider');
     } finally {
       setActionLoading(false);
     }
@@ -77,25 +89,25 @@ function ProviderVerificationPage() {
 
   const handleRejectConfirm = async () => {
     if (!rejectNote.trim()) {
-      alert('Please enter an internal note before rejecting.');
+      alert('Please enter a rejection reason.');
       return;
     }
 
-    setActionLoading(true);
     try {
+      setActionLoading(true);
       const token = localStorage.getItem('adminToken');
       await axios.patch(
         `${API_BASE_URL}/providers/${id}/verify`,
-        { action: 'reject', adminNote: rejectNote.trim() },
+        { action: 'reject', note: rejectNote.trim() },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      setShowRejectModal(false);
       navigate('/nic-verifications');
     } catch (err) {
       console.error('Failed to reject provider', err);
       alert(err.response?.data?.message || 'Failed to reject provider');
     } finally {
       setActionLoading(false);
-      setShowRejectModal(false);
     }
   };
 
@@ -108,12 +120,23 @@ function ProviderVerificationPage() {
 
   const isNicMatch = () => {
     if (!provider || !provider.extractedNicNumber) return false;
-    return provider.nicNumber.trim().toUpperCase() === provider.extractedNicNumber.trim().toUpperCase();
+    return (
+      provider.nicNumber.trim().toUpperCase() ===
+      provider.extractedNicNumber.trim().toUpperCase()
+    );
   };
 
   if (loading) {
     return (
-      <div className="page-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <div
+        className="page-content verification-page"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '60vh',
+        }}
+      >
         <p>Loading provider details...</p>
       </div>
     );
@@ -121,8 +144,11 @@ function ProviderVerificationPage() {
 
   if (error || !provider) {
     return (
-      <div className="page-content">
-        <button className="btn-close" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px', width: 'auto', padding: '8px 16px', borderRadius: '8px' }} onClick={() => navigate('/')}>
+      <div className="page-content verification-page">
+        <button
+          className="verification-back-btn"
+          onClick={() => navigate('/nic-verifications')}
+        >
           <FiArrowLeft /> Back
         </button>
         <div className="text-center" style={{ color: '#ef4444', padding: '48px' }}>
@@ -132,58 +158,71 @@ function ProviderVerificationPage() {
     );
   }
 
+  const providerDisplayName =
+    provider.name ||
+    provider.fullName ||
+    (provider.email ? provider.email.split('@')[0] : 'N/A');
+
   return (
-    <div className="page-content">
+    <div className="page-content verification-page">
       {/* Back Button */}
       <button
         onClick={() => navigate('/nic-verifications')}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          marginBottom: '20px',
-          padding: '8px 16px',
-          borderRadius: '10px',
-          border: '1px solid var(--gray-200)',
-          background: '#fff',
-          cursor: 'pointer',
-          fontSize: '14px',
-          fontWeight: 600,
-          color: 'var(--gray-700)',
-        }}
+        className="verification-back-btn"
       >
-        <FiArrowLeft /> Back
+        <FiArrowLeft /> Back to NIC Verifications
       </button>
 
       {/* Page Title */}
       <div className="register-page-header">
         <div>
           <h1>Identity Document Review</h1>
-          <p>Please verify if the OCR extracted data matches the user-submitted profile details and the provided NIC scan.</p>
+          <p>
+            Please verify if the OCR extracted data matches the user-submitted profile details
+            and the provided NIC scan.
+          </p>
         </div>
       </div>
 
       {/* Main Content Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
-        {/* Left: NIC Image */}
-        <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid var(--gray-100)', padding: '24px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px' }}>
-            NIC FRONT - USER UPLOAD
+      <div className="verification-grid">
+        {/* Left: NIC Image Card */}
+        <div className="verification-card">
+          <h3 className="verification-card-title">
+            <FiCreditCard size={16} /> NIC Front — User Document Upload
           </h3>
           {provider.nicImage ? (
-            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--gray-200)' }}>
+            <div className="verification-image-container">
               <img
                 src={getImageUrl(provider.nicImage)}
-                alt="NIC Upload"
+                alt="NIC Document Upload"
                 style={{ width: '100%', height: 'auto', display: 'block' }}
-                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
               />
-              <div style={{ display: 'none', padding: '48px', textAlign: 'center', color: 'var(--gray-400)' }}>
-                Failed to load image
+              <div
+                style={{
+                  display: 'none',
+                  padding: '48px',
+                  textAlign: 'center',
+                  color: 'var(--gray-400)',
+                }}
+              >
+                Failed to load document image
               </div>
             </div>
           ) : (
-            <div style={{ padding: '48px', textAlign: 'center', color: 'var(--gray-400)', background: 'var(--gray-50)', borderRadius: '12px' }}>
+            <div
+              style={{
+                padding: '48px',
+                textAlign: 'center',
+                color: 'var(--gray-400)',
+                background: 'var(--gray-50)',
+                borderRadius: '12px',
+              }}
+            >
               No NIC image uploaded
             </div>
           )}
@@ -191,49 +230,65 @@ function ProviderVerificationPage() {
 
         {/* Right: User Data & Comparison */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* User Data Section */}
-          <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid var(--gray-100)', padding: '24px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FiUser size={16} /> User Data
+          {/* User Profile Data Section */}
+          <div className="verification-card">
+            <h3 className="verification-card-title">
+              <FiUser size={16} /> User Profile Information
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="verification-data-grid">
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-400)', marginBottom: '4px', display: 'block' }}>Full Name</label>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0 }}>{provider.email || 'N/A'}</p>
+                <label className="verification-field-label">Full Name</label>
+                <p className="verification-field-value">{providerDisplayName}</p>
               </div>
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-400)', marginBottom: '4px', display: 'block' }}>District</label>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <FiMapPin size={14} /> {provider.district || 'N/A'}
+                <label className="verification-field-label">Email Address</label>
+                <p className="verification-field-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FiMail size={14} style={{ opacity: 0.6, flexShrink: 0 }} />
+                  <span>{provider.email || 'N/A'}</span>
                 </p>
               </div>
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-400)', marginBottom: '4px', display: 'block' }}>Telephone</label>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <FiPhone size={14} /> {provider.telephone || 'N/A'}
+                <label className="verification-field-label">District</label>
+                <p className="verification-field-value" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <FiMapPin size={14} style={{ color: 'var(--primary-500)' }} /> {provider.district || 'N/A'}
                 </p>
               </div>
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-400)', marginBottom: '4px', display: 'block' }}>Category</label>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0 }}>{provider.category || 'N/A'}</p>
+                <label className="verification-field-label">Telephone</label>
+                <p className="verification-field-value" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <FiPhone size={14} style={{ color: '#10b981' }} /> {provider.telephone || 'N/A'}
+                </p>
               </div>
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-400)', marginBottom: '4px', display: 'block' }}>Gender</label>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0 }}>{provider.gender || 'N/A'}</p>
+                <label className="verification-field-label">Category</label>
+                <p className="verification-field-value">{provider.category || 'N/A'}</p>
               </div>
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-400)', marginBottom: '4px', display: 'block' }}>Address</label>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0 }}>{provider.address || 'N/A'}</p>
+                <label className="verification-field-label">Gender</label>
+                <p className="verification-field-value">{provider.gender || 'N/A'}</p>
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <label className="verification-field-label">Registered Address</label>
+                <p className="verification-field-value">{provider.address || 'N/A'}</p>
               </div>
             </div>
 
             {/* Map Integration */}
             {provider.location?.latitude && provider.location?.longitude && (
-              <div style={{ marginTop: '20px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--gray-200)', height: '200px' }}>
-                <MapContainer 
-                  center={[provider.location.latitude, provider.location.longitude]} 
-                  zoom={13} 
+              <div
+                style={{
+                  marginTop: '20px',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  border: '1px solid var(--gray-200)',
+                  height: '190px',
+                  position: 'relative',
+                }}
+              >
+                <MapContainer
+                  center={[provider.location.latitude, provider.location.longitude]}
+                  zoom={13}
                   style={{ height: '100%', width: '100%' }}
                   scrollWheelZoom={false}
                 >
@@ -241,87 +296,118 @@ function ProviderVerificationPage() {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   />
-                  <Marker position={[provider.location.latitude, provider.location.longitude]}>
+                  <Marker
+                    position={[provider.location.latitude, provider.location.longitude]}
+                  >
                     <Popup>
                       <div style={{ fontSize: '12px' }}>
-                        <strong>{provider.email}</strong><br />
+                        <strong>{providerDisplayName}</strong>
+                        <br />
                         {provider.address || provider.district}
                       </div>
                     </Popup>
                   </Marker>
                 </MapContainer>
-                <a 
-                  href={`https://www.google.com/maps?q=${provider.location.latitude},${provider.location.longitude}`} 
-                  target="_blank" 
+                <a
+                  href={`https://www.google.com/maps?q=${provider.location.latitude},${provider.location.longitude}`}
+                  target="_blank"
                   rel="noopener noreferrer"
-                  style={{ 
-                    position: 'absolute', 
-                    bottom: '10px', 
-                    right: '10px', 
-                    zIndex: 1000, 
-                    background: '#fff', 
-                    padding: '4px 8px', 
-                    borderRadius: '4px', 
-                    fontSize: '11px', 
-                    fontWeight: 600, 
+                  style={{
+                    position: 'absolute',
+                    bottom: '10px',
+                    right: '10px',
+                    zIndex: 1000,
+                    background: '#fff',
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
                     color: 'var(--primary-600)',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                     textDecoration: 'none',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px'
+                    gap: '5px',
                   }}
                 >
-                  <FiMap size={12} /> Open Google Maps
+                  <FiMap size={13} /> Open Google Maps
                 </a>
               </div>
             )}
           </div>
 
           {/* NIC Comparison Section */}
-          <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid var(--gray-100)', padding: '24px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FiCreditCard size={16} /> NIC Verification
+          <div className="verification-card">
+            <h3 className="verification-card-title">
+              <FiCreditCard size={16} /> NIC Number Comparison
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div className="verification-data-grid">
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-400)', marginBottom: '4px', display: 'block' }}>ID Number (Entered)</label>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0 }}>{provider.nicNumber || 'N/A'}</p>
+                <label className="verification-field-label">ID Number (Entered by Provider)</label>
+                <p className="verification-field-value" style={{ fontFamily: 'monospace', fontSize: '15px', letterSpacing: '0.5px' }}>
+                  {provider.nicNumber || 'N/A'}
+                </p>
               </div>
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-400)', marginBottom: '4px', display: 'block' }}>Extracted ID Number (OCR)</label>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--gray-800)', margin: 0 }}>
+                <label className="verification-field-label">Extracted ID Number (OCR Scan)</label>
+                <p className="verification-field-value" style={{ fontFamily: 'monospace', fontSize: '15px', letterSpacing: '0.5px' }}>
                   {provider.extractedNicNumber || (
-                    <span style={{ color: 'var(--gray-400)', fontStyle: 'italic' }}>Could not extract</span>
+                    <span style={{ color: 'var(--gray-400)', fontStyle: 'italic', fontFamily: 'inherit', fontSize: '13px' }}>
+                      Could not extract OCR
+                    </span>
                   )}
                 </p>
               </div>
             </div>
 
-            {/* Match Badge */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '10px', background: isNicMatch() ? '#ecfdf5' : '#fef2f2', border: `1px solid ${isNicMatch() ? '#a7f3d0' : '#fecaca'}` }}>
+            {/* Match Status Badge */}
+            <div className={`verification-match-badge ${isNicMatch() ? 'matched' : 'mismatched'}`}>
               {isNicMatch() ? (
                 <>
-                  <FiCheckCircle size={20} color="#10b981" />
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#059669' }}>Same</span>
+                  <FiCheckCircle size={22} color="#10b981" />
+                  <span className="verification-match-text">
+                    Verified Match — Entered NIC Matches Uploaded Document
+                  </span>
                 </>
               ) : (
                 <>
-                  <FiXCircle size={20} color="#ef4444" />
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#dc2626' }}>Not Same</span>
+                  <FiXCircle size={22} color="#ef4444" />
+                  <span className="verification-match-text">
+                    Mismatch Warning — Entered NIC does not match OCR extraction
+                  </span>
                 </>
               )}
             </div>
           </div>
 
-          {/* Admin Note (shown if provider was rejected) */}
+          {/* Admin Note (shown if provider was previously rejected) */}
           {provider.isRejected && provider.adminNote && (
-            <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #fecaca', padding: '24px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FiMessageSquare size={16} /> Rejection Reason (Internal Note)
+            <div
+              className="verification-card"
+              style={{ borderLeft: '4px solid #ef4444' }}
+            >
+              <h3
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  color: '#ef4444',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <FiMessageSquare size={16} /> Previous Rejection Reason
               </h3>
-              <p style={{ fontSize: '14px', color: 'var(--gray-700)', margin: 0, whiteSpace: 'pre-wrap' }}>{provider.adminNote}</p>
+              <p
+                className="verification-field-value"
+                style={{ whiteSpace: 'pre-wrap', lineHeight: 1.5 }}
+              >
+                {provider.adminNote}
+              </p>
             </div>
           )}
         </div>
@@ -329,24 +415,11 @@ function ProviderVerificationPage() {
 
       {/* Action Buttons */}
       {provider.verificationStatus === 'Pending' && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', paddingTop: '16px', borderTop: '1px solid var(--gray-100)' }}>
+        <div className="verification-action-bar">
           <button
             onClick={() => handleVerify('reject')}
             disabled={actionLoading}
-            style={{
-              padding: '12px 32px',
-              borderRadius: '12px',
-              border: '2px solid #ef4444',
-              background: '#fff',
-              color: '#ef4444',
-              fontSize: '14px',
-              fontWeight: 700,
-              cursor: actionLoading ? 'not-allowed' : 'pointer',
-              opacity: actionLoading ? 0.6 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
+            className="verification-reject-btn"
           >
             <FiXCircle size={18} />
             {actionLoading ? 'Processing...' : 'REJECT APPLICATION'}
@@ -354,21 +427,7 @@ function ProviderVerificationPage() {
           <button
             onClick={() => handleVerify('approve')}
             disabled={actionLoading}
-            style={{
-              padding: '12px 32px',
-              borderRadius: '12px',
-              border: 'none',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              color: '#fff',
-              fontSize: '14px',
-              fontWeight: 700,
-              cursor: actionLoading ? 'not-allowed' : 'pointer',
-              opacity: actionLoading ? 0.6 : 1,
-              boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
+            className="verification-approve-btn"
           >
             <FiCheckCircle size={18} />
             {actionLoading ? 'Processing...' : 'APPROVE IDENTITY'}
@@ -378,84 +437,65 @@ function ProviderVerificationPage() {
 
       {/* Reject Modal */}
       {showRejectModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '24px',
-        }}>
-          <div style={{
-            background: '#fff',
-            borderRadius: '16px',
-            padding: '32px',
-            maxWidth: '480px',
-            width: '100%',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-          }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#ef4444', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <FiXCircle size={24} /> Reject Application
+        <div className="verification-modal-overlay">
+          <div className="verification-modal-card">
+            <h2
+              style={{
+                fontSize: '20px',
+                fontWeight: 700,
+                color: '#ef4444',
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
+              <FiXCircle size={24} /> Reject Provider Application
             </h2>
-            <p style={{ fontSize: '14px', color: 'var(--gray-500)', marginBottom: '20px' }}>
-              Please provide an internal note explaining why this provider is being rejected. This note will be included in the rejection email sent to the provider.
+            <p
+              style={{
+                fontSize: '13.5px',
+                color: 'var(--gray-500)',
+                marginBottom: '20px',
+                lineHeight: 1.5,
+              }}
+            >
+              Please provide an internal note explaining why this provider is being rejected.
+              This explanation will be recorded and sent to the provider.
             </p>
 
-            <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--gray-600)', marginBottom: '8px', display: 'block' }}>
-              Internal Note *
+            <label className="verification-field-label" style={{ marginBottom: '8px' }}>
+              Rejection Reason Note *
             </label>
             <textarea
               value={rejectNote}
               onChange={(e) => setRejectNote(e.target.value)}
-              placeholder="e.g., NIC number does not match the uploaded image, or image is unclear..."
+              placeholder="e.g., NIC number does not match the uploaded document, or photo is unclear..."
               rows={5}
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: '10px',
-                border: '1px solid var(--gray-200)',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                resize: 'vertical',
-                marginBottom: '24px',
-              }}
+              className="verification-modal-textarea"
             />
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <button
-                onClick={() => { setShowRejectModal(false); setRejectNote(''); }}
-                disabled={actionLoading}
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--gray-200)',
-                  background: '#fff',
-                  color: 'var(--gray-700)',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectNote('');
                 }}
+                disabled={actionLoading}
+                className="verification-back-btn"
+                style={{ margin: 0 }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleRejectConfirm}
                 disabled={actionLoading}
+                className="verification-reject-btn"
                 style={{
-                  padding: '10px 20px',
-                  borderRadius: '10px',
-                  border: 'none',
                   background: '#ef4444',
                   color: '#fff',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  cursor: actionLoading ? 'not-allowed' : 'pointer',
-                  opacity: actionLoading ? 0.7 : 1,
+                  border: 'none',
+                  padding: '10px 20px',
                 }}
               >
                 {actionLoading ? 'Rejecting...' : 'Confirm Rejection'}

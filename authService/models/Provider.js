@@ -8,6 +8,16 @@ const providerSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    name: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    fullName: {
+      type: String,
+      required: false,
+      trim: true,
+    },
     password: {
       type: String,
       required: true,
