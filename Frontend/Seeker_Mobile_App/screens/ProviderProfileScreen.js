@@ -12,12 +12,12 @@ import {
   StatusBar,
   Dimensions,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG, IP_ADDRESS } from '../config';
 import { useAuth } from '../context/AuthContext';
+import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
 
 const { width } = Dimensions.get('window');
 const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
@@ -36,8 +36,14 @@ export default function ProviderProfileScreen({ route, navigation }) {
   const portfolio = providerItem?.portfolio || {};
   const match = providerItem?.match || {};
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRequested, setIsRequested] = useState(Boolean(initialIsRequested));
+  const [quotationModalVisible, setQuotationModalVisible] = useState(false);
+  const [seekerId, setSeekerId] = useState(user?.id || user?._id || null);
+
+  useEffect(() => {
+    if (user?.id || user?._id) setSeekerId(user.id || user._id);
+    else AsyncStorage.getItem('userId').then(setSeekerId).catch(() => {});
+  }, [user]);
 
   // Check if this provider has already been requested for this seeker & session
   useEffect(() => {
@@ -103,114 +109,6 @@ export default function ProviderProfileScreen({ route, navigation }) {
    * REQUEST QUOTATION
    * ==========================================================
    */
-  const handleRequestQuotation = async () => {
-    if (isRequested) {
-      Alert.alert(
-        'Already Requested',
-        `You have already requested a quotation from ${providerName}. Only 1 quotation request is allowed per provider for this service request.`
-      );
-      return;
-    }
-
-    if (!finalDecision) {
-      Alert.alert('Error', 'No service summary available. Please go back and try again.');
-      return;
-    }
-
-    const summary = finalDecision?.summary || {};
-    const sessionId = summary.session_id || finalDecision?.session_id || `SESSION-${Date.now()}`;
-
-    if (!providerId) {
-      Alert.alert('Error', 'Provider information is unavailable.');
-      return;
-    }
-
-    let seekerId = user?.id;
-    if (!seekerId) {
-      try {
-        seekerId = await AsyncStorage.getItem('userId');
-      } catch (e) {
-        console.log('Error getting seeker ID:', e);
-      }
-    }
-    if (!seekerId) {
-      Alert.alert('Error', 'You must be logged in to request a quotation.');
-      return;
-    }
-
-    const stepBreakdown = summary.step_breakdown || [];
-    const briefDescription = summary.brief_description || 'Service request';
-
-    const payload = {
-      seekerId: seekerId,
-      providerId: providerId,
-      sessionId: sessionId,
-      detectedCategory: summary.detected_category || 'unknown',
-      detectedObject: summary.detected_object || 'unknown',
-      modelConfidence: summary.model_confidence || null,
-      stepBreakdown: stepBreakdown,
-      briefDescription: briefDescription,
-      urgencyLevel: summary.urgency_level || 'Normal',
-      serviceLocation: summary.provider_matching?.criteria?.service_location || '',
-    };
-
-    setIsSubmitting(true);
-
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        Alert.alert('Error', 'You are not authenticated. Please log in again.');
-        setIsSubmitting(false);
-        return;
-      }
-
-      const response = await fetch(QUOTATION_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (response.status === 201 || (response.status === 200 && data.success)) {
-        setIsRequested(true);
-        if (onQuotationRequested) {
-          onQuotationRequested(providerId);
-        }
-        Alert.alert(
-          'Quotation Request Sent',
-          `Your quotation request has been sent to ${providerName}.\n\nYou can also request quotations from other providers in the list.`,
-          [{ text: 'OK', onPress: () => setIsSubmitting(false) }]
-        );
-      } else if (response.status === 409) {
-        setIsRequested(true);
-        if (onQuotationRequested) {
-          onQuotationRequested(providerId);
-        }
-        Alert.alert(
-          'Already Requested',
-          data.message || 'A quotation request has already been sent to this provider for this session.'
-        );
-        setIsSubmitting(false);
-      } else {
-        Alert.alert(
-          'Failed to Send',
-          data.message || 'Unable to send quotation request. Please try again.'
-        );
-        setIsSubmitting(false);
-      }
-    } catch (error) {
-      console.error('QUOTATION REQUEST ERROR:', error);
-      Alert.alert(
-        'Network Error',
-        `Could not connect to the server at ${QUOTATION_API_URL}.\nMake sure the backend is running and the IP/port is correct.`
-      );
-      setIsSubmitting(false);
-    }
-  };
 
   const handleChat = () => {
     Alert.alert('Chat', `Start a conversation with ${providerName}?`, [
@@ -367,22 +265,34 @@ export default function ProviderProfileScreen({ route, navigation }) {
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={[styles.quoteButtonLarge, isSubmitting && styles.disabledButton]}
-              onPress={handleRequestQuotation}
-              disabled={isSubmitting}
+              style={styles.quoteButtonLarge}
+              onPress={() => setQuotationModalVisible(true)}
             >
-              {isSubmitting ? (
-                <ActivityIndicator color="#6366F1" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="document-text-outline" size={20} color="#6366F1" />
-                  <Text style={styles.quoteButtonTextLarge}>Get Quote</Text>
-                </>
-              )}
+              <Ionicons name="document-text-outline" size={20} color="#6366F1" />
+              <Text style={styles.quoteButtonTextLarge}>Get Quote</Text>
             </TouchableOpacity>
           )}
         </View>
       </ScrollView>
+      <RequestQuotationModal
+        visible={quotationModalVisible}
+        provider={provider}
+        seekerId={seekerId}
+        sessionData={finalDecision?.summary || {}}
+        diagnosisData={finalDecision || {}}
+        defaultLocation={finalDecision?.summary?.provider_matching?.criteria?.service_location || ''}
+        defaultUrgency={finalDecision?.summary?.urgency_level || 'Normal'}
+        onClose={() => setQuotationModalVisible(false)}
+        onSuccess={() => {
+          setQuotationModalVisible(false);
+          setIsRequested(true);
+          onQuotationRequested?.(providerId);
+          Alert.alert(
+            'Request sent',
+            'Quotation request sent successfully. You can track provider responses in My Jobs.'
+          );
+        }}
+      />
     </SafeAreaView>
   );
 }
