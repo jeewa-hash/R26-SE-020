@@ -19,6 +19,8 @@ export default function HistoryScreen({ navigation }) {
   const [reviewsSubmitted, setReviewsSubmitted] = useState({});
   const [loading, setLoading] = useState(true);
   const [completedServices, setCompletedServices] = useState([]);
+  const [pointsEarnedMap, setPointsEarnedMap] = useState({}); // bookingId -> points
+  const [totalPointsEarned, setTotalPointsEarned] = useState(0);
 
   // Check if service has been reviewed
   const checkServiceReviewStatus = async (bookingId) => {
@@ -32,6 +34,32 @@ export default function HistoryScreen({ navigation }) {
     }
   };
 
+  // Load reward transactions and map points to booking IDs
+  const loadRewardPoints = async (token) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/rewards/history?page=1&limit=500`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to load reward history');
+
+      const transactions = data.transactions || [];
+      const pointsMap = {};
+      let total = 0;
+      transactions.forEach(tx => {
+        if (tx.type === 'EARN' && tx.referenceId) {
+          pointsMap[tx.referenceId] = tx.amount;
+          total += tx.amount;
+        }
+      });
+      setPointsEarnedMap(pointsMap);
+      setTotalPointsEarned(total);
+    } catch (error) {
+      console.error('Error loading reward points:', error);
+      // non-critical, we can still show bookings without points
+    }
+  };
+
   // Load review status for all services
   useEffect(() => {
     loadReviewStatuses();
@@ -41,8 +69,12 @@ export default function HistoryScreen({ navigation }) {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('userToken');
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
 
+      // Fetch completed bookings
       const response = await fetch(`${COORDINATION_API_BASE_URL}/bookings/seeker/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -65,6 +97,10 @@ export default function HistoryScreen({ navigation }) {
         }));
       setCompletedServices(completed);
 
+      // Fetch reward points
+      await loadRewardPoints(token);
+
+      // Fetch review statuses
       const statuses = {};
       for (const service of completed) {
         statuses[service.id] = await checkServiceReviewStatus(service.id);
@@ -119,7 +155,9 @@ export default function HistoryScreen({ navigation }) {
   const totalSpent = completedServices.reduce((sum, service) => {
     return sum + parseInt(service.price.replace('$', ''));
   }, 0);
-  const averageRating = (completedServices.reduce((sum, service) => sum + service.rating, 0) / completedServices.length).toFixed(1);
+  const averageRating = completedServices.length > 0 
+    ? (completedServices.reduce((sum, service) => sum + service.rating, 0) / completedServices.length).toFixed(1)
+    : '0';
 
   if (loading) {
     return (
@@ -173,7 +211,7 @@ export default function HistoryScreen({ navigation }) {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Stats Cards */}
+      {/* Stats Cards (added total points earned) */}
       <View style={[styles.statsContainer, isDarkMode && styles.statsContainerDark]}>
         <View style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' }]}>
@@ -198,6 +236,15 @@ export default function HistoryScreen({ navigation }) {
           <Text style={[styles.statNumber, isDarkMode && styles.textDark]}>{averageRating}</Text>
           <Text style={[styles.statLabel, isDarkMode && styles.textMutedDark]}>Avg Rating</Text>
         </View>
+        {/* NEW: Total Points Earned */}
+        <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
+        <View style={styles.statCard}>
+          <View style={[styles.statIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#8B5CF615' }]}>
+            <Ionicons name="trophy-outline" size={20} color="#8B5CF6" />
+          </View>
+          <Text style={[styles.statNumber, isDarkMode && styles.textDark]}>{totalPointsEarned}</Text>
+          <Text style={[styles.statLabel, isDarkMode && styles.textMutedDark]}>Total Points</Text>
+        </View>
       </View>
 
       {/* Section Title */}
@@ -213,72 +260,83 @@ export default function HistoryScreen({ navigation }) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {completedServices.map((service) => (
-          <View key={service.id} style={[styles.historyCard, isDarkMode && styles.historyCardDark]}>
-            <LinearGradient
-              colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#ffffff', '#f8f9fa']}
-              style={styles.cardGradient}
-            >
-              {/* Header */}
-              <View style={styles.cardHeader}>
-                <View style={styles.categoryContainer}>
-                  <View style={[styles.categoryIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' }]}>
-                    <Ionicons name="briefcase-outline" size={14} color="#667eea" />
+        {completedServices.map((service) => {
+          const points = pointsEarnedMap[service.id] || 0;
+          return (
+            <View key={service.id} style={[styles.historyCard, isDarkMode && styles.historyCardDark]}>
+              <LinearGradient
+                colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#ffffff', '#f8f9fa']}
+                style={styles.cardGradient}
+              >
+                {/* Header */}
+                <View style={styles.cardHeader}>
+                  <View style={styles.categoryContainer}>
+                    <View style={[styles.categoryIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' }]}>
+                      <Ionicons name="briefcase-outline" size={14} color="#667eea" />
+                    </View>
+                    <Text style={[styles.serviceCategory, isDarkMode && styles.textDark]}>{service.category}</Text>
                   </View>
-                  <Text style={[styles.serviceCategory, isDarkMode && styles.textDark]}>{service.category}</Text>
+                  <Text style={styles.servicePrice}>{service.price}</Text>
                 </View>
-                <Text style={styles.servicePrice}>{service.price}</Text>
-              </View>
 
-              {/* Title & Provider */}
-              <Text style={[styles.serviceTitle, isDarkMode && styles.textDark]}>{service.title}</Text>
-              <Text style={[styles.serviceProvider, isDarkMode && styles.textMutedDark]}>{service.provider}</Text>
+                {/* Title & Provider */}
+                <Text style={[styles.serviceTitle, isDarkMode && styles.textDark]}>{service.title}</Text>
+                <Text style={[styles.serviceProvider, isDarkMode && styles.textMutedDark]}>{service.provider}</Text>
 
-              {/* Date & Time */}
-              <View style={styles.dateContainer}>
-                <View style={styles.dateItem}>
-                  <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                  <Text style={[styles.dateText, isDarkMode && styles.textMutedDark]}>{service.date}</Text>
+                {/* Date & Time */}
+                <View style={styles.dateContainer}>
+                  <View style={styles.dateItem}>
+                    <Ionicons name="calendar-outline" size={14} color="#6B7280" />
+                    <Text style={[styles.dateText, isDarkMode && styles.textMutedDark]}>{service.date}</Text>
+                  </View>
+                  <View style={styles.dateItem}>
+                    <Ionicons name="time-outline" size={14} color="#6B7280" />
+                    <Text style={[styles.dateText, isDarkMode && styles.textMutedDark]}>{service.time}</Text>
+                  </View>
                 </View>
-                <View style={styles.dateItem}>
-                  <Ionicons name="time-outline" size={14} color="#6B7280" />
-                  <Text style={[styles.dateText, isDarkMode && styles.textMutedDark]}>{service.time}</Text>
+
+                {/* Points Earned (new) */}
+                <View style={styles.pointsContainer}>
+                  <Ionicons name="star" size={14} color="#FBBF24" />
+                  <Text style={[styles.pointsText, isDarkMode && styles.textMutedDark]}>
+                    Earned: {points} points
+                  </Text>
                 </View>
-              </View>
 
-              {/* Rating */}
-              <View style={[styles.ratingContainer, isDarkMode && styles.ratingContainerDark]}>
-                <View style={styles.starsContainer}>{renderStars(service.rating)}</View>
-                <Text style={[styles.ratingText, isDarkMode && styles.textMutedDark]}>{service.rating}/5</Text>
-              </View>
+                {/* Rating */}
+                <View style={[styles.ratingContainer, isDarkMode && styles.ratingContainerDark]}>
+                  <View style={styles.starsContainer}>{renderStars(service.rating)}</View>
+                  <Text style={[styles.ratingText, isDarkMode && styles.textMutedDark]}>{service.rating}/5</Text>
+                </View>
 
-              {/* Action Buttons */}
-              <View style={styles.actionButtons}>
-                {!reviewsSubmitted[service.id] ? (
+                {/* Action Buttons */}
+                <View style={styles.actionButtons}>
+                  {!reviewsSubmitted[service.id] ? (
+                    <TouchableOpacity 
+                      style={[styles.reviewButton, isDarkMode && styles.reviewButtonDark]}
+                      onPress={() => handleWriteReview(service)}
+                    >
+                      <Ionicons name="star-outline" size={18} color="#FBBF24" />
+                      <Text style={styles.reviewButtonText}>Write Review</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={[styles.reviewedBadge, isDarkMode && styles.reviewedBadgeDark]}>
+                      <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                      <Text style={styles.reviewedText}>Reviewed</Text>
+                    </View>
+                  )}
                   <TouchableOpacity 
-                    style={[styles.reviewButton, isDarkMode && styles.reviewButtonDark]}
-                    onPress={() => handleWriteReview(service)}
+                    style={styles.rehireButton}
+                    onPress={() => handleRehire(service)}
                   >
-                    <Ionicons name="star-outline" size={18} color="#FBBF24" />
-                    <Text style={styles.reviewButtonText}>Write Review</Text>
+                    <Ionicons name="refresh-outline" size={18} color="#fff" />
+                    <Text style={styles.rehireButtonText}>Rehire</Text>
                   </TouchableOpacity>
-                ) : (
-                  <View style={[styles.reviewedBadge, isDarkMode && styles.reviewedBadgeDark]}>
-                    <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                    <Text style={styles.reviewedText}>Reviewed</Text>
-                  </View>
-                )}
-                <TouchableOpacity 
-                  style={styles.rehireButton}
-                  onPress={() => handleRehire(service)}
-                >
-                  <Ionicons name="refresh-outline" size={18} color="#fff" />
-                  <Text style={styles.rehireButtonText}>Rehire</Text>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </View>
-        ))}
+                </View>
+              </LinearGradient>
+            </View>
+          );
+        })}
 
         {/* Empty State */}
         {completedServices.length === 0 && (
@@ -351,12 +409,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 20,
     borderRadius: 20,
-    padding: 20,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 3,
+    flexWrap: 'wrap',
   },
   statsContainerDark: {
     backgroundColor: '#16213e',
@@ -364,6 +423,7 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     alignItems: 'center',
+    minWidth: 50,
   },
   statIcon: {
     width: 36,
@@ -374,18 +434,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#6B7280',
+    textAlign: 'center',
   },
   statDivider: {
     width: 1,
     backgroundColor: '#E5E7EB',
+    marginHorizontal: 4,
   },
   statDividerDark: {
     backgroundColor: '#2d3561',
@@ -471,7 +533,7 @@ const styles = StyleSheet.create({
   dateContainer: {
     flexDirection: 'row',
     gap: 16,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   dateItem: {
     flexDirection: 'row',
@@ -481,6 +543,17 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  pointsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  pointsText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#FBBF24',
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -620,4 +693,3 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
 });
-
