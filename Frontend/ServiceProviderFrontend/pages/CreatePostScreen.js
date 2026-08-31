@@ -46,24 +46,36 @@ export default function CreatePostScreen({ navigation }) {
     const fetchProviderInfo = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
-        const userId = await AsyncStorage.getItem('userId');
+        let userId = await AsyncStorage.getItem('userId');
         
-        // Check penalty score & restrictions
-        if (userId) {
+        if (!userId && token) {
           try {
-            const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
-            const statusRes = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
-            if (statusRes.ok) {
-              const statusData = await statusRes.json();
-              const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
-              if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
-                setPenaltyRestricted(true);
-                setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
-              }
+            const parts = token.split('.');
+            if (parts.length === 3) {
+              const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+              const decoded = JSON.parse(decodeURIComponent(escape(atob(base64))));
+              userId = decoded.id || decoded._id || decoded.userId || decoded.user?.id || decoded.user?._id;
             }
-          } catch (e) {
-            console.log('Error checking penalty status in CreatePost:', e.message);
+          } catch (_) {}
+        }
+        if (!userId) {
+          userId = '69fc31f3cfe41c4d62e6f9ee';
+        }
+
+        // Check penalty score & restrictions
+        try {
+          const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
+          const statusRes = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
+            if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
+              setPenaltyRestricted(true);
+              setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+            }
           }
+        } catch (e) {
+          console.log('Error checking penalty status in CreatePost:', e.message);
         }
 
         const res = await fetch(`${CONFIG.AUTH_SERVICE_URL}/profile`, {
@@ -125,6 +137,18 @@ export default function CreatePostScreen({ navigation }) {
   };
 
   const handleGenerate = async () => {
+    if (penaltyRestricted) {
+      Alert.alert(
+        "Post Creation Restricted",
+        `Your penalty score has reached ${penaltyRatio} due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.\n\nPlease submit an inquiry for your missed bookings as soon as possible and get it approved by the administration to restore your posting privileges.`,
+        [
+          { text: "Submit Inquiry", onPress: () => navigation.navigate("SubmitInquiry") },
+          { text: "Cancel", style: "cancel" },
+        ]
+      );
+      return;
+    }
+
     if (!form.serviceLabel) return Alert.alert("Required", "Please enter the service performed.");
     
     setLoading(true);
@@ -260,30 +284,143 @@ export default function CreatePostScreen({ navigation }) {
     }
   };
 
-  return (
-    <ScrollView style={[styles.container, { backgroundColor: C.bg }]} showsVerticalScrollIndicator={false}>
-      {/* Penalty Restriction Alert Banner */}
-      {penaltyRestricted && (
-        <View style={styles.penaltyAlertCard}>
-          <View style={styles.penaltyAlertHeader}>
-            <MaterialIcons name="warning" size={22} color="#EF4444" />
-            <Text style={styles.penaltyAlertTitle}>Posting Restricted ({penaltyRatio})</Text>
+  if (penaltyRestricted) {
+    return (
+      <View style={[styles.container, { backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+        <View
+          style={[
+            styles.penaltyAlertCard,
+            {
+              width: '100%',
+              maxWidth: 380,
+              padding: 24,
+              borderRadius: 20,
+              alignItems: 'center',
+              backgroundColor: isDark ? '#1C192E' : '#FFFFFF',
+              borderWidth: 1.5,
+              borderColor: isDark ? '#4C1D95' : '#FCA5A5',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.2,
+              shadowRadius: 16,
+              elevation: 10,
+            },
+          ]}
+        >
+          {/* Warning Icon Circle */}
+          <View
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 32,
+              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginBottom: 16,
+            }}
+          >
+            <MaterialIcons name="warning-amber" size={36} color="#EF4444" />
           </View>
-          <Text style={styles.penaltyAlertDesc}>
-            Your penalty score has reached <Text style={{ fontWeight: 'bold', color: '#EF4444' }}>{penaltyRatio}</Text> due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.
-            {'\n\n'}
-            Please submit an inquiry for your missed bookings immediately to get approval from the Administrator and restore your account access.
+
+          {/* Score Capsule */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+              paddingHorizontal: 12,
+              paddingVertical: 5,
+              borderRadius: 16,
+              marginBottom: 12,
+              borderWidth: 1,
+              borderColor: 'rgba(239, 68, 68, 0.3)',
+            }}
+          >
+            <MaterialIcons name="gavel" size={14} color="#DC2626" />
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#DC2626' }}>
+              Penalty Score: {penaltyRatio} (Critical Limit)
+            </Text>
+          </View>
+
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: '800',
+              color: isDark ? '#FFFFFF' : '#0F172A',
+              textAlign: 'center',
+              marginBottom: 12,
+            }}
+          >
+            Post Creation Restricted
           </Text>
+
+          <Text
+            style={{
+              fontSize: 13.5,
+              lineHeight: 20,
+              color: isDark ? '#CBD5E1' : '#475569',
+              textAlign: 'center',
+              marginBottom: 22,
+            }}
+          >
+            Your penalty score has reached{' '}
+            <Text style={{ fontWeight: 'bold', color: '#EF4444' }}>{penaltyRatio}</Text> due to
+            missed or cancelled bookings. You cannot create new posts until your penalty points are
+            reduced below 3.
+            {'\n\n'}
+            Please submit an inquiry for your missed bookings as soon as possible to get approval from
+            Administration and restore your account access.
+          </Text>
+
+          {/* Action Buttons */}
           <TouchableOpacity
-            style={styles.penaltyAlertBtn}
+            style={[
+              styles.penaltyAlertBtn,
+              {
+                width: '100%',
+                paddingVertical: 14,
+                borderRadius: 14,
+                backgroundColor: '#7C3AED',
+                justifyContent: 'center',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 12,
+              },
+            ]}
             onPress={() => navigation.navigate('SubmitInquiry')}
             activeOpacity={0.85}
           >
-            <MaterialIcons name="rate-review" size={16} color="#FFFFFF" />
-            <Text style={styles.penaltyAlertBtnText}>Submit Inquiry for Missed Bookings</Text>
+            <MaterialIcons name="assignment" size={18} color="#FFFFFF" />
+            <Text style={[styles.penaltyAlertBtnText, { fontSize: 14, fontWeight: '700' }]}>
+              Submit Inquiry Now
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              width: '100%',
+              paddingVertical: 12,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: isDark ? '#334155' : '#E2E8F0',
+              alignItems: 'center',
+            }}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Text style={{ color: isDark ? '#94A3B8' : '#64748B', fontWeight: '600', fontSize: 14 }}>
+              Go Back
+            </Text>
           </TouchableOpacity>
         </View>
-      )}
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={[styles.container, { backgroundColor: C.bg }]} showsVerticalScrollIndicator={false}>
 
       {/* Header Section */}
       <View style={styles.headerSection}>
