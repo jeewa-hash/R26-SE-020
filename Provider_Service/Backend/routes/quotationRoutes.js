@@ -10,10 +10,11 @@ import {
 } from "../controllers/quotationController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
+import { checkPaymentSuspension } from "../middleware/checkPaymentSuspension.js";
 
 const router = express.Router();
 
-router.post("/", protect(["ServiceProvider"]), createQuotation);
+router.post("/", protect(["ServiceProvider"]), checkPaymentSuspension, createQuotation);
 router.get("/provider/me", protect(["ServiceProvider"]), getProviderQuotations);
 router.get("/seeker/me", protect(["Seeker"]), getSeekerQuotations); // Chaw: moved before /:id to avoid route conflict
 router.patch("/:id/coordination", updateQuotationCoordination); // Chaw: temporarily open for Coordination Service update during local testing

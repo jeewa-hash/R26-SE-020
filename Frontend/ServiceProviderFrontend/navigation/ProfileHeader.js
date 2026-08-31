@@ -30,7 +30,7 @@ const LANGUAGES = [
 const SIDEBAR_MENU = [
   { id: '1', icon: 'edit', label: 'Edit Profile', route: 'EditProfile', color: '#2563EB', bg: '#EFF6FF' },
   { id: '2', icon: 'rate-review', label: 'Submit Inquiry', route: 'SubmitInquiry', color: '#7C3AED', bg: '#F5F3FF' },
-  { id: '3', icon: 'emoji-events', label: 'My Badges', route: 'Badges', color: '#F59E0B', bg: '#FFFBEB' },
+  { id: '3', icon: 'emoji-events', label: 'Requested Qutations', route: 'Badges', color: '#F59E0B', bg: '#FFFBEB' },
   { id: '4', icon: 'credit-card', label: 'Subscription', route: 'Subscription', color: '#059669', bg: '#ECFDF5' },
   { id: '5', icon: 'settings', label: 'Settings', route: 'Settings', color: '#6B7280', bg: '#F9FAFB' },
   { id: '6', icon: 'help-outline', label: 'Help & Support', route: 'Help', color: '#0891B2', bg: '#ECFEFF' },

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
@@ -409,27 +410,29 @@ export default function NewsFeedScreen() {
                   style={[
                     styles.quickCategoryChip,
                     isActive && styles.quickCategoryChipActive,
-                    { 
-                      backgroundColor: isActive ? color : (isDark ? '#2C2C2E' : '#F3F4F6'),
-                      borderColor: isActive ? color : (isDark ? '#3A3A3C' : '#E5E7EB'),
-                    }
+                    !isActive && {
+                      backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                      borderColor: isDark ? '#334155' : '#E2E8F0',
+                    },
                   ]}
                   activeOpacity={0.7}
                 >
-                  <MaterialIcons 
-                    name={icon} 
-                    size={18} 
-                    color={isActive ? '#FFFFFF' : (isDark ? '#8E8E93' : '#6B7280')} 
-                  />
-                  <Text style={[
-                    styles.quickCategoryText,
-                    isActive && styles.quickCategoryTextActive,
-                    { color: isActive ? '#FFFFFF' : (isDark ? '#F2F2F7' : '#1F2937') }
-                  ]}>
-                    {cat}
-                  </Text>
-                  {isActive && (
-                    <View style={styles.activeIndicator} />
+                  {isActive ? (
+                    <LinearGradient
+                      colors={[color, color + 'BB']}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                      style={styles.chipGradient}
+                    >
+                      <MaterialIcons name={icon} size={17} color="#FFF" />
+                      <Text style={[styles.quickCategoryText, styles.quickCategoryTextActive, { color: '#FFF' }]}>
+                        {cat}
+                      </Text>
+                    </LinearGradient>
+                  ) : (
+                    <>
+                      <MaterialIcons name={icon} size={17} color={isDark ? '#94A3B8' : '#64748B'} />
+                      <Text style={[styles.quickCategoryText, { color: isDark ? '#CBD5E1' : '#374151' }]}>{cat}</Text>
+                    </>
                   )}
                 </TouchableOpacity>
               );
@@ -484,14 +487,15 @@ export default function NewsFeedScreen() {
             <View style={[styles.recentSection, { paddingHorizontal: 20 }]}>
               <View style={styles.sectionHeader}>
                 <View>
-                  <Text style={[styles.sectionTitle, { color: C.text }]}>
-                    Recent Opportunities
-                  </Text>
+                  <View style={styles.sectionAccentRow}>
+                    <LinearGradient colors={['#7C3AED', '#4F46E5']} style={styles.sectionAccent} />
+                    <Text style={[styles.sectionTitle, { color: C.text }]}>Recent Opportunities</Text>
+                  </View>
                   <Text style={[styles.sectionSubtitle, { color: C.textSub }]}>
                     Latest service requests near you
                   </Text>
                 </View>
-                <View style={[styles.resultBadge, { backgroundColor: isDark ? '#2C2C2E' : '#F3E8FF' }]}>
+                <View style={[styles.resultBadge, { backgroundColor: isDark ? '#1E293B' : '#F3E8FF' }]}>
                   <Text style={[styles.resultBadgeText, { color: isDark ? '#A78BFA' : '#7C3AED' }]}>
                     {filteredPosts.length} jobs
                   </Text>

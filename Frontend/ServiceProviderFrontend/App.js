@@ -45,8 +45,11 @@ import BottomTabNavigator from './navigation/BottomTabNavigator';
 import PortfolioGalleryScreen from './pages/PortfolioGalleryScreen';
 import CreatePostScreen from './pages/CreatePostScreen';
 import SubmitInquiryScreen from './screens/SubmitInquiryScreen';
+import CheckoutScreen from './pages/CheckoutScreen';
 import ProviderPostDetailScreen from './screens/ProviderPostDetailScreen';
 import AppliedJobsScreen from './pages/AppliedJobsScreen';
+import BoostSuccessScreen from './pages/BoostSuccess';
+import ProfileScreen from './pages/ProfileScreen';
 import ProviderJobDetailsScreen from './pages/IT22129376/ProviderJobDetailsScreen';
 import ProviderRequestDetailsScreen from './pages/IT22129376/ProviderRequestDetailsScreen';
 import ProviderQuotationFormScreen from './pages/IT22129376/ProviderQuotationFormScreen';
@@ -153,8 +156,15 @@ function AppContent() {
               component={SubmitInquiryScreen}
               options={{ headerShown: true, title: 'Submit Inquiry' }}
             />
+            <Stack.Screen
+              name="CheckoutScreen"
+              component={CheckoutScreen}
+              options={{ headerShown: false }}
+            />
             <Stack.Screen name="ProviderPostDetail" component={ProviderPostDetailScreen} />
             <Stack.Screen name="AppliedJobs" component={AppliedJobsScreen} />
+            <Stack.Screen name="BoostSuccess" component={BoostSuccessScreen} options={{ title: 'Success' }} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="IT22129376ProviderJobDetails" component={ProviderJobDetailsScreen} />
             <Stack.Screen name="IT22129376ProviderRequestDetails" component={ProviderRequestDetailsScreen} />
             <Stack.Screen name="IT22129376ProviderQuotationForm" component={ProviderQuotationFormScreen} />

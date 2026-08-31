@@ -1,13 +1,12 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { JOB_STATUS } from '../constants/jobStatus';
-import { POSTS as initialPosts } from '../constants/feedData';
 
 const AppliedJobsContext = createContext();
 
 export function AppliedJobsProvider({ children }) {
   const [appliedJobs, setAppliedJobs] = useState([]);
-  const [availablePosts, setAvailablePosts] = useState(initialPosts);
+  const [availablePosts, setAvailablePosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Load data from storage on mount
@@ -20,9 +19,20 @@ export function AppliedJobsProvider({ children }) {
       const storedApplied = await AsyncStorage.getItem('appliedJobs');
       const storedAvailable = await AsyncStorage.getItem('availablePosts');
       
-      if (storedApplied) setAppliedJobs(JSON.parse(storedApplied));
+      if (storedApplied) {
+        const savedApplications = JSON.parse(storedApplied);
+        // Remove applications created from the old feedData demo posts.
+        // Real seeker posts use MongoDB ObjectId values.
+        const realApplications = Array.isArray(savedApplications)
+          ? savedApplications.filter((job) => !['1', '2', '3', '4', '5'].includes(String(job.id)))
+          : [];
+        setAppliedJobs(realApplications);
+        if (realApplications.length !== savedApplications.length) {
+          await AsyncStorage.setItem('appliedJobs', JSON.stringify(realApplications));
+        }
+      }
       if (storedAvailable) setAvailablePosts(JSON.parse(storedAvailable));
-      else setAvailablePosts(initialPosts);
+      else setAvailablePosts([]);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {

@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 
 import AdPost from "../models/AdPost.js";
+import Transaction from "../models/Transaction.js";
 
 // Initialize Stripe with your secret key from environment variables
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -70,5 +71,40 @@ export const createBoostCheckoutSession = async (req, res) => {
   } catch (err) {
     console.error('BOOST SESSION ERROR:', err); 
     res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// Fallback confirmation for mobile clients. Stripe webhooks are still handled,
+// but the app must not depend on a publicly reachable webhook during local use.
+export const confirmBoostPayment = async (req, res) => {
+  try {
+    const session = await stripe.checkout.sessions.retrieve(req.params.sessionId);
+    if (session.payment_status !== "paid") {
+      return res.status(400).json({ success: false, message: "Payment is not completed." });
+    }
+
+    const { adPostId, providerId, boostAmount, totalCharged } = session.metadata || {};
+    if (!adPostId || String(providerId) !== String(req.user.id)) {
+      return res.status(403).json({ success: false, message: "Payment does not belong to this provider." });
+    }
+
+    let transaction = await Transaction.findOne({ stripeSessionId: session.id });
+    if (!transaction) {
+      transaction = await Transaction.create({
+        adPostId,
+        providerId,
+        stripeSessionId: session.id,
+        boostAmount: Number(boostAmount),
+        amountPaid: Number(totalCharged),
+        currency: session.currency || "lkr",
+        status: "completed",
+      });
+      await AdPost.findByIdAndUpdate(adPostId, { $inc: { priority: Number(boostAmount) } });
+    }
+
+    const post = await AdPost.findById(adPostId);
+    return res.json({ success: true, data: post });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
   }
 };
