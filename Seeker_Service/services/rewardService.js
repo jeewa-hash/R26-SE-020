@@ -1,9 +1,8 @@
-// services/rewardService.js
 import RewardAccount from "../models/RewardAccount.js";
 import RewardTransaction from "../models/RewardTransaction.js";
 import mongoose from "mongoose";
 
-const POINTS_PER_UNIT = 10; // configurable
+const POINTS_PER_UNIT = 10; // 10 points per currency unit (configurable)
 
 export async function awardPointsForBooking({ bookingId, seekerId, finalAmount, bookingStatus }) {
   if (!mongoose.isValidObjectId(bookingId) || !mongoose.isValidObjectId(seekerId)) {
@@ -17,14 +16,13 @@ export async function awardPointsForBooking({ bookingId, seekerId, finalAmount, 
   session.startTransaction();
 
   try {
-    // Check if already awarded
+    // Idempotency: check if already awarded
     const existing = await RewardTransaction.findOne({
       referenceId: bookingId,
       referenceModel: "Booking",
       type: "EARN",
     }).session(session);
     if (existing) {
-      // already awarded, skip
       await session.commitTransaction();
       return { success: false, message: "Points already awarded" };
     }
@@ -34,7 +32,7 @@ export async function awardPointsForBooking({ bookingId, seekerId, finalAmount, 
       throw new Error("Booking amount must be greater than zero");
     }
 
-    // Update or create RewardAccount
+    // Update or create reward account
     let account = await RewardAccount.findOne({ seekerId }).session(session);
     if (!account) {
       account = new RewardAccount({ seekerId, balance: 0, lifetimeEarned: 0, lifetimeSpent: 0 });
@@ -44,17 +42,15 @@ export async function awardPointsForBooking({ bookingId, seekerId, finalAmount, 
     account.lifetimeEarned += pointsEarned;
     await account.save({ session });
 
-    // Create transaction
+    // Record transaction
     const transaction = new RewardTransaction({
       seekerId,
       amount: pointsEarned,
       type: "EARN",
-      description: `Points earned for booking ${booking._id}`,
+      description: `Points earned for booking ${bookingId}`,
       referenceId: bookingId,
       referenceModel: "Booking",
-      metadata: {
-        finalAmount: Number(finalAmount),
-      },
+      metadata: { finalAmount: Number(finalAmount) },
     });
     await transaction.save({ session });
 
