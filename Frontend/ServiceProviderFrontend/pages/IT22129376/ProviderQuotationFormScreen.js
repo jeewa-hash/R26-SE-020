@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { submitProviderQuotation } from '../../services/providerFlowApi';
-import { getStoredUserId } from '../../utils/jwtHelpers';
+import { getStoredProviderAuth } from './services/providerAuthStorage';
 
 export default function ProviderQuotationFormScreen({ route, navigation }) {
   const request = route?.params?.request || {};
@@ -20,22 +20,24 @@ export default function ProviderQuotationFormScreen({ route, navigation }) {
     }
     try {
       setSaving(true);
-      const providerId = await getStoredUserId();
+      const { token, providerId } = await getStoredProviderAuth();
+      console.log('LOGGED PROVIDER ID:', providerId);
+      if (!token || !providerId || !requestId) throw new Error('Your provider session or request details are missing. Please login again.');
       await submitProviderQuotation({
         providerRequestId: requestId,
         externalRequestQuotationId: requestId,
-        externalSessionId: request?.sessionId || request?.externalSessionId || request?.serviceSessionId,
-        seekerId: request?.seekerId || request?.userId || request?.customerId,
+        externalSessionId: request?.sessionId,
+        seekerId: request?.seekerId,
         providerId,
-        serviceCategory: request?.serviceCategory || request?.detectedCategory || 'General',
-        serviceSubcategory: request?.serviceSubcategory || request?.detectedObject || 'Service',
+        serviceCategory: request?.detectedCategory || request?.category || request?.serviceCategory || 'General',
+        serviceSubcategory: request?.detectedObject || request?.serviceSubcategory || 'Service',
         price: Number(price),
         proposedStartTime: startTime,
         estimatedDurationHours: Number(duration),
         durationText: `${duration} Hours`,
         notes,
       });
-      Alert.alert('Success', 'Quotation submitted successfully.', [
+      Alert.alert('Success', 'Quotation sent successfully.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error) {

@@ -170,6 +170,17 @@ const idMatches = (value, targetId) => {
 const belongsToProvider = (item, providerId) => {
   if (!item || !providerId) return false;
 
+  const hasProviderReference = Boolean(
+    item.providerId || item.selectedProviderId || item.assignedProviderId ||
+    item.serviceProviderId || item.provider || item.serviceProvider ||
+    item.providerIds || item.selectedProviderIds || item.assignedProviderIds ||
+    item.providers || item.selectedProviders || item.assignedProviders ||
+    item.providerSnapshot?.id || item.providerSnapshot?._id || item.providerSnapshot?.providerId
+  );
+
+  // Authenticated provider-specific endpoints can omit the provider relation.
+  if (!hasProviderReference) return true;
+
   return (
     idMatches(item.providerId, providerId) ||
     idMatches(item.selectedProviderId, providerId) ||

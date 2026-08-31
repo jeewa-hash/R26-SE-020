@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getStoredUserId } from '../utils/jwtHelpers';
+import { useFocusEffect } from '@react-navigation/native';
+import { getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 import {
   getProviderRequests,
   getProviderQuotations,
@@ -81,12 +82,15 @@ const getStatusStyle = (status) => {
 
 const matchesProvider = (item, providerId) => {
   if (!providerId) return true;
-  return (
-    idsEqual(item?.providerId, providerId) ||
-    idsEqual(item?.providerSnapshot?.providerId, providerId) ||
-    idsEqual(item?.provider?._id, providerId) ||
-    idsEqual(item?.provider?.id, providerId)
-  );
+  const itemProviderId =
+    item?.providerId?._id ||
+    item?.providerId ||
+    item?.provider?._id ||
+    item?.provider?.id ||
+    item?.providerSnapshot?.providerId?._id ||
+    item?.providerSnapshot?.providerId;
+  // `/provider/me` responses are already authenticated and may omit providerId.
+  return !itemProviderId || idsEqual(itemProviderId, providerId);
 };
 
 const getReminderText = (booking) => {
@@ -114,25 +118,32 @@ export default function ProviderCalendarScreen({ navigation }) {
   const [ongoingBookings, setOngoingBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
 
   const dates = useMemo(() => nextSevenDays(), []);
 
   const loadProviderFlow = useCallback(async (id) => {
     try {
+      setError('');
+      let failedRequests = 0;
       const [requestRows, quotationRows, bookingRows, ongoingRows] = await Promise.all([
         getProviderRequests(id).catch((error) => {
+          failedRequests += 1;
           console.log('Provider requests load failed:', error?.message);
           return [];
         }),
         getProviderQuotations().catch((error) => {
+          failedRequests += 1;
           console.log('Provider quotations load failed:', error?.message);
           return [];
         }),
         getProviderBookings(id).catch((error) => {
+          failedRequests += 1;
           console.log('Provider jobs load failed:', error?.message);
           return [];
         }),
         getProviderOngoingBookings(id).catch((error) => {
+          failedRequests += 1;
           console.log('Provider ongoing load failed:', error?.message);
           return [];
         }),
@@ -147,9 +158,16 @@ export default function ProviderCalendarScreen({ navigation }) {
 
       console.log('Provider requests raw count:', requestRows.length);
       console.log('Provider requests filtered count:', myRequests.length);
+      console.log('Provider quotations raw count:', quotationRows.length);
       console.log('Provider quotations filtered count:', myQuotations.length);
-      console.log('Provider jobs filtered count:', myBookings.length);
+      console.log('Provider bookings raw count:', bookingRows.length);
+      console.log('Provider bookings filtered count:', myBookings.length);
+      console.log('Provider ongoing raw count:', ongoingRows.length);
       console.log('Provider ongoing filtered count:', myOngoing.length);
+
+      if (failedRequests === 4) {
+        setError('Unable to load data right now. Please check your connection and try again.');
+      }
 
       setRequests(myRequests);
       setQuotations(myQuotations);
@@ -162,9 +180,11 @@ export default function ProviderCalendarScreen({ navigation }) {
   }, []);
 
   const initialize = useCallback(async () => {
-    const id = await getStoredUserId();
+    setLoading(true);
+    const { token, providerId: id, role } = await getStoredProviderAuth();
     console.log('LOGGED PROVIDER ID:', id);
-    if (!id) {
+    if (!token || !id || !String(role || '').toLowerCase().includes('provider')) {
+      setLoading(false);
       Alert.alert('Login Required', 'Provider ID not found. Please login again.');
       navigation.navigate('Login');
       return;
@@ -173,9 +193,9 @@ export default function ProviderCalendarScreen({ navigation }) {
     await loadProviderFlow(String(id));
   }, [loadProviderFlow, navigation]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     initialize();
-  }, [initialize]);
+  }, [initialize]));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -387,6 +407,9 @@ export default function ProviderCalendarScreen({ navigation }) {
       <TouchableOpacity style={styles.fullPrimaryButton} onPress={() => submitQuote(request)}>
         <Text style={styles.primaryButtonText}>Submit Quotation</Text>
       </TouchableOpacity>
+      <TouchableOpacity style={styles.fullSecondaryButton} onPress={() => navigation.navigate('IT22129376ProviderRequestDetails', { request })}>
+        <Text style={styles.secondaryButtonText}>View Details</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -509,6 +532,11 @@ export default function ProviderCalendarScreen({ navigation }) {
             <ActivityIndicator size="large" color="#667eea" />
             <Text style={styles.loadingText}>Loading provider jobs...</Text>
           </View>
+        ) : error ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="cloud-offline-outline" size={46} color="#9CA3AF" />
+            <Text style={styles.emptyTitle}>{error}</Text>
+          </View>
         ) : renderBody()}
       </ScrollView>
     </SafeAreaView>
@@ -556,6 +584,7 @@ const styles = StyleSheet.create({
   primaryButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#667eea' },
   primaryButtonText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   fullPrimaryButton: { marginTop: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: '#667eea', alignItems: 'center' },
+  fullSecondaryButton: { marginTop: 8, paddingVertical: 12, borderRadius: 12, backgroundColor: '#EEF2FF', alignItems: 'center' },
   warningButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#FEF3C7' },
   warningButtonText: { color: '#B45309', fontWeight: '800', fontSize: 12 },
   successButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#D1FAE5' },

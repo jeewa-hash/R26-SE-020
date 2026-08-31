@@ -45,8 +45,10 @@ const getProviderIdFromItem = (item) =>
   item?.providerSnapshot?.providerId ||
   '';
 
-const belongsToProvider = (item, providerId) =>
-  String(getProviderIdFromItem(item)) === String(providerId);
+const belongsToProvider = (item, providerId) => {
+  const itemProviderId = getProviderIdFromItem(item);
+  return !itemProviderId || String(itemProviderId) === String(providerId);
+};
 
 // ── Inline Applied Jobs View ──
 function AppliedJobsView({ isDark }) {
@@ -172,7 +174,7 @@ export default function NewsFeedScreen() {
   const [viewerId, setViewerId] = useState(null);
   const [userName, setUserName] = useState('Kasun');
   const [userAvatar, setUserAvatar] = useState(null);
-  const [summary, setSummary] = useState({ pending: 0, waiting: 0, scheduled: 0, ongoing: 0, completed: 0 });
+  const [summary, setSummary] = useState({ pending: 0, waiting: 0, scheduled: 0, ongoing: 0, completed: 0, rejected: 0 });
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState(false);
 
@@ -209,6 +211,7 @@ export default function NewsFeedScreen() {
         scheduled: bookings.filter((item) => item.bookingStatus === 'CONFIRMED').length,
         ongoing: ongoingBookings.filter((item) => ['IN_PROGRESS', 'DELAY_REPORTED'].includes(item.bookingStatus)).length,
         completed: bookings.filter((item) => item.bookingStatus === 'COMPLETED').length,
+        rejected: quotations.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED').length,
       });
     } catch (error) {
       console.log('Provider summary load error:', error?.message);
@@ -230,6 +233,7 @@ export default function NewsFeedScreen() {
     { key: 'scheduled', label: 'Scheduled', icon: 'event-available', color: '#10B981' },
     { key: 'ongoing', label: 'Ongoing', icon: 'engineering', color: '#3B82F6' },
     { key: 'completed', label: 'Completed', icon: 'task-alt', color: '#059669' },
+    { key: 'rejected', label: 'Not Selected', icon: 'cancel', color: '#EF4444' },
   ];
 
   // Category icons mapping

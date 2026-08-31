@@ -139,6 +139,16 @@ export const getProviderBookings = async (providerId) => {
   return normalizeArrayResponse(payload);
 };
 
+export const getProviderBookingById = async (bookingId) => {
+  if (!bookingId) throw new Error('Booking ID is required.');
+  const payload = await requestFirstSuccess({
+    urls: COORDINATION_URLS,
+    paths: [`/bookings/${bookingId}`],
+    label: 'provider booking details',
+  });
+  return payload?.data || payload?.booking || payload;
+};
+
 export const getProviderOngoingBookings = async (providerId) => {
   try {
     const payload = await requestFirstSuccess({
@@ -184,7 +194,7 @@ export const submitProviderQuotation = async (payload) => {
 
 export const getBookingId = (booking) => String(booking?._id || booking?.id || booking?.bookingId || '');
 
-export const getBookingStatus = (booking) => String(booking?.bookingStatus || '').toUpperCase();
+export const getBookingStatus = (booking) => String(booking?.bookingStatus || 'CONFIRMED').toUpperCase();
 
 export const isOngoingBooking = (booking) => {
   const status = getBookingStatus(booking);
@@ -268,7 +278,7 @@ export const getHumanProviderName = (item) =>
     item?.provider?.fullName,
     item?.providerName,
     item?.businessName
-  ) || 'Selected Provider';
+  ) || 'Service Provider';
 
 export const getHumanSeekerName = (item) =>
   firstClean(
@@ -284,9 +294,12 @@ export const getHumanServiceTitle = (item) =>
   firstClean(
     item?.serviceSubcategory,
     item?.detectedObject,
+    item?.specificLabel,
+    item?.serviceLabel,
     item?.subcategory,
     item?.serviceCategory,
     item?.detectedCategory,
+    item?.category,
     item?.title
   ) || 'Service Request';
 
@@ -311,6 +324,7 @@ export const statusLabel = (status) => {
     SENT: 'Waiting for Seeker',
     ACCEPTED: 'Booking Confirmed',
     REJECTED: 'Not Selected',
+    EXPIRED: 'Expired',
     PENDING: 'Pending Request',
     QUOTED: 'Quoted',
   };

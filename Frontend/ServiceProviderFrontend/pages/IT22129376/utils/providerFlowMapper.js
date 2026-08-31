@@ -10,7 +10,7 @@ export const getQuotationRequestId = (quotation) => quotation?.externalRequestQu
 
 export const getBookingId = (booking) => booking?._id || booking?.id || booking?.bookingId || '';
 
-export const getBookingStart = (booking) => booking?.startTime || booking?.scheduledStartTime || booking?.coordinatedStartTime || booking?.scheduledDateTime || booking?.scheduledAt || booking?.createdAt;
+export const getBookingStart = (booking) => booking?.scheduledStartTime || booking?.coordinatedStartTime || booking?.scheduledDateTime || booking?.scheduledAt || booking?.startTime || booking?.createdAt;
 
 export const getBookingEnd = (booking) => booking?.endTime || booking?.scheduledEndTime || booking?.coordinatedEndTime || booking?.estimatedEndTime;
 
@@ -23,6 +23,8 @@ export const getSeekerName = (item) => item?.seekerSnapshot?.name || item?.custo
 export const getLocation = (item) => item?.serviceLocation?.address || item?.serviceLocation?.district || item?.location?.address || item?.district || item?.address || 'Location not available';
 
 export const getStatus = (item) => String(item?.status || item?.bookingStatus || item?.currentStatus || item?.coordinationStatus || 'PENDING').toUpperCase();
+
+export const getBookingStatus = (booking) => String(booking?.bookingStatus || 'CONFIRMED').toUpperCase();
 
 export const getStatusStyle = (status) => {
   const value = String(status || '').toUpperCase();
@@ -50,8 +52,8 @@ export const getRiskStyle = (risk) => {
 };
 
 export const isClosedBooking = (booking) => {
-  const s = getStatus(booking);
-  return s.includes('COMPLETED') || s.includes('CANCELLED') || s.includes('REJECTED') || s.includes('EXPIRED');
+  const status = getBookingStatus(booking);
+  return status === 'COMPLETED' || status === 'CANCELLED';
 };
 
 export const normalizeRequest = (request) => ({

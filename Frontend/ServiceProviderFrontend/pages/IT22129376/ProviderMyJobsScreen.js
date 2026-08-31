@@ -23,6 +23,7 @@ import { getProviderJobs, getProviderQuotations, getProviderRequests } from './s
 import { formatDate, formatFullDate, formatTime, isSameDay } from './utils/dateTimeFormatter';
 import {
   getBookingStart,
+  getBookingStatus,
   getBookingEnd,
   getBookingId,
   getQuotationId,
@@ -191,7 +192,7 @@ const QuoteCard = ({ quotation, onPress, isDark }) => {
 const BookingCard = ({ booking, onPress, isDark }) => {
   const start = getBookingStart(booking);
   const end = getBookingEnd(booking);
-  const status = getStatusStyle(getStatus(booking));
+  const status = getStatusStyle(getBookingStatus(booking));
   const risk = getRiskStyle(booking.delayRiskLevel || booking.predictedDelayRiskLevel);
   return (
     <TouchableOpacity style={[styles.card, isDark && styles.cardDark]} activeOpacity={0.85} onPress={onPress}>
