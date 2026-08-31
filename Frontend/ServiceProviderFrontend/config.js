@@ -1,17 +1,7 @@
-export const IP_ADDRESS = '192.168.8.101';
-
-export const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
-export const SOCKET_URL = `http://${IP_ADDRESS}:6000`;
-
-export const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003`;
-
-export const SEEKER_SERVICE_URL = `http://${IP_ADDRESS}:6000`;
-export const PROVIDER_SERVICE_API_URL = `http://${IP_ADDRESS}:3002`;
-export const COORDINATION_SERVICE_URL = `http://${IP_ADDRESS}:5010`;
-
-// Legacy endpoints retained for screens that still use the portfolio service.
-export const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
-export const PROVIDER_API_BASE = `http://${IP_ADDRESS}:5000`;
+// Set EXPO_PUBLIC_API_HOST to your computer's LAN IP when testing on a
+// physical device (for example: 192.168.1.103). Android emulators use 10.0.2.2.
+export const IP_ADDRESS =
+  process.env.EXPO_PUBLIC_API_HOST ||  '192.168.8.100'; //'192.168.1.38';
 
 export const CONFIG = {
   API_BASE_URL: `http://${IP_ADDRESS}:6000`,
