@@ -13,6 +13,7 @@ import quotationRoutes from "./routes/quotationRoutes.js";
 import { initNotificationSocket } from "./sockets/notificationSocket.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import webhookRoutes from "./routes/webhookRoutes.js";
+import commissionBillingRoutes from "./routes/commissionBillingRoutes.js";
 
 // ─────────────────────────────────────────────
 // Config
@@ -99,6 +100,7 @@ app.get("/health", (req, res) => {
 app.use("/api/provider/ads", adPostRoutes); // AI-assisted service post generation (FR-03)
 app.use("/api/provider/jobs", jobStatusRoutes);
 app.use("/api/provider/quotations", quotationRoutes);
+app.use("/api/provider/billing", commissionBillingRoutes); // Monthly 5% service charge commission & payment portal
 app.use("/api/notifications", notificationRoutes);
 
 // ─────────────────────────────────────────────
@@ -137,7 +139,7 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3002;
 
-app.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
 
   console.log(`
 🚀 ===================================

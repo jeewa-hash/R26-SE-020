@@ -2,6 +2,8 @@ import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
+import dns from "node:dns";
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
 import { createServer } from "http";
 import { Server } from "socket.io";
 
@@ -10,6 +12,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import chatSocket from "./sockets/chatSocket.js";
 import feedbackRoutes from "./routes/feedbackRoutes.js";
 import requestQuotationRoutes from "./routes/requestQuotationRoutes.js";
+import rewardRoutes from "./routes/rewardRoutes.js";
 
 dotenv.config();
 
@@ -28,6 +31,7 @@ app.use("/posts", postRoutes);
 app.use("/chat", chatRoutes);
 app.use("/feedback", feedbackRoutes);
 app.use("/request-quotations", requestQuotationRoutes);
+app.use("/api/rewards", rewardRoutes);
 
 
 // HTTP + SOCKET SERVER
@@ -48,7 +52,7 @@ const PORT = process.env.PORT || 6000;
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    httpServer.listen(PORT, () => {
+    httpServer.listen(PORT, "0.0.0.0", () => {
       console.log("");
       console.log("================================================");
       console.log("       🚀 SEEKER SERVICE BACKEND");

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import axios from "axios";
 import RequestQuotation from "../models/RequestQuotation.js";
 
 export const createRequestQuotation = async (req, res) => {
@@ -105,9 +106,8 @@ export const createRequestQuotation = async (req, res) => {
     if (existingRequest) {
       return res.status(409).json({
         success: false,
-        message:
-          "A request has already been sent to this provider for this session",
-        request: existingRequest,
+        message: "You have already requested a quotation from this provider for this service.",
+        data: existingRequest,
       });
     }
 
@@ -269,10 +269,10 @@ export const updateRequestStatus = async (req, res) => {
       });
     }
 
-    if (!["confirmed", "cancelled"].includes(status)) {
+    if (!["pending", "quoted", "accepted", "rejected", "cancelled", "expired"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Status must be confirmed or cancelled",
+        message: "Invalid request quotation status",
       });
     }
 
@@ -289,7 +289,7 @@ export const updateRequestStatus = async (req, res) => {
       });
     }
 
-    if (request.status !== "pending") {
+    if (["accepted", "rejected", "cancelled", "expired"].includes(request.status)) {
       return res.status(400).json({
         success: false,
         message: `Request is already ${request.status}`,
@@ -312,6 +312,42 @@ export const updateRequestStatus = async (req, res) => {
       message: "Server error",
       error: error.message,
     });
+  }
+};
+
+export const markSessionSelection = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { seekerId, acceptedRequestId } = req.body;
+
+    if (!sessionId || !mongoose.Types.ObjectId.isValid(seekerId) ||
+        !mongoose.Types.ObjectId.isValid(acceptedRequestId)) {
+      return res.status(400).json({ success: false, message: "Invalid session selection data" });
+    }
+
+    const selected = await RequestQuotation.findOne({
+      _id: acceptedRequestId,
+      seekerId,
+      sessionId,
+    });
+    if (!selected) {
+      return res.status(404).json({ success: false, message: "Selected request quotation not found" });
+    }
+
+    await RequestQuotation.updateMany(
+      { seekerId, sessionId, _id: { $ne: selected._id }, status: { $in: ["pending", "quoted"] } },
+      { $set: { status: "rejected" } }
+    );
+    selected.status = "accepted";
+    await selected.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Request quotation selection updated successfully",
+      data: selected,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Unable to update request selection", error: error.message });
   }
 };
 
@@ -369,6 +405,325 @@ export const deleteRequestQuotation = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      error: error.message,
+    });
+  }
+};
+
+// =======================================================
+// GET PERSONALIZED PROVIDER RECOMMENDATIONS FOR SEEKER
+// =======================================================
+export const getProviderRecommendations = async (req, res) => {
+  try {
+    const { seekerId } = req.params;
+    const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:4003";
+
+    if (!seekerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Seeker ID is required",
+      });
+    }
+
+    // 1. Fetch seeker info from authService to get seeker's district
+    let seekerDistrict = "Colombo";
+    let seekerName = "";
+    try {
+      const seekerRes = await axios.get(`${AUTH_SERVICE_URL}/seeker/user/${seekerId}`);
+      if (seekerRes.data) {
+        seekerDistrict = seekerRes.data.district || "Colombo";
+        seekerName = seekerRes.data.name || "";
+      }
+    } catch (e) {
+      console.warn("Could not fetch seeker details from authService, defaulting district to Colombo:", e.message);
+    }
+
+    // 2. Query seeker's booking requests from the last 3 years
+    const threeYearsAgo = new Date(Date.now() - 3 * 365 * 24 * 60 * 60 * 1000);
+    let pastRequests = [];
+    try {
+      pastRequests = await RequestQuotation.find({
+        seekerId: mongoose.Types.ObjectId.isValid(seekerId) ? new mongoose.Types.ObjectId(seekerId) : seekerId,
+        createdAt: { $gte: threeYearsAgo },
+      }).sort({ createdAt: -1 });
+    } catch (dbErr) {
+      console.warn("Error querying past requests:", dbErr.message);
+    }
+
+    // 3. Count categories and identify Top 5 most booked categories
+    const categoryCountMap = {};
+    for (const r of pastRequests) {
+      const cat = (r.detectedCategory || r.category || "").trim();
+      if (cat) {
+        categoryCountMap[cat] = (categoryCountMap[cat] || 0) + 1;
+      }
+    }
+
+    const topCategories = Object.entries(categoryCountMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([cat]) => cat);
+
+    // 4. Fetch all active providers from authService
+    let allProviders = [];
+    try {
+      const provRes = await axios.get(`${AUTH_SERVICE_URL}/providers`);
+      if (provRes.data && Array.isArray(provRes.data.providers)) {
+        allProviders = provRes.data.providers;
+      } else if (Array.isArray(provRes.data)) {
+        allProviders = provRes.data;
+      }
+    } catch (pErr) {
+      console.error("Error fetching providers from authService:", pErr.message);
+    }
+
+    // Fetch all request quotations to check consecutive cancellation streaks per provider
+    let allRequests = [];
+    try {
+      allRequests = await RequestQuotation.find({}).sort({ createdAt: -1 });
+    } catch (e) {
+      console.warn("Could not query all requests for streak check:", e.message);
+    }
+    const requestsByProvider = {};
+    for (const req of allRequests) {
+      const pid = String(req.providerId);
+      if (!requestsByProvider[pid]) requestsByProvider[pid] = [];
+      requestsByProvider[pid].push(req);
+    }
+
+    const now = new Date();
+
+    // Strict Filter for Recommendations:
+    // 1. Must be verified (isVerified: true)
+    // 2. Must NOT be blocked, suspended, or rejected
+    // 3. Must NOT have active temporary block
+    // 4. Must NOT have >3 consecutive missed or cancelled bookings
+    const eligibleProviders = allProviders.filter((p) => {
+      // 1. Verified check
+      if (!p.isVerified) return false;
+
+      // 2. Blocked / Suspended / Rejected check
+      if (p.isBlocked || p.isRejected || p.isSuspended) return false;
+      if (p.blockedUntil && new Date(p.blockedUntil) > now) return false;
+
+      // 3. Stored consecutive rejections / cancellations count
+      if (p.consecutiveRejections && p.consecutiveRejections > 3) return false;
+      if (p.consecutiveCancellations && p.consecutiveCancellations > 3) return false;
+
+      // 4. Dynamic streak check across past bookings
+      const pId = String(p._id || p.id);
+      const pReqs = requestsByProvider[pId] || [];
+      if (pReqs.length > 0) {
+        let consecutiveCancelled = 0;
+        for (const req of pReqs) {
+          const st = String(req.status || "").toLowerCase();
+          if (st === "cancelled" || st === "missed" || st === "rejected") {
+            consecutiveCancelled++;
+          } else {
+            break; // Valid booking found, streak ends
+          }
+        }
+        if (consecutiveCancelled > 3) return false;
+      }
+
+      return true;
+    });
+
+    const normalizedSeekerDistrict = (seekerDistrict || "").trim().toLowerCase();
+
+    // 5. Categorize and rank providers
+    const isNewSeeker = topCategories.length === 0;
+    let matchedProviders = [];
+
+    if (!isNewSeeker) {
+      // Prioritize: Providers in Seeker's District who match one of the Top 5 Categories
+      const topCatNormalized = topCategories.map((c) => c.toLowerCase());
+
+      const districtTopCategoryMatches = [];
+      const districtOtherMatches = [];
+      const otherDistrictTopCatMatches = [];
+      const remainingProviders = [];
+
+      for (const p of eligibleProviders) {
+        const pDistrict = (p.district || "").trim().toLowerCase();
+        const pCat = (p.category || "").trim().toLowerCase();
+
+        const isDistrictMatch = pDistrict === normalizedSeekerDistrict;
+        const isCatMatch = topCatNormalized.some(
+          (tc) => pCat.includes(tc) || tc.includes(pCat)
+        );
+
+        if (isDistrictMatch && isCatMatch) {
+          districtTopCategoryMatches.push({
+            ...p,
+            matchScore: 100,
+            matchReason: `Top booked service in ${p.district || seekerDistrict}`,
+            isTopCategory: true,
+          });
+        } else if (isDistrictMatch) {
+          districtOtherMatches.push({
+            ...p,
+            matchScore: 70,
+            matchReason: `Verified provider in ${p.district || seekerDistrict}`,
+            isTopCategory: false,
+          });
+        } else if (isCatMatch) {
+          otherDistrictTopCatMatches.push({
+            ...p,
+            matchScore: 50,
+            matchReason: `Top service specialist (${p.category})`,
+            isTopCategory: true,
+          });
+        } else {
+          remainingProviders.push({
+            ...p,
+            matchScore: 30,
+            matchReason: `Featured Provider`,
+            isTopCategory: false,
+          });
+        }
+      }
+
+      matchedProviders = [
+        ...districtTopCategoryMatches,
+        ...districtOtherMatches,
+        ...otherDistrictTopCatMatches,
+        ...remainingProviders,
+      ];
+    } else {
+      // New Seeker with no bookings: Recommend all eligible verified providers in their district
+      const districtMatches = [];
+      const otherMatches = [];
+
+      for (const p of eligibleProviders) {
+        const pDistrict = (p.district || "").trim().toLowerCase();
+        if (pDistrict === normalizedSeekerDistrict) {
+          districtMatches.push({
+            ...p,
+            matchScore: 90,
+            matchReason: `Top rated verified pro in ${p.district || seekerDistrict}`,
+            isTopCategory: false,
+          });
+        } else {
+          otherMatches.push({
+            ...p,
+            matchScore: 40,
+            matchReason: `Verified Specialist`,
+            isTopCategory: false,
+          });
+        }
+      }
+
+      matchedProviders = [...districtMatches, ...otherMatches];
+    }
+
+    // 6. Format output for Seeker Mobile App Carousel & Navigation
+    const recommendations = matchedProviders.map((p, idx) => {
+      const pId = p._id || p.id;
+      const displayName = p.name || p.fullName || (p.email ? p.email.split("@")[0] : `Provider ${idx + 1}`);
+      const categoryName = p.category || "General Services";
+      const districtName = p.district || seekerDistrict;
+
+      return {
+        id: String(pId),
+        _id: String(pId),
+        title: displayName,
+        subtitle: `${categoryName} • ${districtName}`,
+        category: categoryName,
+        district: districtName,
+        rating: p.rating || 4.9,
+        reviewsCount: p.reviewCount || 14,
+        isVerified: Boolean(p.isVerified),
+        matchReason: p.matchReason,
+        matchScore: p.matchScore,
+        isTopCategory: Boolean(p.isTopCategory),
+        image: p.profileImage || null,
+        provider: {
+          id: String(pId),
+          _id: String(pId),
+          name: displayName,
+          email: p.email,
+          telephone: p.telephone,
+          district: districtName,
+          category: categoryName,
+          profileImage: p.profileImage,
+          bio: p.bio,
+          isVerified: Boolean(p.isVerified),
+          rating: p.rating || 4.9,
+          location: p.location,
+        },
+        portfolio: {
+          categories: [categoryName],
+          specific_labels: [categoryName],
+          images: p.profileImage ? [p.profileImage] : [],
+          total_images: p.profileImage ? 1 : 0,
+        },
+        match: {
+          category: categoryName,
+          reason: p.matchReason,
+          isTopCategory: Boolean(p.isTopCategory),
+        },
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      seekerDistrict,
+      isNewSeeker,
+      topCategories,
+      totalRecommendations: recommendations.length,
+      recommendations,
+    });
+  } catch (error) {
+    console.error("GET PROVIDER RECOMMENDATIONS ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching recommendations",
+      error: error.message,
+    });
+  }
+};
+export const getProviderRequestsbyProvider = async (req, res) => {
+  try {
+    const { providerId } = req.params;
+
+    if (!providerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Provider ID is required",
+      });
+    }
+
+    const requests = await RequestQuotation.find({
+      $or: [
+        { providerId: providerId },
+        { selectedProviderId: providerId },
+        { assignedProviderId: providerId },
+
+        // If your schema stores providers as arrays
+        { providerIds: providerId },
+        { selectedProviderIds: providerId },
+        { assignedProviderIds: providerId },
+
+        // If your schema stores provider objects
+        { "provider.providerId": providerId },
+        { "providers.providerId": providerId },
+        { "selectedProviders.providerId": providerId },
+        { "assignedProviders.providerId": providerId },
+      ],
+    }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: requests.length,
+      requests,
+    });
+  } catch (error) {
+    console.error("Get provider requests error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch provider requests",
       error: error.message,
     });
   }

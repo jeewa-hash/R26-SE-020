@@ -3,7 +3,12 @@ import BidCoordination from "../models/BidCoordination.js";
 import BidPriceEvaluation from "../models/BidPriceEvaluation.js";
 import BidScheduleEvaluation from "../models/BidScheduleEvaluation.js";
 import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
-import { updateProviderQuotationCoordination } from "../clients/providerServiceClient.js";
+import axios from "axios";
+import {
+  getProviderQuotationById,
+  acceptProviderQuotation,
+  updateProviderQuotationCoordination,
+} from "../clients/providerServiceClient.js";
 
 const canAccessBooking = (req, booking) => {
   if (req.user.role === "Admin") return true;
@@ -14,9 +19,16 @@ const canAccessBooking = (req, booking) => {
 
 export const getBookingsByProvider = async (req, res) => {
   try {
-    const { providerId } = req.params;
+    const providerId = req.params.providerId || req.user?.id;
 
-    if (req.user.role === "ServiceProvider" && req.user.id !== providerId) {
+    if (!providerId) {
+      return res.status(400).json({
+        success: false,
+        message: "providerId is required",
+      });
+    }
+
+    if (req.user && req.user.role === "ServiceProvider" && req.user.id !== providerId.toString()) {
       return res.status(403).json({
         success: false,
         message: "You can only view your own provider bookings",
@@ -41,12 +53,22 @@ export const getBookingsByProvider = async (req, res) => {
     });
   }
 };
-
 export const getBookingsBySeeker = async (req, res) => {
   try {
-    const { seekerId } = req.params;
+    // ✅ If no seekerId in params, use the logged‑in user's ID
+    let seekerId = req.params.seekerId;
+    if (!seekerId && req.user?.role === "Seeker") {
+      seekerId = req.user.id;
+    }
+    if (!seekerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Seeker ID is required",
+      });
+    }
 
-    if (req.user.role === "Seeker" && req.user.id !== seekerId) {
+    // ✅ Ensure the user can only view their own bookings (unless admin)
+    if (req.user?.role === "Seeker" && req.user.id !== seekerId) {
       return res.status(403).json({
         success: false,
         message: "You can only view your own seeker bookings",
@@ -184,16 +206,22 @@ export const createBookingFromCoordination = async (req, res) => {
     }); // Chaw: detects whether seeker selected a coordinated alternative slot
 
     const existingBooking = await Booking.findOne({
-      bidCoordinationId: coordination._id,
-      bookingStatus: {
-        $ne: "CANCELLED",
-      },
+      bookingStatus: { $ne: "CANCELLED" },
+      $or: [
+        { bidCoordinationId: coordination._id },
+        {
+          externalSessionId: coordination.externalSessionId,
+          externalQuotationId: coordination.externalQuotationId,
+          seekerId: coordination.seekerId,
+          providerId: coordination.providerId,
+        },
+      ],
     });
 
     if (existingBooking) {
-      return res.status(400).json({
-        success: false,
-        message: "Booking already exists for this coordination",
+      return res.status(200).json({
+        success: true,
+        message: "Booking already exists for this quotation.",
         data: existingBooking,
       });
     }
@@ -225,6 +253,42 @@ export const createBookingFromCoordination = async (req, res) => {
       endDate.getUTCMinutes()
     )}`;
 
+    let quotation = null;
+    try {
+      quotation = await getProviderQuotationById(
+        coordination.externalQuotationId
+      );
+    } catch (quotationError) {
+      console.warn(
+        "BOOKING PROVIDER SNAPSHOT WARNING:",
+        quotationError.message
+      );
+    }
+
+    const providerSnapshot = {
+      providerId: quotation?.providerId || coordination.providerId,
+      name:
+        quotation?.providerSnapshot?.name ||
+        quotation?.providerName ||
+        "Service Provider",
+      businessName:
+        quotation?.providerSnapshot?.businessName ||
+        quotation?.businessName ||
+        "",
+      phone: quotation?.providerSnapshot?.phone || "",
+      district: quotation?.providerSnapshot?.district || "",
+      profileImage: quotation?.providerSnapshot?.profileImage || "",
+    };
+
+    // Coordination Service has no local seeker profile lookup. Keep booking
+    // creation resilient while still storing a readable fallback snapshot.
+    const seekerSnapshot = {
+      seekerId: coordination.seekerId,
+      name: "Customer",
+      phone: "",
+      district: "",
+    };
+
     const booking = await Booking.create({
       postId: null,
       providerRequestId: null,
@@ -236,6 +300,11 @@ export const createBookingFromCoordination = async (req, res) => {
 
       seekerId: coordination.seekerId,
       providerId: coordination.providerId,
+      seekerSnapshot,
+      providerSnapshot,
+      serviceCategory: quotation?.serviceCategory || "",
+      serviceSubcategory: quotation?.serviceSubcategory || "",
+      serviceLocation: "",
 
       initialSchedule: {
         date: scheduledDate,
@@ -246,11 +315,19 @@ export const createBookingFromCoordination = async (req, res) => {
       scheduledDate,
       startTime,
       endTime,
+      scheduledStartTime: startDate,
+      scheduledEndTime: endDate,
+      displayStartTime: startTime,
+      displayEndTime: endTime,
 
       estimatedDurationHours:
         scheduleEvaluation.finalSchedulingDurationHours,
 
       finalAmount: priceEvaluation.providerQuotedPrice,
+      currency: "LKR",
+      mlPredictedDurationHours: scheduleEvaluation.mlPredictedDurationHours || null,
+      conflictDetected: Boolean(scheduleEvaluation.conflictDetected),
+      timeline: [{ status: "CONFIRMED", message: "Booking confirmed", at: new Date() }],
 
       scheduleSource: selectedSuggestedSlot
         ? "COORDINATED_SUGGESTED_SLOT"
@@ -262,7 +339,21 @@ export const createBookingFromCoordination = async (req, res) => {
           : String(scheduleEvaluation.delayRiskLevel).toUpperCase(),
 
       bookingStatus: "CONFIRMED",
+      status: "CONFIRMED",
     });
+
+    // Asynchronously log booking to ML Data (service_data_for_csvs) table in admin service
+    try {
+      const adminUrl = process.env.ADMIN_SERVICE_URL || "http://localhost:5001";
+      axios.post(`${adminUrl}/api/log-booking-ml`, {
+        bookingId: booking._id.toString(),
+        providerId: booking.providerId?.toString(),
+        seekerId: booking.seekerId?.toString(),
+        scheduledDate: booking.scheduledDate,
+      }).catch((e) => console.warn('ML booking log warning:', e.message));
+    } catch (e) {
+      // non-blocking
+    }
 
     coordination.status = "accepted";
     await coordination.save();
@@ -277,8 +368,12 @@ export const createBookingFromCoordination = async (req, res) => {
         coordination._id.toString(),
         scheduleEvaluation.requiredWindowStart,
         scheduleEvaluation.requiredWindowEnd,
-        "ACCEPTED"
-      ); // Chaw: mark Provider Quotation as ACCEPTED after booking is successfully created
+        null
+      );
+      await acceptProviderQuotation(
+        coordination.externalQuotationId,
+        req.headers.authorization || ""
+      );
     } catch (updateError) {
       providerQuotationUpdateWarning = updateError.message;
     }
@@ -345,6 +440,9 @@ export const startBooking = async (req, res) => {
     }
 
     booking.bookingStatus = "IN_PROGRESS";
+    booking.status = "IN_PROGRESS";
+    booking.actualStartTime = new Date();
+    booking.timeline.push({ status: "IN_PROGRESS", message: "Provider started the booking", at: new Date() });
 
     await booking.save();
 
@@ -361,6 +459,11 @@ export const startBooking = async (req, res) => {
     });
   }
 };
+
+/**
+ * Complete a booking – automatically awards reward points to the seeker.
+ * The reward service is called internally via HTTP with a service‑to‑service key.
+ */
 export const completeBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -390,14 +493,53 @@ export const completeBooking = async (req, res) => {
     }
 
     booking.bookingStatus = "COMPLETED";
+    booking.status = "COMPLETED";
+    booking.completedAt = new Date();
+    booking.timeline.push({ status: "COMPLETED", message: "Booking completed", at: new Date() });
     await booking.save();
+
+    // -------- Award points automatically --------
+    let reward = null;
+    const finalAmount = Number(booking.finalAmount) || 0;
+    if (finalAmount > 0) {
+      try {
+        const seekerServiceUrl = (process.env.SEEKER_SERVICE_URL || "http://127.0.0.1:6000").replace(/\/$/, "");
+        const rewardResponse = await axios.post(
+          `${seekerServiceUrl}/api/rewards/internal/bookings/award`,
+          {
+            bookingId: booking._id.toString(),
+            seekerId: booking.seekerId.toString(),
+            finalAmount,
+            bookingStatus: booking.bookingStatus,
+          },
+          {
+            headers: {
+              "x-reward-service-key": process.env.REWARD_SERVICE_KEY,
+            },
+          }
+        );
+        reward = rewardResponse.data;
+      } catch (rewardError) {
+        // Log the error but do NOT roll back the completion.
+        // The reward endpoint is idempotent – it can be retried later.
+        console.error("Failed to award booking points:", rewardError.response?.data || rewardError.message);
+        reward = {
+          success: false,
+          error: rewardError.response?.data?.error || rewardError.message,
+        };
+      }
+    } else {
+      reward = { success: false, message: "Skipped – finalAmount is zero or invalid" };
+    }
 
     return res.status(200).json({
       success: true,
       message: "Booking completed successfully",
       data: booking,
+      reward,
     });
   } catch (error) {
+    console.error("Complete booking error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to complete booking",
@@ -437,6 +579,8 @@ export const reportBookingDelay = async (req, res) => {
     }
 
     booking.bookingStatus = "DELAY_REPORTED";
+    booking.status = "DELAY_REPORTED";
+    booking.timeline.push({ status: "DELAY_REPORTED", message: delayReason || "Delay reported", at: new Date() });
 
     booking.delayInfo = {
       delayReason,
@@ -662,6 +806,84 @@ export const getProviderMissedInquiries = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to get provider missed inquiries",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Get provider earnings summary from completed bookings
+ * Returns total completed earnings, count, and optional month/year filter
+ * Used by Provider Service for billing & 5% commission calculation
+ */
+export const getProviderEarningsSummary = async (req, res) => {
+  try {
+    const providerId = req.params.providerId || req.user?.id;
+    const { month, year } = req.query; // month format "YYYY-MM" e.g. "2026-08", or year "2026"
+
+    if (!providerId) {
+      return res.status(400).json({
+        success: false,
+        message: "providerId is required",
+      });
+    }
+
+    if (req.user && req.user.role === "ServiceProvider" && req.user.id !== providerId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only view your own provider earnings",
+      });
+    }
+
+    const query = {
+      providerId,
+      bookingStatus: "COMPLETED",
+    };
+
+    const completedBookings = await Booking.find(query).sort({ updatedAt: -1, scheduledDate: -1 });
+
+    // Filter by month (YYYY-MM) or year (YYYY) if requested
+    let filteredBookings = completedBookings;
+    if (month) {
+      filteredBookings = completedBookings.filter((b) => {
+        const dateStr = b.scheduledDate || (b.updatedAt ? b.updatedAt.toISOString().slice(0, 10) : "");
+        return dateStr.startsWith(month);
+      });
+    } else if (year) {
+      filteredBookings = completedBookings.filter((b) => {
+        const dateStr = b.scheduledDate || (b.updatedAt ? b.updatedAt.toISOString().slice(0, 10) : "");
+        return dateStr.startsWith(year);
+      });
+    }
+
+    const totalIncome = filteredBookings.reduce((sum, b) => sum + (Number(b.finalAmount) || 0), 0);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        providerId,
+        filter: { month: month || null, year: year || null },
+        totalIncome,
+        completedBookingsCount: filteredBookings.length,
+        bookings: filteredBookings.map((b) => ({
+          _id: b._id,
+          finalAmount: b.finalAmount || 0,
+          scheduledDate: b.scheduledDate,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          seekerId: b.seekerId,
+          externalSessionId: b.externalSessionId,
+          externalQuotationId: b.externalQuotationId,
+          bookingStatus: b.bookingStatus,
+          completedAt: b.updatedAt,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("GET PROVIDER EARNINGS ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to get provider earnings summary",
       error: error.message,
     });
   }

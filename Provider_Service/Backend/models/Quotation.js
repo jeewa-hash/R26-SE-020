@@ -33,6 +33,36 @@ const quotationSchema = new mongoose.Schema(
       index: true,
     }, // Chaw: removed User ref because user data belongs to Auth/User Service
 
+    providerSnapshot: {
+      providerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "ServiceProvider",
+      },
+      name: {
+        type: String,
+        default: "",
+      },
+      businessName: {
+        type: String,
+        default: "",
+      },
+      phone: {
+        type: String,
+        default: "",
+      },
+      district: {
+        type: String,
+        default: "",
+      },
+      profileImage: {
+        type: String,
+        default: "",
+      },
+    },
+
+    serviceCategory: { type: String, default: "" },
+    serviceSubcategory: { type: String, default: "" },
+
     price: {
       type: Number,
       required: true,
@@ -77,6 +107,9 @@ const quotationSchema = new mongoose.Schema(
         "CHECKING",
         "CAN_ACCEPT",
         "AVAILABLE_WITH_CAUTION",
+        "NEEDS_RESCHEDULE",
+        "CONFLICT_DETECTED",
+        "REJECTED_BY_COORDINATION",
         "RESCHEDULE_REQUIRED",
         "REJECTED_DUE_TO_CONFLICT",
       ],
@@ -90,9 +123,12 @@ const quotationSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["SENT", "COUNTER_OFFERED", "ACCEPTED", "REJECTED", "EXPIRED"], // Chaw CHANGED: supports bidding/counter-offer flow
+      enum: ["SENT", "COUNTER_OFFERED", "ACCEPTED", "REJECTED", "EXPIRED", "CANCELLED"],
       default: "SENT",
     },
+    acceptedAt: { type: Date, default: null },
+    rejectedAt: { type: Date, default: null },
+    rejectionReason: { type: String, default: "" },
   },
   { timestamps: true }
 );

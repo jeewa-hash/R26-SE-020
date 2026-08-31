@@ -1,12 +1,16 @@
 import {
   IP_ADDRESS,
   API_BASE_URL,
-  PROVIDER_API_BASE,
 } from '../../../config';
+
 import { buildAuthHeaders } from './seekerAuthStorage';
 
 const SEEKER_SERVICE_URL = API_BASE_URL || `http://${IP_ADDRESS}:6000`;
-const PROVIDER_SERVICE_BASE = PROVIDER_API_BASE || `http://${IP_ADDRESS}:5000`;
+
+// Real Provider Service backend port
+const PROVIDER_SERVICE_BASE = `http://${IP_ADDRESS}:3002`;
+
+// Real Coordination Service backend port
 const SERVICE_COORDINATION_SERVICE_URL = `http://${IP_ADDRESS}:5010`;
 
 const parseResponse = async (response) => {
@@ -29,7 +33,10 @@ const parseResponse = async (response) => {
       data?.error ||
       `Request failed with status ${response.status}`;
 
-    throw new Error(message);
+    const err = new Error(message);
+    err.status = response.status;
+    err.data = data;
+    throw err;
   }
 
   return data;
@@ -46,6 +53,13 @@ const normalizeList = (data, keys = []) => {
 
   if (Array.isArray(data?.data)) return data.data;
   if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data?.requests)) return data.requests;
+  if (Array.isArray(data?.requestQuotations)) return data.requestQuotations;
+  if (Array.isArray(data?.quotations)) return data.quotations;
+  if (Array.isArray(data?.providerQuotations)) return data.providerQuotations;
+  if (Array.isArray(data?.bookings)) return data.bookings;
+  if (Array.isArray(data?.calendar)) return data.calendar;
+  if (Array.isArray(data?.jobs)) return data.jobs;
 
   return [];
 };
@@ -57,76 +71,77 @@ export const getSeekerRequestQuotations = async (seekerId) => {
 
   const headers = await buildAuthHeaders();
 
-  const possibleUrls = [
-    `${SEEKER_SERVICE_URL}/request-quotations/seeker/${seekerId}`,
-    `${SEEKER_SERVICE_URL}/api/request-quotations/seeker/${seekerId}`,
-    `${SEEKER_SERVICE_URL}/requests/seeker/${seekerId}`,
-    `${SEEKER_SERVICE_URL}/api/requests/seeker/${seekerId}`,
-  ];
+  const url = `${SEEKER_SERVICE_URL}/request-quotations/seeker/${seekerId}`;
 
-  let lastError = null;
+  try {
+    console.log('Trying seeker requests URL:', url);
 
-  for (const url of possibleUrls) {
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers,
-      });
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
 
-      const data = await parseResponse(response);
+    const data = await parseResponse(response);
 
-      return {
-        raw: data,
-        requests: normalizeList(data, [
-          'requestQuotations',
-          'requests',
-          'quotations',
-        ]),
-        usedUrl: url,
-      };
-    } catch (error) {
-      lastError = error;
-    }
+    console.log('Seeker requests loaded from:', url);
+
+    return {
+      raw: data,
+      requests: normalizeList(data, [
+        'requestQuotations',
+        'requests',
+        'data',
+      ]),
+      usedUrl: url,
+    };
+  } catch (error) {
+    console.log('Seeker requests URL failed:', url, error.message);
+
+    return {
+      raw: null,
+      requests: [],
+      usedUrl: null,
+    };
   }
-
-  throw lastError || new Error('Unable to load seeker request quotations');
 };
 
-export const getProviderQuotationsForSeeker = async (seekerId) => {
-  if (!seekerId) {
-    throw new Error('Seeker ID is required');
-  }
-
+export const getProviderQuotationsForSeeker = async () => {
   const headers = await buildAuthHeaders();
 
-  const possibleUrls = [
-    `${PROVIDER_SERVICE_BASE}/api/provider/quotations/seeker/${seekerId}`,
-    `${PROVIDER_SERVICE_BASE}/api/provider/quotations/by-seeker/${seekerId}`,
-    `${PROVIDER_SERVICE_BASE}/api/provider/quotations?seekerId=${seekerId}`,
-  ];
+  // Actual backend route:
+  // router.get("/seeker/me", protect(["Seeker"]), getSeekerQuotations)
+  const url = `${PROVIDER_SERVICE_BASE}/api/provider/quotations/seeker/me`;
 
-  let lastError = null;
+  try {
+    console.log('Trying seeker quotations URL:', url);
 
-  for (const url of possibleUrls) {
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers,
-      });
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
 
-      const data = await parseResponse(response);
+    const data = await parseResponse(response);
 
-      return {
-        raw: data,
-        quotations: normalizeList(data, ['quotations', 'providerQuotations']),
-        usedUrl: url,
-      };
-    } catch (error) {
-      lastError = error;
-    }
+    console.log('Seeker quotations loaded from:', url);
+
+    return {
+      raw: data,
+      quotations: normalizeList(data, [
+        'quotations',
+        'providerQuotations',
+        'data',
+      ]),
+      usedUrl: url,
+    };
+  } catch (error) {
+    console.log('Seeker quotations URL failed:', url, error.message);
+
+    return {
+      raw: null,
+      quotations: [],
+      usedUrl: null,
+    };
   }
-
-  throw lastError || new Error('Unable to load provider quotations');
 };
 
 export const getSeekerBookings = async (seekerId) => {
@@ -137,14 +152,16 @@ export const getSeekerBookings = async (seekerId) => {
   const headers = await buildAuthHeaders();
 
   const possibleUrls = [
+    `${SERVICE_COORDINATION_SERVICE_URL}/bookings/seeker/me`,
+    `${SERVICE_COORDINATION_SERVICE_URL}/calendar/seeker/me`,
     `${SERVICE_COORDINATION_SERVICE_URL}/bookings/seeker/${seekerId}`,
     `${SERVICE_COORDINATION_SERVICE_URL}/calendar/seeker/${seekerId}`,
   ];
 
-  let lastError = null;
-
   for (const url of possibleUrls) {
     try {
+      console.log('Trying seeker bookings URL:', url);
+
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -152,17 +169,28 @@ export const getSeekerBookings = async (seekerId) => {
 
       const data = await parseResponse(response);
 
+      console.log('Seeker bookings loaded from:', url);
+
       return {
         raw: data,
-        bookings: normalizeList(data, ['bookings', 'calendar', 'jobs']),
+        bookings: normalizeList(data, [
+          'bookings',
+          'calendar',
+          'jobs',
+          'data',
+        ]),
         usedUrl: url,
       };
     } catch (error) {
-      lastError = error;
+      console.log('Seeker bookings URL failed:', url, error.message);
     }
   }
 
-  throw lastError || new Error('Unable to load seeker bookings');
+  return {
+    raw: null,
+    bookings: [],
+    usedUrl: null,
+  };
 };
 
 export const checkBidCoordination = async ({

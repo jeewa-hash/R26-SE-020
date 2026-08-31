@@ -21,6 +21,7 @@ import CreatePostScreen from './screens/CreatePostScreen';
 import LanguageScreen from './screens/LanguageScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import ProviderProfileScreen from './screens/ProviderProfileScreen';
+import ProfileOfProvider from './screens/profileOfProvider';
 
 import FeedbackScreen from './screens/FeedbackScreen';
 import BiddingScreen from './screens/BiddingScreen';
@@ -149,6 +150,18 @@ function AppNavigator({ initialRouteName }) {
       <Stack.Screen
         name="ProviderProfile"
         component={ProviderProfileScreen}
+        options={{ headerShown: false }}
+      />
+
+      <Stack.Screen
+        name="profileOfProvider"
+        component={ProfileOfProvider}
+        options={{ headerShown: false }}
+      />
+
+      <Stack.Screen
+        name="ProfileOfProvider"
+        component={ProfileOfProvider}
         options={{ headerShown: false }}
       />
 
@@ -341,7 +354,7 @@ export default function App() {
   const [currentRouteName, setCurrentRouteName] = useState('Login');
 
   const syncCurrentRouteName = () => {
-    const route = navigationRef.current?.getCurrentRoute?.();
+    const route = navigationRef.getCurrentRoute();
 
     if (route?.name) {
       setCurrentRouteName(route.name);
@@ -394,7 +407,6 @@ export default function App() {
                 >
                   <View style={{ flex: 1 }}>
                     <AppNavigator initialRouteName={initialRouteName} />
-
                     <BottomNav
                       navigationRef={navigationRef}
                       currentRouteName={currentRouteName}

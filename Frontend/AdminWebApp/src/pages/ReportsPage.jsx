@@ -3,10 +3,10 @@ import axios from 'axios';
 import { 
   FiFileText, FiDownload, FiCalendar, FiFilter, FiTrendingUp, 
   FiUsers, FiLayers, FiCheckCircle, FiClock, FiXCircle, 
-  FiPrinter, FiRefreshCw, FiPieChart, FiBarChart2, FiShare2
+  FiPrinter, FiRefreshCw, FiPieChart, FiBarChart2, FiShare2, FiDollarSign
 } from 'react-icons/fi';
 import { 
-  ResponsiveContainer, BarChart, Bar, LineChart, Line, 
+  ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend 
 } from 'recharts';
 import jsPDF from 'jspdf';
@@ -55,6 +55,14 @@ const REPORT_TYPES = [
     category: 'User Analytics',
     themeColor: '#8b5cf6',
   },
+  {
+    id: 'revenue-growth',
+    title: 'Platform Revenue Growth Report',
+    description: 'Financial monetization analytics, provider ad boost earnings, and payment transaction breakdown.',
+    icon: FiDollarSign,
+    category: 'Financial Analytics',
+    themeColor: '#10b981',
+  },
 ];
 
 const PRESETS = [
@@ -74,6 +82,13 @@ const ReportsPage = () => {
   
   const [bookingData, setBookingData] = useState([]);
   const [userData, setUserData] = useState([]);
+  const [revenueData, setRevenueData] = useState([]);
+  const [revenueStats, setRevenueStats] = useState({
+    totalIncomeLkr: 0,
+    totalTransactions: 0,
+    totalBoostSteps: 0,
+    currency: 'LKR',
+  });
   const [loading, setLoading] = useState(false);
   const [lastGeneratedAt, setLastGeneratedAt] = useState(new Date());
 
@@ -84,11 +99,14 @@ const ReportsPage = () => {
   const fetchReportData = useCallback(async () => {
     setLoading(true);
     try {
-      const [bookingRes, userRes] = await Promise.all([
+      const [bookingRes, userRes, revRes] = await Promise.all([
         axios.get(`${ADMIN_SERVICE_URL}/api/analytics/booking-growth`, {
           params: { startDate, endDate },
         }),
         axios.get(`${ADMIN_SERVICE_URL}/api/analytics/user-growth`, {
+          params: { startDate, endDate },
+        }),
+        axios.get(`${ADMIN_SERVICE_URL}/api/analytics/revenue-growth`, {
           params: { startDate, endDate },
         }),
       ]);
@@ -98,6 +116,16 @@ const ReportsPage = () => {
       }
       if (userRes.data && userRes.data.success) {
         setUserData(userRes.data.data || []);
+      }
+      if (revRes.data && revRes.data.success) {
+        const rData = revRes.data.data;
+        setRevenueStats({
+          totalIncomeLkr: rData.totalIncomeLkr || 0,
+          totalTransactions: rData.totalTransactions || 0,
+          totalBoostSteps: rData.totalBoostSteps || 0,
+          currency: rData.currency || 'LKR',
+        });
+        setRevenueData(rData.monthlyBreakdown || []);
       }
       setLastGeneratedAt(new Date());
     } catch (err) {
@@ -120,17 +148,48 @@ const ReportsPage = () => {
 
   // Filter months matching date range if custom
   const filteredData = useMemo(() => {
-    if (!startDate && !endDate) return selectedReportId === 'user-growth' ? userData : bookingData;
+    let sourceData = bookingData;
+    if (selectedReportId === 'user-growth') {
+      sourceData = userData;
+    } else if (selectedReportId === 'revenue-growth') {
+      sourceData = revenueData;
+    }
+
+    if (!startDate && !endDate) return sourceData;
 
     const startMonth = startDate ? new Date(startDate).getMonth() : 0;
     const endMonth = endDate ? new Date(endDate).getMonth() : 11;
 
-    const sourceData = selectedReportId === 'user-growth' ? userData : bookingData;
-    return sourceData.filter((d) => d.monthIndex >= startMonth && d.monthIndex <= endMonth);
-  }, [selectedReportId, userData, bookingData, startDate, endDate]);
+    return sourceData.filter((d, idx) => {
+      const mIdx = d.monthIndex !== undefined ? (d.monthIndex > 11 ? d.monthIndex - 1 : d.monthIndex) : idx;
+      return mIdx >= startMonth && mIdx <= endMonth;
+    });
+  }, [selectedReportId, userData, bookingData, revenueData, startDate, endDate]);
 
   // Summary Metrics calculations
   const summaryMetrics = useMemo(() => {
+    if (selectedReportId === 'revenue-growth') {
+      const totalRev = filteredData.reduce((acc, d) => acc + (d.revenue || 0), 0);
+      const totalTx = filteredData.reduce((acc, d) => acc + (d.transactions || 0), 0);
+      const totalSteps = filteredData.reduce((acc, d) => acc + (d.boostSteps || 0), 0);
+      const avgMonthly = filteredData.length > 0 ? (totalRev / filteredData.length).toFixed(2) : '0.00';
+
+      return {
+        metric1: { 
+          label: 'Total Platform Revenue', 
+          value: `Rs. ${Number(totalRev).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`, 
+          color: '#059669' 
+        },
+        metric2: { label: 'Completed Transactions', value: totalTx, color: '#4f46e5' },
+        metric3: { 
+          label: 'Average Monthly Revenue', 
+          value: `Rs. ${Number(avgMonthly).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`, 
+          color: '#0284c7' 
+        },
+        metric4: { label: 'Total Priority Boost Steps', value: totalSteps, color: '#d97706' },
+      };
+    }
+
     if (selectedReportId === 'user-growth') {
       const totalSeekers = filteredData.reduce((acc, d) => acc + (d.newSeekers || 0), 0);
       const totalProviders = filteredData.reduce((acc, d) => acc + (d.newProviders || 0), 0);
@@ -240,7 +299,19 @@ const ReportsPage = () => {
     let tableHeaders = [];
     let tableRows = [];
 
-    if (selectedReportId === 'user-growth') {
+    if (selectedReportId === 'revenue-growth') {
+      tableHeaders = ['Month', 'Transactions', 'Boost Steps', 'Revenue (LKR)'];
+      tableRows = filteredData.map((d) => [
+        d.name || d.month,
+        d.transactions || 0,
+        d.boostSteps || 0,
+        `Rs. ${Number(d.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`,
+      ]);
+      const totalRev = filteredData.reduce((a, b) => a + (b.revenue || 0), 0);
+      const totalTx = filteredData.reduce((a, b) => a + (b.transactions || 0), 0);
+      const totalSteps = filteredData.reduce((a, b) => a + (b.boostSteps || 0), 0);
+      tableRows.push(['TOTAL', totalTx, totalSteps, `Rs. ${Number(totalRev).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`]);
+    } else if (selectedReportId === 'user-growth') {
       tableHeaders = ['Month', 'New Seekers', 'New Providers', 'Total Cumulative Users'];
       tableRows = filteredData.map((d) => [
         d.name,
@@ -337,7 +408,17 @@ const ReportsPage = () => {
     let tableHeadersHtml = '';
     let tableRowsHtml = '';
 
-    if (selectedReportId === 'user-growth') {
+    if (selectedReportId === 'revenue-growth') {
+      tableHeadersHtml = '<th>Month</th><th>Transactions</th><th>Boost Steps</th><th>Revenue (LKR)</th>';
+      tableRowsHtml = filteredData.map(d => `
+        <tr>
+          <td>${d.name || d.month}</td>
+          <td>${d.transactions || 0}</td>
+          <td>${d.boostSteps || 0}</td>
+          <td>Rs. ${Number(d.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR</td>
+        </tr>
+      `).join('');
+    } else if (selectedReportId === 'user-growth') {
       tableHeadersHtml = '<th>Month</th><th>New Seekers</th><th>New Providers</th><th>Total Cumulative Users</th>';
       tableRowsHtml = filteredData.map(d => `
         <tr>
@@ -477,7 +558,14 @@ const ReportsPage = () => {
     txtContent += `MONTHLY BREAKDOWN DATA TABLE\n`;
     txtContent += `------------------------------------------------------------------------\n`;
 
-    if (selectedReportId === 'user-growth') {
+    if (selectedReportId === 'revenue-growth') {
+      txtContent += `| Month | Transactions | Boost Steps | Revenue (LKR)     |\n`;
+      txtContent += `|-------|--------------|-------------|-------------------|\n`;
+      filteredData.forEach((d) => {
+        const revStr = `Rs. ${Number(d.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} LKR`;
+        txtContent += `| ${(d.name || d.month).padEnd(5)} | ${String(d.transactions || 0).padEnd(12)} | ${String(d.boostSteps || 0).padEnd(11)} | ${revStr.padEnd(17)} |\n`;
+      });
+    } else if (selectedReportId === 'user-growth') {
       txtContent += `| Month | New Seekers | New Providers | Total Users |\n`;
       txtContent += `|-------|-------------|---------------|-------------|\n`;
       filteredData.forEach((d) => {
@@ -537,7 +625,7 @@ const ReportsPage = () => {
           </div>
           <h1>System & Performance Reports</h1>
           <p>
-            Generate, filter by customizable time periods, and export executive analytical reports for user acquisition, booking volume, and service fulfillment metrics.
+            Generate, filter by customizable time periods, and export executive analytical reports for user acquisition, booking volume, financial revenue, and service fulfillment metrics.
           </p>
         </div>
 
@@ -569,7 +657,12 @@ const ReportsPage = () => {
               <div className="report-card-top">
                 <div 
                   className="report-type-icon-wrap" 
-                  style={{ background: isSelected ? type.themeColor : '#f1f5f9', color: isSelected ? '#ffffff' : type.themeColor }}
+                  style={{ 
+                    background: isSelected ? type.themeColor : 'rgba(255, 255, 255, 0.08)', 
+                    color: isSelected ? '#ffffff' : type.themeColor,
+                    border: isSelected ? 'none' : '1px solid rgba(255, 255, 255, 0.12)',
+                    boxShadow: isSelected ? `0 4px 14px ${type.themeColor}55` : 'none'
+                  }}
                 >
                   <Icon />
                 </div>
@@ -582,55 +675,7 @@ const ReportsPage = () => {
         })}
       </div>
 
-      {/* Time Period Filter Bar */}
-      <div className="reports-filter-bar">
-        <div className="filter-bar-left">
-          <span className="filter-label-title">
-            <FiCalendar /> Time Period Presets:
-          </span>
-          <div className="preset-buttons-group">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.label}
-                className={`preset-btn ${activePreset === preset.label ? 'active' : ''}`}
-                onClick={() => handlePresetSelect(preset)}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="filter-bar-right">
-          <div className="date-input-wrap">
-            <label>Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                setActivePreset('Custom');
-              }}
-            />
-          </div>
-          <div className="date-input-wrap">
-            <label>End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                setActivePreset('Custom');
-              }}
-            />
-          </div>
-          <button className="apply-filter-btn" onClick={fetchReportData} disabled={loading}>
-            <FiRefreshCw className={loading ? 'animate-spin' : ''} /> {loading ? 'Updating...' : 'Apply'}
-          </button>
-        </div>
-      </div>
-
-      {/* Generated Report Main Preview */}
+      {/* Generated Report Main Preview Container */}
       <div className="report-preview-container">
         <div className="preview-meta-bar">
           <div className="preview-meta-left">
@@ -643,6 +688,54 @@ const ReportsPage = () => {
             <span className="last-sync-tag">
               Last Generated: {lastGeneratedAt.toLocaleTimeString()}
             </span>
+          </div>
+        </div>
+
+        {/* Time Period Filter Bar (Integrated Inside Container) */}
+        <div className="reports-filter-bar">
+          <div className="filter-bar-left">
+            <span className="filter-label-title">
+              <FiCalendar /> Time Period Presets:
+            </span>
+            <div className="preset-buttons-group">
+              {PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  className={`preset-btn ${activePreset === preset.label ? 'active' : ''}`}
+                  onClick={() => handlePresetSelect(preset)}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="filter-bar-right">
+            <div className="date-input-wrap">
+              <label>Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setActivePreset('Custom');
+                }}
+              />
+            </div>
+            <div className="date-input-wrap">
+              <label>End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setActivePreset('Custom');
+                }}
+              />
+            </div>
+            <button className="apply-filter-btn" onClick={fetchReportData} disabled={loading}>
+              <FiRefreshCw className={loading ? 'animate-spin' : ''} /> {loading ? 'Updating...' : 'Apply'}
+            </button>
           </div>
         </div>
 
@@ -681,7 +774,35 @@ const ReportsPage = () => {
           </div>
           <div className="report-chart-wrap">
             <ResponsiveContainer width="100%" height={340}>
-              {selectedReportId === 'user-growth' ? (
+              {selectedReportId === 'revenue-growth' ? (
+                <AreaChart data={filteredData}>
+                  <defs>
+                    <linearGradient id="reportRevGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.45}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.02}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" stroke="#64748b" />
+                  <YAxis stroke="#64748b" tickFormatter={(val) => `Rs. ${val}`} />
+                  <RechartsTooltip 
+                    formatter={(value) => [`Rs. ${Number(value).toLocaleString()} LKR`, 'Revenue']}
+                    labelFormatter={(label) => `Month: ${label}`}
+                  />
+                  <Legend verticalAlign="top" height={36} />
+                  <Area 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    name="Monthly Revenue (LKR)" 
+                    stroke="#059669" 
+                    strokeWidth={3} 
+                    fillOpacity={1} 
+                    fill="url(#reportRevGrad)" 
+                    dot={{ r: 5, fill: '#059669', stroke: '#ffffff', strokeWidth: 2 }}
+                    activeDot={{ r: 7, fill: '#047857' }}
+                  />
+                </AreaChart>
+              ) : selectedReportId === 'user-growth' ? (
                 <LineChart data={filteredData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
@@ -747,7 +868,14 @@ const ReportsPage = () => {
           <div className="table-responsive">
             <table className="report-data-table">
               <thead>
-                {selectedReportId === 'user-growth' ? (
+                {selectedReportId === 'revenue-growth' ? (
+                  <tr>
+                    <th>MONTH</th>
+                    <th>COMPLETED TRANSACTIONS</th>
+                    <th>PRIORITY BOOST STEPS</th>
+                    <th>MONTHLY REVENUE (LKR)</th>
+                  </tr>
+                ) : selectedReportId === 'user-growth' ? (
                   <tr>
                     <th>MONTH</th>
                     <th>NEW SEEKERS</th>
@@ -792,7 +920,18 @@ const ReportsPage = () => {
                   const confRate = row.totalBookings > 0 ? ((row.confirmedBookings / row.totalBookings) * 100).toFixed(1) + '%' : '0.0%';
                   const cancRate = row.totalBookings > 0 ? ((row.cancelledBookings / row.totalBookings) * 100).toFixed(1) + '%' : '0.0%';
 
-                  if (selectedReportId === 'user-growth') {
+                  if (selectedReportId === 'revenue-growth') {
+                    return (
+                      <tr key={row.name || row.month}>
+                        <td className="font-bold">{row.name || row.month}</td>
+                        <td className="font-bold text-indigo">{row.transactions || 0}</td>
+                        <td className="font-bold text-blue">{row.boostSteps || 0}</td>
+                        <td className="font-bold text-emerald">
+                          Rs. {Number(row.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR
+                        </td>
+                      </tr>
+                    );
+                  } else if (selectedReportId === 'user-growth') {
                     return (
                       <tr key={row.name}>
                         <td className="font-bold">{row.name}</td>

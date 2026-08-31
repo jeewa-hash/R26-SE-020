@@ -77,6 +77,9 @@ const isCompletedOrCancelled = (booking) => {
 };
 
 const isActiveRequest = (request, bookings) => {
+  if (!["pending", "quoted"].includes(String(request?.status || "pending").toLowerCase())) {
+    return false;
+  }
   const requestId = getRequestId(request);
 
   const hasBooking = bookings.some((booking) => {
@@ -166,6 +169,8 @@ const normalizeQuote = (quotation, requests = []) => {
       relatedRequest?.serviceSubcategory ||
       relatedRequest?.subcategory ||
       relatedRequest?.object ||
+      relatedRequest?.detectedObject ||
+      relatedRequest?.detectedCategory ||
       'Provider Quote',
     category:
       quotation?.serviceCategory ||
@@ -182,14 +187,22 @@ const normalizeQuote = (quotation, requests = []) => {
       quotation?.seekerBudget ||
       0,
     providerName:
+      quotation?.providerSnapshot?.businessName ||
       quotation?.providerSnapshot?.name ||
+      quotation?.provider?.businessName ||
+      quotation?.provider?.name ||
+      quotation?.provider?.fullName ||
       quotation?.providerName ||
-      quotation?.providerId ||
-      'Provider',
+      quotation?.businessName ||
+      'Selected Provider',
     note: quotation?.notes || quotation?.note || 'Provider quotation received.',
     status: quotation?.status || 'SENT',
     proposedStartTime: quotation?.proposedStartTime || quotation?.coordinatedStartTime,
     estimatedDurationHours: quotation?.estimatedDurationHours || quotation?.durationHours,
+    externalSessionId: quotation?.externalSessionId || relatedRequest?.sessionId,
+    serviceLocation: relatedRequest?.serviceLocation || quotation?.serviceLocation || '',
+    preferredTimeLabel: relatedRequest?.preferredTimeLabel || '',
+    coordinationDecision: quotation?.coordinationStatus || quotation?.coordinationDecision || 'NOT_CHECKED',
   };
 };
 
@@ -291,7 +304,7 @@ export default function MyJobsScreen({ navigation }) {
       const [requestsResult, quotationsResult, bookingsResult] =
         await Promise.allSettled([
           getSeekerRequestQuotations(auth.seekerId),
-          getProviderQuotationsForSeeker(auth.seekerId),
+          getProviderQuotationsForSeeker(),
           getSeekerBookings(auth.seekerId),
         ]);
 

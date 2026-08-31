@@ -5,15 +5,15 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
-  Legend, ResponsiveContainer, LineChart, Line
+  Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area
 } from 'recharts';
 import {
   FiFilter, FiMap, FiActivity, FiCalendar, FiSearch,
   FiChevronUp, FiChevronDown, FiAlertTriangle, FiCheckCircle,
-  FiClock, FiXCircle, FiLayers, FiUsers, FiTrendingUp, FiDollarSign, FiLock
+  FiClock, FiXCircle, FiLayers, FiUsers, FiTrendingUp, FiDollarSign, FiLock, FiMapPin
 } from 'react-icons/fi';
 import { DISTRICT_METADATA, generatePerformanceMockData } from '../data/mockAnalyticsData';
-import { API_BASE_URL, ADMIN_SERVICE_URL } from '../config';
+import { API_BASE_URL, ADMIN_SERVICE_URL, PROVIDER_SERVICE_URL } from '../config';
 import './AnalyticsPage.css';
 
 const AnalyticsPage = () => {
@@ -21,6 +21,7 @@ const AnalyticsPage = () => {
   const [performanceTab, setPerformanceTab] = useState(() => localStorage.getItem('analytics_perf_tab') || 'user-growth');
   const [userTypeFilter, setUserTypeFilter] = useState(() => localStorage.getItem('analytics_user_filter') || 'All');
   const [bookingStatusFilter, setBookingStatusFilter] = useState(() => localStorage.getItem('analytics_booking_filter') || 'ALL');
+  const [selectedDistrict, setSelectedDistrict] = useState(() => localStorage.getItem('analytics_district_filter') || localStorage.getItem('admin_default_district') || 'All');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [districtData, setDistrictData] = useState([]);
@@ -34,6 +35,15 @@ const AnalyticsPage = () => {
     totalDistrictsCount: 25,
   });
   const [performanceData, setPerformanceData] = useState({ userData: [], bookingData: [], revenueData: [] });
+  const [revenueStats, setRevenueStats] = useState({
+    totalIncomeLkr: 0,
+    totalTransactions: 0,
+    totalBoostSteps: 0,
+    currency: 'LKR',
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [sortConfig, setSortConfig] = useState({ key: 'percentage', direction: 'asc' });
 
   // Tab & Filter persistence handlers
   const handleSetActiveTab = (tab) => {
@@ -56,19 +66,20 @@ const AnalyticsPage = () => {
     localStorage.setItem('analytics_booking_filter', filter);
   };
 
-  // Table State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [sortConfig, setSortConfig] = useState({ key: 'percentage', direction: 'asc' });
+  const handleSetSelectedDistrict = (district) => {
+    setSelectedDistrict(district);
+    localStorage.setItem('analytics_district_filter', district);
+  };
 
-  // Memoize handleFilter to avoid infinite loops
+  // Helper to fetch live analytics data with memoized callback
   const handleFilter = useCallback(async () => {
+    const params = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (selectedDistrict && selectedDistrict !== 'All') params.district = selectedDistrict;
+
     // 1. Fetch Real Demand-Supply Analytics Data from Admin Backend
     try {
-      const params = {};
-      if (startDate) params.startDate = startDate;
-      if (endDate) params.endDate = endDate;
-
       const demandRes = await axios.get(`${ADMIN_SERVICE_URL}/api/analytics/demand-supply`, { params });
       if (demandRes.data && demandRes.data.success) {
         setDistrictData(demandRes.data.data);
@@ -84,10 +95,6 @@ const AnalyticsPage = () => {
     // 2. Fetch Real Service Booking Growth Data from Admin Backend
     let realBookingData = [];
     try {
-      const params = {};
-      if (startDate) params.startDate = startDate;
-      if (endDate) params.endDate = endDate;
-
       const bookingRes = await axios.get(`${ADMIN_SERVICE_URL}/api/analytics/booking-growth`, { params });
       if (bookingRes.data && bookingRes.data.success) {
         realBookingData = bookingRes.data.data;
@@ -96,21 +103,49 @@ const AnalyticsPage = () => {
       console.error('Failed to fetch real booking growth data:', bErr);
     }
 
-    // 3. Fetch Real User Growth Data from Backend
+    // 3. Fetch Real Revenue Growth & Total Income Data
+    let realRevenueBreakdown = [];
+    try {
+      let revRes;
+      try {
+        revRes = await axios.get(`${ADMIN_SERVICE_URL}/api/analytics/revenue-growth`, { params });
+      } catch (pErr) {
+        revRes = await axios.get(`${PROVIDER_SERVICE_URL}/api/provider/ads/income/total`, { params });
+      }
+
+      if (revRes && revRes.data && revRes.data.success) {
+        const rData = revRes.data.data;
+        setRevenueStats({
+          totalIncomeLkr: rData.totalIncomeLkr || 0,
+          totalTransactions: rData.totalTransactions || 0,
+          totalBoostSteps: rData.totalBoostSteps || 0,
+          currency: rData.currency || 'LKR',
+        });
+        if (rData.monthlyBreakdown && rData.monthlyBreakdown.length > 0) {
+          realRevenueBreakdown = rData.monthlyBreakdown;
+        }
+      }
+    } catch (rErr) {
+      console.error('Failed to fetch real revenue growth data:', rErr);
+    }
+
+    // 4. Fetch Real User Growth Data from Backend
     try {
       const token = localStorage.getItem('adminToken');
       const response = await axios.get(`${API_BASE_URL}/user-growth`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        params,
       });
 
       const realUserData = response.data;
 
-      // Filter Performance Data (Merge real user & booking data)
+      // Filter Performance Data (Merge real user, booking & revenue data)
       const mockPerfData = generatePerformanceMockData();
       let perfData = {
         ...mockPerfData,
         userData: realUserData,
         bookingData: realBookingData.length > 0 ? realBookingData : mockPerfData.bookingData,
+        revenueData: realRevenueBreakdown.length > 0 ? realRevenueBreakdown : mockPerfData.revenueData,
       };
 
       if (startDate || endDate) {
@@ -131,10 +166,13 @@ const AnalyticsPage = () => {
       setPerformanceData(perfData);
     } catch (err) {
       console.error('Failed to fetch real user growth data', err);
-      // Fallback to mock user/revenue data if API fails, but keep real bookings
+      // Fallback to mock user data if API fails, but keep real bookings and revenue
       let perfData = generatePerformanceMockData();
       if (realBookingData.length > 0) {
         perfData.bookingData = realBookingData;
+      }
+      if (realRevenueBreakdown.length > 0) {
+        perfData.revenueData = realRevenueBreakdown;
       }
       if (startDate || endDate) {
         const filterByDate = (data) => data.filter(item => {
@@ -152,14 +190,19 @@ const AnalyticsPage = () => {
       }
       setPerformanceData(perfData);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, selectedDistrict]);
 
-  // Initial load and Real-time auto-polling every 4 seconds
+  // Initial load and auto-polling based on Admin Settings
   useEffect(() => {
     handleFilter();
+    
+    const refreshSetting = localStorage.getItem('admin_refresh_interval') || '60';
+    if (refreshSetting === 'manual') return;
+
+    const refreshSeconds = parseInt(refreshSetting, 10) || 60;
     const interval = setInterval(() => {
       handleFilter();
-    }, 4000);
+    }, refreshSeconds * 1000);
     return () => clearInterval(interval);
   }, [handleFilter]);
 
@@ -182,9 +225,10 @@ const AnalyticsPage = () => {
 
     return L.divIcon({
       html: svg,
-      className: 'cloud-marker-icon',
+      className: 'custom-cloud-icon',
       iconSize: [width, height + 10],
       iconAnchor: [width / 2, height + 10],
+      popupAnchor: [0, -(height + 10)],
     });
   };
 
@@ -257,6 +301,18 @@ const AnalyticsPage = () => {
         </div>
 
         <div className="filter-bar">
+          <div className="filter-group">
+            <label><FiMapPin /> District</label>
+            <select
+              value={selectedDistrict}
+              onChange={(e) => handleSetSelectedDistrict(e.target.value)}
+              className="district-filter-select"
+            >
+              <option value="All">All Districts</option>
+              <option value="Colombo">Colombo</option>
+              <option value="Gampaha">Gampaha</option>
+            </select>
+          </div>
           <div className="filter-group">
             <label><FiCalendar /> Start Date</label>
             <input
@@ -754,46 +810,79 @@ const AnalyticsPage = () => {
             {performanceTab === 'revenue-growth' && (
               <div className="performance-card revenue-card-wrapper">
                 <div className="card-header">
-                  <div className="flex items-center gap-3">
-                    <h3>Revenue Growth</h3>
-                    <span className="upcoming-tag">Next Version</span>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                        <FiDollarSign style={{ color: '#059669' }} /> Revenue Growth
+                      </h3>
+                      <span className="live-badge" style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '3px 10px', borderRadius: '12px', fontSize: '11.5px', fontWeight: 'bold' }}>
+                        ● Live Financials
+                      </span>
+                    </div>
+                    <p style={{ margin: '4px 0 0', fontSize: '13.5px', color: '#64748b' }}>
+                      Real-time revenue generated from Provider Ad Boosting and platform service monetization.
+                    </p>
                   </div>
-                  <div className="summary-stat">
-                    <span className="label">Total Revenue:</span>
-                    <span className="value" style={{ color: '#94a3b8', fontSize: '18px' }}>
-                      Coming soon...
-                    </span>
+
+                  <div className="comparison-stats-pills">
+                    <div className="comparison-stat-pill pill-emerald" style={{ padding: '8px 16px' }}>
+                      <span className="pill-dot emerald"></span>
+                      <span className="pill-label">Total Revenue:</span>
+                      <strong className="pill-val" style={{ fontSize: '15px', color: '#059669' }}>
+                        Rs. {Number(revenueStats.totalIncomeLkr || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR
+                      </strong>
+                    </div>
+                    <div className="comparison-stat-pill pill-indigo">
+                      <span className="pill-dot indigo"></span>
+                      <span className="pill-label">Transactions:</span>
+                      <strong className="pill-val">
+                        {revenueStats.totalTransactions}
+                      </strong>
+                    </div>
+                    <div className="comparison-stat-pill pill-cyan">
+                      <span className="pill-label">Boost Steps:</span>
+                      <strong className="pill-val">
+                        {revenueStats.totalBoostSteps}
+                      </strong>
+                    </div>
                   </div>
                 </div>
 
-                <div className="chart-container blurred-chart-container">
-                  {/* Blurred Background Chart */}
-                  <div className="blurred-chart-content">
-                    <ResponsiveContainer width="100%" height={400}>
-                      <LineChart data={performanceData.revenueData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={{ r: 6 }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* Overlay Banner */}
-                  <div className="coming-soon-overlay">
-                    <div className="coming-soon-modal-card">
-                      <div className="coming-soon-icon-wrap">
-                        <FiLock className="coming-soon-lock-icon" />
-                      </div>
-                      <h4 className="coming-soon-heading">Comming on the next version</h4>
-                      <p className="coming-soon-desc">
-                        Revenue Growth Analytics and real-time financial tracking are currently under development and will be available in the upcoming version release.
-                      </p>
-                      <div className="coming-soon-pill-badge">
-                        <span>✨ Upcoming Feature</span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="chart-container" style={{ padding: '16px 8px 8px 8px' }}>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <AreaChart data={performanceData.revenueData}>
+                      <defs>
+                        <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.45}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.02}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="name" stroke="#64748b" tick={{ fill: '#64748b', fontSize: 13 }} />
+                      <YAxis 
+                        stroke="#64748b" 
+                        tick={{ fill: '#64748b', fontSize: 12 }} 
+                        tickFormatter={(val) => `Rs. ${val}`}
+                      />
+                      <RechartsTooltip 
+                        formatter={(value) => [`Rs. ${Number(value).toLocaleString()} LKR`, 'Revenue']}
+                        labelFormatter={(label) => `Month: ${label}`}
+                        contentStyle={{ backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 4px 14px rgba(0,0,0,0.08)' }}
+                      />
+                      <Legend verticalAlign="top" height={36} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="revenue" 
+                        name="Monthly Revenue (LKR)" 
+                        stroke="#059669" 
+                        strokeWidth={3} 
+                        fillOpacity={1} 
+                        fill="url(#revenueGrad)" 
+                        dot={{ r: 6, fill: '#059669', stroke: '#ffffff', strokeWidth: 2 }}
+                        activeDot={{ r: 8, fill: '#047857' }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
             )}

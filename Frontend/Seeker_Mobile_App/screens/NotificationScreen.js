@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
 import { useTheme } from '../hooks/useTheme';
+import { useNotification } from '../context/NotificationContext';
 
 const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:3002`;
@@ -26,6 +27,10 @@ const READ_QUOTES_KEY = 'readQuotes';
 
 export default function NotificationScreen({ navigation }) {
   const { isDarkMode } = useTheme();
+  const {
+    markAsRead: markHomeNotificationAsRead,
+    markAllAsRead: markAllHomeNotificationsAsRead,
+  } = useNotification();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -139,6 +144,7 @@ export default function NotificationScreen({ navigation }) {
   const markAsRead = async (id) => {
     if (id.startsWith('quote_')) {
       await saveReadQuoteId(id);
+      markHomeNotificationAsRead(id);
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
       );
@@ -152,6 +158,7 @@ export default function NotificationScreen({ navigation }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (response.ok) {
+        markHomeNotificationAsRead(id);
         setNotifications((prev) =>
           prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
         );
@@ -178,8 +185,10 @@ export default function NotificationScreen({ navigation }) {
       }
 
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      markAllHomeNotificationsAsRead();
     } catch (err) {
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      markAllHomeNotificationsAsRead();
       console.error('Failed to mark all as read', err);
     }
   };
@@ -268,6 +277,7 @@ export default function NotificationScreen({ navigation }) {
                 requestId: item.providerRequestId,
                 request: null,
                 providerId: item.providerId,
+                quoteId: item.quoteId,
               });
             } else {
               Alert.alert('Error', 'Request ID not found for this quotation.');

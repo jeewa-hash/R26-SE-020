@@ -195,11 +195,109 @@ async function sendConsecutiveRejectionPenaltyEmail(to, providerName, adminNote)
   }
 }
 
+/**
+ * Send Password Reset OTP email to Administrator
+ */
+async function sendAdminPasswordResetOTPEmail(to, adminName, otp) {
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || 'Work Wave <noreply@workwave.com>',
+    to,
+    subject: '🔐 Admin Password Reset Verification Code - WorkWave',
+    html: `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; color: #1e293b;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h2 style="color: #4f46e5; margin: 0; font-size: 26px; font-weight: 800;">WorkWave</h2>
+          <span style="font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Admin Security Portal</span>
+        </div>
+
+        <div style="background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%); border: 1px solid #c7d2fe; border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: center;">
+          <h3 style="color: #1e1b4b; margin: 0 0 8px 0; font-size: 18px;">Password Reset Request</h3>
+          <p style="color: #475569; font-size: 14px; margin: 0;">Hi <strong>${adminName || 'Administrator'}</strong>, we received a request to reset your WorkWave admin portal password.</p>
+        </div>
+
+        <p style="font-size: 14px; color: #334155; line-height: 1.6;">Use the 6-digit verification code below to authorize your password change. This code is valid for <strong>10 minutes</strong>.</p>
+
+        <div style="background-color: #0f172a; border-radius: 12px; padding: 22px; text-align: center; margin: 26px 0; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);">
+          <span style="font-size: 34px; font-weight: 900; letter-spacing: 8px; color: #38bdf8; font-family: 'Courier New', Courier, monospace;">${otp}</span>
+        </div>
+
+        <div style="background-color: #fff1f2; border-left: 4px solid #f43f5e; padding: 14px 18px; border-radius: 8px; margin: 20px 0;">
+          <p style="font-size: 12.5px; color: #9f1239; margin: 0; line-height: 1.5;">
+            <strong>Security Warning:</strong> Never share this code with anyone. WorkWave support personnel will never ask for your verification code. If you did not request this, please contact the security governance team immediately.
+          </p>
+        </div>
+
+        <p style="font-size: 13px; color: #64748b; margin-top: 28px; line-height: 1.5;">
+          Best regards,<br>
+          <strong style="color: #1e1b4b;">WorkWave Security & Governance Team</strong>
+        </p>
+      </div>
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[Email] Admin Password Reset OTP sent to ${to}:`, info.messageId);
+    return info;
+  } catch (err) {
+    console.error('[Email] Failed to send Admin Password Reset OTP email:', err.message);
+    throw err;
+  }
+}
+
+/**
+ * Send Password Reset Success notification email to Administrator
+ */
+async function sendAdminPasswordResetSuccessEmail(to, adminName) {
+  const mailOptions = {
+    from: process.env.EMAIL_FROM || 'Work Wave <noreply@workwave.com>',
+    to,
+    subject: '✅ Admin Password Reset Successful - WorkWave',
+    html: `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 32px 24px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; color: #1e293b;">
+        <div style="text-align: center; margin-bottom: 24px;">
+          <h2 style="color: #10b981; margin: 0; font-size: 26px; font-weight: 800;">Password Changed</h2>
+          <span style="font-size: 13px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">WorkWave Admin Security</span>
+        </div>
+
+        <p style="font-size: 14px; color: #334155; line-height: 1.6;">Hi <strong>${adminName || 'Administrator'}</strong>,</p>
+        <p style="font-size: 14px; color: #334155; line-height: 1.6;">Your WorkWave Administrator account password has been <strong>successfully reset</strong>. You can now sign in to the administrative portal with your new password.</p>
+
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 14px 18px; border-radius: 8px; margin: 20px 0;">
+          <p style="font-size: 12.5px; color: #64748b; margin: 0;">
+            <strong>Time:</strong> ${new Date().toUTCString()}<br/>
+            <strong>Action:</strong> Password Reset via Verified Email OTP
+          </p>
+        </div>
+
+        <p style="font-size: 12.5px; color: #e11d48; margin-top: 20px;">
+          If you did not perform this change, your administrator account may be compromised. Please take immediate action.
+        </p>
+
+        <p style="font-size: 13px; color: #64748b; margin-top: 24px; line-height: 1.5;">
+          Best regards,<br>
+          <strong style="color: #1e1b4b;">WorkWave Security & Governance Team</strong>
+        </p>
+      </div>
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[Email] Admin Password Reset Success sent to ${to}:`, info.messageId);
+    return info;
+  } catch (err) {
+    console.error('[Email] Failed to send Admin Password Reset Success email:', err.message);
+  }
+}
+
 module.exports = {
   sendVerificationPendingEmail,
   sendApprovalEmail,
   sendRejectionEmail,
   sendHighDemandEmail,
   sendConsecutiveRejectionPenaltyEmail,
+  sendAdminPasswordResetOTPEmail,
+  sendAdminPasswordResetSuccessEmail,
   transporter,
 };
