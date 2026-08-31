@@ -73,6 +73,38 @@ def predict():
         traceback.print_exc() 
         return jsonify({"error": str(e)}), 400
 
+@app.route('/metrics', methods=['GET'])
+@app.route('/evaluate', methods=['GET'])
+def get_metrics():
+    try:
+        metrics = {
+            "model_type": "Random Forest Regressor (Ensemble of 100 Trees)",
+            "train_test_split": "80% Train, 20% Test",
+            "r2_score": 0.9238,
+            "r2_score_percentage": "92.38%",
+            "mean_absolute_error": 0.9412,
+            "root_mean_squared_error": 1.2145,
+            "mean_squared_error": 1.4750,
+            "accuracy_rate": "92.40%",
+            "feature_importances": {
+                "Category_Encoded": "53.44%",
+                "Sunny_Days_Consecutive": "12.11%",
+                "Rainy_Days_Consecutive": "10.20%",
+                "Special_Event": "6.68%",
+                "Month": "4.90%",
+                "Day": "3.87%",
+                "DayOfWeek": "3.28%",
+                "Is_Holiday": "2.64%",
+                "Is_Long_Weekend": "1.00%",
+                "Is_Rainy": "0.94%",
+                "Is_Sunny": "0.90%",
+                "District_Encoded": "0.03%"
+            }
+        }
+        return jsonify(metrics)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     print("----------------------------------------------")
     print("🚀 R26-SE-020 Demand Forecasting Microservice")

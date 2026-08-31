@@ -272,6 +272,19 @@ export const createBookingFromCoordination = async (req, res) => {
       bookingStatus: "CONFIRMED",
     });
 
+    // Asynchronously log booking to ML Data (service_data_for_csvs) table in admin service
+    try {
+      const adminUrl = process.env.ADMIN_SERVICE_URL || "http://localhost:5001";
+      axios.post(`${adminUrl}/api/log-booking-ml`, {
+        bookingId: booking._id.toString(),
+        providerId: booking.providerId?.toString(),
+        seekerId: booking.seekerId?.toString(),
+        scheduledDate: booking.scheduledDate,
+      }).catch((e) => console.warn('ML booking log warning:', e.message));
+    } catch (e) {
+      // non-blocking
+    }
+
     coordination.status = "accepted";
     await coordination.save();
 
