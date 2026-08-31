@@ -17,6 +17,75 @@ const canAccessBooking = (req, booking) => {
   return false;
 };
 
+const ACTIVE_BOOKING_STATUSES = ["CONFIRMED", "IN_PROGRESS", "DELAY_REPORTED"];
+
+const getComparableId = (value) => value?.toString?.() || String(value || "");
+
+const addMinutes = (date, minutes) => new Date(date.getTime() + Number(minutes || 0) * 60 * 1000);
+
+const minutesBetween = (start, end) => Math.round((end.getTime() - start.getTime()) / 60000);
+
+const getBookingStartDate = (booking) => {
+  if (booking.scheduledStartTime) {
+    const scheduledStartTime = new Date(booking.scheduledStartTime);
+    if (!Number.isNaN(scheduledStartTime.getTime())) return scheduledStartTime;
+  }
+
+  if (booking.scheduledDate && booking.startTime) {
+    const fallbackStartTime = new Date(`${booking.scheduledDate}T${booking.startTime}:00`);
+    if (!Number.isNaN(fallbackStartTime.getTime())) return fallbackStartTime;
+  }
+
+  return null;
+};
+
+const getOngoingWindowEnd = () => addMinutes(new Date(), 24 * 60);
+
+const buildOngoingQuery = (ownerField, ownerId) => ({
+  [ownerField]: ownerId,
+  bookingStatus: { $in: ACTIVE_BOOKING_STATUSES },
+  $or: [
+    { bookingStatus: { $in: ["IN_PROGRESS", "DELAY_REPORTED"] } },
+    {
+      bookingStatus: "CONFIRMED",
+      scheduledStartTime: { $lte: getOngoingWindowEnd() },
+    },
+    {
+      bookingStatus: "CONFIRMED",
+      scheduledStartTime: null,
+    },
+  ],
+});
+
+const calculateReminderFlags = (booking) => {
+  const start = getBookingStartDate(booking);
+  if (!start || booking.bookingStatus !== "CONFIRMED") {
+    return {
+      reminderDue: false,
+      startsWithin15Minutes: false,
+      startTimePassed: false,
+      minutesUntilStart: null,
+    };
+  }
+
+  const minutesUntilStart = minutesBetween(new Date(), start);
+
+  return {
+    reminderDue: !booking.reminderSentAt && minutesUntilStart >= 0 && minutesUntilStart <= 15,
+    startsWithin15Minutes: minutesUntilStart >= 0 && minutesUntilStart <= 15,
+    startTimePassed: minutesUntilStart < 0,
+    minutesUntilStart,
+  };
+};
+
+const attachReminderFlags = (booking) => {
+  const plainBooking = booking?.toObject ? booking.toObject() : booking;
+  return {
+    ...plainBooking,
+    reminder: calculateReminderFlags(plainBooking),
+  };
+};
+
 export const getBookingsByProvider = async (req, res) => {
   try {
     const providerId = req.params.providerId || req.user?.id;
@@ -43,7 +112,7 @@ export const getBookingsByProvider = async (req, res) => {
     return res.status(200).json({
       success: true,
       count: bookings.length,
-      data: bookings,
+      data: bookings.map(attachReminderFlags),
     });
   } catch (error) {
     return res.status(500).json({
@@ -83,7 +152,7 @@ export const getBookingsBySeeker = async (req, res) => {
     return res.status(200).json({
       success: true,
       count: bookings.length,
-      data: bookings,
+      data: bookings.map(attachReminderFlags),
     });
   } catch (error) {
     return res.status(500).json({
@@ -339,7 +408,6 @@ export const createBookingFromCoordination = async (req, res) => {
           : String(scheduleEvaluation.delayRiskLevel).toUpperCase(),
 
       bookingStatus: "CONFIRMED",
-      status: "CONFIRMED",
     });
 
     // Asynchronously log booking to ML Data (service_data_for_csvs) table in admin service
@@ -402,6 +470,143 @@ export const createBookingFromCoordination = async (req, res) => {
   }
 };
 
+
+export const getOngoingBookingsByProvider = async (req, res) => {
+  try {
+    const providerId = req.params.providerId || req.user?.id;
+
+    if (!providerId) {
+      return res.status(400).json({
+        success: false,
+        message: "providerId is required",
+      });
+    }
+
+    if (req.user && req.user.role === "ServiceProvider" && req.user.id !== providerId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only view your own provider bookings",
+      });
+    }
+
+    const bookings = await Booking.find(buildOngoingQuery("providerId", providerId)).sort({
+      scheduledStartTime: 1,
+      scheduledDate: 1,
+      startTime: 1,
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: bookings.length,
+      data: bookings.map(attachReminderFlags),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to get provider ongoing bookings",
+      error: error.message,
+    });
+  }
+};
+
+export const getOngoingBookingsBySeeker = async (req, res) => {
+  try {
+    const seekerId = req.params.seekerId || req.user?.id;
+
+    if (!seekerId) {
+      return res.status(400).json({
+        success: false,
+        message: "seekerId is required",
+      });
+    }
+
+    if (req.user && req.user.role === "Seeker" && req.user.id !== seekerId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only view your own seeker bookings",
+      });
+    }
+
+    const bookings = await Booking.find(buildOngoingQuery("seekerId", seekerId)).sort({
+      scheduledStartTime: 1,
+      scheduledDate: 1,
+      startTime: 1,
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: bookings.length,
+      data: bookings.map(attachReminderFlags),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to get seeker ongoing bookings",
+      error: error.message,
+    });
+  }
+};
+
+export const confirmBookingReady = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const providerId = req.user?.id;
+
+    if (!providerId) {
+      return res.status(401).json({
+        success: false,
+        message: "Provider authentication required",
+      });
+    }
+
+    const booking = await Booking.findById(bookingId);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    if (getComparableId(booking.providerId) !== getComparableId(providerId)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the assigned provider can confirm readiness for this booking",
+      });
+    }
+
+    if (booking.bookingStatus !== "CONFIRMED") {
+      return res.status(400).json({
+        success: false,
+        message: "Only confirmed bookings can be marked ready",
+        currentStatus: booking.bookingStatus,
+      });
+    }
+
+    booking.providerReadyConfirmed = true;
+    booking.providerReadyConfirmedAt = new Date();
+    booking.timeline.push({
+      status: booking.bookingStatus,
+      message: "Provider confirmed readiness",
+      at: new Date(),
+    });
+
+    await booking.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Provider readiness confirmed.",
+      data: booking,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to confirm provider readiness",
+      error: error.message,
+    });
+  }
+};
+
 export const startBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -439,10 +644,15 @@ export const startBooking = async (req, res) => {
       });
     }
 
+    const actualStartTime = new Date();
+    const scheduledStartTime = getBookingStartDate(booking);
+
     booking.bookingStatus = "IN_PROGRESS";
-    booking.status = "IN_PROGRESS";
-    booking.actualStartTime = new Date();
-    booking.timeline.push({ status: "IN_PROGRESS", message: "Provider started the booking", at: new Date() });
+    booking.actualStartTime = actualStartTime;
+    booking.startDelayMinutes = scheduledStartTime
+      ? Math.max(0, minutesBetween(scheduledStartTime, actualStartTime))
+      : 0;
+    booking.timeline.push({ status: "IN_PROGRESS", message: "Provider started the job", at: new Date() });
 
     await booking.save();
 
@@ -492,10 +702,18 @@ export const completeBooking = async (req, res) => {
       });
     }
 
+    const actualEndTime = new Date();
     booking.bookingStatus = "COMPLETED";
-    booking.status = "COMPLETED";
-    booking.completedAt = new Date();
-    booking.timeline.push({ status: "COMPLETED", message: "Booking completed", at: new Date() });
+    booking.completedAt = actualEndTime;
+    booking.actualEndTime = actualEndTime;
+
+    if (booking.actualStartTime && booking.scheduledStartTime && booking.scheduledEndTime) {
+      const actualDurationMinutes = Math.max(0, minutesBetween(new Date(booking.actualStartTime), actualEndTime));
+      const scheduledDurationMinutes = Math.max(0, minutesBetween(new Date(booking.scheduledStartTime), new Date(booking.scheduledEndTime)));
+      booking.durationOverrunMinutes = actualDurationMinutes - scheduledDurationMinutes;
+    }
+
+    booking.timeline.push({ status: "COMPLETED", message: "Job completed successfully", at: new Date() });
     await booking.save();
 
     // -------- Award points automatically --------
@@ -552,7 +770,12 @@ export const reportBookingDelay = async (req, res) => {
   try {
     const { bookingId } = req.params;
 
-    const { delayReason = "", additionalDelayMins = 0 } = req.body;
+    const {
+      delayReason = "",
+      additionalDelayMins = 0,
+      extraTimeMinutes = 0,
+    } = req.body;
+    const delayMinutes = Number(additionalDelayMins || extraTimeMinutes || 0);
 
     const booking = await Booking.findById(bookingId);
 
@@ -578,15 +801,55 @@ export const reportBookingDelay = async (req, res) => {
       });
     }
 
+    if (delayMinutes <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Additional delay minutes must be greater than 0",
+      });
+    }
+
+    const now = new Date();
+    const scheduledEnd = booking.scheduledEndTime ? new Date(booking.scheduledEndTime) : now;
+    const baseEndTime = scheduledEnd.getTime() > now.getTime() ? scheduledEnd : now;
+    const expectedEndTime = addMinutes(baseEndTime, delayMinutes);
+
+    const currentStart = getBookingStartDate(booking) || now;
+    const nextBooking = await Booking.findOne({
+      providerId: booking.providerId,
+      bookingStatus: "CONFIRMED",
+      _id: { $ne: booking._id },
+      scheduledStartTime: { $gt: currentStart },
+    }).sort({ scheduledStartTime: 1 });
+
+    let delayImpactStatus = "NO_CONFLICT";
+    let affectedNextBooking = null;
+    const bufferMinutes = 30;
+
+    if (nextBooking?.scheduledStartTime) {
+      const nextStart = new Date(nextBooking.scheduledStartTime);
+      if (addMinutes(expectedEndTime, bufferMinutes).getTime() > nextStart.getTime()) {
+        delayImpactStatus = "NEXT_BOOKING_AT_RISK";
+        affectedNextBooking = nextBooking;
+      }
+    }
+
     booking.bookingStatus = "DELAY_REPORTED";
-    booking.status = "DELAY_REPORTED";
-    booking.timeline.push({ status: "DELAY_REPORTED", message: delayReason || "Delay reported", at: new Date() });
+    booking.timeline.push({
+      status: "DELAY_REPORTED",
+      message: delayImpactStatus === "NEXT_BOOKING_AT_RISK"
+        ? "Delay may affect the next scheduled booking"
+        : (delayReason || "Delay reported with no next booking conflict"),
+      at: new Date(),
+    });
 
     booking.delayInfo = {
       delayReason,
-      additionalDelayMins,
-      reportedBy: req.user.role === "ServiceProvider" ? "PROVIDER" : "SEEKER",
-      reportedAt: new Date(),
+      additionalDelayMins: delayMinutes,
+      reportedBy: "PROVIDER",
+      reportedAt: now,
+      expectedEndTime,
+      delayImpactStatus,
+      affectedNextBookingId: affectedNextBooking?._id || null,
     };
 
     await booking.save();
@@ -594,7 +857,10 @@ export const reportBookingDelay = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Delay reported successfully",
-      data: booking,
+      data: {
+        booking,
+        affectedNextBooking,
+      },
     });
   } catch (error) {
     return res.status(500).json({

@@ -1,392 +1,566 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Alert
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Calendar } from 'react-native-calendars';
-import { bookingsAPI } from '../services/api';
 import { getStoredUserId } from '../utils/jwtHelpers';
+import {
+  getProviderRequests,
+  getProviderQuotations,
+  getProviderBookings,
+  getProviderOngoingBookings,
+  updateBookingLifecycle,
+  idsEqual,
+  getBookingId,
+  getBookingStatus,
+  getBookingStartDate,
+  getBookingEndDate,
+  getBookingDateKey,
+  getHumanSeekerName,
+  getHumanServiceTitle,
+  getHumanLocation,
+  statusLabel,
+  isOngoingBooking,
+} from '../services/providerFlowApi';
+
+const TABS = ['Calendar', 'Ongoing', 'Requests', 'Quotes', 'History'];
+
+const dateKey = (date) => date.toISOString().slice(0, 10);
+
+const nextSevenDays = () => {
+  const today = new Date();
+  return Array.from({ length: 7 }).map((_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() + index);
+    const key = dateKey(date);
+    const label = index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : date.toLocaleDateString('en-US', { weekday: 'short' });
+    const day = date.toLocaleDateString('en-US', { day: '2-digit' });
+    return { key, label, day, date };
+  });
+};
+
+const formatDateTitle = (key) => {
+  const date = new Date(`${key}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return 'Selected date';
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: '2-digit',
+  });
+};
+
+const formatTime = (date) => {
+  if (!date || Number.isNaN(date.getTime())) return 'Time not set';
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatMoney = (amount) => {
+  const value = Number(amount || 0);
+  if (!value) return 'Amount not set';
+  return `LKR ${value.toLocaleString()}`;
+};
+
+const getStatusStyle = (status) => {
+  const value = String(status || '').toUpperCase();
+  if (value === 'CONFIRMED' || value === 'ACCEPTED') return { bg: '#D1FAE5', color: '#047857' };
+  if (value === 'IN_PROGRESS' || value === 'QUOTED' || value === 'SENT') return { bg: '#DBEAFE', color: '#2563EB' };
+  if (value === 'DELAY_REPORTED' || value === 'RESCHEDULING_REQUIRED') return { bg: '#FEF3C7', color: '#D97706' };
+  if (value === 'REJECTED' || value === 'CANCELLED') return { bg: '#FEE2E2', color: '#DC2626' };
+  if (value === 'COMPLETED' || value === 'RESCHEDULED') return { bg: '#F3F4F6', color: '#4B5563' };
+  return { bg: '#EEF2FF', color: '#6366F1' };
+};
+
+const matchesProvider = (item, providerId) => {
+  if (!providerId) return true;
+  return (
+    idsEqual(item?.providerId, providerId) ||
+    idsEqual(item?.providerSnapshot?.providerId, providerId) ||
+    idsEqual(item?.provider?._id, providerId) ||
+    idsEqual(item?.provider?.id, providerId)
+  );
+};
+
+const getReminderText = (booking) => {
+  const status = getBookingStatus(booking);
+  if (status !== 'CONFIRMED') return '';
+  const start = getBookingStartDate(booking);
+  if (!start) return '';
+  const minutesUntilStart = (start.getTime() - Date.now()) / 60000;
+  if (minutesUntilStart >= 0 && minutesUntilStart <= 15) {
+    return 'Your job starts in 15 minutes. Please confirm readiness or report a delay.';
+  }
+  if (minutesUntilStart < 0) {
+    return 'This job is scheduled to start now. Please start the job or report a delay.';
+  }
+  return '';
+};
 
 export default function ProviderCalendarScreen({ navigation }) {
+  const [providerId, setProviderId] = useState(null);
+  const [activeTab, setActiveTab] = useState('Calendar');
+  const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
+  const [requests, setRequests] = useState([]);
+  const [quotations, setQuotations] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [ongoingBookings, setOngoingBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [providerId, setProviderId] = useState(null);
-  const [markedDates, setMarkedDates] = useState({});
 
-  useEffect(() => {
-    initializeCalendar();
-  }, []);
+  const dates = useMemo(() => nextSevenDays(), []);
 
-  const initializeCalendar = async () => {
+  const loadProviderFlow = useCallback(async (id) => {
     try {
-      const id = await getStoredUserId();
-      if (!id) {
-        Alert.alert('Error', 'Provider ID not found. Please login again.');
-        navigation.navigate('Login');
-        return;
-      }
-      setProviderId(id);
-      await fetchBookings(id);
-    } catch (error) {
-      console.error('Error initializing calendar:', error);
-      Alert.alert('Error', 'Failed to load calendar');
-    }
-  };
+      const [requestRows, quotationRows, bookingRows, ongoingRows] = await Promise.all([
+        getProviderRequests(id).catch((error) => {
+          console.log('Provider requests load failed:', error?.message);
+          return [];
+        }),
+        getProviderQuotations().catch((error) => {
+          console.log('Provider quotations load failed:', error?.message);
+          return [];
+        }),
+        getProviderBookings(id).catch((error) => {
+          console.log('Provider jobs load failed:', error?.message);
+          return [];
+        }),
+        getProviderOngoingBookings(id).catch((error) => {
+          console.log('Provider ongoing load failed:', error?.message);
+          return [];
+        }),
+      ]);
 
-  const fetchBookings = async (id) => {
-    try {
-      const response = await bookingsAPI.getBookings();
-      const myBookings = response.data.filter(book => book.providerId === id);
+      const myRequests = requestRows.filter((item) => matchesProvider(item, id));
+      const myQuotations = quotationRows.filter((item) => matchesProvider(item, id));
+      const myBookings = bookingRows.filter((item) => matchesProvider(item, id));
+      const myOngoing = ongoingRows.length > 0
+        ? ongoingRows.filter((item) => matchesProvider(item, id))
+        : myBookings.filter(isOngoingBooking);
+
+      console.log('Provider requests raw count:', requestRows.length);
+      console.log('Provider requests filtered count:', myRequests.length);
+      console.log('Provider quotations filtered count:', myQuotations.length);
+      console.log('Provider jobs filtered count:', myBookings.length);
+      console.log('Provider ongoing filtered count:', myOngoing.length);
+
+      setRequests(myRequests);
+      setQuotations(myQuotations);
       setBookings(myBookings);
-
-      // Mark dates with bookings
-      const marked = {};
-      myBookings.forEach(booking => {
-        const date = booking.requestedDate;
-        if (!marked[date]) {
-          marked[date] = {
-            marked: true,
-            dotColor: getStatusColor(booking.status),
-            selected: date === selectedDate,
-            selectedColor: '#667eea'
-          };
-        }
-      });
-      setMarkedDates(marked);
-    } catch (error) {
-      console.error('Error fetching bookings:', error);
+      setOngoingBookings(myOngoing);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'confirmed':
-        return '#10B981';
-      case 'pending':
-        return '#F59E0B';
-      case 'completed':
-        return '#6B7280';
-      case 'cancelled':
-        return '#DC2626';
-      default:
-        return '#667eea';
+  const initialize = useCallback(async () => {
+    const id = await getStoredUserId();
+    console.log('LOGGED PROVIDER ID:', id);
+    if (!id) {
+      Alert.alert('Login Required', 'Provider ID not found. Please login again.');
+      navigation.navigate('Login');
+      return;
     }
-  };
+    setProviderId(String(id));
+    await loadProviderFlow(String(id));
+  }, [loadProviderFlow, navigation]);
 
-  const onRefresh = () => {
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  const onRefresh = async () => {
     setRefreshing(true);
-    if (providerId) {
-      fetchBookings(providerId);
+    await loadProviderFlow(providerId);
+  };
+
+  const calendarBookings = useMemo(() => {
+    return bookings
+      .filter((booking) => getBookingDateKey(booking) === selectedDate)
+      .sort((a, b) => (getBookingStartDate(a)?.getTime() || 0) - (getBookingStartDate(b)?.getTime() || 0));
+  }, [bookings, selectedDate]);
+
+  const historyBookings = useMemo(() => {
+    return bookings
+      .filter((booking) => ['COMPLETED', 'CANCELLED'].includes(getBookingStatus(booking)))
+      .sort((a, b) => (getBookingStartDate(b)?.getTime() || 0) - (getBookingStartDate(a)?.getTime() || 0));
+  }, [bookings]);
+
+  const pendingRequests = useMemo(() => {
+    return requests.filter((item) => String(item?.status || '').toLowerCase() === 'pending');
+  }, [requests]);
+
+  const submitQuote = (request) => {
+    navigation.navigate('IT22129376ProviderQuotationForm', { request });
+  };
+
+  const updateBooking = async (booking, action, body = {}) => {
+    try {
+      const bookingId = getBookingId(booking);
+      if (!bookingId) {
+        Alert.alert('Unable to update', 'Booking ID is missing.');
+        return;
+      }
+      await updateBookingLifecycle(bookingId, action, body);
+      const messages = {
+        'confirm-ready': 'Ready confirmed.',
+        start: 'Job started successfully.',
+        'report-delay': 'Delay reported successfully.',
+        complete: 'Job completed successfully.',
+      };
+      Alert.alert('Success', messages[action] || 'Job updated successfully.');
+      await loadProviderFlow(providerId);
+    } catch (error) {
+      Alert.alert('Update Failed', error?.message || 'Unable to update this job right now. Please try again.');
     }
   };
 
-  const onDayPress = (day) => {
-    setSelectedDate(day.dateString);
-    const updatedMarked = { ...markedDates };
-    Object.keys(updatedMarked).forEach(date => {
-      updatedMarked[date] = {
-        ...updatedMarked[date],
-        selected: date === day.dateString,
-        selectedColor: date === day.dateString ? '#667eea' : undefined
-      };
-    });
-    setMarkedDates(updatedMarked);
+  const confirmStart = (booking) => {
+    Alert.alert('Start Job', 'Start this job now?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Start', onPress: () => updateBooking(booking, 'start') },
+    ]);
   };
 
-  const getBookingsForDate = (date) => {
-    return bookings.filter(booking => booking.requestedDate === date);
+  const confirmDelay = (booking) => {
+    Alert.alert(
+      'Report Delay',
+      'Report a 30 minute delay for this job? You can edit this from backend later if needed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Report',
+          onPress: () => updateBooking(booking, 'report-delay', {
+            delayReason: 'Provider needs additional time',
+            extraTimeMinutes: 30,
+          }),
+        },
+      ]
+    );
   };
 
-  const formatTime = (timeString) => {
-    return new Date(`2000-01-01T${timeString}`).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const confirmComplete = (booking) => {
+    Alert.alert('Complete Job', 'Mark this job as completed?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Complete', onPress: () => updateBooking(booking, 'complete') },
+    ]);
   };
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      confirmed: { bg: '#D1FAE5', color: '#10B981', text: 'Confirmed' },
-      pending: { bg: '#FEF3C7', color: '#F59E0B', text: 'Pending' },
-      completed: { bg: '#F3F4F6', color: '#6B7280', text: 'Completed' },
-      cancelled: { bg: '#FEE2E2', color: '#DC2626', text: 'Cancelled' },
-    };
-    return styles[status] || styles.pending;
+  const openBooking = (booking) => {
+    navigation.navigate('IT22129376ProviderJobDetails', { booking });
   };
 
-  const selectedDateBookings = getBookingsForDate(selectedDate);
+  const renderStatusBadge = (status) => {
+    const colors = getStatusStyle(status);
+    return (
+      <View style={[styles.statusBadge, { backgroundColor: colors.bg }]}>
+        <Text style={[styles.statusText, { color: colors.color }]}>{statusLabel(status)}</Text>
+      </View>
+    );
+  };
+
+  const renderBookingCard = (booking, showActions = true) => {
+    const status = getBookingStatus(booking);
+    const start = getBookingStartDate(booking);
+    const end = getBookingEndDate(booking);
+    const reminder = getReminderText(booking);
+    const delayImpact = booking?.delayInfo?.delayImpactStatus;
+
+    return (
+      <View key={getBookingId(booking)} style={styles.card}>
+        {reminder ? (
+          <View style={styles.reminderBanner}>
+            <Ionicons name="notifications-outline" size={16} color="#B45309" />
+            <Text style={styles.reminderText}>{reminder}</Text>
+          </View>
+        ) : null}
+
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitleWrap}>
+            <Text style={styles.cardTitle}>{getHumanServiceTitle(booking)}</Text>
+            <Text style={styles.cardSubText}>{formatTime(start)} - {formatTime(end)}</Text>
+          </View>
+          {renderStatusBadge(status)}
+        </View>
+
+        <View style={styles.detailRow}>
+          <Ionicons name="person-outline" size={15} color="#6B7280" />
+          <Text style={styles.detailText}>{getHumanSeekerName(booking)}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Ionicons name="location-outline" size={15} color="#6B7280" />
+          <Text style={styles.detailText}>{getHumanLocation(booking)}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Ionicons name="cash-outline" size={15} color="#6B7280" />
+          <Text style={styles.detailText}>{formatMoney(booking?.finalAmount || booking?.amount || booking?.price)}</Text>
+        </View>
+        {booking?.delayRiskLevel ? (
+          <View style={styles.detailRow}>
+            <Ionicons name="speedometer-outline" size={15} color="#6B7280" />
+            <Text style={styles.detailText}>Delay risk: {booking.delayRiskLevel}</Text>
+          </View>
+        ) : null}
+        {booking?.delayInfo?.expectedEndTime ? (
+          <View style={styles.detailRow}>
+            <Ionicons name="time-outline" size={15} color="#6B7280" />
+            <Text style={styles.detailText}>Expected end: {formatTime(new Date(booking.delayInfo.expectedEndTime))}</Text>
+          </View>
+        ) : null}
+        {booking?.delayInfo?.delayReason ? (
+          <Text style={styles.warningText}>Delay reason: {booking.delayInfo.delayReason}</Text>
+        ) : null}
+        {delayImpact === 'NEXT_BOOKING_AT_RISK' ? (
+          <Text style={styles.warningText}>This delay may affect your next scheduled job.</Text>
+        ) : null}
+
+        {showActions ? (
+          <View style={styles.actionsRow}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={() => openBooking(booking)}>
+              <Text style={styles.secondaryButtonText}>View Job</Text>
+            </TouchableOpacity>
+            {status === 'CONFIRMED' ? (
+              <>
+                <TouchableOpacity style={styles.primaryButton} onPress={() => updateBooking(booking, 'confirm-ready')}>
+                  <Text style={styles.primaryButtonText}>Ready</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.primaryButton} onPress={() => confirmStart(booking)}>
+                  <Text style={styles.primaryButtonText}>Start</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.warningButton} onPress={() => confirmDelay(booking)}>
+                  <Text style={styles.warningButtonText}>Delay</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+            {status === 'IN_PROGRESS' ? (
+              <>
+                <TouchableOpacity style={styles.warningButton} onPress={() => confirmDelay(booking)}>
+                  <Text style={styles.warningButtonText}>Delay</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.successButton} onPress={() => confirmComplete(booking)}>
+                  <Text style={styles.successButtonText}>Complete</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+            {status === 'DELAY_REPORTED' ? (
+              <TouchableOpacity style={styles.successButton} onPress={() => confirmComplete(booking)}>
+                <Text style={styles.successButtonText}>Complete</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
+  const renderRequestCard = (request) => (
+    <View key={request?._id || request?.id} style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardTitleWrap}>
+          <Text style={styles.cardTitle}>{getHumanServiceTitle(request)}</Text>
+          <Text style={styles.cardSubText}>{request?.preferredTimeLabel || 'Preferred time not set'}</Text>
+        </View>
+        {renderStatusBadge(request?.status || 'pending')}
+      </View>
+      <View style={styles.detailRow}>
+        <Ionicons name="person-outline" size={15} color="#6B7280" />
+        <Text style={styles.detailText}>{getHumanSeekerName(request)}</Text>
+      </View>
+      <View style={styles.detailRow}>
+        <Ionicons name="location-outline" size={15} color="#6B7280" />
+        <Text style={styles.detailText}>{getHumanLocation(request)}</Text>
+      </View>
+      {request?.seekerBudgetAmount ? (
+        <View style={styles.detailRow}>
+          <Ionicons name="cash-outline" size={15} color="#6B7280" />
+          <Text style={styles.detailText}>Budget: {formatMoney(request.seekerBudgetAmount)}</Text>
+        </View>
+      ) : null}
+      <TouchableOpacity style={styles.fullPrimaryButton} onPress={() => submitQuote(request)}>
+        <Text style={styles.primaryButtonText}>Submit Quotation</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderQuotationCard = (quotation) => {
+    const price = Number(quotation?.price || quotation?.providerQuotedPrice || 0);
+    const duration = Number(quotation?.estimatedDurationHours || quotation?.providerEstimatedDurationHours || 0);
+    const hourly = price && duration ? price / duration : 0;
+    return (
+      <View key={quotation?._id || quotation?.id} style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitleWrap}>
+            <Text style={styles.cardTitle}>{getHumanServiceTitle(quotation)}</Text>
+            <Text style={styles.cardSubText}>{formatMoney(price)} · {duration || '-'} hour(s)</Text>
+          </View>
+          {renderStatusBadge(quotation?.status || quotation?.coordinationStatus || 'SENT')}
+        </View>
+        {hourly ? <Text style={styles.detailText}>Rate: LKR {Math.round(hourly).toLocaleString()}/hr</Text> : null}
+        {quotation?.notes ? <Text style={styles.detailText}>Note: {quotation.notes}</Text> : null}
+        {quotation?.coordinationStatus ? <Text style={styles.detailText}>Availability: {statusLabel(quotation.coordinationStatus)}</Text> : null}
+      </View>
+    );
+  };
+
+  const renderEmpty = (icon, title, subtitle) => (
+    <View style={styles.emptyContainer}>
+      <Ionicons name={icon} size={46} color="#9CA3AF" />
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptySubText}>{subtitle}</Text>
+    </View>
+  );
+
+  const renderCalendar = () => {
+    const confirmed = calendarBookings.filter((item) => getBookingStatus(item) === 'CONFIRMED').length;
+    const inProgress = calendarBookings.filter((item) => getBookingStatus(item) === 'IN_PROGRESS').length;
+    const completed = calendarBookings.filter((item) => getBookingStatus(item) === 'COMPLETED').length;
+
+    return (
+      <>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateStrip}>
+          {dates.map((item) => {
+            const selected = selectedDate === item.key;
+            return (
+              <TouchableOpacity
+                key={item.key}
+                onPress={() => setSelectedDate(item.key)}
+                style={[styles.datePill, selected && styles.datePillActive]}
+              >
+                <Text style={[styles.datePillLabel, selected && styles.datePillTextActive]}>{item.label}</Text>
+                <Text style={[styles.datePillDay, selected && styles.datePillTextActive]}>{item.day}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <Text style={styles.sectionTitle}>{formatDateTitle(selectedDate)}</Text>
+        <Text style={styles.summaryText}>
+          {calendarBookings.length} jobs · {confirmed} confirmed · {inProgress} in progress · {completed} completed
+        </Text>
+
+        {calendarBookings.length === 0
+          ? renderEmpty('calendar-outline', 'No jobs scheduled for this date.', 'Select another date or refresh your schedule.')
+          : calendarBookings.map((booking) => renderBookingCard(booking, true))}
+      </>
+    );
+  };
+
+  const renderBody = () => {
+    if (activeTab === 'Calendar') return renderCalendar();
+    if (activeTab === 'Ongoing') {
+      return ongoingBookings.length === 0
+        ? renderEmpty('briefcase-outline', 'No ongoing jobs right now.', 'Jobs you start or jobs scheduled soon will appear here.')
+        : ongoingBookings.map((booking) => renderBookingCard(booking, true));
+    }
+    if (activeTab === 'Requests') {
+      return pendingRequests.length === 0
+        ? renderEmpty('document-text-outline', 'No incoming requests yet.', 'New quotation requests assigned to you will appear here.')
+        : pendingRequests.map(renderRequestCard);
+    }
+    if (activeTab === 'Quotes') {
+      return quotations.length === 0
+        ? renderEmpty('receipt-outline', 'No quotations sent yet.', 'Submitted quotations will appear here.')
+        : quotations.map(renderQuotationCard);
+    }
+    return historyBookings.length === 0
+      ? renderEmpty('time-outline', 'Completed and cancelled jobs will appear here.', 'Your job history is currently empty.')
+      : historyBookings.map((booking) => renderBookingCard(booking, false));
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={['#667eea', '#764ba2']}
-        style={styles.header}
-      >
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
+      <LinearGradient colors={['#667eea', '#764ba2']} style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Schedule</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerTextWrap}>
+          <Text style={styles.headerTitle}>My Jobs</Text>
+          <Text style={styles.headerSubtitle}>Calendar, requests, quotes and ongoing work</Text>
+        </View>
       </LinearGradient>
+
+      <View style={styles.tabsWrap}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {TABS.map((tab) => {
+            const active = activeTab === tab;
+            return (
+              <TouchableOpacity key={tab} style={[styles.tabPill, active && styles.tabPillActive]} onPress={() => setActiveTab(tab)}>
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>{tab}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       <ScrollView
         style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#667eea" />
-            <Text style={styles.loadingText}>Loading schedule...</Text>
+            <Text style={styles.loadingText}>Loading provider jobs...</Text>
           </View>
-        ) : (
-          <>
-            {/* Calendar */}
-            <View style={styles.calendarContainer}>
-              <Calendar
-                current={selectedDate}
-                markedDates={markedDates}
-                onDayPress={onDayPress}
-                theme={{
-                  backgroundColor: '#ffffff',
-                  calendarBackground: '#ffffff',
-                  textSectionTitleColor: '#b6c1cd',
-                  selectedDayBackgroundColor: '#667eea',
-                  selectedDayTextColor: '#ffffff',
-                  todayTextColor: '#667eea',
-                  dayTextColor: '#2d4150',
-                  textDisabledColor: '#d9e1e8',
-                  dotColor: '#667eea',
-                  selectedDotColor: '#ffffff',
-                  arrowColor: '#667eea',
-                  monthTextColor: '#2d4150',
-                  indicatorColor: '#667eea',
-                  textDayFontSize: 16,
-                  textMonthFontSize: 18,
-                  textDayHeaderFontSize: 14
-                }}
-              />
-            </View>
-
-            {/* Selected Date Bookings */}
-            <View style={styles.bookingsSection}>
-              <Text style={styles.sectionTitle}>
-                {selectedDate === new Date().toISOString().split('T')[0]
-                  ? 'Today'
-                  : new Date(selectedDate).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      month: 'long',
-                      day: 'numeric'
-                    })
-                }
-              </Text>
-
-              {selectedDateBookings.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="calendar-outline" size={48} color="#9CA3AF" />
-                  <Text style={styles.emptyText}>No bookings on this date</Text>
-                </View>
-              ) : (
-                selectedDateBookings.map((booking) => {
-                  const statusStyle = getStatusBadge(booking.status);
-                  return (
-                    <TouchableOpacity
-                      key={booking.id}
-                      style={styles.bookingCard}
-                      onPress={() => navigation.navigate('BookingDetailScreen', { booking })}
-                    >
-                      <View style={styles.bookingHeader}>
-                        <View style={styles.bookingInfo}>
-                          <Text style={styles.serviceTitle}>{booking.serviceCategory}</Text>
-                          <Text style={styles.bookingTime}>
-                            {formatTime(booking.requestedStartTime)} - {booking.estimatedDurationHours}h
-                          </Text>
-                        </View>
-                        <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-                          <Text style={[styles.statusText, { color: statusStyle.color }]}>
-                            {statusStyle.text}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.bookingDetails}>
-                        <View style={styles.detailRow}>
-                          <Ionicons name="person-outline" size={14} color="#6B7280" />
-                          <Text style={styles.detailText}>
-                            Client: {booking.seekerName || 'Client'}
-                          </Text>
-                        </View>
-                        <View style={styles.detailRow}>
-                          <Ionicons name="location-outline" size={14} color="#6B7280" />
-                          <Text style={styles.detailText}>
-                            Location: {booking.location || 'TBD'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.bookingActions}>
-                        <TouchableOpacity style={styles.actionButton}>
-                          <Ionicons name="chatbubble-outline" size={16} color="#667eea" />
-                          <Text style={styles.actionText}>Message</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionButton}>
-                          <Ionicons name="call-outline" size={16} color="#10B981" />
-                          <Text style={styles.actionText}>Call</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </View>
-          </>
-        )}
+        ) : renderBody()}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  header: {
-    padding: 16,
-    paddingTop: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButton: {
-    marginRight: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    padding: 32,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 8,
-  },
-  calendarContainer: {
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  bookingsSection: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 16,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    padding: 32,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#6B7280',
-    marginTop: 16,
-  },
-  bookingCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  bookingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  bookingInfo: {
-    flex: 1,
-  },
-  serviceTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  bookingTime: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  bookingDetails: {
-    marginBottom: 12,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  detailText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginLeft: 8,
-  },
-  bookingActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-  },
-  actionText: {
-    fontSize: 14,
-    color: '#667eea',
-    marginLeft: 4,
-    fontWeight: '500',
-  },
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 18, flexDirection: 'row', alignItems: 'center' },
+  backButton: { marginRight: 14, padding: 4 },
+  headerTextWrap: { flex: 1 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
+  headerSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.82)', marginTop: 3 },
+  tabsWrap: { backgroundColor: '#fff', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#EEF2F7' },
+  tabPill: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: '#F3F4F6', marginLeft: 10 },
+  tabPillActive: { backgroundColor: '#667eea' },
+  tabText: { color: '#6B7280', fontWeight: '700', fontSize: 13 },
+  tabTextActive: { color: '#fff' },
+  content: { flex: 1, padding: 16 },
+  loadingContainer: { alignItems: 'center', padding: 32 },
+  loadingText: { fontSize: 15, color: '#6B7280', marginTop: 8 },
+  dateStrip: { marginBottom: 14 },
+  datePill: { width: 86, paddingVertical: 12, borderRadius: 16, backgroundColor: '#fff', marginRight: 10, alignItems: 'center', borderWidth: 1, borderColor: '#EEF2F7' },
+  datePillActive: { backgroundColor: '#667eea', borderColor: '#667eea' },
+  datePillLabel: { color: '#6B7280', fontSize: 12, fontWeight: '700' },
+  datePillDay: { color: '#111827', fontSize: 20, fontWeight: '800', marginTop: 3 },
+  datePillTextActive: { color: '#fff' },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#111827', marginTop: 6 },
+  summaryText: { color: '#6B7280', marginTop: 4, marginBottom: 14, fontSize: 13 },
+  card: { backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 13, borderWidth: 1, borderColor: '#EEF2F7', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 },
+  cardTitleWrap: { flex: 1, paddingRight: 10 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: '#111827' },
+  cardSubText: { marginTop: 4, fontSize: 13, color: '#6B7280' },
+  statusBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
+  statusText: { fontSize: 11, fontWeight: '800' },
+  detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  detailText: { fontSize: 13, color: '#4B5563', marginLeft: 7, flex: 1 },
+  warningText: { marginTop: 8, color: '#B45309', backgroundColor: '#FFFBEB', borderRadius: 10, padding: 9, fontSize: 12, fontWeight: '600' },
+  reminderBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFBEB', borderRadius: 12, padding: 10, marginBottom: 12 },
+  reminderText: { color: '#92400E', fontSize: 12, fontWeight: '700', marginLeft: 8, flex: 1 },
+  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  secondaryButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#EEF2FF' },
+  secondaryButtonText: { color: '#4F46E5', fontWeight: '800', fontSize: 12 },
+  primaryButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#667eea' },
+  primaryButtonText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  fullPrimaryButton: { marginTop: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: '#667eea', alignItems: 'center' },
+  warningButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#FEF3C7' },
+  warningButtonText: { color: '#B45309', fontWeight: '800', fontSize: 12 },
+  successButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#D1FAE5' },
+  successButtonText: { color: '#047857', fontWeight: '800', fontSize: 12 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 18, padding: 30, borderWidth: 1, borderColor: '#EEF2F7' },
+  emptyTitle: { marginTop: 12, color: '#4B5563', fontSize: 16, fontWeight: '800', textAlign: 'center' },
+  emptySubText: { marginTop: 5, color: '#9CA3AF', fontSize: 13, textAlign: 'center' },
 });

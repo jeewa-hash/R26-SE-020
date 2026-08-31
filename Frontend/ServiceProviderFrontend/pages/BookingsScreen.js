@@ -1,1 +1,3 @@
-export { default } from './IT22129376/ProviderMyJobsScreen';
+import ProviderCalendarScreen from '../screens/ProviderCalendarScreen';
+
+export default ProviderCalendarScreen;
