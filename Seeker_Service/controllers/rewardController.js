@@ -1,15 +1,10 @@
-// controllers/rewardController.js
 import mongoose from "mongoose";
 import RewardAccount from "../models/RewardAccount.js";
 import RewardTransaction from "../models/RewardTransaction.js";
 import RewardRedemption from "../models/RewardRedemption.js";
 import { awardPointsForBooking } from "../services/rewardService.js";
 
-/**
- * Internal endpoint used by ServiceCoordinationService after a booking is paid
- * and completed. It is intentionally not protected by a user JWT because the
- * service-to-service key identifies the trusted caller.
- */
+// ---------- Internal (service-to-service) ----------
 export const awardBookingPoints = async (req, res) => {
   if (!process.env.REWARD_SERVICE_KEY || req.get("x-reward-service-key") !== process.env.REWARD_SERVICE_KEY) {
     return res.status(401).json({ error: "Unauthorized service request" });
@@ -23,19 +18,12 @@ export const awardBookingPoints = async (req, res) => {
   }
 };
 
-/**
- * GET /api/rewards/balance
- * Returns current balance and lifetime stats for authenticated seeker.
- */
+// ---------- Seeker Endpoints ----------
 export const getBalance = async (req, res) => {
   try {
     const account = await RewardAccount.findOne({ seekerId: req.user.id });
     if (!account) {
-      return res.json({
-        balance: 0,
-        lifetimeEarned: 0,
-        lifetimeSpent: 0,
-      });
+      return res.json({ balance: 0, lifetimeEarned: 0, lifetimeSpent: 0 });
     }
     res.json({
       balance: account.balance,
@@ -47,11 +35,6 @@ export const getBalance = async (req, res) => {
   }
 };
 
-/**
- * GET /api/rewards/history
- * Paginated transaction history for authenticated seeker.
- * Query params: page (default 1), limit (default 20)
- */
 export const getTransactionHistory = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -79,11 +62,6 @@ export const getTransactionHistory = async (req, res) => {
   }
 };
 
-/**
- * POST /api/rewards/redeem
- * Redeem points for a reward item.
- * Body: { pointsToSpend, rewardItem, rewardValue }
- */
 export const redeemPoints = async (req, res) => {
   const { pointsToSpend, rewardItem, rewardValue } = req.body;
 
@@ -103,12 +81,10 @@ export const redeemPoints = async (req, res) => {
       throw new Error("Insufficient balance");
     }
 
-    // Deduct points
     account.balance -= pointsToSpend;
     account.lifetimeSpent += pointsToSpend;
     await account.save({ session });
 
-    // Create transaction record
     const transaction = new RewardTransaction({
       seekerId: req.user.id,
       amount: -pointsToSpend,
@@ -118,7 +94,6 @@ export const redeemPoints = async (req, res) => {
     });
     await transaction.save({ session });
 
-    // Create redemption request
     const redemption = new RewardRedemption({
       seekerId: req.user.id,
       pointsSpent: pointsToSpend,
@@ -142,13 +117,7 @@ export const redeemPoints = async (req, res) => {
   }
 };
 
-// ---------- Admin endpoints (optional) ----------
-
-/**
- * GET /admin/rewards/transactions
- * List all transactions (admin only) with filters.
- * Query: seekerId, type, fromDate, toDate, etc.
- */
+// ---------- Admin Endpoints ----------
 export const adminListTransactions = async (req, res) => {
   try {
     const filter = {};
@@ -169,11 +138,6 @@ export const adminListTransactions = async (req, res) => {
   }
 };
 
-/**
- * PUT /admin/rewards/redemptions/:id
- * Approve or reject a redemption request.
- * Body: { status: "APPROVED" | "REJECTED" }
- */
 export const updateRedemptionStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -187,12 +151,8 @@ export const updateRedemptionStatus = async (req, res) => {
 
   try {
     const redemption = await RewardRedemption.findById(id).session(session);
-    if (!redemption) {
-      throw new Error("Redemption not found");
-    }
-    if (redemption.status !== "PENDING") {
-      throw new Error("Redemption already processed");
-    }
+    if (!redemption) throw new Error("Redemption not found");
+    if (redemption.status !== "PENDING") throw new Error("Redemption already processed");
 
     redemption.status = status;
     if (status === "APPROVED") {
@@ -200,9 +160,6 @@ export const updateRedemptionStatus = async (req, res) => {
       redemption.approvedAt = new Date();
     }
     await redemption.save({ session });
-
-    // If rejected, we might want to refund points, but that's a business decision.
-    // For now we just update the status.
 
     await session.commitTransaction();
     res.json({ message: `Redemption ${status.toLowerCase()}`, redemption });
@@ -214,12 +171,6 @@ export const updateRedemptionStatus = async (req, res) => {
   }
 };
 
-/**
- * POST /admin/rewards/adjust
- * Manually adjust a seeker's points.
- * Body: { seekerId, amount, reason }
- * amount can be positive (add) or negative (deduct).
- */
 export const adminAdjustPoints = async (req, res) => {
   const { seekerId, amount, reason } = req.body;
 
@@ -237,16 +188,11 @@ export const adminAdjustPoints = async (req, res) => {
     }
 
     const newBalance = account.balance + amount;
-    if (newBalance < 0) {
-      throw new Error("Insufficient balance for deduction");
-    }
+    if (newBalance < 0) throw new Error("Insufficient balance for deduction");
 
     account.balance = newBalance;
-    if (amount > 0) {
-      account.lifetimeEarned += amount;
-    } else {
-      account.lifetimeSpent += Math.abs(amount);
-    }
+    if (amount > 0) account.lifetimeEarned += amount;
+    else account.lifetimeSpent += Math.abs(amount);
     await account.save({ session });
 
     const transaction = new RewardTransaction({

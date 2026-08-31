@@ -42,11 +42,21 @@ export const getBookingsByProvider = async (req, res) => {
     });
   }
 };
-
 export const getBookingsBySeeker = async (req, res) => {
   try {
-    const { seekerId } = req.params;
+    // ✅ If no seekerId in params, use the logged‑in user's ID
+    let seekerId = req.params.seekerId;
+    if (!seekerId && req.user?.role === "Seeker") {
+      seekerId = req.user.id;
+    }
+    if (!seekerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Seeker ID is required",
+      });
+    }
 
+    // ✅ Ensure the user can only view their own bookings (unless admin)
     if (req.user.role === "Seeker" && req.user.id !== seekerId) {
       return res.status(403).json({
         success: false,
@@ -362,6 +372,11 @@ export const startBooking = async (req, res) => {
     });
   }
 };
+
+/**
+ * Complete a booking – automatically awards reward points to the seeker.
+ * The reward service is called internally via HTTP with a service‑to‑service key.
+ */
 export const completeBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -393,31 +408,38 @@ export const completeBooking = async (req, res) => {
     booking.bookingStatus = "COMPLETED";
     await booking.save();
 
-    // Award points through Seeker Service. Its reward transaction check makes
-    // this safe if a completion request is retried.
+    // -------- Award points automatically --------
     let reward = null;
-    try {
-      const seekerServiceUrl = (process.env.SEEKER_SERVICE_URL || "http://127.0.0.1:6000").replace(/\/$/, "");
-      const rewardResponse = await axios.post(
-        `${seekerServiceUrl}/api/rewards/internal/bookings/award`,
-        {
-          bookingId: booking._id.toString(),
-          seekerId: booking.seekerId.toString(),
-          finalAmount: booking.finalAmount,
-          bookingStatus: booking.bookingStatus,
-        },
-        {
-          headers: {
-            "x-reward-service-key": process.env.REWARD_SERVICE_KEY,
+    const finalAmount = Number(booking.finalAmount) || 0;
+    if (finalAmount > 0) {
+      try {
+        const seekerServiceUrl = (process.env.SEEKER_SERVICE_URL || "http://127.0.0.1:6000").replace(/\/$/, "");
+        const rewardResponse = await axios.post(
+          `${seekerServiceUrl}/api/rewards/internal/bookings/award`,
+          {
+            bookingId: booking._id.toString(),
+            seekerId: booking.seekerId.toString(),
+            finalAmount,
+            bookingStatus: booking.bookingStatus,
           },
-        }
-      );
-      reward = rewardResponse.data;
-    } catch (rewardError) {
-      // A completed booking must not be rolled back because the reward service
-      // is unavailable. The internal reward endpoint can be safely retried.
-      console.error("Failed to award booking points:", rewardError.response?.data || rewardError.message);
-      reward = { success: false, error: rewardError.response?.data?.error || rewardError.message };
+          {
+            headers: {
+              "x-reward-service-key": process.env.REWARD_SERVICE_KEY,
+            },
+          }
+        );
+        reward = rewardResponse.data;
+      } catch (rewardError) {
+        // Log the error but do NOT roll back the completion.
+        // The reward endpoint is idempotent – it can be retried later.
+        console.error("Failed to award booking points:", rewardError.response?.data || rewardError.message);
+        reward = {
+          success: false,
+          error: rewardError.response?.data?.error || rewardError.message,
+        };
+      }
+    } else {
+      reward = { success: false, message: "Skipped – finalAmount is zero or invalid" };
     }
 
     return res.status(200).json({
@@ -427,6 +449,7 @@ export const completeBooking = async (req, res) => {
       reward,
     });
   } catch (error) {
+    console.error("Complete booking error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to complete booking",
