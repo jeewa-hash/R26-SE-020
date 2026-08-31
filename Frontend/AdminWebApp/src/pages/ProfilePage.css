@@ -282,62 +282,91 @@
   color: #475569;
 }
 
-/* Password Validation Box */
+/* Security Card Status Badge */
+.security-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Password Validation Box - Elegant Security Panel */
 .password-validation-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.validation-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .validation-title {
-  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
   font-weight: 800;
-  color: #334155;
+  color: #1e293b;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.validation-rules-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
+.validation-title svg {
+  color: #6366f1;
+  font-size: 16px;
 }
 
-.rule-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  transition: color 0.2s ease;
+.strength-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
-.rule-item.valid {
-  color: #059669;
-}
-
-.rule-item.invalid {
+.strength-badge.strength-1 {
+  background: #ffe4e6;
   color: #e11d48;
+  border: 1px solid #fecdd3;
 }
 
-.rule-item.pending {
-  color: #94a3b8;
+.strength-badge.strength-2 {
+  background: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fde68a;
+}
+
+.strength-badge.strength-3 {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
 }
 
 /* Strength Meter */
 .strength-meter-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 4px;
+  width: 100%;
 }
 
 .strength-bar-bg {
-  flex: 1;
+  width: 100%;
   height: 6px;
   background: #e2e8f0;
   border-radius: 10px;
@@ -347,26 +376,101 @@
 .strength-bar-fill {
   height: 100%;
   border-radius: 10px;
-  transition: width 0.3s ease, background 0.3s ease;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease;
 }
 
 .strength-bar-fill.strength-1 {
-  background: #e11d48;
+  background: linear-gradient(90deg, #f43f5e, #e11d48);
 }
 
 .strength-bar-fill.strength-2 {
-  background: #eab308;
+  background: linear-gradient(90deg, #f59e0b, #d97706);
 }
 
 .strength-bar-fill.strength-3 {
-  background: #10b981;
+  background: linear-gradient(90deg, #10b981, #059669);
 }
 
-.strength-text {
-  font-size: 12.5px;
+/* 4 Elegant Security Requirement Chips (2x2 Grid) */
+.validation-rules-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .validation-rules-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rule-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.25s ease;
+  border: 1px solid transparent;
+}
+
+.rule-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.rule-text {
+  flex-grow: 1;
+}
+
+.rule-item.pending {
+  background: #ffffff;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.rule-item.pending .rule-icon {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.rule-item.invalid {
+  background: #fff1f2;
+  color: #e11d48;
+  border-color: #fecdd3;
+}
+
+.rule-item.invalid .rule-icon {
+  background: #ffe4e6;
+  color: #e11d48;
+}
+
+.rule-item.valid {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #bbf7d0;
   font-weight: 700;
-  color: #475569;
-  min-width: 100px;
+  box-shadow: 0 1px 4px rgba(16, 185, 129, 0.08);
+}
+
+.rule-item.valid .rule-icon {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.hint-lock-icon {
+  font-size: 13px;
+  margin-right: 4px;
+  vertical-align: -1px;
 }
 
 /* Form Action Buttons & Disabled State (Dimmed color requirement) */

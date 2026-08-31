@@ -272,3 +272,200 @@ exports.getUserById = async (req, res) => {
     });
   }
 };
+
+
+exports.updateProfileById = async (req, res) => {
+  try {
+    const { userId } = req.params; // passed in URL
+    const { name, telephone, district, location, profilePicture } = req.body;
+
+    const seeker = await Seeker.findById(userId);
+    if (!seeker) {
+      return res.status(404).json({ message: 'Seeker not found' });
+    }
+
+    if (name !== undefined) seeker.name = name;
+    if (telephone !== undefined) seeker.telephone = telephone;
+    if (district !== undefined) seeker.district = district;
+    if (location !== undefined) {
+      if (location.latitude !== undefined) seeker.location.latitude = location.latitude;
+      if (location.longitude !== undefined) seeker.location.longitude = location.longitude;
+    }
+    if (profilePicture !== undefined) seeker.profilePicture = profilePicture;
+
+    await seeker.save();
+
+    const updatedSeeker = await Seeker.findById(userId)
+      .select('-password -otp -otpExpires -__v');
+
+    res.status(200).json({
+      message: 'Profile updated successfully (insecure)',
+      user: updatedSeeker,
+    });
+
+  } catch (error) {
+    console.error('INSECURE UPDATE PROFILE ERROR:', error.message);
+    res.status(500).json({ message: 'Server error while updating profile' });
+  }
+};
+
+// ─── UPDATE PROFILE PICTURE (accepts any field name) ──
+exports.updateProfilePicture = async (req, res) => {
+  try {
+    const userId = req.user.id; // from verifyToken middleware
+
+    // Check if any file was uploaded (regardless of field name)
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    const file = req.files[0]; // take the first uploaded file
+
+    const seeker = await Seeker.findById(userId);
+    if (!seeker) {
+      return res.status(404).json({ message: 'Seeker not found' });
+    }
+
+    // Update profilePicture with the file path
+    seeker.profilePicture = file.path;
+    await seeker.save();
+
+    const updatedSeeker = await Seeker.findById(userId)
+      .select('-password -otp -otpExpires -__v');
+
+    res.status(200).json({
+      message: 'Profile picture updated successfully',
+      user: updatedSeeker,
+    });
+  } catch (error) {
+    console.error('UPDATE PROFILE PICTURE ERROR:', error.message);
+    res.status(500).json({ message: 'Server error while updating profile picture' });
+  }
+};
+
+// =======================================================
+// GET PROVIDER RECOMMENDATIONS FOR SEEKER
+// =======================================================
+exports.getProviderRecommendations = async (req, res) => {
+  try {
+    const { seekerId } = req.params;
+    const Provider = require('../models/Provider');
+
+    let seekerDistrict = 'Colombo';
+    let seekerName = '';
+
+    if (seekerId) {
+      try {
+        const seeker = await Seeker.findById(seekerId);
+        if (seeker) {
+          seekerDistrict = seeker.district || 'Colombo';
+          seekerName = seeker.name || '';
+        }
+      } catch (e) {
+        console.warn('Error finding seeker in authService:', e.message);
+      }
+    }
+
+    // Filter criteria for recommendations:
+    // 1. Must be verified (isVerified: true)
+    // 2. Must NOT be blocked (isBlocked: false or not true)
+    // 3. Must NOT be rejected/suspended (isRejected: false or not true)
+    const rawProviders = await Provider.find({
+      isVerified: true,
+      isBlocked: { $ne: true },
+      isRejected: { $ne: true },
+    });
+
+    const now = new Date();
+
+    // 4. Exclude providers with temporary block or >3 consecutive cancellations / rejections / missed bookings
+    const eligibleProviders = rawProviders.filter((p) => {
+      if (!p.isVerified) return false;
+      if (p.isBlocked || p.isRejected || p.isSuspended) return false;
+      if (p.blockedUntil && new Date(p.blockedUntil) > now) return false;
+      if (p.consecutiveRejections && p.consecutiveRejections > 3) return false;
+      if (p.consecutiveCancellations && p.consecutiveCancellations > 3) return false;
+      return true;
+    });
+
+    const normalizedDistrict = (seekerDistrict || '').trim().toLowerCase();
+
+    // Separate eligible providers into district matches and other verified specialists
+    const districtMatches = [];
+    const otherMatches = [];
+
+    for (const p of eligibleProviders) {
+      const pDistrict = (p.district || '').trim().toLowerCase();
+      if (pDistrict === normalizedDistrict) {
+        districtMatches.push({
+          ...p.toObject(),
+          matchScore: 90,
+          matchReason: `Top rated verified pro in ${p.district || seekerDistrict}`,
+        });
+      } else {
+        otherMatches.push({
+          ...p.toObject(),
+          matchScore: 50,
+          matchReason: `Verified Specialist`,
+        });
+      }
+    }
+
+    const matchedProviders = [...districtMatches, ...otherMatches];
+
+    const recommendations = matchedProviders.map((p, idx) => {
+      const pId = p._id || p.id;
+      const displayName = p.name || p.fullName || (p.email ? p.email.split('@')[0] : `Provider ${idx + 1}`);
+      const categoryName = p.category || 'General Services';
+      const districtName = p.district || seekerDistrict;
+
+      return {
+        id: String(pId),
+        _id: String(pId),
+        title: displayName,
+        subtitle: `${categoryName} • ${districtName}`,
+        category: categoryName,
+        district: districtName,
+        rating: p.rating || 4.9,
+        reviewsCount: p.reviewCount || 14,
+        isVerified: true,
+        matchReason: p.matchReason,
+        image: p.profileImage || null,
+        provider: {
+          id: String(pId),
+          _id: String(pId),
+          name: displayName,
+          email: p.email,
+          telephone: p.telephone,
+          district: districtName,
+          category: categoryName,
+          profileImage: p.profileImage,
+          bio: p.bio,
+          isVerified: true,
+          rating: p.rating || 4.9,
+          location: p.location,
+        },
+        portfolio: {
+          categories: [categoryName],
+          specific_labels: [categoryName],
+          images: p.profileImage ? [p.profileImage] : [],
+          total_images: p.profileImage ? 1 : 0,
+        },
+        match: {
+          category: categoryName,
+          reason: p.matchReason,
+        },
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      seekerDistrict,
+      totalRecommendations: recommendations.length,
+      recommendations,
+    });
+  } catch (error) {
+    console.error('GET PROVIDER RECOMMENDATIONS ERROR:', error.message);
+    res.status(500).json({ success: false, message: 'Server error while fetching recommendations' });
+  }
+};

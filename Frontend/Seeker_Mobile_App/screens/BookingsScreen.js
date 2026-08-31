@@ -64,8 +64,6 @@ export default function BookingsScreen({ navigation }) {
   const [expandedSessions, setExpandedSessions] = useState({});
 
   const [totalSessions, setTotalSessions] = useState(0);
-  const [confirmedSessions, setConfirmedSessions] = useState(0);
-  const [pendingSessions, setPendingSessions] = useState(0);
 
   // ─────────────────────────────────────────────────────────────
   // Fetch all providers into a map keyed by provider id
@@ -128,16 +126,7 @@ export default function BookingsScreen({ navigation }) {
         setGroupedBookings(groups);
 
         const total = groups.length;
-        const confirmed = groups.filter((g) =>
-          g.requests.some((r) => r.status === 'confirmed')
-        ).length;
-        const pending = groups.filter((g) =>
-          g.requests.every((r) => r.status === 'pending')
-        ).length;
-
         setTotalSessions(total);
-        setConfirmedSessions(confirmed);
-        setPendingSessions(pending);
 
         const providerMap = await fetchProviders();
         setProvidersMap(providerMap);
@@ -395,7 +384,7 @@ export default function BookingsScreen({ navigation }) {
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Bookings</Text>
+        <Text style={styles.headerTitle}>My Requests</Text>
         <TouchableOpacity
           style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
           onPress={onRefresh}
@@ -411,24 +400,6 @@ export default function BookingsScreen({ navigation }) {
           </Text>
           <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
             Total
-          </Text>
-        </View>
-        <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
-        <View style={styles.statCard}>
-          <Text style={[styles.statNumber, { color: '#10B981' }]}>
-            {confirmedSessions}
-          </Text>
-          <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
-            Confirmed
-          </Text>
-        </View>
-        <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
-        <View style={styles.statCard}>
-          <Text style={[styles.statNumber, { color: '#F59E0B' }]}>
-            {pendingSessions}
-          </Text>
-          <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
-            Pending
           </Text>
         </View>
       </View>
@@ -594,12 +565,14 @@ export default function BookingsScreen({ navigation }) {
                                   {pName}
                                 </Text>
                               </TouchableOpacity>
-                              <View style={[styles.providerStatusChip, { backgroundColor: pStatus.bg }]}>
-                                <Ionicons name={pStatus.icon} size={11} color={pStatus.color} />
-                                <Text style={[styles.providerStatusText, { color: pStatus.color }]}>
-                                  {pStatus.text}
-                                </Text>
-                              </View>
+                              {req.status !== 'pending' && req.status !== 'confirmed' && (
+                                <View style={[styles.providerStatusChip, { backgroundColor: pStatus.bg }]}>
+                                  <Ionicons name={pStatus.icon} size={11} color={pStatus.color} />
+                                  <Text style={[styles.providerStatusText, { color: pStatus.color }]}>
+                                    {pStatus.text}
+                                  </Text>
+                                </View>
+                              )}
                             </View>
 
                             <View style={styles.providerActions}>
@@ -628,7 +601,7 @@ export default function BookingsScreen({ navigation }) {
                                     isDarkMode && styles.viewQuoteBtnTextDark,
                                   ]}
                                 >
-                                  Quote
+                                  View
                                 </Text>
                               </TouchableOpacity>
                             </View>

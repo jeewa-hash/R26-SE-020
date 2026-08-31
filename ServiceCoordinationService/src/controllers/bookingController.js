@@ -3,6 +3,7 @@ import BidCoordination from "../models/BidCoordination.js";
 import BidPriceEvaluation from "../models/BidPriceEvaluation.js";
 import BidScheduleEvaluation from "../models/BidScheduleEvaluation.js";
 import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
+import axios from "axios";
 import { updateProviderQuotationCoordination } from "../clients/providerServiceClient.js";
 
 const canAccessBooking = (req, booking) => {
@@ -399,10 +400,38 @@ export const completeBooking = async (req, res) => {
     booking.bookingStatus = "COMPLETED";
     await booking.save();
 
+    // Award points through Seeker Service. Its reward transaction check makes
+    // this safe if a completion request is retried.
+    let reward = null;
+    try {
+      const seekerServiceUrl = (process.env.SEEKER_SERVICE_URL || "http://127.0.0.1:6000").replace(/\/$/, "");
+      const rewardResponse = await axios.post(
+        `${seekerServiceUrl}/api/rewards/internal/bookings/award`,
+        {
+          bookingId: booking._id.toString(),
+          seekerId: booking.seekerId.toString(),
+          finalAmount: booking.finalAmount,
+          bookingStatus: booking.bookingStatus,
+        },
+        {
+          headers: {
+            "x-reward-service-key": process.env.REWARD_SERVICE_KEY,
+          },
+        }
+      );
+      reward = rewardResponse.data;
+    } catch (rewardError) {
+      // A completed booking must not be rolled back because the reward service
+      // is unavailable. The internal reward endpoint can be safely retried.
+      console.error("Failed to award booking points:", rewardError.response?.data || rewardError.message);
+      reward = { success: false, error: rewardError.response?.data?.error || rewardError.message };
+    }
+
     return res.status(200).json({
       success: true,
       message: "Booking completed successfully",
       data: booking,
+      reward,
     });
   } catch (error) {
     return res.status(500).json({

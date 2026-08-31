@@ -50,6 +50,10 @@ import ProviderPostDetailScreen from './screens/ProviderPostDetailScreen';
 import AppliedJobsScreen from './pages/AppliedJobsScreen';
 import BoostSuccessScreen from './pages/BoostSuccess';
 import ProfileScreen from './pages/ProfileScreen';
+import ProviderJobDetailsScreen from './pages/IT22129376/ProviderJobDetailsScreen';
+import ProviderRequestDetailsScreen from './pages/IT22129376/ProviderRequestDetailsScreen';
+import ProviderQuotationFormScreen from './pages/IT22129376/ProviderQuotationFormScreen';
+
 
 const Stack = createStackNavigator();
 
@@ -161,6 +165,10 @@ function AppContent() {
             <Stack.Screen name="AppliedJobs" component={AppliedJobsScreen} />
             <Stack.Screen name="BoostSuccess" component={BoostSuccessScreen} options={{ title: 'Success' }} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="IT22129376ProviderJobDetails" component={ProviderJobDetailsScreen} />
+            <Stack.Screen name="IT22129376ProviderRequestDetails" component={ProviderRequestDetailsScreen} />
+            <Stack.Screen name="IT22129376ProviderQuotationForm" component={ProviderQuotationFormScreen} />
+
           </Stack.Navigator>
         </NavigationContainer>
 

@@ -42,6 +42,30 @@ app.add_middleware(
 # PROVIDER SERVICE CONFIGURATION
 
 PROVIDER_SERVICE_URL = "http://localhost:5000/portfolio/all-providers"
+INQUIRY_SERVICE_URL = os.getenv("INQUIRY_SERVICE_URL", "http://localhost:5001")
+
+
+def is_provider_restricted(provider_id):
+    """Return whether a provider must not be suggested because of missed bookings."""
+    if not provider_id:
+        return False
+
+    try:
+        response = requests.get(
+            f"{INQUIRY_SERVICE_URL}/api/inquiries/missed-bookings/{provider_id}",
+            timeout=5,
+        )
+        if response.status_code != 200:
+            return False
+
+        data = response.json()
+        return bool(
+            data.get("isRestricted", False)
+            or data.get("provider", {}).get("isBlocked", False)
+        )
+    except (requests.RequestException, ValueError):
+        # Keep matching available if the inquiry service is temporarily unavailable.
+        return False
 
 # --- JWT Configuration (read from .env) ---
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -381,6 +405,11 @@ def filter_matching_providers(category, providers, district=None):
 
         # Skip blocked
         if provider.get("isBlocked", False):
+            continue
+
+        # Do not suggest providers restricted for active missed bookings.
+        provider_id = provider.get("_id") or provider.get("id") or provider.get("providerId")
+        if is_provider_restricted(provider_id):
             continue
 
         # Category match (using new logic)
