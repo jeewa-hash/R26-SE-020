@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import React, { useContext, useState } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { submitProviderQuotation } from '../../services/providerFlowApi';
 import { getStoredProviderAuth } from './services/providerAuthStorage';
+import ProviderPageHeader from '../../components/ProviderPageHeader';
+import { ThemeContext } from '../../context/ThemeContext';
 
 export default function ProviderQuotationFormScreen({ route, navigation }) {
+  const { isDark } = useContext(ThemeContext) || { isDark: false };
+  const C = { bg: isDark ? '#0F172A' : '#F8FAFC', card: isDark ? '#1E293B' : '#FFFFFF', text: isDark ? '#F8FAFC' : '#1E293B', muted: isDark ? '#CBD5E1' : '#374151', border: isDark ? '#334155' : '#E2E8F0' };
   const request = route?.params?.request || {};
   const [price, setPrice] = useState('');
   const [duration, setDuration] = useState(String(request?.seekerEstimatedDurationHours || request?.estimatedDurationHours || ''));
@@ -48,30 +52,29 @@ export default function ProviderQuotationFormScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: C.bg }]}>
+      <ProviderPageHeader navigation={navigation} title="Submit Quotation" subtitle="Prepare your price and schedule proposal" />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Submit Quotation</Text>
-        <Text style={styles.label}>Price (LKR)</Text>
-        <TextInput style={styles.input} keyboardType="numeric" value={price} onChangeText={setPrice} placeholder="2000" />
-        <Text style={styles.label}>Estimated Duration Hours</Text>
-        <TextInput style={styles.input} keyboardType="numeric" value={duration} onChangeText={setDuration} placeholder="2" />
-        <Text style={styles.label}>Proposed Start Time</Text>
-        <TextInput style={styles.input} value={startTime} onChangeText={setStartTime} placeholder="2026-09-01T09:00:00" />
-        <Text style={styles.label}>Notes</Text>
-        <TextInput style={[styles.input, styles.textArea]} value={notes} onChangeText={setNotes} placeholder="Add a short note" multiline />
+        <Text style={[styles.label, { color: C.muted }]}>Price (LKR)</Text>
+        <TextInput style={[styles.input, { backgroundColor: C.card, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} keyboardType="numeric" value={price} onChangeText={setPrice} placeholder="2000" />
+        <Text style={[styles.label, { color: C.muted }]}>Estimated Duration Hours</Text>
+        <TextInput style={[styles.input, { backgroundColor: C.card, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} keyboardType="numeric" value={duration} onChangeText={setDuration} placeholder="2" />
+        <Text style={[styles.label, { color: C.muted }]}>Proposed Start Time</Text>
+        <TextInput style={[styles.input, { backgroundColor: C.card, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} value={startTime} onChangeText={setStartTime} placeholder="2026-09-01T09:00:00" />
+        <Text style={[styles.label, { color: C.muted }]}>Notes</Text>
+        <TextInput style={[styles.input, styles.textArea, { backgroundColor: C.card, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} value={notes} onChangeText={setNotes} placeholder="Add a short note" multiline />
         <TouchableOpacity style={styles.button} onPress={submit} disabled={saving}>
           <Text style={styles.buttonText}>{saving ? 'Submitting...' : 'Submit Quotation'}</Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
   content: { padding: 20 },
-  title: { fontSize: 24, fontWeight: '600', color: '#111827', marginBottom: 20 },
-  label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 },
+  label: { fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 8 },
   input: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', padding: 13, marginBottom: 16 },
   textArea: { minHeight: 90, textAlignVertical: 'top' },
   button: { backgroundColor: '#667eea', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 6 },

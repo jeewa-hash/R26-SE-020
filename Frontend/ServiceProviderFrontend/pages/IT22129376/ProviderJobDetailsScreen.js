@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
+import React, { useCallback, useContext, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -8,12 +8,16 @@ import {
   getProviderBookingById, openLocationInMaps, statusLabel, updateBookingLifecycle,
 } from '../../services/providerFlowApi';
 import { getStoredProviderAuth } from './services/providerAuthStorage';
+import ProviderPageHeader from '../../components/ProviderPageHeader';
+import { ThemeContext } from '../../context/ThemeContext';
 
 const formatDateTime = (value) => value && !Number.isNaN(value.getTime())
   ? value.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not scheduled';
 
 export default function ProviderJobDetailsScreen({ route, navigation }) {
+  const { isDark } = useContext(ThemeContext) || { isDark: false };
+  const C = { bg: isDark ? '#0F172A' : '#F8FAFC', card: isDark ? '#1E293B' : '#FFFFFF', text: isDark ? '#F8FAFC' : '#1E293B', muted: isDark ? '#94A3B8' : '#4B5563', border: isDark ? '#334155' : '#E2E8F0' };
   const initialBooking = route?.params?.booking || {};
   const [booking, setBooking] = useState(initialBooking);
   const [loading, setLoading] = useState(false);
@@ -65,28 +69,25 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
   ]);
 
   if (loading && !getBookingId(booking)) {
-    return <SafeAreaView style={styles.container}><View style={styles.loading}><ActivityIndicator color="#667eea" /><Text style={styles.row}>Loading...</Text></View></SafeAreaView>;
+    return <View style={[styles.container, { backgroundColor: C.bg }]}><ProviderPageHeader navigation={navigation} title="Job Details" subtitle="View and manage this booking" /><View style={styles.loading}><ActivityIndicator color="#667eea" /><Text style={[styles.row, { color: C.muted }]}>Loading...</Text></View></View>;
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}><Ionicons name="arrow-back" size={24} color="#111827" /></TouchableOpacity>
-        <Text style={styles.headerTitle}>Job Details</Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: C.bg }]}>
+      <ProviderPageHeader navigation={navigation} title="Job Details" subtitle="View and manage this booking" />
       <ScrollView contentContainerStyle={styles.content}>
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <View style={styles.card}>
-          <Text style={styles.title}>{getHumanServiceTitle(booking)}</Text>
+        <View style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
+          <Text style={[styles.title, { color: C.text }]}>{getHumanServiceTitle(booking)}</Text>
           <Text style={styles.status}>{statusLabel(status)}</Text>
-          <Text style={styles.row}>Scheduled: {formatDateTime(getBookingStartDate(booking))} – {formatDateTime(getBookingEndDate(booking))}</Text>
-          <Text style={styles.row}>Customer: {getHumanSeekerName(booking)}</Text>
-          <Text style={styles.row}>Location: {getHumanLocation(booking)}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Scheduled: {formatDateTime(getBookingStartDate(booking))} – {formatDateTime(getBookingEndDate(booking))}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Customer: {getHumanSeekerName(booking)}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Location: {getHumanLocation(booking)}</Text>
           {getHumanLocation(booking) !== 'Location not provided' ? <TouchableOpacity style={styles.mapButton} onPress={() => openLocationInMaps({ latitude: booking?.location?.lat, longitude: booking?.location?.lng, address: getHumanLocation(booking), label: getHumanServiceTitle(booking) })}><Ionicons name="map-outline" size={17} color="#4F46E5" /><Text style={styles.mapButtonText}>Open in Maps</Text></TouchableOpacity> : null}
-          {Number(booking?.estimatedTravelTimeMins) > 0 ? <Text style={styles.row}>Estimated travel time: {Math.round(booking.estimatedTravelTimeMins)} mins</Text> : null}
-          {Number(booking?.distanceFromPreviousBookingKm) > 0 ? <Text style={styles.row}>Distance: {Number(booking.distanceFromPreviousBookingKm).toFixed(1)} km</Text> : null}
-          <Text style={styles.row}>Amount: {Number(booking?.finalAmount || booking?.amount || 0) ? `LKR ${Number(booking?.finalAmount || booking?.amount).toLocaleString()}` : 'Not set'}</Text>
-          <Text style={styles.row}>Delay Risk: {booking?.delayRiskLevel || 'UNKNOWN'}</Text>
+          {Number(booking?.estimatedTravelTimeMins) > 0 ? <Text style={[styles.row, { color: C.muted }]}>Estimated travel time: {Math.round(booking.estimatedTravelTimeMins)} mins</Text> : null}
+          {Number(booking?.distanceFromPreviousBookingKm) > 0 ? <Text style={[styles.row, { color: C.muted }]}>Distance: {Number(booking.distanceFromPreviousBookingKm).toFixed(1)} km</Text> : null}
+          <Text style={[styles.row, { color: C.muted }]}>Amount: {Number(booking?.finalAmount || booking?.amount || 0) ? `LKR ${Number(booking?.finalAmount || booking?.amount).toLocaleString()}` : 'Not set'}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Delay Risk: {booking?.delayRiskLevel || 'UNKNOWN'}</Text>
           {status === 'CONFIRMED' ? <Text style={styles.info}>Booking confirmed</Text> : null}
           {status === 'IN_PROGRESS' ? <Text style={styles.info}>Service in progress</Text> : null}
           {status === 'COMPLETED' ? <Text style={styles.success}>Job completed</Text> : null}
@@ -108,14 +109,13 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' }, header: { paddingTop: 48, paddingHorizontal: 16, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff' },
-  backButton: { marginRight: 12 }, headerTitle: { fontSize: 20, fontWeight: '600', color: '#111827' }, content: { padding: 16 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 18 }, title: { fontSize: 20, fontWeight: '600', color: '#111827' }, status: { marginTop: 8, color: '#6366F1', fontWeight: '600' }, row: { marginTop: 12, color: '#4B5563', fontSize: 15 },
+  container: { flex: 1, backgroundColor: '#F8FAFC' }, content: { padding: 16 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  card: { backgroundColor: '#fff', borderRadius: 18, padding: 18, borderWidth: 1 }, title: { fontSize: 20, fontWeight: '600', color: '#111827' }, status: { marginTop: 8, color: '#6366F1', fontWeight: '500' }, row: { marginTop: 12, color: '#4B5563', fontSize: 14, fontWeight: '400' },
   info: { marginTop: 12, color: '#2563EB', fontWeight: '600' }, success: { marginTop: 12, color: '#047857', fontWeight: '600' }, delayBox: { marginTop: 12, backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10 }, warning: { color: '#B45309', marginBottom: 5 }, riskWarning: { marginTop: 12, color: '#B45309', backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10, fontWeight: '600' },
   error: { color: '#B91C1C', backgroundColor: '#FEE2E2', padding: 12, borderRadius: 10, marginBottom: 12 }, input: { marginTop: 12, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, padding: 12, color: '#111827' }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
   button: { backgroundColor: '#667eea', borderRadius: 10, padding: 12 }, buttonText: { color: '#fff', fontWeight: '600' }, warningButton: { backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12 }, warningButtonText: { color: '#B45309', fontWeight: '600' }, successButton: { backgroundColor: '#D1FAE5', borderRadius: 10, padding: 12 }, successButtonText: { color: '#047857', fontWeight: '600' },
