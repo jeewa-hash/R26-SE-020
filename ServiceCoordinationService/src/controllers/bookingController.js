@@ -810,3 +810,81 @@ export const getProviderMissedInquiries = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get provider earnings summary from completed bookings
+ * Returns total completed earnings, count, and optional month/year filter
+ * Used by Provider Service for billing & 5% commission calculation
+ */
+export const getProviderEarningsSummary = async (req, res) => {
+  try {
+    const providerId = req.params.providerId || req.user?.id;
+    const { month, year } = req.query; // month format "YYYY-MM" e.g. "2026-08", or year "2026"
+
+    if (!providerId) {
+      return res.status(400).json({
+        success: false,
+        message: "providerId is required",
+      });
+    }
+
+    if (req.user && req.user.role === "ServiceProvider" && req.user.id !== providerId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only view your own provider earnings",
+      });
+    }
+
+    const query = {
+      providerId,
+      bookingStatus: "COMPLETED",
+    };
+
+    const completedBookings = await Booking.find(query).sort({ updatedAt: -1, scheduledDate: -1 });
+
+    // Filter by month (YYYY-MM) or year (YYYY) if requested
+    let filteredBookings = completedBookings;
+    if (month) {
+      filteredBookings = completedBookings.filter((b) => {
+        const dateStr = b.scheduledDate || (b.updatedAt ? b.updatedAt.toISOString().slice(0, 10) : "");
+        return dateStr.startsWith(month);
+      });
+    } else if (year) {
+      filteredBookings = completedBookings.filter((b) => {
+        const dateStr = b.scheduledDate || (b.updatedAt ? b.updatedAt.toISOString().slice(0, 10) : "");
+        return dateStr.startsWith(year);
+      });
+    }
+
+    const totalIncome = filteredBookings.reduce((sum, b) => sum + (Number(b.finalAmount) || 0), 0);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        providerId,
+        filter: { month: month || null, year: year || null },
+        totalIncome,
+        completedBookingsCount: filteredBookings.length,
+        bookings: filteredBookings.map((b) => ({
+          _id: b._id,
+          finalAmount: b.finalAmount || 0,
+          scheduledDate: b.scheduledDate,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          seekerId: b.seekerId,
+          externalSessionId: b.externalSessionId,
+          externalQuotationId: b.externalQuotationId,
+          bookingStatus: b.bookingStatus,
+          completedAt: b.updatedAt,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("GET PROVIDER EARNINGS ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to get provider earnings summary",
+      error: error.message,
+    });
+  }
+};
