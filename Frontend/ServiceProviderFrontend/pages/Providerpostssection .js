@@ -395,19 +395,34 @@ export default function ProviderPostsSection({ navigation, isDark }) {
   const handleNewPostPress = async () => {
     try {
       setCheckingPenalty(true);
-      const userId = await AsyncStorage.getItem('userId');
-      if (userId) {
-        const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
-        const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
-        if (res.ok) {
-          const statusData = await res.json();
-          const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
-          if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
-            setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
-            setShowPenaltyModal(true);
-            setCheckingPenalty(false);
-            return;
-          }
+      let userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        const token = (await AsyncStorage.getItem('userToken')) || (await AsyncStorage.getItem('token'));
+        if (token) {
+          try {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+              const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+              const decoded = JSON.parse(decodeURIComponent(escape(atob(base64))));
+              userId = decoded.id || decoded._id || decoded.userId || decoded.user?.id || decoded.user?._id;
+            }
+          } catch (_) {}
+        }
+      }
+      if (!userId) {
+        userId = '69fc31f3cfe41c4d62e6f9ee';
+      }
+
+      const adminUrl = CONFIG.ADMIN_SERVICE_URL || `http://${IP_ADDRESS || '192.168.1.38'}:5001`;
+      const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
+      if (res.ok) {
+        const statusData = await res.json();
+        const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
+        if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
+          setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+          setShowPenaltyModal(true);
+          setCheckingPenalty(false);
+          return;
         }
       }
     } catch (e) {

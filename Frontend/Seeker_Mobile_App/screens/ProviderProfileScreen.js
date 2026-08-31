@@ -155,6 +155,23 @@ export default function ProviderProfileScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* Penalty / Account Restriction Alert Banner */}
+        {restrictionInfo.isRestricted && (
+          <View style={styles.restrictionBanner}>
+            <View style={styles.restrictionBannerHeader}>
+              <Ionicons name="alert-circle" size={22} color="#DC2626" />
+              <Text style={styles.restrictionBannerTitle}>
+                Provider Temporarily Unavailable ({restrictionInfo.penaltyRatio})
+              </Text>
+            </View>
+            <Text style={styles.restrictionBannerText}>
+              This service provider is currently restricted from accepting new quotations and bookings due to penalty points limit reached ({restrictionInfo.penaltyRatio}) or pending account verification.
+              {'\n\n'}
+              Please select another active verified professional for your requirement.
+            </Text>
+          </View>
+        )}
+
         {/* Contact */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Contact Information</Text>
@@ -250,7 +267,21 @@ export default function ProviderProfileScreen({ route, navigation }) {
             <Text style={styles.chatButtonTextLarge}>Chat</Text>
           </TouchableOpacity>
 
-          {isRequested ? (
+          {restrictionInfo.isRestricted ? (
+            <TouchableOpacity
+              style={styles.quoteButtonLargeDisabled}
+              onPress={() =>
+                Alert.alert(
+                  'Provider Unavailable',
+                  `This service provider cannot accept new quotation requests at this time due to penalty score (${restrictionInfo.penaltyRatio || '3/3'}). Please choose another professional.`
+                )
+              }
+              activeOpacity={0.7}
+            >
+              <Ionicons name="ban-outline" size={20} color="#94A3B8" />
+              <Text style={styles.quoteButtonTextLargeDisabled}>Unavailable</Text>
+            </TouchableOpacity>
+          ) : isRequested ? (
             <TouchableOpacity
               style={styles.quoteButtonLargeRequested}
               onPress={() =>

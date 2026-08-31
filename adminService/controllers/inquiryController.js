@@ -1107,13 +1107,52 @@ exports.getProviderStatus = async (req, res) => {
     let activeMissedCount = 0;
     if (coordinationDb && coordinationDb.readyState === 1) {
       try {
-        const bookingsColl = coordinationDb.collection('bookings');
-        activeMissedCount = await bookingsColl.countDocuments({
-          providerId: new mongoose.Types.ObjectId(providerId),
-          bookingStatus: 'CANCELLED',
-          'cancellationInfo.cancelledBy': 'PROVIDER',
-          'cancellationInfo.inquiryStatus': { $ne: 'APPROVED' },
+        const existingInquiries = await Inquiry.find({ providerId }).sort({ createdAt: -1 });
+        const approvedIds = new Set();
+        existingInquiries.forEach((inq) => {
+          if (inq.status === 'Approved') {
+            if (inq.bookingId) approvedIds.add(inq.bookingId);
+            (inq.missedServices || []).forEach((s) => approvedIds.add(s.bookingId));
+          }
         });
+
+        const bookingsColl = coordinationDb.collection('bookings');
+        const relevantBookings = await bookingsColl.find({
+          providerId: new mongoose.Types.ObjectId(providerId),
+          bookingStatus: {
+            $in: ['CANCELLED', 'CONFIRMED', 'DELAY_REPORTED', 'IN_PROGRESS', 'RESCHEDULING_REQUIRED', 'RESCHEDULED'],
+          },
+          'cancellationInfo.cancelledBy': { $ne: 'SEEKER' },
+          cancelledBy: { $ne: 'SEEKER' },
+          cancelledBySeeker: { $ne: true },
+        }).toArray();
+
+        const dynamicMissedList = relevantBookings.filter((b) => {
+          if (approvedIds.has(b._id.toString())) return false;
+          if (b.bookingStatus === 'CANCELLED') return true;
+
+          // Check if 24 hours overdue past duration
+          try {
+            if (!b.scheduledDate) return false;
+            let dateTimeStr = b.scheduledDate;
+            if (b.startTime) dateTimeStr += ' ' + b.startTime;
+            else dateTimeStr += ' 00:00';
+            const startTimeMs = new Date(dateTimeStr).getTime();
+            if (isNaN(startTimeMs)) {
+              if (b.createdAt) {
+                return (Date.now() - new Date(b.createdAt).getTime()) > (24 * 60 * 60 * 1000);
+              }
+              return false;
+            }
+            const durationHours = b.estimatedDurationHours || 1;
+            const deadlineMs = startTimeMs + (durationHours * 60 * 60 * 1000) + (24 * 60 * 60 * 1000);
+            return Date.now() >= deadlineMs;
+          } catch (e) {
+            return false;
+          }
+        });
+
+        activeMissedCount = dynamicMissedList.length;
       } catch (cErr) {
         console.log('Error counting missed bookings for provider status:', cErr.message);
       }
@@ -1123,6 +1162,13 @@ exports.getProviderStatus = async (req, res) => {
     const isBookable = !isRestricted;
     const canSendProposals = !isRestricted;
     const canAcceptBooking = !isRestricted;
+
+    // Automatically dispatch penalty warning notification if penalty count >= 3
+    if (activeMissedCount >= 3) {
+      dispatchPenaltyWarningNotification(provider._id, activeMissedCount, `${activeMissedCount}/3`, provider.name || provider.email).catch(e => {
+        console.warn('Penalty warning dispatch in getProviderStatus background note:', e.message);
+      });
+    }
 
     let restrictionReason = '';
     if (provider.isBlocked) {

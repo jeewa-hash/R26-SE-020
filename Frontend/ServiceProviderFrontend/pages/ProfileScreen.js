@@ -22,9 +22,9 @@ const { width } = Dimensions.get('window');
 
 
 const REVIEWS = [
-  { id: '1', name: 'Kumara P.',  rating: 5, comment: 'Excellent work! Fixed the pipe quickly and professionally.', date: 'May 8'  },
-  { id: '2', name: 'Anoma S.',   rating: 5, comment: 'Very reliable and honest. Will hire again.',                  date: 'May 3'  },
-  { id: '3', name: 'Samira W.',  rating: 4, comment: 'Good service, arrived on time and completed the job well.',   date: 'Apr 28' },
+  { id: '1', name: 'Kumara P.', rating: 5, comment: 'Excellent work! Fixed the pipe quickly and professionally.', date: 'May 8' },
+  { id: '2', name: 'Anoma S.', rating: 5, comment: 'Very reliable and honest. Will hire again.', date: 'May 3' },
+  { id: '3', name: 'Samira W.', rating: 4, comment: 'Good service, arrived on time and completed the job well.', date: 'Apr 28' },
 ];
 
 
@@ -97,43 +97,12 @@ export default function ProfileScreen({ navigation }) {
   });
   const [loading, setLoading] = useState(true);
 
-  // Penalty restriction state
-  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
-  const [penaltyRatio, setPenaltyRatio] = useState('3/3');
-  const [checkingPenalty, setCheckingPenalty] = useState(false);
-
-  const handleFabPress = async () => {
-    try {
-      setCheckingPenalty(true);
-      const userId = await AsyncStorage.getItem('userId');
-      if (userId) {
-        const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
-        const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
-        if (res.ok) {
-          const statusData = await res.json();
-          const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
-          if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
-            setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
-            setShowPenaltyModal(true);
-            setCheckingPenalty(false);
-            return;
-          }
-        }
-      }
-    } catch (e) {
-      console.log('Error checking penalty status before posting (FAB):', e.message);
-    } finally {
-      setCheckingPenalty(false);
-    }
-    navigation.getParent()?.navigate('PostGeneration');
-  };
-
   // Fetch profile data
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
-        
+
         if (!token) {
           Alert.alert('Error', 'No authentication token found. Please login again.');
           setLoading(false);
@@ -147,10 +116,10 @@ export default function ProfileScreen({ navigation }) {
             'Authorization': `Bearer ${token}`,
           },
         });
-        
+
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
         const data = await res.json();
-        
+
         if (data && data.provider) {
           const p = data.provider;
           setProfile({
@@ -205,7 +174,7 @@ export default function ProfileScreen({ navigation }) {
   }, [portfolioCategories, portfolioImages]);
 
   const CATEGORY_COLORS = ['#2563EB', '#7C3AED', '#059669', '#F59E0B', '#DC2626', '#0891B2'];
-  
+
   const handleAddPress = () => {
     setShowAddTooltip(true);
     openGallery();
@@ -278,10 +247,10 @@ export default function ProfileScreen({ navigation }) {
           {/* Stats strip */}
           <View style={[styles.statsStrip, { borderTopColor: C.border }]}>
             {[
-              { val: profile.jobs,       lbl: 'Jobs',       icon: 'work',                   color: '#2563EB' },
-              { val: profile.rating,     lbl: 'Rating',      icon: 'star',                   color: '#F59E0B' },
-              { val: profile.completion, lbl: 'Completion',   icon: 'check-circle',           color: '#16A34A' },
-              { val: profile.earned,     lbl: 'Earned',       icon: 'account-balance-wallet', color: '#7C3AED' },
+              { val: profile.jobs, lbl: 'Jobs', icon: 'work', color: '#2563EB' },
+              { val: profile.rating, lbl: 'Rating', icon: 'star', color: '#F59E0B' },
+              { val: profile.completion, lbl: 'Completion', icon: 'check-circle', color: '#16A34A' },
+              { val: profile.earned, lbl: 'Earned', icon: 'account-balance-wallet', color: '#7C3AED' },
             ].map((s, i, arr) => (
               <React.Fragment key={i}>
                 <View style={styles.statCell}>
@@ -319,7 +288,7 @@ export default function ProfileScreen({ navigation }) {
             {displayedSkills.map((tag) => (
               <View key={tag} style={[styles.skillChipAI, {
                 backgroundColor: isDark ? '#0d2820' : '#F0FDF4',
-                borderColor:     isDark ? '#145040' : '#A7F3D0',
+                borderColor: isDark ? '#145040' : '#A7F3D0',
               }]}>
                 <MaterialIcons name="auto-awesome" size={10} color="#16A34A" />
                 <Text style={[styles.skillTextAI, { color: '#16A34A' }]}>{tag}</Text>
@@ -550,7 +519,7 @@ export default function ProfileScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root:          { flex: 1 },
+  root: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 },
 
   heroCard: {
@@ -574,7 +543,7 @@ const styles = StyleSheet.create({
     width: 14, height: 14, borderRadius: 7,
     backgroundColor: '#16A34A', borderWidth: 2.5,
   },
-  profileName:   { fontSize: 20, fontWeight: '700', marginBottom: 3 },
+  profileName: { fontSize: 20, fontWeight: '700', marginBottom: 3 },
   profileHandle: { fontSize: 12, marginBottom: 12 },
 
   badgeRow: { flexDirection: 'row', gap: 7, marginBottom: 18, flexWrap: 'wrap', justifyContent: 'center' },
@@ -595,32 +564,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0',
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },
-  onlineDotSmall:  { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' },
+  onlineDotSmall: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' },
   onlineBadgeText: { fontSize: 11, color: '#065F46', fontWeight: '600' },
 
-  statsStrip:  { flexDirection: 'row', width: '100%', borderTopWidth: 0.5, paddingVertical: 14 },
-  statCell:    { flex: 1, alignItems: 'center', gap: 3 },
-  statVal:     { fontSize: 15, fontWeight: '700' },
-  statLbl:     { fontSize: 10, textAlign: 'center' },
+  statsStrip: { flexDirection: 'row', width: '100%', borderTopWidth: 0.5, paddingVertical: 14 },
+  statCell: { flex: 1, alignItems: 'center', gap: 3 },
+  statVal: { fontSize: 15, fontWeight: '700' },
+  statLbl: { fontSize: 10, textAlign: 'center' },
   statDivider: { width: 0.5 },
 
-  section:       { borderRadius: 18, borderWidth: 0.5, padding: 16, marginBottom: 14 },
+  section: { borderRadius: 18, borderWidth: 0.5, padding: 16, marginBottom: 14 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  sectionTitle:  { fontSize: 15, fontWeight: '700' },
-  seeAll:        { fontSize: 13, color: Colors.primary, fontWeight: '600' },
+  sectionTitle: { fontSize: 15, fontWeight: '700' },
+  seeAll: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
 
-  bioText:   { fontSize: 18, lineHeight: 21, marginBottom: 8, color: '#010101', fontFamily: 'sans-serif', fontWeight: 'bold' },
+  bioText: { fontSize: 18, lineHeight: 21, marginBottom: 8, color: '#010101', fontFamily: 'sans-serif', fontWeight: 'bold' },
   bioTextSi: { fontSize: 12, lineHeight: 19, fontStyle: 'italic', fontWeight: 'bold' },
 
-  servicesGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  serviceCard:   { width: '47%', borderRadius: 12, padding: 14, borderWidth: 0.5 },
+  servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  serviceCard: { width: '47%', borderRadius: 12, padding: 14, borderWidth: 0.5 },
   serviceIconBg: { width: 42, height: 42, borderRadius: 11, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  serviceTitle:  { fontSize: 12, fontWeight: '600', marginBottom: 4, lineHeight: 17 },
-  servicePrice:  { fontSize: 12, fontWeight: '700' },
+  serviceTitle: { fontSize: 12, fontWeight: '600', marginBottom: 4, lineHeight: 17 },
+  servicePrice: { fontSize: 12, fontWeight: '700' },
 
-  skillsWrap:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  skillChip:   { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
-  skillText:   { fontSize: 12, fontWeight: '500' },
+  skillsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  skillChip: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
+  skillText: { fontSize: 12, fontWeight: '500' },
   skillChipAI: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
   skillTextAI: { fontSize: 12, fontWeight: '500' },
   aiTagNote:   { fontSize: 11, color: '#16A34A', fontStyle: 'italic', marginTop: 4 },
@@ -631,9 +600,9 @@ const styles = StyleSheet.create({
   },
   seeMoreTagsText: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
 
-  portfolioEmpty:      { alignItems: 'center', padding: 24, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed' },
+  portfolioEmpty: { alignItems: 'center', padding: 24, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed' },
   portfolioEmptyTitle: { fontSize: 14, fontWeight: 'bold', marginTop: 8, marginBottom: 4 },
-  portfolioEmptySub:   { fontSize: 12, textAlign: 'center' },
+  portfolioEmptySub: { fontSize: 12, textAlign: 'center' },
 
   // Wraps the category scroller so the corner button/tooltip can be absolutely positioned against it
   portfolioContainer: { position: 'relative', paddingTop: 14, paddingRight: 6 },
@@ -692,18 +661,18 @@ const styles = StyleSheet.create({
   },
   categoryLabelText: { fontSize: 12, fontWeight: '700', color: '#fff' },
 
-  ratingPill:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFFBEB', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  ratingPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFFBEB', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   ratingPillText: { fontSize: 12, color: '#B45309', fontWeight: '700' },
 
-  reviewCard:       { borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 0.5 },
-  reviewHeader:     { flexDirection: 'row', gap: 10, marginBottom: 8 },
-  reviewAvatar:     { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
+  reviewCard: { borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 0.5 },
+  reviewHeader: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  reviewAvatar: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
   reviewAvatarText: { fontSize: 12, fontWeight: 'bold', color: '#fff' },
-  reviewMeta:       { flex: 1 },
-  reviewName:       { fontSize: 13, fontWeight: '700', marginBottom: 3 },
-  reviewStars:      { flexDirection: 'row', alignItems: 'center' },
-  reviewDate:       { fontSize: 11 },
-  reviewComment:    { fontSize: 13, lineHeight: 19 },
+  reviewMeta: { flex: 1 },
+  reviewName: { fontSize: 13, fontWeight: '700', marginBottom: 3 },
+  reviewStars: { flexDirection: 'row', alignItems: 'center' },
+  reviewDate: { fontSize: 11 },
+  reviewComment: { fontSize: 13, lineHeight: 19 },
 
   // ── Eye-Catching Round FAB Button Styles ──
   fabButton: {
@@ -822,3 +791,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+

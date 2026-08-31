@@ -352,6 +352,14 @@ const getSeekerDb = async () => {
   return seekerDbConn;
 };
 
+let coordinationDbConn = null;
+const getCoordinationDb = async () => {
+  if (coordinationDbConn && coordinationDbConn.readyState === 1) return coordinationDbConn;
+  const uri = process.env.COORDINATION_MONGO_URI || 'mongodb+srv://jkumarasekara_db_user:vfDFrozTabkpXDCl@cluster0.xggs3th.mongodb.net/Coordination_Service?retryWrites=true&w=majority';
+  coordinationDbConn = await mongoose.createConnection(uri).asPromise();
+  return coordinationDbConn;
+};
+
 // =======================================================
 // GET PROVIDER RECOMMENDATIONS FOR SEEKER
 // =======================================================
@@ -378,11 +386,12 @@ exports.getProviderRecommendations = async (req, res) => {
     // Filter criteria for recommendations:
     // 1. Must be verified (isVerified: true)
     // 2. Must NOT be blocked (isBlocked: false or not true)
-    // 3. Must NOT be rejected/suspended (isRejected: false or not true)
+    // 3. Must NOT be rejected/suspended (isRejected: false, isSuspended: false)
     const rawProviders = await Provider.find({
       isVerified: true,
       isBlocked: { $ne: true },
       isRejected: { $ne: true },
+      isSuspended: { $ne: true },
     });
 
     // Fetch real feedback stats from ServiceSeeker DB directly
@@ -404,9 +413,31 @@ exports.getProviderRecommendations = async (req, res) => {
       console.warn('Feedback stats direct query warning:', e.message);
     }
 
+    // Fetch active unapproved missed bookings / penalty counts
+    let activeMissedCountByProvider = {};
+    try {
+      const coordConn = await getCoordinationDb();
+      const missedBookings = await coordConn.collection('bookings').find({
+        bookingStatus: { $in: ['CANCELLED', 'DELAY_REPORTED', 'RESCHEDULED', 'RESCHEDULING_REQUIRED'] },
+        'cancellationInfo.cancelledBy': { $ne: 'SEEKER' },
+        cancelledBy: { $ne: 'SEEKER' },
+        cancelledBySeeker: { $ne: true },
+        'cancellationInfo.inquiryStatus': { $ne: 'APPROVED' },
+      }).toArray();
+
+      for (const b of missedBookings) {
+        if (b.providerId) {
+          const pid = String(b.providerId);
+          activeMissedCountByProvider[pid] = (activeMissedCountByProvider[pid] || 0) + 1;
+        }
+      }
+    } catch (cErr) {
+      console.warn('Coordination DB missed bookings query warning:', cErr.message);
+    }
+
     const now = new Date();
 
-    // 4. Exclude providers with temporary block, >3 consecutive cancellations / rejections / missed bookings, or rating < 4.0 (if rated)
+    // 4. Exclude providers with temporary block, >3 consecutive cancellations / rejections / missed bookings, rating < 4.0, or penalty score >= 3
     const eligibleProviders = rawProviders.filter((p) => {
       if (!p.isVerified) return false;
       if (p.isBlocked || p.isRejected || p.isSuspended) return false;
@@ -414,8 +445,15 @@ exports.getProviderRecommendations = async (req, res) => {
       if (p.consecutiveRejections && p.consecutiveRejections > 3) return false;
       if (p.consecutiveCancellations && p.consecutiveCancellations > 3) return false;
 
-      // Real Rating Check: Calculate actual average rating from DB feedbacks
       const pId = String(p._id || p.id);
+
+      // Exclude provider if active missed bookings / penalty score >= 3 (3/3 or higher)
+      const penaltyScore = activeMissedCountByProvider[pId] || 0;
+      if (penaltyScore >= 3) {
+        return false;
+      }
+
+      // Real Rating Check: Calculate actual average rating from DB feedbacks
       const fbStat = feedbackStatsByProvider[pId];
       let realRating = null;
       let reviewCount = 0;
@@ -439,6 +477,7 @@ exports.getProviderRecommendations = async (req, res) => {
       p.computedRating = realRating;
       p.computedReviewCount = reviewCount;
       p.hasRealRating = hasRealRating;
+      p.penaltyScore = penaltyScore;
 
       return true;
     });

@@ -89,7 +89,14 @@ export default function ProvidersScreen({ route, navigation }) {
    * ==========================================================
    */
   const providerMatching = finalDecision?.summary?.provider_matching || {};
-  const providers = providerMatching.providers || [];
+  const rawProviders = providerMatching.providers || [];
+  const providers = rawProviders.filter((item) => {
+    const p = item?.provider || item || {};
+    if (p.isBlocked || p.isSuspended || p.isRejected) return false;
+    if (p.isVerified === false) return false;
+    if (typeof p.penaltyScore === 'number' && p.penaltyScore >= 3) return false;
+    return true;
+  });
   const totalMatchedProviders =
     providerMatching.total_matched_providers ?? providers.length;
 
