@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { API_BASE_URL, AUTH_SERVICE_URL } from '../config';
-import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare, FiActivity, FiTrendingUp, FiBarChart2, FiFileText, FiUser, FiMapPin } from 'react-icons/fi';
+import { FiHome, FiUserPlus, FiLogOut, FiSettings, FiBell, FiUsers, FiLayers, FiAlertCircle, FiXCircle, FiCheckCircle, FiTrash2, FiClock, FiMessageSquare, FiActivity, FiTrendingUp, FiBarChart2, FiFileText, FiUser, FiMapPin, FiDollarSign } from 'react-icons/fi';
 import { HiOutlineShieldCheck } from 'react-icons/hi';
 import workwaveLogo from '../assets/logo.png';
 
@@ -304,6 +304,13 @@ function Layout() {
             <span className="sidebar-link-icon"><FiFileText /></span>
             Reports
           </NavLink>
+          <NavLink
+            to="/monthly-payments"
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
+            <span className="sidebar-link-icon"><FiDollarSign /></span>
+            Monthly Payments
+          </NavLink>
 
           <div className="sidebar-section-label">System</div>
           <NavLink
@@ -340,7 +347,17 @@ function Layout() {
       <div className="main-content">
         {/* Top Bar */}
         <header className="topbar">
-          <div className="topbar-left"></div>
+          <div className="topbar-left">
+            <div className="topbar-welcome-wrap">
+              <span className="topbar-welcome-text">
+                Welcome back, <strong className="topbar-admin-name">{adminUser.fullName || 'Administrator'}</strong>
+              </span>
+              <span className="topbar-dot-sep">•</span>
+              <span className="topbar-portal-badge">
+                <span className="topbar-pulse-dot"></span> Active
+              </span>
+            </div>
+          </div>
           <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* Notification Bell */}
             <div style={{ position: 'relative' }} ref={dropdownRef}>
@@ -549,7 +566,12 @@ function Layout() {
               )}
             </div>
 
-            <button className="topbar-icon-btn" title="Settings">
+            <button 
+              className="topbar-icon-btn" 
+              title="Settings"
+              onClick={() => navigate('/settings')}
+              style={{ cursor: 'pointer' }}
+            >
               <FiSettings />
             </button>
           </div>

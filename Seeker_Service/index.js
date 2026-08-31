@@ -30,6 +30,7 @@ app.use("/uploads", express.static("uploads"));
 app.use("/posts", postRoutes);
 app.use("/chat", chatRoutes);
 app.use("/feedback", feedbackRoutes);
+app.use("/feedbacks", feedbackRoutes);
 app.use("/request-quotations", requestQuotationRoutes);
 app.use("/api/rewards", rewardRoutes);
 

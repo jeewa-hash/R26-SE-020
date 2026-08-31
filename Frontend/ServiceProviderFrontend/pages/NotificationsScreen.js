@@ -22,14 +22,18 @@ import { ThemeContext } from '../context/ThemeContext';
 const API_URL = `http://${IP_ADDRESS}:4003`;
 const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
 
-// Configure foreground system notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Configure foreground system notification behavior safely
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+} catch (e) {
+  // safe fallback
+}
 
 const CATEGORIES = [
   { id: 'all', label: 'All', icon: 'notifications' },
@@ -114,7 +118,13 @@ export default function NotificationScreen({ navigation }) {
     fetchNotifications();
     setupSocketConnection();
 
+    // Auto-poll every 2.5 seconds to guarantee live updates without requiring manual pull-to-refresh
+    const interval = setInterval(() => {
+      fetchNotifications(false);
+    }, 2500);
+
     return () => {
+      clearInterval(interval);
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
@@ -141,27 +151,27 @@ export default function NotificationScreen({ navigation }) {
     });
   }, [navigation, isDark, colors.headerBg, colors.textPrimary]);
 
-  // Request system notification permissions & set Android Notification Channel
+  // Request system notification permissions & set Android Notification Channel safely
   const registerForPushNotificationsAsync = async () => {
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'Default Notifications',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#6366F1',
-      });
-    }
+    try {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Default Notifications',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#6366F1',
+        });
+      }
 
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
 
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') {
-      console.warn('System notification permission not granted!');
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+    } catch (e) {
+      // Ignore push notification warning in Expo Go
     }
   };
 
@@ -178,7 +188,7 @@ export default function NotificationScreen({ navigation }) {
         trigger: null, // Display immediately
       });
     } catch (error) {
-      console.error('Failed to display system notification:', error);
+      // Ignore if local scheduling is limited in Expo Go
     }
   };
 
@@ -193,10 +203,13 @@ export default function NotificationScreen({ navigation }) {
       });
 
       socketRef.current.on('connect', () => {
-        socketRef.current.emit('join_notification_room', userId);
+        if (userId) {
+          socketRef.current.emit('join_notification_room', userId);
+          socketRef.current.emit('join', userId);
+        }
       });
 
-      socketRef.current.on('new_notification', (newNotif) => {
+      const handleIncoming = (newNotif) => {
         if (!newNotif || !newNotif._id) return;
 
         setNotifications((prev) => {
@@ -213,15 +226,25 @@ export default function NotificationScreen({ navigation }) {
 
           return [categorizedNotif, ...prev];
         });
-      });
+      };
+
+      socketRef.current.on('new_notification', handleIncoming);
+      socketRef.current.on('notification', handleIncoming);
     } catch (error) {
-      console.error('Failed to set up socket connection:', error);
+      console.warn('Socket setup warning:', error.message);
     }
   };
 
   const resolveCategory = (type) => {
     if (!type) return 'admin';
-    if (type.includes('inquiry') || type.includes('account') || type.includes('admin') || type.includes('suspended')) {
+    if (
+      type.includes('inquiry') ||
+      type.includes('account') ||
+      type.includes('admin') ||
+      type.includes('suspended') ||
+      type.includes('demand') ||
+      type.includes('alert')
+    ) {
       return 'admin';
     }
     if (type.includes('message') || type.includes('chat')) {

@@ -14,7 +14,9 @@ const MLDataSchema = new mongoose.Schema({
     Sunny_Days_Consecutive: { type: Number, default: 0 },
     Rainy_Days_Consecutive: { type: Number, default: 0 },
     Special_Event: Number,
-    Demand_Count: { type: Number, default: 1 } // හැමතිස්සෙම 1 ලෙස සේව් වේ
-});
+    Demand_Count: { type: Number, default: 1 }, // හැමතිස්සෙම 1 ලෙස සේව් වේ
+    bookingId: { type: String, default: null, index: true },
+    isRetrained: { type: Boolean, default: false }
+}, { timestamps: true });
 
 module.exports = mongoose.model('Service_Data_For_CSV', MLDataSchema);

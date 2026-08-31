@@ -58,7 +58,7 @@ const REPORT_TYPES = [
   {
     id: 'revenue-growth',
     title: 'Platform Revenue Growth Report',
-    description: 'Financial monetization analytics, provider ad boost earnings, and payment transaction breakdown.',
+    description: 'Financial monetization analytics, provider ad boost earnings, service 5% commissions, and marketplace turnover breakdown.',
     icon: FiDollarSign,
     category: 'Financial Analytics',
     themeColor: '#10b981',
@@ -85,7 +85,13 @@ const ReportsPage = () => {
   const [revenueData, setRevenueData] = useState([]);
   const [revenueStats, setRevenueStats] = useState({
     totalIncomeLkr: 0,
+    totalRevenue: 0,
+    totalBoostRevenue: 0,
+    totalCommissionRevenue: 0,
+    totalBookingVolume: 0,
     totalTransactions: 0,
+    totalBoostTransactions: 0,
+    totalCompletedBookings: 0,
     totalBoostSteps: 0,
     currency: 'LKR',
   });
@@ -121,7 +127,13 @@ const ReportsPage = () => {
         const rData = revRes.data.data;
         setRevenueStats({
           totalIncomeLkr: rData.totalIncomeLkr || 0,
+          totalRevenue: rData.totalRevenue || rData.totalIncomeLkr || 0,
+          totalBoostRevenue: rData.totalBoostRevenue || 0,
+          totalCommissionRevenue: rData.totalCommissionRevenue || 0,
+          totalBookingVolume: rData.totalBookingVolume || 0,
           totalTransactions: rData.totalTransactions || 0,
+          totalBoostTransactions: rData.totalBoostTransactions || 0,
+          totalCompletedBookings: rData.totalCompletedBookings || 0,
           totalBoostSteps: rData.totalBoostSteps || 0,
           currency: rData.currency || 'LKR',
         });
@@ -169,24 +181,32 @@ const ReportsPage = () => {
   // Summary Metrics calculations
   const summaryMetrics = useMemo(() => {
     if (selectedReportId === 'revenue-growth') {
-      const totalRev = filteredData.reduce((acc, d) => acc + (d.revenue || 0), 0);
-      const totalTx = filteredData.reduce((acc, d) => acc + (d.transactions || 0), 0);
-      const totalSteps = filteredData.reduce((acc, d) => acc + (d.boostSteps || 0), 0);
-      const avgMonthly = filteredData.length > 0 ? (totalRev / filteredData.length).toFixed(2) : '0.00';
+      const totalRev = filteredData.reduce((acc, d) => acc + (d.totalRevenue !== undefined ? d.totalRevenue : d.revenue || 0), 0);
+      const totalBoost = filteredData.reduce((acc, d) => acc + (d.boostRevenue || 0), 0);
+      const totalComm = filteredData.reduce((acc, d) => acc + (d.commissionRevenue || 0), 0);
+      const totalVolume = filteredData.reduce((acc, d) => acc + (d.serviceVolume || 0), 0);
 
       return {
         metric1: { 
-          label: 'Total Platform Revenue', 
+          label: 'Total Net Platform Revenue', 
           value: `Rs. ${Number(totalRev).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`, 
           color: '#059669' 
         },
-        metric2: { label: 'Completed Transactions', value: totalTx, color: '#4f46e5' },
-        metric3: { 
-          label: 'Average Monthly Revenue', 
-          value: `Rs. ${Number(avgMonthly).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`, 
-          color: '#0284c7' 
+        metric2: { 
+          label: 'Provider Ad Boost Earnings', 
+          value: `Rs. ${Number(totalBoost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`, 
+          color: '#10b981' 
         },
-        metric4: { label: 'Total Priority Boost Steps', value: totalSteps, color: '#d97706' },
+        metric3: { 
+          label: 'Service 5% Commission', 
+          value: `Rs. ${Number(totalComm).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`, 
+          color: '#2563eb' 
+        },
+        metric4: { 
+          label: 'Marketplace Gross GMV', 
+          value: `Rs. ${Number(totalVolume).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`, 
+          color: '#7c3aed' 
+        },
       };
     }
 
@@ -300,17 +320,28 @@ const ReportsPage = () => {
     let tableRows = [];
 
     if (selectedReportId === 'revenue-growth') {
-      tableHeaders = ['Month', 'Transactions', 'Boost Steps', 'Revenue (LKR)'];
+      tableHeaders = ['Month', 'Ad Boost (LKR)', '5% Comm (LKR)', 'Gross GMV (LKR)', 'Jobs', 'Total Revenue (LKR)'];
       tableRows = filteredData.map((d) => [
         d.name || d.month,
-        d.transactions || 0,
-        d.boostSteps || 0,
-        `Rs. ${Number(d.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`,
+        `Rs. ${Number(d.boostRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `Rs. ${Number(d.commissionRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `Rs. ${Number(d.serviceVolume || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        d.bookingTransactions || 0,
+        `Rs. ${Number(d.totalRevenue !== undefined ? d.totalRevenue : d.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`,
       ]);
-      const totalRev = filteredData.reduce((a, b) => a + (b.revenue || 0), 0);
-      const totalTx = filteredData.reduce((a, b) => a + (b.transactions || 0), 0);
-      const totalSteps = filteredData.reduce((a, b) => a + (b.boostSteps || 0), 0);
-      tableRows.push(['TOTAL', totalTx, totalSteps, `Rs. ${Number(totalRev).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`]);
+      const totalRev = filteredData.reduce((a, b) => a + (b.totalRevenue !== undefined ? b.totalRevenue : b.revenue || 0), 0);
+      const totalBoost = filteredData.reduce((a, b) => a + (b.boostRevenue || 0), 0);
+      const totalComm = filteredData.reduce((a, b) => a + (b.commissionRevenue || 0), 0);
+      const totalVolume = filteredData.reduce((a, b) => a + (b.serviceVolume || 0), 0);
+      const totalJobs = filteredData.reduce((a, b) => a + (b.bookingTransactions || 0), 0);
+      tableRows.push([
+        'TOTAL', 
+        `Rs. ${Number(totalBoost).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `Rs. ${Number(totalComm).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `Rs. ${Number(totalVolume).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        totalJobs,
+        `Rs. ${Number(totalRev).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`
+      ]);
     } else if (selectedReportId === 'user-growth') {
       tableHeaders = ['Month', 'New Seekers', 'New Providers', 'Total Cumulative Users'];
       tableRows = filteredData.map((d) => [
@@ -409,13 +440,15 @@ const ReportsPage = () => {
     let tableRowsHtml = '';
 
     if (selectedReportId === 'revenue-growth') {
-      tableHeadersHtml = '<th>Month</th><th>Transactions</th><th>Boost Steps</th><th>Revenue (LKR)</th>';
+      tableHeadersHtml = '<th>Month</th><th>Ad Boost Income (LKR)</th><th>Service 5% Commission (LKR)</th><th>Marketplace Gross GMV (LKR)</th><th>Completed Jobs</th><th>Total Net Revenue (LKR)</th>';
       tableRowsHtml = filteredData.map(d => `
         <tr>
-          <td>${d.name || d.month}</td>
-          <td>${d.transactions || 0}</td>
-          <td>${d.boostSteps || 0}</td>
-          <td>Rs. ${Number(d.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR</td>
+          <td><strong>${d.name || d.month}</strong></td>
+          <td>Rs. ${Number(d.boostRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td>Rs. ${Number(d.commissionRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td>Rs. ${Number(d.serviceVolume || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td>${d.bookingTransactions || 0}</td>
+          <td><strong>Rs. ${Number(d.totalRevenue !== undefined ? d.totalRevenue : d.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR</strong></td>
         </tr>
       `).join('');
     } else if (selectedReportId === 'user-growth') {
@@ -559,11 +592,14 @@ const ReportsPage = () => {
     txtContent += `------------------------------------------------------------------------\n`;
 
     if (selectedReportId === 'revenue-growth') {
-      txtContent += `| Month | Transactions | Boost Steps | Revenue (LKR)     |\n`;
-      txtContent += `|-------|--------------|-------------|-------------------|\n`;
+      txtContent += `| Month | Ad Boost (LKR)  | 5% Comm (LKR)   | Gross GMV (LKR) | Jobs | Total Net Revenue (LKR) |\n`;
+      txtContent += `|-------|-----------------|-----------------|-----------------|------|--------------------------|\n`;
       filteredData.forEach((d) => {
-        const revStr = `Rs. ${Number(d.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} LKR`;
-        txtContent += `| ${(d.name || d.month).padEnd(5)} | ${String(d.transactions || 0).padEnd(12)} | ${String(d.boostSteps || 0).padEnd(11)} | ${revStr.padEnd(17)} |\n`;
+        const boostStr = `Rs. ${Number(d.boostRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+        const commStr = `Rs. ${Number(d.commissionRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+        const volStr = `Rs. ${Number(d.serviceVolume || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+        const revStr = `Rs. ${Number(d.totalRevenue !== undefined ? d.totalRevenue : d.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} LKR`;
+        txtContent += `| ${(d.name || d.month).padEnd(5)} | ${boostStr.padEnd(15)} | ${commStr.padEnd(15)} | ${volStr.padEnd(15)} | ${String(d.bookingTransactions || 0).padEnd(4)} | ${revStr.padEnd(24)} |\n`;
       });
     } else if (selectedReportId === 'user-growth') {
       txtContent += `| Month | New Seekers | New Providers | Total Users |\n`;
@@ -775,31 +811,66 @@ const ReportsPage = () => {
           <div className="report-chart-wrap">
             <ResponsiveContainer width="100%" height={340}>
               {selectedReportId === 'revenue-growth' ? (
-                <AreaChart data={filteredData}>
+                <AreaChart data={filteredData.map(d => ({
+                  ...d,
+                  totalRevenue: d.totalRevenue !== undefined ? d.totalRevenue : d.revenue || 0,
+                  boostRevenue: d.boostRevenue !== undefined ? d.boostRevenue : 0,
+                  commissionRevenue: d.commissionRevenue !== undefined ? d.commissionRevenue : 0,
+                }))}>
                   <defs>
                     <linearGradient id="reportRevGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.45}/>
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.02}/>
+                    </linearGradient>
+                    <linearGradient id="reportBoostGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.45}/>
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0.02}/>
+                    </linearGradient>
+                    <linearGradient id="reportCommGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.45}/>
+                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0.02}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" stroke="#64748b" />
-                  <YAxis stroke="#64748b" tickFormatter={(val) => `Rs. ${val}`} />
+                  <YAxis stroke="#64748b" tickFormatter={(val) => `Rs. ${val >= 1000 ? (val/1000).toFixed(1) + 'k' : val}`} />
                   <RechartsTooltip 
-                    formatter={(value) => [`Rs. ${Number(value).toLocaleString()} LKR`, 'Revenue']}
+                    formatter={(value, name) => [`Rs. ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR`, name]}
                     labelFormatter={(label) => `Month: ${label}`}
                   />
                   <Legend verticalAlign="top" height={36} />
                   <Area 
                     type="monotone" 
-                    dataKey="revenue" 
-                    name="Monthly Revenue (LKR)" 
-                    stroke="#059669" 
+                    dataKey="totalRevenue" 
+                    name="Total Combined Net Revenue" 
+                    stroke="#4f46e5" 
                     strokeWidth={3} 
                     fillOpacity={1} 
                     fill="url(#reportRevGrad)" 
-                    dot={{ r: 5, fill: '#059669', stroke: '#ffffff', strokeWidth: 2 }}
-                    activeDot={{ r: 7, fill: '#047857' }}
+                    dot={{ r: 5, fill: '#4f46e5', stroke: '#ffffff', strokeWidth: 2 }}
+                    activeDot={{ r: 7, fill: '#3730a3' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="boostRevenue" 
+                    name="Post Ad Boosting Income" 
+                    stroke="#10b981" 
+                    strokeWidth={2} 
+                    fillOpacity={0.15} 
+                    fill="url(#reportBoostGrad)" 
+                    dot={{ r: 4, fill: '#10b981', stroke: '#ffffff', strokeWidth: 1.5 }}
+                    activeDot={{ r: 6, fill: '#059669' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="commissionRevenue" 
+                    name="Service 5% Commission" 
+                    stroke="#2563eb" 
+                    strokeWidth={2} 
+                    fillOpacity={0.15} 
+                    fill="url(#reportCommGrad)" 
+                    dot={{ r: 4, fill: '#2563eb', stroke: '#ffffff', strokeWidth: 1.5 }}
+                    activeDot={{ r: 6, fill: '#1d4ed8' }}
                   />
                 </AreaChart>
               ) : selectedReportId === 'user-growth' ? (
@@ -871,9 +942,11 @@ const ReportsPage = () => {
                 {selectedReportId === 'revenue-growth' ? (
                   <tr>
                     <th>MONTH</th>
-                    <th>COMPLETED TRANSACTIONS</th>
-                    <th>PRIORITY BOOST STEPS</th>
-                    <th>MONTHLY REVENUE (LKR)</th>
+                    <th>AD BOOST INCOME</th>
+                    <th>5% SERVICE COMMISSION</th>
+                    <th>MARKETPLACE GROSS GMV</th>
+                    <th>COMPLETED JOBS</th>
+                    <th>TOTAL NET REVENUE (LKR)</th>
                   </tr>
                 ) : selectedReportId === 'user-growth' ? (
                   <tr>
@@ -924,10 +997,18 @@ const ReportsPage = () => {
                     return (
                       <tr key={row.name || row.month}>
                         <td className="font-bold">{row.name || row.month}</td>
-                        <td className="font-bold text-indigo">{row.transactions || 0}</td>
-                        <td className="font-bold text-blue">{row.boostSteps || 0}</td>
                         <td className="font-bold text-emerald">
-                          Rs. {Number(row.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR
+                          Rs. {Number(row.boostRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="font-bold text-indigo">
+                          Rs. {Number(row.commissionRevenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="font-bold text-blue">
+                          Rs. {Number(row.serviceVolume || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="text-center font-bold">{row.bookingTransactions || 0}</td>
+                        <td className="font-bold text-emerald">
+                          Rs. {Number(row.totalRevenue !== undefined ? row.totalRevenue : row.revenue || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} LKR
                         </td>
                       </tr>
                     );

@@ -1,4 +1,3 @@
-// routes/rewardRoutes.js
 import express from "express";
 import {
   getBalance,
@@ -9,19 +8,19 @@ import {
   adminAdjustPoints,
   awardBookingPoints,
 } from "../controllers/rewardController.js";
-import { authMiddleware, adminMiddleware } from "../middleware/auth.js"; // adjust import path
+import { authMiddleware, adminMiddleware } from "../middleware/auth.js"; // adjust to your actual auth
 
 const router = express.Router();
 
-// Used only by ServiceCoordinationService. Must be declared before user routes.
+// Internal (service-to-service) – must come before user routes
 router.post("/internal/bookings/award", awardBookingPoints);
 
-// ---------- Seeker Routes (authenticated) ----------
+// Seeker routes
 router.get("/balance", authMiddleware, getBalance);
 router.get("/history", authMiddleware, getTransactionHistory);
 router.post("/redeem", authMiddleware, redeemPoints);
 
-// ---------- Admin Routes (authenticated + admin role) ----------
+// Admin routes
 router.get("/admin/transactions", authMiddleware, adminMiddleware, adminListTransactions);
 router.put("/admin/redemptions/:id", authMiddleware, adminMiddleware, updateRedemptionStatus);
 router.post("/admin/adjust", authMiddleware, adminMiddleware, adminAdjustPoints);
