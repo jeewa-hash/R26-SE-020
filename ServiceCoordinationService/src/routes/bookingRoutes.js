@@ -10,13 +10,17 @@ import {
   reportBookingDelay,
   cancelBooking,
   getProviderMissedInquiries,
+  getProviderEarningsSummary,
 } from "../controllers/bookingController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.get("/provider/me", protect(["ServiceProvider"]), getBookingsByProvider);
+router.get("/provider/me/earnings", protect(["ServiceProvider"]), getProviderEarningsSummary);
 router.get("/provider/me/missed-inquiries", protect(["ServiceProvider"]), getProviderMissedInquiries);
+router.get("/provider/me", protect(["ServiceProvider"]), getBookingsByProvider);
+router.get("/provider/:providerId/earnings", getProviderEarningsSummary);
+router.get("/provider/:providerId", getBookingsByProvider);
 router.get("/seeker/me", protect(["Seeker"]), getBookingsBySeeker);
 
 router.get("/post/:postId", getBookingByPost);

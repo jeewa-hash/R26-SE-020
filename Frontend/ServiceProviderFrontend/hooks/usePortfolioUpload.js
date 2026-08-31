@@ -19,9 +19,10 @@
 import { useState, useRef, useCallback } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = __DEV__
-  ?  'http://10.132.72.163:5000'        // Android emulator — change to LAN IP for real device
+  ?  'http://192.168.56.1:5000'        // Provider ML Engine runs on port 5000
   : 'https://your-production-api.com';
 
 const MAX_IMAGES = 5;
@@ -74,9 +75,9 @@ const LABEL_DISPLAY = {
 function mapFlaskItemToPortfolio(flaskItem, originalImage) {
   // Your predictor likely returns one of these field names — handle all variants
   const labelKey   = flaskItem.label ?? flaskItem.class_key ?? flaskItem.predicted_class ?? 'other';
-  const category   = flaskItem.label_display
+  const category   = flaskItem.category
+                  ?? flaskItem.label_display
                   ?? LABEL_DISPLAY[labelKey]
-                  ?? flaskItem.category
                   ?? 'Unclassified';
   const confidence = flaskItem.confidence ?? flaskItem.score ?? 0;
   const rejected   = flaskItem.rejected ?? (labelKey === 'other') ?? false;
@@ -92,7 +93,8 @@ function mapFlaskItemToPortfolio(flaskItem, originalImage) {
     // From Flask predictor
     category,
     confidence:   parseFloat(confidence.toFixed(3)),
-    tags:         rejected ? [] : (LABEL_TAGS[labelKey] ?? ['service', 'completed']),
+    specific_label: flaskItem.specific_label ?? null,
+    tags:         rejected ? [] : (Array.isArray(flaskItem.tags) ? flaskItem.tags : []),
     micro_skills: [],    // your predictor doesn't return micro-skills yet — empty for now
     passed:       !rejected,
     note:         rejected
@@ -186,9 +188,18 @@ export function usePortfolioUpload() {
         });
       });
 
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        throw new Error('Please log in again. Authorization token is missing.');
+      }
+
       const response = await fetch(`${API_BASE_URL}/predict`, {
         method:  'POST',
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: {
+          // Flask ML middleware requires the same Bearer token as the provider API.
+          Authorization: `Bearer ${token}`,
+          // Do not set multipart Content-Type manually; fetch adds the boundary.
+        },
         body:    formData,
       });
 
