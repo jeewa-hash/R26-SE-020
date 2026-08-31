@@ -57,12 +57,7 @@ const getQuotationRequestId = (quotation) => {
 };
 
 const getBookingStatus = (booking) => {
-  return String(
-    booking?.status ||
-      booking?.bookingStatus ||
-      booking?.currentStatus ||
-      ''
-  ).toUpperCase();
+  return String(booking?.bookingStatus || 'CONFIRMED').toUpperCase();
 };
 
 const isCompletedOrCancelled = (booking) => {
@@ -249,10 +244,7 @@ const normalizeScheduledBooking = (booking) => {
       booking?.price ||
       booking?.quotedPrice ||
       0,
-    status:
-      booking?.status ||
-      booking?.bookingStatus ||
-      'CONFIRMED',
+    bookingStatus: booking?.bookingStatus || 'CONFIRMED',
   };
 };
 
@@ -266,6 +258,7 @@ export default function MyJobsScreen({ navigation }) {
   const [seekerId, setSeekerId] = useState(null);
   const [activeJobs, setActiveJobs] = useState([]);
   const [quotes, setQuotes] = useState([]);
+  const [requestQuotations, setRequestQuotations] = useState([]);
   const [scheduledJobs, setScheduledJobs] = useState([]);
   const [historyJobs, setHistoryJobs] = useState([]);
   const [error, setError] = useState(null);
@@ -357,6 +350,7 @@ export default function MyJobsScreen({ navigation }) {
 
       setActiveJobs(normalizedActiveJobs);
       setQuotes(normalizedQuotes);
+      setRequestQuotations(realRequests);
       setScheduledJobs(normalizedScheduled);
       setHistoryJobs(normalizedHistory);
 
@@ -456,6 +450,7 @@ export default function MyJobsScreen({ navigation }) {
         return (
           <QuotesSection
             quotes={quotes}
+            requests={requestQuotations}
             navigation={navigation}
             isDarkMode={isDarkMode}
           />
@@ -560,7 +555,7 @@ const styles = StyleSheet.create({
   stateTitle: {
     marginTop: 14,
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: '600',
     color: '#111827',
     textAlign: 'center',
   },
@@ -598,7 +593,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   textDark: {
     color: '#F8FAFC',

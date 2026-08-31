@@ -19,7 +19,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
 import { COLORS } from './theme';
 import { debugAuthStorage, getStoredProviderAuth } from './services/providerAuthStorage';
-import { getProviderJobs, getProviderQuotations, getProviderRequests } from './services/providerFlowApi';
+import { getProviderJobs, getProviderOngoingJobs, getProviderQuotations, getProviderRequests } from './services/providerFlowApi';
+import { COORDINATION_SERVICE_URL, PROVIDER_SERVICE_API_URL, SEEKER_SERVICE_URL } from '../../config';
 import { formatDate, formatFullDate, formatTime, isSameDay } from './utils/dateTimeFormatter';
 import {
   getBookingStart,
@@ -32,7 +33,6 @@ import {
   getServiceCategory,
   getServiceTitle,
   getSeekerName,
-  getStatus,
   getStatusStyle,
   isClosedBooking,
   normalizeBooking,
@@ -40,7 +40,25 @@ import {
   normalizeRequest,
 } from './utils/providerFlowMapper';
 
-const TABS = ['Today', 'Requests', 'Quotes', 'Scheduled', 'History'];
+const TABS = ['Today', 'Ongoing', 'Requests', 'Quotes', 'Scheduled', 'History'];
+
+const extractArray = (response) => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.data)) return response.data.data;
+  if (Array.isArray(response?.rawList)) return response.rawList;
+  if (Array.isArray(response?.items)) return response.items;
+  if (Array.isArray(response?.bookings)) return response.bookings;
+  if (Array.isArray(response?.jobs)) return response.jobs;
+  if (Array.isArray(response?.quotations)) return response.quotations;
+  if (Array.isArray(response?.requests)) return response.requests;
+  return [];
+};
+
+const getProviderIdFromItem = (item) =>
+  item?.providerId?._id || item?.providerId || item?.provider?._id || item?.provider?.id ||
+  item?.serviceProvider?._id || item?.serviceProvider?.id || item?.serviceProviderId ||
+  item?.providerSnapshot?.providerId?._id || item?.providerSnapshot?.providerId || '';
 
 const toComparableId = (value) => {
   if (!value) return '';
@@ -102,6 +120,18 @@ const filterForLoggedProvider = (items, providerId) => {
   if (!providerId) return [];
 
   return items.filter((item) => belongsToLoggedProvider(item, providerId));
+};
+
+const safelyFilterProviderResponse = (items, providerId, label) => {
+  const raw = Array.isArray(items) ? items : [];
+  console.log('Filtering item provider ids:', raw.map(getProviderIdFromItem));
+  const filtered = filterForLoggedProvider(raw, providerId);
+  if (raw.length > 0 && filtered.length === 0) {
+    console.warn('Provider filter removed all items. Check providerId shape.', { label, providerId });
+    // Every source used here is already provider-scoped by URL or auth token.
+    return raw;
+  }
+  return filtered;
 };
 
 const Badge = ({ label, bg, color }) => (
@@ -242,6 +272,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const [requests, setRequests] = useState([]);
   const [quotations, setQuotations] = useState([]);
   const [jobs, setJobs] = useState([]);
+  const [ongoingJobs, setOngoingJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -250,11 +281,14 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const normalizedRequests = useMemo(() => requests
     .filter((request) => String(request?.status || 'pending').toLowerCase() === 'pending')
     .map(normalizeRequest), [requests]);
-  const normalizedQuotes = useMemo(() => quotations.map((q) => normalizeQuotation(q, normalizedRequests)), [quotations, normalizedRequests]);
+  const normalizedQuotes = useMemo(() => quotations
+    .filter((quotation) => ['SENT', 'COUNTER_OFFERED', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CANCELLED'].includes(String(quotation?.status || 'SENT').toUpperCase()))
+    .map((q) => normalizeQuotation(q, normalizedRequests)), [quotations, normalizedRequests]);
   const normalizedJobs = useMemo(() => jobs.map(normalizeBooking), [jobs]);
+  const normalizedOngoing = useMemo(() => ongoingJobs.map(normalizeBooking), [ongoingJobs]);
 
   const todayJobs = useMemo(() => normalizedJobs.filter((job) => isSameDay(getBookingStart(job), new Date()) && !isClosedBooking(job)), [normalizedJobs]);
-  const scheduledJobs = useMemo(() => normalizedJobs.filter((job) => !isClosedBooking(job)), [normalizedJobs]);
+  const scheduledJobs = useMemo(() => normalizedJobs.filter((job) => ['CONFIRMED', 'RESCHEDULED', 'RESCHEDULING_REQUIRED'].includes(getBookingStatus(job))), [normalizedJobs]);
   const historyJobs = useMemo(() => normalizedJobs.filter(isClosedBooking), [normalizedJobs]);
 
   const loadAll = async () => {
@@ -268,21 +302,28 @@ export default function ProviderMyJobsScreen({ navigation }) {
         setRequests([]);
         setQuotations([]);
         setJobs([]);
+        setOngoingJobs([]);
         setError('Provider login details were not found. Please login again.');
         return;
       }
       setProviderId(auth.providerId);
       console.log('LOGGED PROVIDER ID:', auth.providerId);
+      console.log('MY JOBS AUTH:', { providerId: auth.providerId, hasToken: Boolean(auth.token) });
+      console.log('REQUESTS API URL:', `${SEEKER_SERVICE_URL}/request-quotations/provider-filtered/${auth.providerId}`);
+      console.log('QUOTATIONS API URL:', `${PROVIDER_SERVICE_API_URL}/api/provider/quotations/provider/me`);
+      console.log('BOOKINGS API URL:', `${COORDINATION_SERVICE_URL}/bookings/provider/me`);
+      console.log('ONGOING API URL:', `${COORDINATION_SERVICE_URL}/bookings/provider/me/ongoing`);
 
-      const [reqResult, quoteResult, jobsResult] = await Promise.allSettled([
+      const [reqResult, quoteResult, jobsResult, ongoingResult] = await Promise.allSettled([
         getProviderRequests(auth.providerId),
         getProviderQuotations(auth.providerId),
         getProviderJobs(auth.providerId),
+        getProviderOngoingJobs(auth.providerId),
       ]);
 
       if (reqResult.status === 'fulfilled') {
-        const rawRequests = reqResult.value.rawList || reqResult.value.requests || [];
-        const providerRequests = filterForLoggedProvider(rawRequests, auth.providerId);
+        const rawRequests = extractArray(reqResult.value);
+        const providerRequests = safelyFilterProviderResponse(rawRequests, auth.providerId, 'requests');
 
         console.log('RAW PROVIDER REQUESTS:', rawRequests.length);
         console.log('FILTERED PROVIDER REQUESTS:', providerRequests.length);
@@ -290,6 +331,8 @@ export default function ProviderMyJobsScreen({ navigation }) {
         console.log('FIRST RAW REQUEST:', JSON.stringify(rawRequests[0], null, 2));
 
         setRequests(providerRequests);
+        console.log('Provider requests raw:', rawRequests);
+        console.log('Provider requests count:', rawRequests.length);
 
         if (rawRequests.length === 0) {
           setBackendWarning('No incoming requests yet. New quotation requests assigned to you will appear here.');
@@ -303,35 +346,55 @@ export default function ProviderMyJobsScreen({ navigation }) {
       }
 
       if (quoteResult.status === 'fulfilled') {
-        const rawQuotations = quoteResult.value.rawList || quoteResult.value.quotations || [];
-        const providerQuotations = filterForLoggedProvider(rawQuotations, auth.providerId);
+        const rawQuotations = extractArray(quoteResult.value);
+        const providerQuotations = safelyFilterProviderResponse(rawQuotations, auth.providerId, 'quotations');
 
         console.log('RAW PROVIDER QUOTATIONS:', rawQuotations.length);
         console.log('FILTERED PROVIDER QUOTATIONS:', providerQuotations.length);
         console.log('Provider quotations filter providerId:', auth.providerId);
 
         setQuotations(providerQuotations);
+        console.log('Provider quotations raw:', rawQuotations);
+        console.log('Provider quotations count:', rawQuotations.length);
       } else {
         console.log('Provider quotations failed:', quoteResult.reason?.message);
         setQuotations([]);
       }
 
       if (jobsResult.status === 'fulfilled') {
-        const rawJobs = jobsResult.value.rawList || jobsResult.value.jobs || [];
-        const providerJobs = filterForLoggedProvider(rawJobs, auth.providerId);
+        const rawJobs = extractArray(jobsResult.value);
+        const providerJobs = safelyFilterProviderResponse(rawJobs, auth.providerId, 'bookings');
 
         console.log('RAW PROVIDER JOBS:', rawJobs.length);
         console.log('FILTERED PROVIDER JOBS:', providerJobs.length);
         console.log('Provider jobs filter providerId:', auth.providerId);
 
         setJobs(providerJobs);
+        console.log('Provider bookings raw:', rawJobs);
+        console.log('Provider bookings count:', rawJobs.length);
       } else {
         console.log('Provider jobs failed:', jobsResult.reason?.message);
         setJobs([]);
       }
 
+      const fallbackOngoing = (jobsResult.status === 'fulfilled' ? extractArray(jobsResult.value) : [])
+        .filter((booking) => ['CONFIRMED', 'IN_PROGRESS', 'DELAY_REPORTED'].includes(getBookingStatus(booking)));
+      if (ongoingResult.status === 'fulfilled') {
+        const rawOngoing = extractArray(ongoingResult.value);
+        const providerOngoing = safelyFilterProviderResponse(rawOngoing, auth.providerId, 'ongoing');
+        setOngoingJobs(providerOngoing.length ? providerOngoing : fallbackOngoing);
+        console.log('Provider ongoing raw:', rawOngoing);
+        console.log('Provider ongoing count:', rawOngoing.length);
+      } else {
+        console.log('Provider ongoing failed:', ongoingResult.reason?.message);
+        console.log('Provider ongoing raw:', []);
+        console.log('Provider ongoing count:', 0);
+        setOngoingJobs(fallbackOngoing);
+      }
+
     } catch (err) {
       console.log('Provider My Jobs load error:', err);
+      setOngoingJobs([]);
       setError(err.message || 'Failed to load provider flow.');
     } finally {
       setLoading(false);
@@ -376,7 +439,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
             <View style={styles.scheduleColumn}>
               {hours.map((h) => <View key={h} style={styles.scheduleLine} />)}
               {todayJobs.map((job) => {
-                const status = getStatusStyle(getStatus(job));
+                const status = getStatusStyle(getBookingStatus(job));
                 return (
                   <TouchableOpacity
                     key={getBookingId(job)}
@@ -402,13 +465,16 @@ export default function ProviderMyJobsScreen({ navigation }) {
       return <View style={[styles.stateCard, isDark && styles.cardDark]}><ActivityIndicator size="large" color={COLORS.primary} /><Text style={[styles.stateTitle, isDark && styles.textDark]}>Loading provider flow...</Text></View>;
     }
     if (error) {
-      return <View style={[styles.stateCard, isDark && styles.cardDark]}><Ionicons name="warning-outline" size={34} color={COLORS.danger} /><Text style={[styles.stateTitle, isDark && styles.textDark]}>Real Data Not Loaded</Text><Text style={styles.stateMsg}>{error}</Text>{providerId ? <Text style={styles.debugText}>providerId: {providerId}</Text> : null}<TouchableOpacity style={styles.primaryButton} onPress={onRefresh}><Text style={styles.primaryButtonText}>Try Again</Text></TouchableOpacity></View>;
+      return <View style={[styles.stateCard, isDark && styles.cardDark]}><Ionicons name="warning-outline" size={34} color={COLORS.danger} /><Text style={[styles.stateTitle, isDark && styles.textDark]}>Real Data Not Loaded</Text><Text style={styles.stateMsg}>{error}</Text><TouchableOpacity style={styles.primaryButton} onPress={onRefresh}><Text style={styles.primaryButtonText}>Try Again</Text></TouchableOpacity></View>;
     }
 
     const warningBlock = backendWarning ? <View style={[styles.warningCard, isDark && styles.warningCardDark]}><Ionicons name="information-circle-outline" size={20} color="#F59E0B" /><Text style={[styles.warningText, isDark && styles.textMutedDark]}>{backendWarning}</Text></View> : null;
 
     if (activeTab === 'Today') {
       return <>{warningBlock}{renderTimeline()}{todayJobs.map((job) => <BookingCard key={getBookingId(job)} booking={job} onPress={() => openJob(job)} isDark={isDark} />)}</>;
+    }
+    if (activeTab === 'Ongoing') {
+      return <>{warningBlock}{normalizedOngoing.length === 0 ? <EmptyState isDark={isDark} icon="time-outline" title="No ongoing jobs" message="Confirmed, in-progress, and delayed bookings will appear here." /> : normalizedOngoing.map((job) => <BookingCard key={getBookingId(job)} booking={job} onPress={() => openJob(job)} isDark={isDark} />)}</>;
     }
     if (activeTab === 'Requests') {
       return <>{warningBlock}{normalizedRequests.length === 0 ? <EmptyState isDark={isDark} icon="mail-open-outline" title="No incoming requests" message="No incoming requests yet. New quotation requests assigned to you will appear here." /> : normalizedRequests.map((r) => <RequestCard key={getRequestId(r)} request={r} isDark={isDark} onPress={() => openRequest(r)} onQuote={() => openQuoteForm(r)} />)}</>;
@@ -458,64 +524,64 @@ const styles = StyleSheet.create({
   safeAreaDark: { backgroundColor: COLORS.darkBg },
   header: { paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 22 : 16, paddingBottom: 26, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { color: '#fff', fontSize: 31, fontWeight: '900', letterSpacing: -0.8 },
+  headerTitle: { color: '#fff', fontSize: 31, fontWeight: '600', letterSpacing: -0.8 },
   headerSubtitle: { color: 'rgba(255,255,255,0.82)', fontSize: 13, marginTop: 4, fontWeight: '600' },
   refreshButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   statsRow: { flexDirection: 'row', marginTop: 20, gap: 10 },
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 18, padding: 12, alignItems: 'center' },
   statCardDark: { backgroundColor: COLORS.darkCard },
   statIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  statValue: { fontSize: 22, fontWeight: '900', color: COLORS.text },
-  statLabel: { color: COLORS.muted, fontSize: 11, fontWeight: '800', marginTop: 2 },
+  statValue: { fontSize: 22, fontWeight: '600', color: COLORS.text },
+  statLabel: { color: COLORS.muted, fontSize: 11, fontWeight: '600', marginTop: 2 },
   tabBar: { flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 12, marginTop: -18, padding: 5, borderRadius: 18, elevation: 5, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12 },
   tabBarDark: { backgroundColor: COLORS.darkCard },
   tab: { flex: 1, height: 36, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   tabActive: { backgroundColor: COLORS.primary },
-  tabText: { fontSize: 11, fontWeight: '900', color: COLORS.muted },
+  tabText: { fontSize: 11, fontWeight: '600', color: COLORS.muted },
   tabTextActive: { color: '#fff' },
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 18 },
   contentContainer: { paddingBottom: 20 },
   card: { backgroundColor: '#fff', borderRadius: 22, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: COLORS.border, elevation: 3, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
   cardDark: { backgroundColor: COLORS.darkCard, borderColor: COLORS.darkBorder },
   cardTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardTitle: { flex: 1, color: COLORS.text, fontSize: 16, fontWeight: '900' },
-  cardSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '700' },
-  priceText: { color: COLORS.primary, fontSize: 17, fontWeight: '900' },
+  cardTitle: { flex: 1, color: COLORS.text, fontSize: 16, fontWeight: '600' },
+  cardSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '600' },
+  priceText: { color: COLORS.primary, fontSize: 17, fontWeight: '600' },
   infoBlock: { backgroundColor: '#F9FAFB', borderRadius: 16, padding: 12, marginTop: 12, gap: 6 },
-  infoLine: { color: COLORS.text, fontSize: 12, fontWeight: '700' },
+  infoLine: { color: COLORS.text, fontSize: 12, fontWeight: '600' },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, alignSelf: 'flex-start' },
-  badgeText: { fontSize: 11, fontWeight: '900' },
+  badgeText: { fontSize: 11, fontWeight: '600' },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   primaryButton: { backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  primaryButtonText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  primaryButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   secondaryButton: { flex: 1, borderWidth: 1, borderColor: COLORS.border, paddingVertical: 10, borderRadius: 14, alignItems: 'center' },
-  secondaryButtonText: { color: COLORS.text, fontSize: 13, fontWeight: '900' },
+  secondaryButtonText: { color: COLORS.text, fontSize: 13, fontWeight: '600' },
   timelineCard: { backgroundColor: '#fff', borderRadius: 22, padding: 16, marginBottom: 18, borderWidth: 1, borderColor: COLORS.border },
   timelineHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  sectionTitle: { fontSize: 17, color: COLORS.text, fontWeight: '900' },
+  sectionTitle: { fontSize: 17, color: COLORS.text, fontWeight: '600' },
   sectionSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '600' },
   timelineBody: { flexDirection: 'row', minHeight: 1008 },
   timeColumn: { width: 58 },
   timeSlot: { height: 72 },
-  timeLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '800' },
+  timeLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '600' },
   scheduleColumn: { flex: 1, position: 'relative' },
   scheduleLine: { height: 72, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
   timelineJob: { position: 'absolute', left: 4, right: 0, backgroundColor: '#F8FAFF', borderRadius: 14, borderLeftWidth: 4, padding: 10, borderWidth: 1, borderColor: '#E0E7FF' },
-  timelineJobTitle: { color: COLORS.text, fontWeight: '900', fontSize: 13 },
-  timelineJobTime: { color: COLORS.primary, fontSize: 11, fontWeight: '800', marginTop: 4 },
-  timelineJobCustomer: { color: COLORS.muted, fontSize: 11, fontWeight: '700', marginTop: 3 },
+  timelineJobTitle: { color: COLORS.text, fontWeight: '600', fontSize: 13 },
+  timelineJobTime: { color: COLORS.primary, fontSize: 11, fontWeight: '600', marginTop: 4 },
+  timelineJobCustomer: { color: COLORS.muted, fontSize: 11, fontWeight: '600', marginTop: 3 },
   emptyCard: { backgroundColor: '#fff', borderRadius: 22, padding: 24, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   emptyIconBox: { width: 58, height: 58, borderRadius: 22, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  emptyTitle: { color: COLORS.text, fontSize: 16, fontWeight: '900', textAlign: 'center' },
+  emptyTitle: { color: COLORS.text, fontSize: 16, fontWeight: '600', textAlign: 'center' },
   emptyMessage: { color: COLORS.muted, fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 6, lineHeight: 18 },
   stateCard: { backgroundColor: '#fff', borderRadius: 22, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  stateTitle: { marginTop: 12, color: COLORS.text, fontWeight: '900', fontSize: 17, textAlign: 'center' },
+  stateTitle: { marginTop: 12, color: COLORS.text, fontWeight: '600', fontSize: 17, textAlign: 'center' },
   stateMsg: { color: COLORS.muted, textAlign: 'center', marginTop: 8, lineHeight: 19 },
   debugText: { color: COLORS.muted, fontSize: 11, marginTop: 10 },
   warningCard: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 18, padding: 12, marginBottom: 14, flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   warningCardDark: { backgroundColor: '#2A2112', borderColor: '#92400E' },
-  warningText: { flex: 1, color: '#92400E', fontSize: 12, fontWeight: '700', lineHeight: 17 },
+  warningText: { flex: 1, color: '#92400E', fontSize: 12, fontWeight: '600', lineHeight: 17 },
   textDark: { color: COLORS.darkText },
   textMutedDark: { color: COLORS.darkMuted },
 });

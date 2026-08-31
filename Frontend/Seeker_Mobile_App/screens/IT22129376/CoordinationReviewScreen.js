@@ -145,6 +145,6 @@ export default function CoordinationReviewScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   section: { marginTop: 2 },
-  sectionTitle: { color: COLORS.text, fontSize: 17, fontWeight: '900', marginBottom: 10 },
+  sectionTitle: { color: COLORS.text, fontSize: 17, fontWeight: '600', marginBottom: 10 },
   textDark: { color: COLORS.darkText },
 });

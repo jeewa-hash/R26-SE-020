@@ -107,9 +107,9 @@ export default function ConfirmJobScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   card: { backgroundColor: COLORS.card, borderRadius: 22, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: '#EEF2F7' },
   cardDark: { backgroundColor: COLORS.darkCard, borderColor: COLORS.darkBorder },
-  total: { fontSize: 30, fontWeight: '900', color: COLORS.primary },
-  title: { fontSize: 21, fontWeight: '900', color: COLORS.text, marginTop: 6 },
-  subtitle: { fontSize: 13, fontWeight: '700', color: COLORS.muted, marginTop: 4 },
+  total: { fontSize: 30, fontWeight: '600', color: COLORS.primary },
+  title: { fontSize: 21, fontWeight: '600', color: COLORS.text, marginTop: 6 },
+  subtitle: { fontSize: 13, fontWeight: '600', color: COLORS.muted, marginTop: 4 },
   divider: { height: 1, backgroundColor: '#EEF2F7', marginVertical: 16 },
   textDark: { color: COLORS.darkText },
   mutedDark: { color: COLORS.darkMuted },

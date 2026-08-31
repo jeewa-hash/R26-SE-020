@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getHumanLocation, getHumanSeekerName, getHumanServiceTitle, statusLabel } from '../../services/providerFlowApi';
+import { getHumanLocation, getHumanSeekerName, getHumanServiceTitle, openLocationInMaps, statusLabel } from '../../services/providerFlowApi';
 
 const clean = (value, fallback = 'Not provided') => {
   const text = value === null || value === undefined ? '' : String(value).trim();
@@ -28,12 +28,15 @@ export default function ProviderRequestDetailsScreen({ route, navigation }) {
           <Text style={styles.row}>Detected service: {clean(request?.detectedObject || request?.serviceSubcategory, 'Service')}</Text>
           <Text style={styles.row}>Customer: {getHumanSeekerName(request)}</Text>
           <Text style={styles.row}>Location: {getHumanLocation(request)}</Text>
+          {(getHumanLocation(request) !== 'Location not provided') ? <TouchableOpacity style={styles.mapButton} onPress={() => openLocationInMaps({ latitude: request?.serviceLatitude ?? request?.location?.lat, longitude: request?.serviceLongitude ?? request?.location?.lng, address: getHumanLocation(request), label: getHumanServiceTitle(request) })}><Ionicons name="map-outline" size={17} color="#4F46E5" /><Text style={styles.mapButtonText}>Open in Maps</Text></TouchableOpacity> : null}
+          {Number(request?.estimatedTravelTimeMins) > 0 ? <Text style={styles.row}>Estimated travel time: {Math.round(request.estimatedTravelTimeMins)} mins</Text> : null}
+          {Number(request?.distanceFromPreviousBookingKm) > 0 ? <Text style={styles.row}>Distance: {Number(request.distanceFromPreviousBookingKm).toFixed(1)} km</Text> : null}
           <Text style={styles.row}>Preferred time: {clean(request?.preferredTimeLabel)}</Text>
           <Text style={styles.row}>Preferred start: {clean(request?.preferredStartTime || request?.requestedStartTime)}</Text>
           <Text style={styles.row}>Preferred end: {clean(request?.preferredEndTime || request?.requestedEndTime)}</Text>
           <Text style={styles.row}>Estimated duration: {duration ? `${duration} hour(s)` : 'Not provided'}</Text>
           <Text style={styles.row}>Budget: {budget ? `LKR ${budget.toLocaleString()}` : 'Not provided'}</Text>
-          <Text style={styles.row}>Urgency: {clean(request?.urgency)}</Text>
+          <Text style={styles.row}>Urgency: {clean(request?.urgencyLevel || request?.urgency)}</Text>
           <Text style={styles.description}>{clean(request?.briefDescription || request?.description, 'No description provided.')}</Text>
           {requestStatus === 'pending' ? (
             <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('IT22129376ProviderQuotationForm', { request })}>
@@ -49,11 +52,13 @@ export default function ProviderRequestDetailsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
   header: { paddingTop: 48, paddingHorizontal: 16, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff' },
-  backButton: { marginRight: 12 }, headerTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
+  backButton: { marginRight: 12 }, headerTitle: { fontSize: 20, fontWeight: '600', color: '#111827' },
   content: { padding: 16 }, card: { backgroundColor: '#fff', borderRadius: 16, padding: 18 },
-  title: { fontSize: 20, fontWeight: '800', color: '#111827' }, status: { marginTop: 8, color: '#6366F1', fontWeight: '800' },
+  title: { fontSize: 20, fontWeight: '600', color: '#111827' }, status: { marginTop: 8, color: '#6366F1', fontWeight: '600' },
   row: { marginTop: 12, color: '#4B5563', fontSize: 15 },
   description: { marginTop: 16, color: '#374151', lineHeight: 21, backgroundColor: '#F9FAFB', padding: 12, borderRadius: 10 },
   button: { backgroundColor: '#667eea', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
-  buttonText: { color: '#fff', fontWeight: '800' },
+  buttonText: { color: '#fff', fontWeight: '600' },
+  mapButton: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#EEF2FF', borderRadius: 10 },
+  mapButtonText: { color: '#4F46E5', fontWeight: '600' },
 });

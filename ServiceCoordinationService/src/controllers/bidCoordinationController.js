@@ -14,6 +14,8 @@ import { evaluateBidPrice } from "../services/pricingService.js";
 import { evaluateBidSchedule } from "../services/scheduleEvaluationService.js";
 import { decideBidCoordination } from "../services/bidDecisionService.js";
 import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
+import Booking from "../models/Booking.js";
+import { getRoadDistanceAndTime } from "../services/osrmService.js";
 import { generateSuggestedSlots } from "../services/suggestedSlotService.js";
 import { predictDelayRisk } from "../clients/mlPredictionClient.js";
 import {
@@ -139,6 +141,34 @@ export const checkBidCoordination = async (req, res) => {
       bufferMinutes,
     }); // Chaw: first calculate schedule window and booking conflict
 
+    const proposedStart = new Date(providerQuotation.proposedStartTime);
+    const previousBooking = !Number.isNaN(proposedStart.getTime()) ? await Booking.findOne({
+      providerId: providerQuotation.providerId,
+      bookingStatus: { $in: ["CONFIRMED", "IN_PROGRESS", "DELAY_REPORTED", "COMPLETED"] },
+      scheduledStartTime: { $lt: proposedStart },
+    }).sort({ scheduledStartTime: -1 }) : null;
+    let travelInfo = { distanceKm: 0, estimatedTravelTimeMins: 0, source: "NO_COORDINATES" };
+    let gapFromPreviousBookingMins = null;
+    const destinationLat = requestQuotation.serviceLatitude ?? requestQuotation.location?.lat;
+    const destinationLng = requestQuotation.serviceLongitude ?? requestQuotation.location?.lng;
+    if (previousBooking?.location?.lat != null && previousBooking?.location?.lng != null && destinationLat != null && destinationLng != null) {
+      travelInfo = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, destinationLat, destinationLng);
+      const previousEnd = previousBooking.scheduledEndTime || previousBooking.actualEndTime;
+      if (previousEnd) gapFromPreviousBookingMins = Math.round((proposedStart.getTime() - new Date(previousEnd).getTime()) / 60000);
+    }
+    const insufficientTravelGap = gapFromPreviousBookingMins !== null && gapFromPreviousBookingMins < travelInfo.estimatedTravelTimeMins;
+    scheduleEvaluationData = {
+      ...scheduleEvaluationData,
+      distanceFromPreviousBookingKm: travelInfo.distanceKm,
+      estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
+      gapFromPreviousBookingMins,
+      travelInfoSource: travelInfo.source,
+      conflictDetected: scheduleEvaluationData.conflictDetected || insufficientTravelGap,
+      conflictReason: insufficientTravelGap
+        ? "Provider may not have enough travel time from the previous booking."
+        : scheduleEvaluationData.conflictReason,
+    };
+
     const delayRiskPayload = buildDelayRiskPayload({
       requestQuotation,
       providerQuotation,
@@ -169,6 +199,14 @@ export const checkBidCoordination = async (req, res) => {
         externalQuotationId,
         seekerId: requestQuotation.seekerId,
         providerId: requestQuotation.providerId,
+        serviceLocation: requestQuotation.serviceLocation || requestQuotation.location?.address || "",
+        serviceLatitude: requestQuotation.serviceLatitude ?? requestQuotation.location?.lat ?? null,
+        serviceLongitude: requestQuotation.serviceLongitude ?? requestQuotation.location?.lng ?? null,
+        location: {
+          address: requestQuotation.serviceLocation || requestQuotation.location?.address || "",
+          lat: requestQuotation.serviceLatitude ?? requestQuotation.location?.lat ?? null,
+          lng: requestQuotation.serviceLongitude ?? requestQuotation.location?.lng ?? null,
+        },
         finalDecision: decisionData.finalDecision,
         recommendedAction: decisionData.recommendedAction,
         status: "ready_for_seeker_review",

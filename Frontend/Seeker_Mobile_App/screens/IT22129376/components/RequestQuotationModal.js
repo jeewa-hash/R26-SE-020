@@ -14,6 +14,8 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
+import MapView, { Marker } from "react-native-maps";
+import * as ExpoLocation from "expo-location";
 import { createRequestQuotation } from "../services/requestQuotationApi";
 
 const TIME_WINDOWS = {
@@ -58,6 +60,9 @@ export default function RequestQuotationModal({
   const [duration, setDuration] = useState("");
   const [budget, setBudget] = useState("");
   const [location, setLocation] = useState(defaultLocation);
+  const [coordinates, setCoordinates] = useState(null);
+  const [showMap, setShowMap] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [description, setDescription] = useState(initialDescription);
   const [urgency, setUrgency] = useState(normalizeUrgency(defaultUrgency));
   const [picker, setPicker] = useState(null);
@@ -83,6 +88,8 @@ export default function RequestQuotationModal({
     setDuration("");
     setBudget("");
     setLocation(typeof defaultLocation === "string" ? defaultLocation : "");
+    setCoordinates(null);
+    setShowMap(false);
     setDescription(initialDescription || "");
     setUrgency(normalizeUrgency(defaultUrgency));
     setPicker(null);
@@ -216,6 +223,13 @@ export default function RequestQuotationModal({
       ),
       urgencyLevel: urgency,
       serviceLocation: location.trim(),
+      serviceLatitude: coordinates?.latitude ?? null,
+      serviceLongitude: coordinates?.longitude ?? null,
+      location: {
+        address: location.trim(),
+        lat: coordinates?.latitude ?? null,
+        lng: coordinates?.longitude ?? null,
+      },
       preferredStartTime: preferredStartTime.toISOString(),
       preferredEndTime: preferredEndTime.toISOString(),
       preferredTimeLabel,
@@ -244,6 +258,31 @@ export default function RequestQuotationModal({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const resolveSelectedAddress = async (point) => {
+    try {
+      const [address] = await ExpoLocation.reverseGeocodeAsync(point);
+      const text = [address?.name, address?.street, address?.city, address?.district]
+        .filter(Boolean).filter((value, index, list) => list.indexOf(value) === index).join(', ');
+      setLocation(text || `${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}`);
+    } catch (error) {
+      setLocation(`${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}`);
+    }
+  };
+
+  const useCurrentLocation = async () => {
+    try {
+      setLocating(true);
+      const permission = await ExpoLocation.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') return Alert.alert('Location permission', 'You can still type the service address manually.');
+      const current = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.Balanced });
+      const point = { latitude: current.coords.latitude, longitude: current.coords.longitude };
+      setCoordinates(point);
+      await resolveSelectedAddress(point);
+    } catch (error) {
+      Alert.alert('Location unavailable', 'Unable to get your current location. You can still type the address manually.');
+    } finally { setLocating(false); }
   };
 
   return (
@@ -303,6 +342,11 @@ export default function RequestQuotationModal({
             <TextInput style={styles.input} value={budget} onChangeText={setBudget} keyboardType="decimal-pad" placeholder="e.g. 5000" />
             <Text style={styles.label}>Service location</Text>
             <TextInput style={styles.input} value={location} onChangeText={setLocation} placeholder="Address, city or district" />
+            <View style={styles.locationActions}>
+              <TouchableOpacity style={styles.locationButton} onPress={() => setShowMap(true)}><Ionicons name="map-outline" size={17} color="#4F46E5" /><Text style={styles.locationButtonText}>Pick from Map</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.locationButton} onPress={useCurrentLocation} disabled={locating}><Ionicons name="locate-outline" size={17} color="#4F46E5" /><Text style={styles.locationButtonText}>{locating ? 'Locating...' : 'Use Current Location'}</Text></TouchableOpacity>
+            </View>
+            {coordinates ? <Text style={styles.coordinatesText}>{coordinates.latitude.toFixed(6)}, {coordinates.longitude.toFixed(6)}</Text> : null}
             <Text style={styles.label}>Urgency level</Text>
             <View style={styles.options}>
               {URGENCY_LEVELS.map((label) => (
@@ -320,6 +364,14 @@ export default function RequestQuotationModal({
           </View>
         </View>
       </View>
+      <Modal visible={showMap} animationType="slide" onRequestClose={() => setShowMap(false)}>
+        <View style={styles.mapScreen}>
+          <MapView style={styles.map} initialRegion={{ latitude: coordinates?.latitude || 7.8731, longitude: coordinates?.longitude || 80.7718, latitudeDelta: 3.5, longitudeDelta: 3.5 }} onPress={(event) => setCoordinates(event.nativeEvent.coordinate)}>
+            {coordinates ? <Marker coordinate={coordinates} /> : null}
+          </MapView>
+          <View style={styles.mapFooter}><Text style={styles.mapHint}>Tap the map to choose the service location.</Text><View style={styles.mapFooterActions}><TouchableOpacity style={styles.cancel} onPress={() => setShowMap(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.send} disabled={!coordinates} onPress={async () => { await resolveSelectedAddress(coordinates); setShowMap(false); }}><Text style={styles.sendText}>Use Location</Text></TouchableOpacity></View></View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -328,11 +380,11 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(15,23,42,0.55)", justifyContent: "flex-end" },
   card: { maxHeight: "92%", backgroundColor: "#FFF", borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1, borderBottomColor: "#E2E8F0" },
-  title: { fontSize: 20, fontWeight: "700", color: "#0F172A" },
+  title: { fontSize: 20, fontWeight: "600", color: "#0F172A" },
   provider: { marginTop: 3, color: "#64748B" },
   body: { padding: 20, paddingBottom: 8 },
   summary: { backgroundColor: "#EEF2FF", padding: 12, borderRadius: 12, marginBottom: 5 },
-  summaryTitle: { color: "#3730A3", fontWeight: "700" },
+  summaryTitle: { color: "#3730A3", fontWeight: "600" },
   summaryCategory: { color: "#6366F1", fontSize: 12, marginTop: 3 },
   label: { fontSize: 13, fontWeight: "600", color: "#334155", marginBottom: 7, marginTop: 11 },
   input: { minHeight: 48, borderWidth: 1, borderColor: "#CBD5E1", borderRadius: 12, paddingHorizontal: 14, justifyContent: "center", backgroundColor: "#F8FAFC" },
@@ -346,8 +398,17 @@ const styles = StyleSheet.create({
   timeField: { flex: 1 },
   actions: { flexDirection: "row", gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: "#E2E8F0" },
   cancel: { flex: 1, alignItems: "center", padding: 14, borderRadius: 12, borderWidth: 1, borderColor: "#CBD5E1" },
-  cancelText: { color: "#475569", fontWeight: "700" },
+  cancelText: { color: "#475569", fontWeight: "600" },
   send: { flex: 1.5, alignItems: "center", padding: 14, borderRadius: 12, backgroundColor: "#6366F1" },
-  sendText: { color: "#FFF", fontWeight: "700" },
+  sendText: { color: "#FFF", fontWeight: "600" },
   disabled: { opacity: 0.6 },
+  locationActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 9 },
+  locationButton: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#C7D2FE', backgroundColor: '#EEF2FF', borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9 },
+  locationButtonText: { color: '#4F46E5', fontWeight: '600', fontSize: 12 },
+  coordinatesText: { color: '#64748B', fontSize: 11, marginTop: 7 },
+  mapScreen: { flex: 1, backgroundColor: '#FFF' },
+  map: { flex: 1 },
+  mapFooter: { padding: 18, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
+  mapHint: { color: '#475569', marginBottom: 12 },
+  mapFooterActions: { flexDirection: 'row', gap: 12 },
 });
