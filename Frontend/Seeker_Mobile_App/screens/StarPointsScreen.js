@@ -10,9 +10,6 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
-  TextInput,
-  Modal,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,13 +26,6 @@ export default function StarPointsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-
-  // Redeem modal state
-  const [modalVisible, setModalVisible] = useState(false);
-  const [pointsToSpend, setPointsToSpend] = useState('');
-  const [rewardItem, setRewardItem] = useState('Gift Card');
-  const [rewardValue, setRewardValue] = useState('$10');
-  const [redeeming, setRedeeming] = useState(false);
 
   const loadRewards = useCallback(async (isRefresh = false) => {
     try {
@@ -88,53 +78,6 @@ export default function StarPointsScreen({ navigation }) {
   const getPointsToNextReward = () => {
     const nextReward = 1500;
     return Math.max(0, nextReward - totalPoints);
-  };
-
-  const getTransactionTitle = (transaction) => {
-    if (transaction.type === 'EARN') return 'Completed Service';
-    if (transaction.type === 'SPEND') return 'Points Redeemed';
-    return 'Points Adjustment';
-  };
-
-  const handleRedeem = async () => {
-    const points = parseInt(pointsToSpend);
-    if (!points || points <= 0 || points > totalPoints) {
-      Alert.alert('Invalid amount', `You have ${totalPoints} points. Enter a valid number.`);
-      return;
-    }
-    if (!rewardItem.trim()) {
-      Alert.alert('Error', 'Please enter a reward item name.');
-      return;
-    }
-
-    setRedeeming(true);
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_BASE_URL}/api/rewards/redeem`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pointsToSpend: points,
-          rewardItem: rewardItem.trim(),
-          rewardValue: rewardValue.trim(),
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Redemption failed.');
-
-      Alert.alert('Success', data.message);
-      setModalVisible(false);
-      setPointsToSpend('');
-      loadRewards(); // refresh balance & history
-    } catch (error) {
-      Alert.alert('Error', error.message || 'Could not redeem points.');
-    } finally {
-      setRedeeming(false);
-    }
   };
 
   return (
@@ -245,136 +188,9 @@ export default function StarPointsScreen({ navigation }) {
           </ScrollView>
         </View>
 
-        {/* Transaction History */}
-        <View style={styles.transactionsContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Transaction History</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {!loading && !error && transactions.length === 0 ? <Text style={[styles.emptyText, isDarkMode && styles.textMutedDark]}>No Star Point activity yet. Complete a service to earn points.</Text> : null}
-          {transactions.map((transaction) => {
-            const isCredit = Number(transaction.amount) > 0;
-            const createdAt = new Date(transaction.createdAt);
-            return (
-              <View key={transaction._id} style={[styles.transactionCard, isDarkMode && styles.transactionCardDark]}>
-                <View style={styles.transactionIcon}>
-                  <Ionicons
-                    name={isCredit ? "add-circle" : "remove-circle"}
-                    size={32}
-                    color={isCredit ? "#10B981" : "#EF4444"}
-                  />
-                </View>
-                <View style={styles.transactionInfo}>
-                  <Text style={[styles.transactionTitle, isDarkMode && styles.textDark]}>{getTransactionTitle(transaction)}</Text>
-                  <Text style={[styles.transactionDescription, isDarkMode && styles.textMutedDark]}>{transaction.description || 'Star Point activity'}</Text>
-                  <View style={styles.transactionMeta}>
-                    <Ionicons name="calendar-outline" size={12} color="#9CA3AF" />
-                    <Text style={[styles.transactionDate, isDarkMode && styles.textMutedDark]}>{createdAt.toLocaleDateString()}</Text>
-                    <Ionicons name="time-outline" size={12} color="#9CA3AF" />
-                    <Text style={[styles.transactionTime, isDarkMode && styles.textMutedDark]}>{createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                  </View>
-                </View>
-                <Text style={[
-                  styles.transactionPoints,
-                  isCredit ? styles.creditText : styles.debitText
-                ]}>
-                  {isCredit ? '+' : ''}{transaction.amount}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Redeem Button */}
-        <TouchableOpacity
-          style={styles.redeemButton}
-          onPress={() => setModalVisible(true)}
-          disabled={totalPoints <= 0}
-        >
-          <LinearGradient
-            colors={['#667eea', '#764ba2']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.redeemGradient}
-          >
-            <Ionicons name="gift-outline" size={24} color="#fff" />
-            <Text style={styles.redeemButtonText}>Redeem Points</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
+        {/* Spacer at the bottom (no transaction history) */}
+        <View style={{ height: 80 }} />
       </ScrollView>
-
-      {/* Redeem Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
-            <Text style={[styles.modalTitle, isDarkMode && styles.textDark]}>Redeem Points</Text>
-            <Text style={[styles.modalSubtitle, isDarkMode && styles.textMutedDark]}>
-              Available: {totalPoints} points
-            </Text>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>Points to Spend</Text>
-              <TextInput
-                style={[styles.input, isDarkMode && styles.inputDark]}
-                placeholder="e.g., 100"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="numeric"
-                value={pointsToSpend}
-                onChangeText={setPointsToSpend}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>Reward Item</Text>
-              <TextInput
-                style={[styles.input, isDarkMode && styles.inputDark]}
-                placeholder="e.g., Gift Card"
-                placeholderTextColor="#9CA3AF"
-                value={rewardItem}
-                onChangeText={setRewardItem}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>Reward Value</Text>
-              <TextInput
-                style={[styles.input, isDarkMode && styles.inputDark]}
-                placeholder="e.g., $10"
-                placeholderTextColor="#9CA3AF"
-                value={rewardValue}
-                onChangeText={setRewardValue}
-              />
-            </View>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
-                disabled={redeeming}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={handleRedeem}
-                disabled={redeeming}
-              >
-                {redeeming ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.confirmButtonText}>Redeem</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <BottomNav />
     </SafeAreaView>
@@ -540,21 +356,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingHorizontal: 16,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1F2937',
-  },
-  seeAllText: {
-    fontSize: 13,
-    color: '#667eea',
-    fontWeight: '500',
+    marginBottom: 16,
   },
   tiersScroll: {
     flexDirection: 'row',
@@ -590,187 +396,10 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
   },
-  transactionsContainer: {
-    paddingHorizontal: 16,
-    marginTop: 24,
-  },
-  transactionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  transactionCardDark: {
-    backgroundColor: '#16213e',
-  },
-  transactionIcon: {
-    marginRight: 14,
-  },
-  transactionInfo: {
-    flex: 1,
-  },
-  transactionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
-  transactionDescription: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginBottom: 6,
-  },
-  transactionMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  transactionDate: {
-    fontSize: 10,
-    color: '#9CA3AF',
-  },
-  transactionTime: {
-    fontSize: 10,
-    color: '#9CA3AF',
-  },
-  transactionPoints: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#6B7280',
-    paddingVertical: 20,
-  },
-  errorText: {
-    textAlign: 'center',
-    color: '#DC2626',
-    paddingVertical: 12,
-  },
-  creditText: {
-    color: '#10B981',
-  },
-  debitText: {
-    color: '#EF4444',
-  },
-  redeemButton: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 30,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  redeemGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-  },
-  redeemButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
   textDark: {
     color: '#fff',
   },
   textMutedDark: {
     color: '#9CA3AF',
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '85%',
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  modalContentDark: {
-    backgroundColor: '#1a1a2e',
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1F2937',
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#1F2937',
-    backgroundColor: '#F9FAFB',
-  },
-  inputDark: {
-    borderColor: '#2d3561',
-    backgroundColor: '#16213e',
-    color: '#fff',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#F3F4F6',
-  },
-  cancelButtonText: {
-    color: '#4B5563',
-    fontWeight: '600',
-  },
-  confirmButton: {
-    backgroundColor: '#667eea',
-  },
-  confirmButtonText: {
-    color: '#fff',
-    fontWeight: '600',
   },
 });

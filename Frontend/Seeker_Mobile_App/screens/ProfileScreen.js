@@ -59,14 +59,7 @@ const menuItems = [
     color: '#667eea',
     screen: 'MyJobsScreen',
   },
-  {
-    id: 'mybids',
-    title: 'My Bids',
-    icon: 'gavel',
-    iconType: 'material',
-    color: '#4ECDC4',
-    screen: 'MyBidsScreen',
-  },
+  
   {
     id: 'myposts',
     title: 'My Posts',
@@ -117,8 +110,6 @@ export default function ProfileScreen() {
     location: getLocationString(user),
     memberSince: 'January 2024',
     avatar: getProfileImage(user?.profilePicture || user?.profileImage || user?.avatar),
-    starPoints: 1250,
-    totalServices: 24,
   });
 
   useEffect(() => {
@@ -337,22 +328,6 @@ export default function ProfileScreen() {
               <Ionicons name="location-outline" size={14} color="#ffffffcc" />
               <Text style={styles.locationText}>{userData.location}</Text>
             </View>
-
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.totalServices}</Text>
-              <Text style={styles.statLabel}>Services</Text>
-            </View>
-
-            <View style={styles.statDivider} />
-
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.starPoints}</Text>
-              <Text style={styles.statLabel}>Star Points</Text>
-            </View>
-
           </View>
         </LinearGradient>
 
@@ -607,32 +582,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#ffffffcc',
     fontWeight: '600',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff20',
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 16,
-    padding: 16,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#ffffffcc',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#ffffff30',
   },
   menuContainer: {
     paddingHorizontal: 16,
