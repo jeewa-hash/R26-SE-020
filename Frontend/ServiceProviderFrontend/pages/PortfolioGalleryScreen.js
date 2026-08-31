@@ -1,20 +1,37 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useContext, useEffect } from 'react';
 import {
   View,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  RefreshControl,
+  StatusBar,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { usePortfolio } from '../context/PortfolioContext';
+import { ThemeContext } from '../context/ThemeContext';
 import { Colors } from '../theme';
 import TagGallerySection from '../components/portfolio/TagGallerySection';
 
-export default function PortfolioGalleryScreen() {
-  const { portfolioImages, getAllTags, getImagesByTag } = usePortfolio();
+export default function PortfolioGalleryScreen({ navigation, route }) {
+  const { isDark } = useContext(ThemeContext) || {};
+  const { portfolioImages, getAllTags, getImagesByTag, loadPortfolio, loading } = usePortfolio();
   const [searchTag, setSearchTag] = useState('');
-  const [selectedTag, setSelectedTag] = useState('All');
+  const [selectedTag, setSelectedTag] = useState(route?.params?.category || 'All');
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (route?.params?.category) {
+      setSelectedTag(route.params.category);
+    }
+  }, [route?.params?.category]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadPortfolio();
+    setRefreshing(false);
+  };
 
   const allTags = getAllTags();
 
@@ -25,12 +42,15 @@ export default function PortfolioGalleryScreen() {
       (img) => new Date(img.uploadedAt) > yesterday
     );
     const recentTagSet = new Set();
-    recentImages.forEach((img) => img.tags.forEach((t) => recentTagSet.add(t)));
-    // Only mark as new if tag didn't exist before recent upload
+    recentImages.forEach((img) => {
+      if (Array.isArray(img.tags)) img.tags.forEach((t) => recentTagSet.add(t));
+    });
     const oldTags = new Set();
     portfolioImages
       .filter((img) => new Date(img.uploadedAt) <= yesterday)
-      .forEach((img) => img.tags.forEach((t) => oldTags.add(t)));
+      .forEach((img) => {
+        if (Array.isArray(img.tags)) img.tags.forEach((t) => oldTags.add(t));
+      });
     return new Set([...recentTagSet].filter((t) => !oldTags.has(t)));
   }, [portfolioImages]);
 
@@ -41,20 +61,51 @@ export default function PortfolioGalleryScreen() {
     );
   }, [allTags, searchTag, selectedTag]);
 
+  const C = isDark
+    ? {
+        bg: '#0f0f0f',
+        card: '#1c1c1e',
+        text: '#F2F2F7',
+        textSub: '#8E8E93',
+        border: '#2c2c2e',
+        chipBg: '#2a2a2a',
+        chipBorder: '#3a3a3c',
+        divider: '#2c2c2e',
+      }
+    : {
+        bg: '#F8FAFC',
+        card: '#FFFFFF',
+        text: '#111111',
+        textSub: '#6B7280',
+        border: '#E2E8F0',
+        chipBg: '#FFFFFF',
+        chipBorder: '#E2E8F0',
+        divider: '#E2E8F0',
+      };
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: C.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>My Portfolio</Text>
-          <Text style={styles.headerSub}>
-            {portfolioImages.length} images · {allTags.length} categories
-          </Text>
+      <View style={[styles.header, { backgroundColor: C.card, borderBottomColor: C.border }]}>
+        <View style={styles.headerLeft}>
+          {navigation?.canGoBack() && (
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+              <MaterialIcons name="arrow-back" size={24} color={C.text} />
+            </TouchableOpacity>
+          )}
+          <View>
+            <Text style={[styles.headerTitle, { color: C.text }]}>Portfolio Gallery</Text>
+            <Text style={[styles.headerSub, { color: C.textSub }]}>
+              {portfolioImages.length} images · {allTags.length} categories & tags
+            </Text>
+          </View>
         </View>
+
         <View style={styles.headerRight}>
           <View style={styles.countBadge}>
-            <MaterialIcons name="label" size={14} color={Colors.white} />
+            <MaterialIcons name="label" size={13} color="#FFFFFF" />
             <Text style={styles.countText}>{allTags.length}</Text>
           </View>
         </View>
@@ -62,31 +113,42 @@ export default function PortfolioGalleryScreen() {
 
       {portfolioImages.length === 0 ? (
         // Empty State
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="photo-library" size={64} color="#CBD5E1" />
-          <Text style={styles.emptyTitle}>No Portfolio Yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Upload images from the Home screen.{'\n'}
-            AI will automatically tag and organize them.
+        <ScrollView
+          contentContainerStyle={styles.emptyContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366F1" />
+          }
+        >
+          <MaterialIcons name="photo-library" size={64} color={isDark ? '#334155' : '#CBD5E1'} />
+          <Text style={[styles.emptyTitle, { color: C.text }]}>No Saved Portfolio Items</Text>
+          <Text style={[styles.emptySubtitle, { color: C.textSub }]}>
+            Upload work photos from your Profile screen.{'\n'}
+            AI ML Engine will classify, tag, and save them automatically.
           </Text>
-        </View>
+        </ScrollView>
       ) : (
-        <>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366F1" />
+          }
+        >
           {/* Stats Row */}
-          <View style={styles.statsRow}>
+          <View style={[styles.statsRow, { backgroundColor: C.card, borderColor: C.border }]}>
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{portfolioImages.length}</Text>
-              <Text style={styles.statLabel}>Images</Text>
+              <Text style={[styles.statValue, { color: C.text }]}>{portfolioImages.length}</Text>
+              <Text style={[styles.statLabel, { color: C.textSub }]}>Saved Photos</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: C.divider }]} />
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{allTags.length}</Text>
-              <Text style={styles.statLabel}>Tags</Text>
+              <Text style={[styles.statValue, { color: '#6366F1' }]}>{allTags.length}</Text>
+              <Text style={[styles.statLabel, { color: C.textSub }]}>Tags & Categories</Text>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: C.divider }]} />
             <View style={styles.statBox}>
-              <Text style={styles.statValue}>{newTags.size}</Text>
-              <Text style={styles.statLabel}>New Tags</Text>
+              <Text style={[styles.statValue, { color: '#16A34A' }]}>{newTags.size}</Text>
+              <Text style={[styles.statLabel, { color: C.textSub }]}>Recent</Text>
             </View>
           </View>
 
@@ -96,36 +158,39 @@ export default function PortfolioGalleryScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterRow}
           >
-            {['All', ...allTags].map((tag) => (
-              <TouchableOpacity
-                key={tag}
-                onPress={() => setSelectedTag(tag)}
-                style={[
-                  styles.filterChip,
-                  selectedTag === tag && styles.filterChipSelected,
-                ]}
-              >
-                {newTags.has(tag) && (
-                  <View style={styles.newDot} />
-                )}
-                <Text style={[
-                  styles.filterChipText,
-                  selectedTag === tag && styles.filterChipTextSelected,
-                ]}>
-                  {tag}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {['All', ...allTags].map((tag) => {
+              const isSelected = selectedTag === tag;
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  onPress={() => setSelectedTag(tag)}
+                  style={[
+                    styles.filterChip,
+                    { backgroundColor: C.chipBg, borderColor: C.chipBorder },
+                    isSelected && styles.filterChipSelected,
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  {newTags.has(tag) && <View style={styles.newDot} />}
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      { color: C.text },
+                      isSelected && styles.filterChipTextSelected,
+                    ]}
+                  >
+                    {tag}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
 
           {/* Gallery Sections */}
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-          >
+          <View style={styles.sectionsWrap}>
             {filteredTags.length === 0 ? (
               <View style={styles.noResults}>
-                <Text style={styles.noResultsText}>No tags found</Text>
+                <Text style={[styles.noResultsText, { color: C.textSub }]}>No tags or photos found</Text>
               </View>
             ) : (
               filteredTags.map((tag) => (
@@ -137,69 +202,73 @@ export default function PortfolioGalleryScreen() {
                 />
               ))
             )}
-            <View style={{ height: 90 }} />
-          </ScrollView>
-        </>
+          </View>
+
+          <View style={{ height: 60 }} />
+        </ScrollView>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1 },
 
   // Header
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingHorizontal: 16, paddingTop: 52, paddingBottom: 16,
-    backgroundColor: Colors.white,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingTop: 52, paddingBottom: 14,
+    borderBottomWidth: 0.5,
   },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: Colors.text },
-  headerSub: { fontSize: 13, color: Colors.textLight, marginTop: 2 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  backBtn: { padding: 4 },
+  headerTitle: { fontSize: 20, fontWeight: '700' },
+  headerSub: { fontSize: 12, marginTop: 2 },
   headerRight: { flexDirection: 'row', gap: 8 },
   countBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.primary, borderRadius: 12,
-    paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: '#6366F1', borderRadius: 12,
+    paddingHorizontal: 10, paddingVertical: 4,
   },
-  countText: { fontSize: 13, color: Colors.white, fontWeight: '700' },
+  countText: { fontSize: 12, color: '#FFFFFF', fontWeight: '700' },
 
   // Stats
   statsRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.white, padding: 16, marginBottom: 4,
+    paddingVertical: 14, borderRadius: 14, borderWidth: 0.5,
+    marginHorizontal: 14, marginTop: 14, marginBottom: 4,
   },
   statBox: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 20, fontWeight: 'bold', color: Colors.text },
-  statLabel: { fontSize: 11, color: Colors.textLight, marginTop: 2 },
-  statDivider: { width: 1, height: 30, backgroundColor: Colors.border },
+  statValue: { fontSize: 18, fontWeight: '700' },
+  statLabel: { fontSize: 11, marginTop: 2 },
+  statDivider: { width: 1, height: 26 },
 
   // Filter
-  filterRow: { paddingHorizontal: 12, gap: 8, paddingVertical: 12 },
+  filterRow: { paddingHorizontal: 14, gap: 8, paddingVertical: 12 },
   filterChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 20, backgroundColor: Colors.white,
-    borderWidth: 1, borderColor: '#E2E8F0',
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 20, borderWidth: 1,
   },
   filterChipSelected: {
-    backgroundColor: Colors.primary, borderColor: Colors.primary,
+    backgroundColor: '#6366F1', borderColor: '#6366F1',
   },
-  filterChipText: { fontSize: 13, color: Colors.text, fontWeight: '500' },
-  filterChipTextSelected: { color: Colors.white, fontWeight: '700' },
+  filterChipText: { fontSize: 13, fontWeight: '600' },
+  filterChipTextSelected: { color: '#FFFFFF', fontWeight: '700' },
   newDot: {
     width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A',
   },
 
   // Gallery
-  scrollContent: { padding: 12 },
+  scrollContent: { paddingBottom: 20 },
+  sectionsWrap: { paddingHorizontal: 14 },
   noResults: { alignItems: 'center', paddingVertical: 32 },
-  noResultsText: { fontSize: 14, color: Colors.textLight },
+  noResultsText: { fontSize: 14 },
 
   // Empty
   emptyContainer: {
-    flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32,
+    flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 32,
   },
-  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.text, marginTop: 16, marginBottom: 8 },
-  emptySubtitle: { fontSize: 14, color: Colors.textLight, textAlign: 'center', lineHeight: 22 },
-});
+  emptyTitle: { fontSize: 18, fontWeight: 'bold', marginTop: 16, marginBottom: 8 },
+  emptySubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
+});

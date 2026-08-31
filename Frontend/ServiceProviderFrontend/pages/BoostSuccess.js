@@ -1,16 +1,22 @@
 // pages/BoostSuccess.js
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useContext } from 'react';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, StatusBar } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../theme';
+import { ThemeContext } from '../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG } from '../config';
 
 export default function BoostSuccessScreen({ route, navigation }) {
+  const { isDark } = useContext(ThemeContext) || {};
   const { sessionId, isBilling } = route.params || {};
   const [confirming, setConfirming] = React.useState(true);
   const [successMessage, setSuccessMessage] = React.useState('');
+
+  const C = isDark
+    ? { bg: '#0f0f0f', text: '#F2F2F7', textSub: '#8E8E93' }
+    : { bg: '#F8FAFC', text: '#111111', textSub: '#6B7280' };
 
   React.useEffect(() => {
     const confirmPayment = async () => {
@@ -60,11 +66,12 @@ export default function BoostSuccessScreen({ route, navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: C.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       {confirming ? (
         <>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.title}>Confirming Payment...</Text>
+          <Text style={[styles.title, { color: C.text }]}>Confirming Payment...</Text>
         </>
       ) : (
         <>
@@ -73,10 +80,10 @@ export default function BoostSuccessScreen({ route, navigation }) {
             size={64}
             color={Colors.primary}
           />
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: C.text }]}>
             {isBilling ? 'Service Charge Paid!' : 'Boost Successful!'}
           </Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: C.textSub }]}>
             {successMessage || (isBilling ? 'Your account is in good standing and all features are unlocked.' : 'Your ad priority has been boosted.')}
           </Text>
 
@@ -94,7 +101,7 @@ export default function BoostSuccessScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   title: { fontSize: 20, fontWeight: '700', marginTop: 16, marginBottom: 8, textAlign: 'center' },
-  subtitle: { fontSize: 14, textAlign: 'center', color: '#6B7280', marginBottom: 28, lineHeight: 20 },
+  subtitle: { fontSize: 14, textAlign: 'center', marginBottom: 28, lineHeight: 20 },
   doneBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 12,
@@ -103,3 +110,4 @@ const styles = StyleSheet.create({
   },
   doneBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });
+
