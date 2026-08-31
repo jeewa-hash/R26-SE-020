@@ -37,6 +37,7 @@ router.get('/inquiries/notifications/:providerId', inquiryController.getProvider
 // Admin inquiry & penalty management endpoints
 router.get('/inquiries', inquiryController.getAllInquiries);
 router.get('/inquiries/penalty-registry', inquiryController.getPenaltyRegistry);
+router.post('/inquiries/send-penalty-warning/:providerId', inquiryController.sendPenaltyWarning);
 router.put('/inquiries/:id/review', inquiryController.reviewInquiry);
 router.put('/inquiries/provider/:id/toggle-lock', inquiryController.toggleProviderLock);
 

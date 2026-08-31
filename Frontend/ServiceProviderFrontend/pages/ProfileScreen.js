@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import {
-  View, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Dimensions, Alert
+  View, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Dimensions, Alert, Modal, Pressable, ActivityIndicator
 } from 'react-native';
 import { Text, FAB, Surface } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -96,6 +96,37 @@ export default function ProfileScreen({ navigation }) {
     earned: 'K',
   });
   const [loading, setLoading] = useState(true);
+
+  // Penalty restriction state
+  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
+  const [penaltyRatio, setPenaltyRatio] = useState('3/3');
+  const [checkingPenalty, setCheckingPenalty] = useState(false);
+
+  const handleFabPress = async () => {
+    try {
+      setCheckingPenalty(true);
+      const userId = await AsyncStorage.getItem('userId');
+      if (userId) {
+        const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
+        const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
+        if (res.ok) {
+          const statusData = await res.json();
+          const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
+          if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
+            setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+            setShowPenaltyModal(true);
+            setCheckingPenalty(false);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.log('Error checking penalty status before posting (FAB):', e.message);
+    } finally {
+      setCheckingPenalty(false);
+    }
+    navigation.getParent()?.navigate('PostGeneration');
+  };
 
   // Fetch profile data
   useEffect(() => {
@@ -420,8 +451,9 @@ export default function ProfileScreen({ navigation }) {
       {/* ── Floating Action Button ── */}
       <TouchableOpacity
         activeOpacity={0.9}
-        onPress={() => navigation.getParent()?.navigate('PostGeneration')}
+        onPress={handleFabPress}
         style={styles.fabButton}
+        disabled={checkingPenalty}
       >
         <LinearGradient
           colors={['#7C3AED', '#8B5CF6', '#A78BFA']}
@@ -429,7 +461,11 @@ export default function ProfileScreen({ navigation }) {
           end={{ x: 1, y: 1 }}
           style={styles.fabGradient}
         >
-          <MaterialIcons name="add" size={28} color="#FFFFFF" />
+          {checkingPenalty ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <MaterialIcons name="add" size={28} color="#FFFFFF" />
+          )}
         </LinearGradient>
       </TouchableOpacity>
 
@@ -442,6 +478,73 @@ export default function ProfileScreen({ navigation }) {
       {showTagScreen && images.length > 0 && (
         <PortfolioTagScreen images={images} onClose={handleCloseTagScreen} />
       )}
+
+      {/* ── Penalty Restriction Warning Modal ── */}
+      <Modal
+        visible={showPenaltyModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPenaltyModal(false)}
+      >
+        <Pressable
+          style={styles.penaltyModalOverlay}
+          onPress={() => setShowPenaltyModal(false)}
+        >
+          <Pressable
+            style={[
+              styles.penaltyModalContainer,
+              { backgroundColor: isDark ? '#1C192E' : '#FFFFFF', borderColor: isDark ? '#3D2A5C' : '#E2E8F0' },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {/* Warning Icon Badge */}
+            <View style={styles.penaltyWarningBadge}>
+              <MaterialIcons name="warning" size={32} color="#EF4444" />
+            </View>
+
+            {/* Score Pill */}
+            <View style={styles.penaltyScoreCapsule}>
+              <MaterialCommunityIcons name="shield-alert" size={14} color="#EF4444" />
+              <Text style={styles.penaltyScoreCapsuleText}>
+                Penalty Score: {penaltyRatio} (Critical Limit)
+              </Text>
+            </View>
+
+            <Text style={[styles.penaltyModalTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+              Posting Restricted
+            </Text>
+
+            <Text style={[styles.penaltyModalBody, { color: isDark ? '#CBD5E1' : '#475569' }]}>
+              Your penalty score has reached <Text style={{ fontWeight: 'bold', color: '#EF4444' }}>{penaltyRatio}</Text> due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.
+              {'\n\n'}
+              Please submit an inquiry for your missed bookings as soon as possible to get approval from Administration and restore your account access.
+            </Text>
+
+            {/* Action Buttons */}
+            <TouchableOpacity
+              style={styles.penaltySubmitBtn}
+              onPress={() => {
+                setShowPenaltyModal(false);
+                navigation.navigate('SubmitInquiry');
+              }}
+              activeOpacity={0.85}
+            >
+              <MaterialIcons name="rate-review" size={18} color="#FFFFFF" />
+              <Text style={styles.penaltySubmitBtnText}>Submit Inquiry Now</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.penaltyDismissBtn, { borderColor: isDark ? '#334155' : '#E2E8F0' }]}
+              onPress={() => setShowPenaltyModal(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.penaltyDismissBtnText, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                Close
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -622,4 +725,100 @@ const styles = StyleSheet.create({
   },
   submitInquiryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#f3f4ff', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 },
   submitInquiryBtnText: { fontSize: 13, fontWeight: '700', color: '#6366f1' },
+
+  // ── Penalty Restriction Modal Styles ──
+  penaltyModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 22,
+  },
+  penaltyModalContainer: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  penaltyWarningBadge: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: 'rgba(239, 68, 68, 0.14)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+  },
+  penaltyScoreCapsule: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+    marginBottom: 12,
+  },
+  penaltyScoreCapsuleText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  penaltyModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 10,
+    letterSpacing: -0.3,
+  },
+  penaltyModalBody: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  penaltySubmitBtn: {
+    width: '100%',
+    height: 48,
+    backgroundColor: '#7C3AED',
+    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  penaltySubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  penaltyDismissBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  penaltyDismissBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });

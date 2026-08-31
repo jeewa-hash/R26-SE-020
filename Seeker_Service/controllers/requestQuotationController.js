@@ -46,6 +46,27 @@ export const createRequestQuotation = async (req, res) => {
       });
     }
 
+    // Check if provider is bookable / penalty-restricted
+    try {
+      const adminUrl = process.env.ADMIN_SERVICE_URL || "http://127.0.0.1:5001";
+      const bookableRes = await axios.get(`${adminUrl}/api/inquiries/check-bookable/${providerId}`, { timeout: 3000 });
+      if (bookableRes.data) {
+        const pStatus = bookableRes.data;
+        if (pStatus.isRestricted || pStatus.isBlocked || (typeof pStatus.penaltyScore === "number" && pStatus.penaltyScore >= 3)) {
+          return res.status(403).json({
+            success: false,
+            error: "PROVIDER_RESTRICTED",
+            message: `This service provider is currently restricted from accepting new bookings due to active penalty points (${pStatus.penaltyRatio || '3/3'}). Please select another service provider.`,
+          });
+        }
+      }
+    } catch (checkErr) {
+      if (checkErr.response && checkErr.response.status === 403) {
+        return res.status(403).json(checkErr.response.data);
+      }
+      console.warn("Provider bookable check note:", checkErr.message);
+    }
+
     if (!Array.isArray(stepBreakdown)) {
       return res.status(400).json({
         success: false,
