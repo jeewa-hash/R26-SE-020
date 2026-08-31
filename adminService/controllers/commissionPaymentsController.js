@@ -1,85 +1,79 @@
 const mongoose = require('mongoose');
-
-/**
- * Helper to get DB connections
- */
+let cachedProviderDbConn = null;
 const getProviderDbConn = async () => {
+  if (cachedProviderDbConn && cachedProviderDbConn.readyState === 1) {
+    return cachedProviderDbConn;
+  }
   const providerMongoUri = process.env.PROVIDER_MONGO_URI || 
     'mongodb+srv://jkumarasekara_db_user:vfDFrozTabkpXDCl@cluster0.xggs3th.mongodb.net/Provider_Service?retryWrites=true&w=majority';
-  return mongoose.createConnection(providerMongoUri).asPromise();
+  cachedProviderDbConn = await mongoose.createConnection(providerMongoUri).asPromise();
+  return cachedProviderDbConn;
 };
 
+let cachedCoordDbConn = null;
 const getCoordinationDbConn = async () => {
+  if (cachedCoordDbConn && cachedCoordDbConn.readyState === 1) {
+    return cachedCoordDbConn;
+  }
   const coordMongoUri = process.env.COORDINATION_MONGO_URI || 
     'mongodb+srv://Chaveenn:Cwij7035@rp-r26-se-020.ce8egup.mongodb.net/PP1?appName=RP-R26-SE-020';
-  return mongoose.createConnection(coordMongoUri).asPromise();
+  cachedCoordDbConn = await mongoose.createConnection(coordMongoUri).asPromise();
+  return cachedCoordDbConn;
 };
+
+let cachedProviderMap = null;
+let lastProviderMapFetch = 0;
+
+let cachedBills = null;
+let lastBillsFetch = 0;
 
 /**
  * GET /api/monthly-commission-payments
  * Fetches all provider monthly 5% commission billing records with provider profiles, payment status, and summary metrics.
  */
 exports.getMonthlyCommissionPayments = async (req, res) => {
-  let providerConn = null;
   try {
     const { month, status, district, search } = req.query;
+    const nowTime = Date.now();
 
-    providerConn = await getProviderDbConn();
-    const billingColl = providerConn.collection('commissionbillings');
-    const providerColl = providerConn.collection('providers');
-
-    // 1. Fetch Provider Profile Map (from FinanceManagement or Provider_Service)
-    const providerMap = {};
-    try {
-      // First check local Admin FinanceManagement providers
-      if (mongoose.connection && mongoose.connection.db) {
-        const adminProviders = await mongoose.connection.db.collection('providers').find({}).toArray();
-        adminProviders.forEach(p => {
-          if (p._id) {
-            providerMap[p._id.toString()] = {
-              id: p._id.toString(),
-              fullName: p.fullName || p.name || 'Service Provider',
-              email: p.email || 'N/A',
-              phone: p.phone || p.contactNumber || p.phoneNumber || 'N/A',
-              district: p.district || 'Colombo',
-              city: p.city || '',
-              category: p.category || p.serviceType || (p.skills && p.skills[0]) || 'General Service',
-              avatar: p.profilePicture || p.avatar || '',
-            };
-          }
-        });
-      }
-
-      // Supplement / fallback with Provider_Service providers
-      const provServiceProviders = await providerColl.find({}).toArray();
-      provServiceProviders.forEach(p => {
-        const pid = p._id ? p._id.toString() : '';
-        if (pid && !providerMap[pid]) {
-          providerMap[pid] = {
-            id: pid,
-            fullName: p.fullName || p.name || 'Service Provider',
-            email: p.email || 'N/A',
-            phone: p.phone || p.contactNumber || p.phoneNumber || 'N/A',
-            district: p.district || 'Colombo',
-            city: p.city || '',
-            category: p.category || p.serviceType || (p.skills && p.skills[0]) || 'General Service',
-            avatar: p.profilePicture || p.avatar || '',
-          };
-        } else if (pid && providerMap[pid]) {
-          if (!providerMap[pid].phone || providerMap[pid].phone === 'N/A') {
-            providerMap[pid].phone = p.phone || p.contactNumber || p.phoneNumber || 'N/A';
-          }
-          if (!providerMap[pid].category || providerMap[pid].category === 'General Service') {
-            providerMap[pid].category = p.category || p.serviceType || (p.skills && p.skills[0]) || 'General Service';
-          }
+    // 1. Fetch Provider Profile Map (cached for 60s for lightning-fast performance)
+    let providerMap = cachedProviderMap;
+    if (!providerMap || nowTime - lastProviderMapFetch > 60000) {
+      providerMap = {};
+      try {
+        if (mongoose.connection && mongoose.connection.db) {
+          const adminProviders = await mongoose.connection.db.collection('providers').find({}).toArray();
+          adminProviders.forEach((p) => {
+            if (p._id) {
+              providerMap[p._id.toString()] = {
+                id: p._id.toString(),
+                fullName: p.fullName || p.name || 'Service Provider',
+                email: p.email || 'N/A',
+                phone: p.phone || p.contactNumber || p.phoneNumber || 'N/A',
+                district: p.district || 'Colombo',
+                city: p.city || '',
+                category: p.category || p.serviceType || (p.skills && p.skills[0]) || 'General Service',
+                avatar: p.profilePicture || p.avatar || '',
+              };
+            }
+          });
         }
-      });
-    } catch (pErr) {
-      console.warn('Error loading provider profiles:', pErr.message);
+      } catch (pErr) {
+        console.warn('Error loading local providers:', pErr.message);
+      }
+      cachedProviderMap = providerMap;
+      lastProviderMapFetch = nowTime;
     }
 
-    // 2. Fetch all Commission Billings
-    const allBills = await billingColl.find({}).sort({ billingMonth: -1, createdAt: -1 }).toArray();
+    // 2. Fetch Commission Billings (cached for 5s for concurrency resilience)
+    let allBills = cachedBills;
+    if (!allBills || nowTime - lastBillsFetch > 5000) {
+      const providerConn = await getProviderDbConn();
+      const billingColl = providerConn.collection('commissionbillings');
+      allBills = await billingColl.find({}).sort({ billingMonth: -1, createdAt: -1 }).toArray();
+      cachedBills = allBills;
+      lastBillsFetch = nowTime;
+    }
 
     // 3. Transform and Enrich Billing Records
     const now = new Date();
