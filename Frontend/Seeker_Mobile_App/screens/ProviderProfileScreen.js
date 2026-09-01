@@ -39,11 +39,48 @@ export default function ProviderProfileScreen({ route, navigation }) {
   const [isRequested, setIsRequested] = useState(Boolean(initialIsRequested));
   const [quotationModalVisible, setQuotationModalVisible] = useState(false);
   const [seekerId, setSeekerId] = useState(user?.id || user?._id || null);
+  const [restrictionInfo, setRestrictionInfo] = useState({
+    isRestricted: false,
+    penaltyScore: 0,
+    penaltyRatio: '0/3',
+  });
 
   useEffect(() => {
     if (user?.id || user?._id) setSeekerId(user.id || user._id);
     else AsyncStorage.getItem('userId').then(setSeekerId).catch(() => {});
   }, [user]);
+
+  useEffect(() => {
+    const fetchProviderStatus = async () => {
+      if (!providerId) return;
+
+      try {
+        const response = await fetch(
+          `http://${IP_ADDRESS}:5001/api/inquiries/check-bookable/${providerId}`
+        );
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const penaltyScore =
+          typeof data.penaltyScore === 'number'
+            ? data.penaltyScore
+            : data.activeMissedBookingsCount || 0;
+
+        setRestrictionInfo({
+          isRestricted:
+            Boolean(data.isRestricted || data.isBlocked) ||
+            penaltyScore >= 3 ||
+            provider.isVerified === false,
+          penaltyScore,
+          penaltyRatio: data.penaltyRatio || `${penaltyScore}/3`,
+        });
+      } catch (error) {
+        console.log('Error checking provider restriction status:', error.message);
+      }
+    };
+
+    fetchProviderStatus();
+  }, [providerId, provider.isVerified]);
 
   // Check if this provider has already been requested for this seeker & session
   useEffect(() => {
