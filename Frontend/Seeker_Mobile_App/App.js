@@ -51,7 +51,8 @@ import SuggestedSlotsScreen from './screens/IT22129376/SuggestedSlotsScreen';
 import ConfirmJobScreen from './screens/IT22129376/ConfirmJobScreen';
 import ScheduledJobDetailsScreen from './screens/IT22129376/ScheduledJobDetailsScreen';
 import JobHistoryDetailsScreen from './screens/IT22129376/JobHistoryDetailsScreen';
-
+import SeekerServiceSessionsScreen from './screens/IT22129376/SeekerServiceSessionsScreen';
+import SeekerServiceSessionDetailsScreen from './screens/IT22129376/SeekerServiceSessionDetailsScreen';
 // Chat Screens
 import { ChatProvider } from './context/ChatContext';
 import ChatListScreen from './screens/ChatListScreen';
@@ -115,7 +116,7 @@ function AppNavigator({ initialRouteName }) {
         name="Home"
         component={HomeScreen}
         options={{ headerShown: false }}
-/>
+      />
 
       <Stack.Screen
         name="FeedScreen"
@@ -138,7 +139,7 @@ function AppNavigator({ initialRouteName }) {
       <Stack.Screen
         name="FollowUpScreen"
         component={FollowUpScreen}
-         options={{ headerShown: false }}
+        options={{ headerShown: false }}
       />
 
       <Stack.Screen
@@ -282,6 +283,12 @@ function AppNavigator({ initialRouteName }) {
         options={{ headerShown: false }}
       />
 
+      <Stack.Screen
+        name="SeekerServiceSessions"
+        component={SeekerServiceSessionsScreen}
+        options={{ headerShown: false }}
+      />
+
       {/* Profile Sub Screens */}
       <Stack.Screen
         name="MyBidsScreen"
@@ -341,6 +348,12 @@ function AppNavigator({ initialRouteName }) {
       <Stack.Screen
         name="RescheduleScreen"
         component={RescheduleScreen}
+        options={{ headerShown: false }}
+      />
+
+      <Stack.Screen
+        name="SeekerServiceSessionDetails"
+        component={SeekerServiceSessionDetailsScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>
