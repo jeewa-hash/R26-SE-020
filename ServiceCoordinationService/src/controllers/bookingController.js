@@ -451,16 +451,16 @@ export const createBookingFromCoordination = async (req, res) => {
 
     const pad = (value) => String(value).padStart(2, "0");
 
-    const scheduledDate = `${startDate.getUTCFullYear()}-${pad(
-      startDate.getUTCMonth() + 1
-    )}-${pad(startDate.getUTCDate())}`;
+    const scheduledDate = `${startDate.getFullYear()}-${pad(
+      startDate.getMonth() + 1
+    )}-${pad(startDate.getDate())}`;
 
-    const startTime = `${pad(startDate.getUTCHours())}:${pad(
-      startDate.getUTCMinutes()
+    const startTime = `${pad(startDate.getHours())}:${pad(
+      startDate.getMinutes()
     )}`;
 
-    const endTime = `${pad(endDate.getUTCHours())}:${pad(
-      endDate.getUTCMinutes()
+    const endTime = `${pad(endDate.getHours())}:${pad(
+      endDate.getMinutes()
     )}`;
 
     const finalDurationHours = Number(scheduleEvaluation.mlPredictedDurationHours) > 0
