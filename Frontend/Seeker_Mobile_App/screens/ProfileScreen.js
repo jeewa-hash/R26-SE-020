@@ -67,14 +67,14 @@ const menuItems = [
     color: '#667eea',
     screen: 'SeekerServiceSessions',
   },
-  {
-    id: 'myjobs',
-    title: 'My Jobs',
-    icon: 'work',
-    iconType: 'material',
-    color: '#667eea',
-    screen: 'MyJobsScreen',
-  },
+  // {
+  //   id: 'myjobs',
+  //   title: 'My Jobs',
+  //   icon: 'work',
+  //   iconType: 'material',
+  //   color: '#667eea',
+  //   screen: 'MyJobsScreen',
+  // },
   {
     id: 'myposts',
     title: 'My Posts',
