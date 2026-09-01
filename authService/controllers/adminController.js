@@ -1020,3 +1020,41 @@ exports.dispatchHighDemandAlerts = async (req, res) => {
     res.status(500).json({ message: 'Internal server error while dispatching alerts' });
   }
 };
+
+/**
+ * Direct Internal Dispatch to Provider Notification & Real-time Socket
+ */
+exports.notifyProviderInternal = async (req, res) => {
+  try {
+    const { providerId, title, message, type, category } = req.body;
+    if (!providerId) {
+      return res.status(400).json({ success: false, message: 'Provider ID is required' });
+    }
+
+    const pNotif = await ProviderNotification.create({
+      providerId,
+      title: title || 'WorkWave Notification',
+      message: message || '',
+      type: type || 'admin',
+      category: category || 'admin',
+      isRead: false,
+    });
+
+    try {
+      const ioInstance = socketModule.getIO();
+      if (ioInstance) {
+        ioInstance.to(providerId.toString()).emit('new_notification', pNotif);
+        ioInstance.to(providerId.toString()).emit('notification', pNotif);
+        console.log(`[SOCKET EMITTED] to room ${providerId}`);
+      }
+    } catch (e) {
+      console.warn('Socket emit warning in notifyProviderInternal:', e.message);
+    }
+
+    return res.status(200).json({ success: true, notification: pNotif });
+  } catch (err) {
+    console.error('notifyProviderInternal error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+

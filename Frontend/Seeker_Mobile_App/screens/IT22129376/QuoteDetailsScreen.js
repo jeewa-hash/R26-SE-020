@@ -91,8 +91,8 @@ export default function QuoteDetailsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   card: { backgroundColor: COLORS.card, borderRadius: 22, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: '#EEF2F7' },
   cardDark: { backgroundColor: COLORS.darkCard, borderColor: COLORS.darkBorder },
-  amount: { color: COLORS.primary, fontSize: 30, fontWeight: '900' },
-  title: { color: COLORS.text, fontSize: 20, fontWeight: '900', marginTop: 6 },
+  amount: { color: COLORS.primary, fontSize: 30, fontWeight: '600' },
+  title: { color: COLORS.text, fontSize: 20, fontWeight: '600', marginTop: 6 },
   note: { color: COLORS.muted, fontSize: 14, lineHeight: 21, marginTop: 10 },
   divider: { height: 1, backgroundColor: '#EEF2F7', marginVertical: 16 },
   textDark: { color: COLORS.darkText },

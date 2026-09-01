@@ -1,13 +1,38 @@
 import axios from 'axios';
-import { COORDINATION_SERVICE_URL } from '../config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CONFIG } from '../config';
 
 const coordinationApi = axios.create({
-  baseURL: COORDINATION_SERVICE_URL,
-  timeout: 10000,
+  baseURL: CONFIG.COORDINATION_SERVICE_URL,
+  timeout: 15000,
+});
+
+coordinationApi.interceptors.request.use(async (config) => {
+  const token =
+    (await AsyncStorage.getItem('userToken')) ||
+    (await AsyncStorage.getItem('token')) ||
+    (await AsyncStorage.getItem('accessToken')) ||
+    (await AsyncStorage.getItem('authToken'));
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${String(token).replace(/^Bearer\s+/i, '').trim()}`;
+  }
+  config.headers.Accept = 'application/json';
+  return config;
 });
 
 export const getProviderCalendar = async (providerId) => {
   const response = await coordinationApi.get(`/calendar/provider/${providerId}`);
+  return response.data;
+};
+
+export const getProviderBookings = async (providerId) => {
+  const response = await coordinationApi.get(providerId ? `/bookings/provider/${providerId}` : '/bookings/provider/me');
+  return response.data;
+};
+
+export const getProviderOngoingBookings = async (providerId) => {
+  const response = await coordinationApi.get(providerId ? `/bookings/provider/${providerId}/ongoing` : '/bookings/provider/me/ongoing');
   return response.data;
 };
 
@@ -16,37 +41,33 @@ export const getBookingById = async (bookingId) => {
   return response.data;
 };
 
-export const confirmBooking = async (bookingId) => {
-  const response = await coordinationApi.put(`/bookings/${bookingId}/confirm`);
+export const confirmProviderReady = async (bookingId) => {
+  const response = await coordinationApi.put(`/bookings/${bookingId}/confirm-ready`);
   return response.data;
 };
 
-export const startBooking = async (bookingId, actualStartTime) => {
-  const response = await coordinationApi.put(`/bookings/${bookingId}/start`, {
-    actualStartTime,
-  });
+export const startBooking = async (bookingId) => {
+  const response = await coordinationApi.put(`/bookings/${bookingId}/start`);
   return response.data;
 };
 
-export const completeBooking = async (bookingId, actualEndTime) => {
-  const response = await coordinationApi.put(`/bookings/${bookingId}/complete`, {
-    actualEndTime,
-  });
+export const markBookingOnTheWay = async (bookingId) => {
+  const response = await coordinationApi.put(`/bookings/${bookingId}/on-the-way`);
   return response.data;
 };
 
-export const reportStartDelay = async (payload) => {
-  const response = await coordinationApi.post('/delays/start-delay', payload);
+export const reportDelay = async (bookingId, payload) => {
+  const response = await coordinationApi.put(`/bookings/${bookingId}/report-delay`, payload);
   return response.data;
 };
 
-export const reportExecutionDelay = async (payload) => {
-  const response = await coordinationApi.post('/delays/execution-delay', payload);
+export const completeBooking = async (bookingId) => {
+  const response = await coordinationApi.put(`/bookings/${bookingId}/complete`);
   return response.data;
 };
 
 export const generateRescheduleSuggestions = async (payload) => {
-  const response = await coordinationApi.post('/reschedule/suggest', payload);
+  const response = await coordinationApi.post('/reschedules/suggest', payload);
   return response.data;
 };
 

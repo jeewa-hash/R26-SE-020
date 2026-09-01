@@ -15,8 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { ThemeContext } from '../context/ThemeContext';
 import { LanguageContext } from '../context/LanguageContext';
 import SettingsScreen from '../screens/SettingsScreen';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { clearCredentials } from '../utils/biometricAuth';
+import { clearAllAuthStorage } from '../pages/IT22129376/services/providerAuthStorage';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
@@ -105,27 +104,7 @@ export default function ProfileHeader({
   };
 
   const handleLogout = async () => {
-    try {
-      await clearCredentials();
-    } catch (e) {}
-
-    const keysToClear = [
-      'userToken',
-      'token',
-      'authToken',
-      'accessToken',
-      'userId',
-      'providerId',
-      'seekerId',
-      'userRole',
-      'role',
-      'user',
-      'currentUser',
-      'provider',
-      'seeker',
-    ];
-    await AsyncStorage.multiRemove(keysToClear);
-    console.log('LOGOUT: all auth keys cleared');
+    await clearAllAuthStorage();
 
     navigation.dispatch(
       CommonActions.reset({

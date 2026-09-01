@@ -52,6 +52,38 @@ export default function ProfileOfProvider({ route, navigation }) {
 
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [restrictionInfo, setRestrictionInfo] = useState({
+    isRestricted: false,
+    penaltyScore: 0,
+    penaltyRatio: '0/3',
+    reason: '',
+  });
+
+  useEffect(() => {
+    const fetchProviderStatus = async () => {
+      const pId = providerId || provider._id || provider.id;
+      if (!pId) return;
+      try {
+        const adminUrl = `http://${IP_ADDRESS}:5001`;
+        const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${pId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const score = typeof data.penaltyScore === 'number' ? data.penaltyScore : (data.activeMissedBookingsCount || 0);
+          if (data.isRestricted || data.isBlocked || score >= 3 || provider.isVerified === false) {
+            setRestrictionInfo({
+              isRestricted: true,
+              penaltyScore: score,
+              penaltyRatio: data.penaltyRatio || `${score}/3`,
+              reason: data.restrictionReason || 'Account restricted due to penalty score or administrative limits.',
+            });
+          }
+        }
+      } catch (err) {
+        console.log('Error checking provider status in profileOfProvider:', err.message);
+      }
+    };
+    fetchProviderStatus();
+  }, [providerId, provider]);
 
   const getProfileImage = (profileImage) => {
     if (!profileImage) return null;
@@ -82,6 +114,15 @@ export default function ProfileOfProvider({ route, navigation }) {
   //  START CHAT WITH PROVIDER
   // ─────────────────────────────────────────────────────────────
   const handleChatWithProvider = async () => {
+    if (restrictionInfo.isRestricted || isVerified === false || provider.isBlocked) {
+      Alert.alert(
+        'Provider Unavailable',
+        `This service provider cannot receive new quotation requests or bookings at this time because their penalty points exceeded the platform limit (${restrictionInfo.penaltyRatio || '3/3'}) or account verification is pending. Please choose another verified professional.`,
+        [{ text: 'Understood' }]
+      );
+      return;
+    }
+
     try {
       setIsStartingChat(true);
       let currentUserId = user?.id;
@@ -225,6 +266,23 @@ export default function ProfileOfProvider({ route, navigation }) {
             </View>
           </View>
         </View>
+
+        {/* Penalty / Account Restriction Alert Banner */}
+        {restrictionInfo.isRestricted && (
+          <View style={styles.restrictionBanner}>
+            <View style={styles.restrictionBannerHeader}>
+              <Ionicons name="alert-circle" size={22} color="#DC2626" />
+              <Text style={styles.restrictionBannerTitle}>
+                Provider Temporarily Unavailable ({restrictionInfo.penaltyRatio})
+              </Text>
+            </View>
+            <Text style={styles.restrictionBannerText}>
+              This service provider is currently restricted from accepting new quotation requests and bookings due to penalty limits reached ({restrictionInfo.penaltyRatio}) or pending account verification.
+              {'\n\n'}
+              Please select another active and verified professional for your requirement.
+            </Text>
+          </View>
+        )}
 
         {/* Bio / Description */}
         {bio.length > 0 && (
@@ -623,5 +681,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#ffffff',
+  },
+
+  // ── Restriction Banner Styles ──
+  restrictionBanner: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  restrictionBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  restrictionBannerTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  restrictionBannerText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#991B1B',
   },
 });

@@ -47,7 +47,7 @@ const rescheduleRequestSchema = new mongoose.Schema(
 
     postId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true,
+      default: null,
       index: true,
     },
 
@@ -61,6 +61,16 @@ const rescheduleRequestSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       required: true,
       index: true,
+    },
+
+    sessionId: { type: String, default: "", index: true, trim: true },
+    quotationId: { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
+    requestedStartTime: { type: Date, default: null },
+    note: { type: String, default: "", trim: true },
+    createdBy: {
+      type: String,
+      enum: ["PROVIDER", "SEEKER", "SYSTEM"],
+      default: "SYSTEM",
     },
 
     // Stores whether provider, seeker, or system requested the reschedule
@@ -117,7 +127,7 @@ const rescheduleRequestSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["PENDING", "ACCEPTED", "REJECTED", "EXPIRED"],
+      enum: ["PENDING", "PENDING_PROVIDER_REVIEW", "ACCEPTED", "REJECTED", "EXPIRED"],
       default: "PENDING",
     },
   },

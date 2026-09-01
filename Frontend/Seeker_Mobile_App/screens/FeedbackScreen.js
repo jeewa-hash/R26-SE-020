@@ -1,178 +1,116 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
   TouchableOpacity,
   TextInput,
-  StatusBar,
-  Image,
+  ScrollView,
   Alert,
-  Platform,
   ActivityIndicator,
+  Platform,
+  StatusBar,
 } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTranslation } from 'react-i18next';
-import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = Platform.OS === 'android' 
+// Replace with your actual machine IP if testing on a real device
+const API_BASE_URL = Platform.OS === 'android'
   ? 'http://10.0.2.2:6000'
   : 'http://localhost:6000';
 
-export default function FeedbackScreen() {
-  const { t } = useTranslation();
-  const navigation = useNavigation();
+export default function FeedbackScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();
-  const route = useRoute();
-  const { service, providerName, serviceTitle, providerId, serviceId, bookingId } = route.params || {
-    service: {
-      title: "Electrical Wiring",
-      provider: "Apex Electrical",
-      date: "Mar 15, 2024",
-      image: "https://randomuser.me/api/portraits/men/1.jpg",
-      id: "1"
-    },
-    providerName: "Apex Electrical",
-    serviceTitle: "Electrical Wiring",
-    providerId: "provider_123",
-    serviceId: "service_123",
-  };
+  const {
+    bookingId,
+    providerName = 'Provider',
+    serviceTitle = 'Service',
+    providerId,
+    serviceId,
+  } = route.params || {};
 
+  // ---- State ----
   const [rating, setRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
+  const [recommendation, setRecommendation] = useState(null); // true / false / null
   const [isAnonymous, setIsAnonymous] = useState(false);
-  const [recommendation, setRecommendation] = useState(null);
-  const [selectedImages, setSelectedImages] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const renderStars = () => {
-    let stars = [];
-    const currentRating = hoverRating || rating;
-    
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <TouchableOpacity
-          key={i}
-          onPress={() => setRating(i)}
-          onMouseEnter={() => setHoverRating(i)}
-          onMouseLeave={() => setHoverRating(0)}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={i <= currentRating ? "star" : "star-outline"}
-            size={44}
-            color={i <= currentRating ? "#FBBF24" : (isDarkMode ? "#4B5563" : "#D1D5DB")}
-          />
-        </TouchableOpacity>
-      );
-    }
-    return stars;
-  };
+  // For existing feedback check & provider average
+  const [existingFeedback, setExistingFeedback] = useState(false);
+  const [providerAvgRating, setProviderAvgRating] = useState(null);
+  const [fetchingData, setFetchingData] = useState(true);
 
-  const getRatingText = () => {
-    if (rating === 5) return "Excellent! 🌟";
-    if (rating === 4) return "Good! 👍";
-    if (rating === 3) return "Average 👌";
-    if (rating === 2) return "Could be better 😕";
-    if (rating === 1) return "Poor 😞";
-    return "Tap to rate your experience";
-  };
+  // ---- Fetch provider average rating & check existing feedback ----
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!bookingId || !providerId) {
+        setFetchingData(false);
+        return;
+      }
 
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Needed', 'Please grant permission to access your photos');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setSelectedImages([...selectedImages, result.assets[0].uri]);
-    }
-  };
-
-  const removeImage = (index) => {
-    const newImages = [...selectedImages];
-    newImages.splice(index, 1);
-    setSelectedImages(newImages);
-  };
-
-  const uploadImages = async () => {
-    const uploadedUrls = [];
-    for (const imageUri of selectedImages) {
-      const formData = new FormData();
-      formData.append('image', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'review_image.jpg',
-      });
-      
       try {
-        const response = await fetch(`${API_BASE_URL}/upload`, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+        const token = await AsyncStorage.getItem('userToken');
+        if (!token) {
+          setFetchingData(false);
+          return;
+        }
+
+        // 1. Check if feedback already exists for this booking
+        const checkRes = await fetch(`${API_BASE_URL}/feedback/booking/${bookingId}`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await response.json();
-        if (data.url) {
-          uploadedUrls.push(data.url);
+        const checkData = await checkRes.json();
+        if (checkData.success && checkData.hasReviewed) {
+          setExistingFeedback(true);
+          setFetchingData(false);
+          return; // No need to fetch provider rating if already reviewed
+        }
+
+        // 2. Fetch provider's average rating (optional)
+        const avgRes = await fetch(`${API_BASE_URL}/feedback/provider/${providerId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const avgData = await avgRes.json();
+        if (avgData.success && avgData.count > 0) {
+          const total = avgData.data.reduce((sum, f) => sum + f.rating, 0);
+          const avg = (total / avgData.count).toFixed(1);
+          setProviderAvgRating(avg);
         }
       } catch (error) {
-        console.error('Image upload error:', error);
+        console.warn('Error fetching feedback data:', error);
+      } finally {
+        setFetchingData(false);
       }
-    }
-    return uploadedUrls;
-  };
+    };
 
-  const handleSubmitReview = async () => {
+    fetchData();
+  }, [bookingId, providerId]);
+
+  // ---- Submit feedback ----
+  const handleSubmit = async () => {
+    // Validations
     if (rating === 0) {
-      Alert.alert("Rating Required", "Please select a rating for your experience");
+      Alert.alert('Missing Rating', 'Please select a rating (1-5 stars).');
       return;
     }
-    
     if (reviewText.trim().length < 10) {
-      Alert.alert("Review Too Short", "Please write at least 10 characters for your review");
+      Alert.alert('Review Too Short', 'Please write at least 10 characters.');
       return;
     }
-    
+    if (reviewText.trim().length > 500) {
+      Alert.alert('Review Too Long', 'Please keep your review under 500 characters.');
+      return;
+    }
+
     setLoading(true);
-    
     try {
-      // Upload images first if any
-      let imageUrls = [];
-      if (selectedImages.length > 0) {
-        imageUrls = await uploadImages();
-      }
-      
-      // Submit review to backend
-      const reviewData = {
-        bookingId: bookingId || serviceId || service?.id,
-        rating: rating,
-        reviewText: reviewText.trim(),
-        recommendation: recommendation,
-        isAnonymous: isAnonymous,
-        images: imageUrls,
-        createdAt: new Date().toISOString(),
-      };
-      
       const token = await AsyncStorage.getItem('userToken');
       if (!token) {
-        Alert.alert("Sign in required", "Please sign in to submit feedback.");
+        Alert.alert('Error', 'Please log in again.');
         return;
       }
 
@@ -182,58 +120,110 @@ export default function FeedbackScreen() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(reviewData),
+        body: JSON.stringify({
+          bookingId,
+          rating,
+          reviewText: reviewText.trim(),
+          recommendation,
+          isAnonymous,
+          images: [], // you can add image upload later
+        }),
       });
-      
+
       const data = await response.json();
-      
-      if (response.ok) {
-        Alert.alert(
-          "Review Submitted!",
-          "Thank you for your feedback. Your review has been posted.",
-          [
-            { 
-              text: "OK",
-              onPress: () => navigation.goBack()
-            }
-          ]
-        );
-      } else {
-        Alert.alert("Error", data.message || "Failed to submit review. Please try again.");
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to submit feedback.');
       }
+
+      Alert.alert(
+        'Thank You!',
+        'Your review has been submitted successfully.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     } catch (error) {
-      console.error('Submit review error:', error);
-      Alert.alert("Error", "Network error. Please check your connection and try again.");
+      Alert.alert('Error', error.message || 'Could not submit feedback.');
     } finally {
       setLoading(false);
     }
   };
 
-  const getServiceData = () => {
-    if (service && service.title) return service;
-    return {
-      title: serviceTitle || "Service",
-      provider: providerName || "Provider",
-      date: service?.date || "Recently",
-      image: service?.image || "https://randomuser.me/api/portraits/men/1.jpg",
-      id: service?.id || serviceId,
-    };
+  // ---- Render stars ----
+  const renderStars = () => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <TouchableOpacity key={i} onPress={() => setRating(i)}>
+          <Ionicons
+            name={i <= rating ? 'star' : 'star-outline'}
+            size={36}
+            color={i <= rating ? '#FBBF24' : '#D1D5DB'}
+            style={styles.star}
+          />
+        </TouchableOpacity>
+      );
+    }
+    return stars;
   };
 
-  const serviceData = getServiceData();
+  // ---- If still fetching, show loader ----
+  if (fetchingData) {
+    return (
+      <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#667eea" />
+          <Text style={[styles.loaderText, isDarkMode && styles.textDark]}>
+            Loading...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
+  // ---- If already reviewed, show message ----
+  if (existingFeedback) {
+    return (
+      <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+        <LinearGradient
+          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
+          style={styles.header}
+        >
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Review</Text>
+          <View style={{ width: 40 }} />
+        </LinearGradient>
+
+        <View style={styles.alreadyReviewedContainer}>
+          <Ionicons name="checkmark-circle" size={64} color="#10B981" />
+          <Text style={[styles.alreadyReviewedTitle, isDarkMode && styles.textDark]}>
+            You already reviewed this booking
+          </Text>
+          <Text style={[styles.alreadyReviewedSub, isDarkMode && styles.textMutedDark]}>
+            Thank you for your feedback!
+          </Text>
+          <TouchableOpacity
+            style={styles.goBackButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.goBackText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ---- Main form ----
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      <StatusBar 
-        barStyle={isDarkMode ? "light-content" : "dark-content"} 
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"} 
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
       />
-      
+
       {/* Header */}
       <LinearGradient
         colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
         style={styles.header}
       >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -243,277 +233,135 @@ export default function FeedbackScreen() {
         <View style={{ width: 40 }} />
       </LinearGradient>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-      >
-        {/* Service Info Card */}
-        <LinearGradient
-          colors={isDarkMode ? ['#16213e', '#1a1a2e'] : ['#ffffff', '#f8f9fa']}
-          style={styles.serviceCard}
-        >
-          <Image source={{ uri: serviceData.image }} style={styles.serviceImage} />
-          <View style={styles.serviceInfo}>
-            <Text style={[styles.serviceTitle, isDarkMode && styles.textDark]}>{serviceData.title}</Text>
-            <Text style={[styles.serviceProvider, isDarkMode && styles.textMutedDark]}>{serviceData.provider}</Text>
-            <View style={styles.serviceDateContainer}>
-              <Ionicons name="calendar-outline" size={12} color="#9CA3AF" />
-              <Text style={[styles.serviceDate, isDarkMode && styles.textMutedDark]}>Completed on {serviceData.date}</Text>
-            </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* Service & Provider Info */}
+        <View style={[styles.serviceCard, isDarkMode && styles.serviceCardDark]}>
+          <Text style={[styles.serviceTitle, isDarkMode && styles.textDark]}>
+            {serviceTitle}
+          </Text>
+          <View style={styles.providerRow}>
+            <Text style={[styles.providerName, isDarkMode && styles.textMutedDark]}>
+              {providerName}
+            </Text>
+            {providerAvgRating && (
+              <View style={styles.ratingBadge}>
+                <Ionicons name="star" size={16} color="#FBBF24" />
+                <Text style={styles.ratingBadgeText}>{providerAvgRating}</Text>
+              </View>
+            )}
           </View>
-        </LinearGradient>
-
-        {/* Rating Section */}
-        <View style={[styles.section, isDarkMode && styles.sectionDark]}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionIcon}>
-              <Ionicons name="star-outline" size={20} color="#FBBF24" />
-            </View>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Rate Your Experience</Text>
-          </View>
-          <Text style={[styles.sectionSubtitle, isDarkMode && styles.textMutedDark]}>How was your service with {serviceData.provider}?</Text>
-          
-          <View style={styles.starsContainer}>
-            {renderStars()}
-          </View>
-          
-          <Text style={[styles.ratingText, isDarkMode && styles.textMutedDark]}>{getRatingText()}</Text>
         </View>
 
-        {/* Review Text Section */}
-        <View style={[styles.section, isDarkMode && styles.sectionDark]}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionIcon}>
-              <Ionicons name="create-outline" size={20} color="#667eea" />
-            </View>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Write Your Review</Text>
-          </View>
-          <Text style={[styles.sectionSubtitle, isDarkMode && styles.textMutedDark]}>Share your experience with others</Text>
-          
+        {/* Rating */}
+        <View style={styles.ratingContainer}>
+          <Text style={[styles.label, isDarkMode && styles.textDark]}>Your Rating</Text>
+          <View style={styles.starsContainer}>{renderStars()}</View>
+          <Text style={[styles.ratingText, isDarkMode && styles.textMutedDark]}>
+            {rating > 0 ? `${rating} star${rating > 1 ? 's' : ''}` : 'Tap a star to rate'}
+          </Text>
+        </View>
+
+        {/* Review Text */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, isDarkMode && styles.textDark]}>Your Review</Text>
           <TextInput
-            style={[styles.reviewInput, isDarkMode && styles.inputDark]}
+            style={[styles.textArea, isDarkMode && styles.textAreaDark]}
+            placeholder="Share your experience (min 10 characters)"
+            placeholderTextColor="#9CA3AF"
             multiline
             numberOfLines={6}
-            placeholder="What did you like about this service? What could be improved?"
-            placeholderTextColor={isDarkMode ? "#6B7280" : "#9CA3AF"}
+            textAlignVertical="top"
             value={reviewText}
             onChangeText={setReviewText}
-            textAlignVertical="top"
           />
-          
-          <View style={styles.charContainer}>
-            <Ionicons name="text-outline" size={14} color="#9CA3AF" />
-            <Text style={[styles.charCount, isDarkMode && styles.textMutedDark]}>
-              {reviewText.length}/500 characters
-            </Text>
-          </View>
+          <Text style={[styles.charCount, isDarkMode && styles.textMutedDark]}>
+            {reviewText.length}/500
+          </Text>
         </View>
 
-        {/* Quick Suggestions */}
-        <View style={[styles.section, isDarkMode && styles.sectionDark]}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionIcon}>
-              <Ionicons name="bulb-outline" size={20} color="#F59E0B" />
-            </View>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Quick Suggestions</Text>
-          </View>
-          
-          <View style={styles.suggestionsContainer}>
-            <TouchableOpacity 
-              style={[styles.suggestionChip, isDarkMode && styles.suggestionChipDark]}
-              onPress={() => setReviewText(reviewText + " The service was professional and on time. ")}
-            >
-              <Text style={[styles.suggestionText, isDarkMode && styles.textDark]}>✅ Professional & on time</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.suggestionChip, isDarkMode && styles.suggestionChipDark]}
-              onPress={() => setReviewText(reviewText + " Great communication and fair pricing. ")}
-            >
-              <Text style={[styles.suggestionText, isDarkMode && styles.textDark]}>💬 Great communication</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.suggestionChip, isDarkMode && styles.suggestionChipDark]}
-              onPress={() => setReviewText(reviewText + " High quality work, would recommend! ")}
-            >
-              <Text style={[styles.suggestionText, isDarkMode && styles.textDark]}>⭐ High quality work</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.suggestionChip, isDarkMode && styles.suggestionChipDark]}
-              onPress={() => setReviewText(reviewText + " Could improve response time. ")}
-            >
-              <Text style={[styles.suggestionText, isDarkMode && styles.textDark]}>⏱️ Improve response time</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Would You Recommend */}
-        <View style={[styles.section, isDarkMode && styles.sectionDark]}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionIcon}>
-              <Ionicons name="people-outline" size={20} color="#10B981" />
-            </View>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Would You Recommend?</Text>
-          </View>
-          
-          <View style={styles.recommendContainer}>
-            <TouchableOpacity 
+        {/* Recommendation */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, isDarkMode && styles.textDark]}>
+            Would you recommend this provider?
+          </Text>
+          <View style={styles.buttonGroup}>
+            <TouchableOpacity
               style={[
-                styles.recommendOption,
-                recommendation === true && styles.recommendOptionActiveYes,
-                isDarkMode && styles.recommendOptionDark
+                styles.optionButton,
+                recommendation === true && styles.optionSelected,
+                isDarkMode && styles.optionButtonDark,
               ]}
               onPress={() => setRecommendation(true)}
             >
-              <Ionicons 
-                name="thumbs-up" 
-                size={24} 
-                color={recommendation === true ? "#fff" : "#10B981"} 
-              />
-              <Text style={[
-                styles.recommendText,
-                recommendation === true && styles.recommendTextActive,
-                isDarkMode && styles.textDark
-              ]}>Yes, I recommend</Text>
+              <Text style={[styles.optionText, recommendation === true && styles.optionTextSelected]}>
+                Yes
+              </Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.recommendOption,
-                recommendation === false && styles.recommendOptionActiveNo,
-                isDarkMode && styles.recommendOptionDark
+                styles.optionButton,
+                recommendation === false && styles.optionSelected,
+                isDarkMode && styles.optionButtonDark,
               ]}
               onPress={() => setRecommendation(false)}
             >
-              <Ionicons 
-                name="thumbs-down" 
-                size={24} 
-                color={recommendation === false ? "#fff" : "#EF4444"} 
-              />
-              <Text style={[
-                styles.recommendText,
-                recommendation === false && styles.recommendTextActive,
-                isDarkMode && styles.textDark
-              ]}>No, I don't recommend</Text>
+              <Text style={[styles.optionText, recommendation === false && styles.optionTextSelected]}>
+                No
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.optionButton,
+                recommendation === null && styles.optionSelected,
+                isDarkMode && styles.optionButtonDark,
+              ]}
+              onPress={() => setRecommendation(null)}
+            >
+              <Text style={[styles.optionText, recommendation === null && styles.optionTextSelected]}>
+                Skip
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Photo Upload Section */}
-        <View style={[styles.section, isDarkMode && styles.sectionDark]}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionIcon}>
-              <Ionicons name="camera-outline" size={20} color="#667eea" />
-            </View>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Add Photos (Optional)</Text>
-          </View>
-          <Text style={[styles.sectionSubtitle, isDarkMode && styles.textMutedDark]}>Share photos of the completed work</Text>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
-            <TouchableOpacity style={[styles.addPhotoButton, isDarkMode && styles.addPhotoButtonDark]} onPress={pickImage}>
-              <Ionicons name="camera" size={32} color="#667eea" />
-              <Text style={styles.addPhotoText}>Add Photo</Text>
-            </TouchableOpacity>
-            
-            {selectedImages.map((uri, index) => (
-              <View key={index} style={styles.photoPreview}>
-                <Image source={{ uri }} style={styles.previewImage} />
-                <TouchableOpacity 
-                  style={styles.removePhotoBtn}
-                  onPress={() => removeImage(index)}
-                >
-                  <Ionicons name="close-circle" size={24} color="#EF4444" />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Anonymous Option */}
-        <TouchableOpacity 
-          style={[styles.anonymousContainer, isDarkMode && styles.anonymousContainerDark]}
+        {/* Anonymous toggle */}
+        <TouchableOpacity
+          style={styles.anonymousToggle}
           onPress={() => setIsAnonymous(!isAnonymous)}
-          activeOpacity={0.7}
         >
-          <View style={styles.checkbox}>
-            {isAnonymous && <Ionicons name="checkmark" size={14} color="#667eea" />}
-          </View>
-          <View style={styles.anonymousContent}>
-            <Text style={[styles.anonymousText, isDarkMode && styles.textDark]}>Post anonymously</Text>
-            <Text style={[styles.anonymousSubtext, isDarkMode && styles.textMutedDark]}>Your name won't be shown publicly</Text>
-          </View>
+          <Ionicons
+            name={isAnonymous ? 'checkbox' : 'square-outline'}
+            size={24}
+            color="#667eea"
+          />
+          <Text style={[styles.anonymousText, isDarkMode && styles.textDark]}>
+            Post anonymously
+          </Text>
         </TouchableOpacity>
 
-        {/* Submit Button */}
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmitReview} disabled={loading}>
+        {/* Submit button */}
+        <TouchableOpacity
+          style={[styles.submitButton, loading && styles.submitDisabled]}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
           <LinearGradient
-            colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#667eea', '#764ba2']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            colors={['#667eea', '#764ba2']}
             style={styles.submitGradient}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <>
-                <Text style={styles.submitButtonText}>Submit Review</Text>
-                <Ionicons name="send" size={20} color="#fff" />
-              </>
+              <Text style={styles.submitText}>Submit Review</Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
-
-        {/* Preview Section */}
-        {reviewText.length > 10 && rating > 0 && !loading && (
-          <View style={styles.previewSection}>
-            <Text style={[styles.previewTitle, isDarkMode && styles.textMutedDark]}>Preview your review</Text>
-            <LinearGradient
-              colors={isDarkMode ? ['#16213e', '#1a1a2e'] : ['#ffffff', '#f8f9fa']}
-              style={styles.previewCard}
-            >
-              <View style={styles.previewHeader}>
-                <Image 
-                  source={{ uri: "https://i.pravatar.cc/150?img=7" }} 
-                  style={styles.previewAvatar} 
-                />
-                <View>
-                  <Text style={[styles.previewName, isDarkMode && styles.textDark]}>
-                    {isAnonymous ? "Anonymous User" : "Tashmi Perera"}
-                  </Text>
-                  <View style={styles.previewStars}>
-                    {[...Array(5)].map((_, i) => (
-                      <Ionicons 
-                        key={i}
-                        name={i < rating ? "star" : "star-outline"}
-                        size={12}
-                        color="#FBBF24"
-                      />
-                    ))}
-                  </View>
-                </View>
-              </View>
-              <Text style={[styles.previewText, isDarkMode && styles.textMutedDark]}>{reviewText}</Text>
-              {recommendation !== null && (
-                <View style={styles.previewRecommend}>
-                  <Ionicons 
-                    name={recommendation ? "thumbs-up" : "thumbs-down"} 
-                    size={14} 
-                    color={recommendation ? "#10B981" : "#EF4444"} 
-                  />
-                  <Text style={[styles.previewRecommendText, isDarkMode && styles.textMutedDark]}>
-                    {recommendation ? "Recommends this provider" : "Does not recommend this provider"}
-                  </Text>
-                </View>
-              )}
-            </LinearGradient>
-          </View>
-        )}
       </ScrollView>
-
-      <BottomNav />
     </SafeAreaView>
   );
 }
 
+// ---- Styles ----
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -544,351 +392,204 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   content: {
-    paddingBottom: 100,
+    padding: 20,
+    paddingBottom: 40,
   },
   serviceCard: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 16,
+    backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 16,
-    borderRadius: 20,
+    marginBottom: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  serviceImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 14,
-  },
-  serviceInfo: {
-    flex: 1,
+  serviceCardDark: {
+    backgroundColor: '#16213e',
   },
   serviceTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#1F2937',
     marginBottom: 4,
   },
-  serviceProvider: {
-    fontSize: 13,
+  providerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  providerName: {
+    fontSize: 14,
     color: '#6B7280',
-    marginBottom: 6,
   },
-  serviceDateContainer: {
+  ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    backgroundColor: '#FBBF2410',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
   },
-  serviceDate: {
-    fontSize: 11,
-    color: '#9CA3AF',
-  },
-  section: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 20,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  sectionDark: {
-    backgroundColor: '#16213e',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 8,
-  },
-  sectionIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#667eea15',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: 16,
+  ratingBadgeText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#FBBF24',
+    marginLeft: 4,
   },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 20,
-    marginLeft: 42,
+  ratingContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1F2937',
+    marginBottom: 8,
+    alignSelf: 'flex-start',
   },
   starsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 12,
-    marginVertical: 20,
+    marginVertical: 8,
+  },
+  star: {
+    marginHorizontal: 4,
   },
   ratingText: {
-    textAlign: 'center',
     fontSize: 14,
-    fontWeight: '500',
     color: '#6B7280',
-    marginTop: 8,
+    marginTop: 4,
   },
-  reviewInput: {
-    backgroundColor: '#F9FAFB',
+  inputGroup: {
+    marginBottom: 24,
+  },
+  textArea: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 16,
-    padding: 16,
-    fontSize: 14,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
     color: '#1F2937',
-    minHeight: 140,
-    lineHeight: 20,
+    backgroundColor: '#F9FAFB',
+    minHeight: 120,
   },
-  inputDark: {
-    backgroundColor: '#1a1a2e',
+  textAreaDark: {
     borderColor: '#2d3561',
+    backgroundColor: '#16213e',
     color: '#fff',
   },
-  charContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 6,
-    marginTop: 10,
-  },
   charCount: {
-    fontSize: 11,
-    color: '#9CA3AF',
-  },
-  suggestionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  suggestionChip: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  suggestionChipDark: {
-    backgroundColor: '#1a1a2e',
-  },
-  suggestionText: {
     fontSize: 12,
     color: '#6B7280',
+    textAlign: 'right',
+    marginTop: 4,
   },
-  recommendContainer: {
+  buttonGroup: {
     flexDirection: 'row',
     gap: 12,
   },
-  recommendOption: {
+  optionButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    backgroundColor: '#fff',
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
   },
-  recommendOptionDark: {
-    backgroundColor: '#1a1a2e',
+  optionButtonDark: {
     borderColor: '#2d3561',
+    backgroundColor: '#16213e',
   },
-  recommendOptionActiveYes: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
+  optionSelected: {
+    borderColor: '#667eea',
+    backgroundColor: '#667eea10',
   },
-  recommendOptionActiveNo: {
-    backgroundColor: '#EF4444',
-    borderColor: '#EF4444',
-  },
-  recommendText: {
+  optionText: {
     fontSize: 14,
     fontWeight: '500',
     color: '#6B7280',
   },
-  recommendTextActive: {
-    color: '#fff',
-  },
-  photoScroll: {
-    flexDirection: 'row',
-  },
-  addPhotoButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    backgroundColor: '#F9FAFB',
-  },
-  addPhotoButtonDark: {
-    backgroundColor: '#1a1a2e',
-    borderColor: '#2d3561',
-  },
-  addPhotoText: {
-    fontSize: 10,
+  optionTextSelected: {
     color: '#667eea',
-    marginTop: 6,
   },
-  photoPreview: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  previewImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-  },
-  removePhotoBtn: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-  },
-  anonymousContainer: {
+  anonymousToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  anonymousContainerDark: {
-    backgroundColor: '#16213e',
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#667eea',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  anonymousContent: {
-    flex: 1,
+    gap: 8,
+    marginBottom: 24,
   },
   anonymousText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 16,
     color: '#1F2937',
   },
-  anonymousSubtext: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
   submitButton: {
-    marginHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 16,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 5,
+    marginTop: 8,
+  },
+  submitDisabled: {
+    opacity: 0.7,
   },
   submitGradient: {
-    flexDirection: 'row',
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
   },
-  submitButtonText: {
+  submitText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
-  },
-  previewSection: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  previewTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginBottom: 10,
-  },
-  previewCard: {
-    padding: 16,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  previewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  previewAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  previewName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
-  previewStars: {
-    flexDirection: 'row',
-    gap: 2,
-    marginTop: 4,
-  },
-  previewText: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
-    marginBottom: 10,
-  },
-  previewRecommend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  previewRecommendText: {
-    fontSize: 12,
-    color: '#6B7280',
   },
   textDark: {
     color: '#fff',
   },
   textMutedDark: {
     color: '#9CA3AF',
+  },
+  // Already reviewed screen
+  alreadyReviewedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  alreadyReviewedTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  alreadyReviewedSub: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  goBackButton: {
+    marginTop: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    backgroundColor: '#667eea',
+    borderRadius: 12,
+  },
+  goBackText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loaderText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6B7280',
   },
 });

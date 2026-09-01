@@ -1,12 +1,14 @@
 import mongoose from "mongoose";
 import axios from "axios";
 import RequestQuotation from "../models/RequestQuotation.js";
+import Feedback from "../models/feedbackModel.js";
 
 export const createRequestQuotation = async (req, res) => {
   try {
     const {
       seekerId,
       providerId,
+      postId,
       sessionId,
       detectedCategory,
       detectedObject,
@@ -15,6 +17,9 @@ export const createRequestQuotation = async (req, res) => {
       briefDescription,
       urgencyLevel,
       serviceLocation,
+      serviceLatitude,
+      serviceLongitude,
+      location,
       preferredStartTime, // Chaw - Added seeker preferred start time
       preferredEndTime, // Chaw - Added seeker preferred end time/window
       preferredTimeLabel, // Chaw - Added readable preferred time label
@@ -35,14 +40,80 @@ export const createRequestQuotation = async (req, res) => {
       });
     }
 
-    if (
-      !mongoose.Types.ObjectId.isValid(seekerId) ||
-      !mongoose.Types.ObjectId.isValid(providerId)
-    ) {
+    if (!mongoose.Types.ObjectId.isValid(seekerId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid seeker or provider ID",
+        message: "Invalid seeker ID",
       });
+    }
+
+    let finalProviderId = providerId;
+    let finalPostId = postId || null;
+    const adLookupId = postId || providerId;
+    let providerAdResolved = false;
+
+    if (mongoose.Types.ObjectId.isValid(adLookupId)) {
+      try {
+        const providerServiceUrl = (process.env.PROVIDER_SERVICE_URL || "http://127.0.0.1:3002").replace(/\/$/, "");
+        const adResponse = await axios.get(`${providerServiceUrl}/api/provider/ads/${adLookupId}`, { timeout: 3000 });
+        const maybePost = adResponse.data?.data || adResponse.data?.post || adResponse.data;
+        if (maybePost?._id && maybePost?.providerId) {
+          finalProviderId = maybePost.providerId?._id || maybePost.providerId;
+          finalPostId = maybePost._id;
+          providerAdResolved = true;
+        }
+      } catch (lookupError) {
+        if (postId) {
+          console.warn("Provider ad lookup warning:", lookupError.message);
+        }
+      }
+    }
+
+    if (postId && !providerAdResolved) {
+      return res.status(400).json({
+        success: false,
+        message: "Unable to verify the selected provider post",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(finalProviderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid provider ID",
+      });
+    }
+
+    if (finalPostId && !mongoose.Types.ObjectId.isValid(finalPostId)) {
+      return res.status(400).json({ success: false, message: "Invalid post ID" });
+    }
+
+    console.log("REQUEST QUOTATION ID DEBUG:", {
+      incomingProviderId: providerId,
+      incomingPostId: postId,
+      finalProviderId,
+      finalPostId,
+      sessionId,
+    });
+
+    // Check if provider is bookable / penalty-restricted
+    try {
+      const adminUrl = process.env.ADMIN_SERVICE_URL || "http://127.0.0.1:5001";
+      const bookableRes = await axios.get(`${adminUrl}/api/inquiries/check-bookable/${finalProviderId}`, { timeout: 3000 });
+      if (bookableRes.data) {
+        const pStatus = bookableRes.data;
+        if (pStatus.isRestricted || pStatus.isBlocked || (typeof pStatus.penaltyScore === "number" && pStatus.penaltyScore >= 3)) {
+          return res.status(403).json({
+            success: false,
+            error: "PROVIDER_RESTRICTED",
+            message: `This service provider is currently restricted from accepting new bookings due to active penalty points (${pStatus.penaltyRatio || '3/3'}). Please select another service provider.`,
+          });
+        }
+      }
+    } catch (checkErr) {
+      if (checkErr.response && checkErr.response.status === 403) {
+        return res.status(403).json(checkErr.response.data);
+      }
+      console.warn("Provider bookable check note:", checkErr.message);
     }
 
     if (!Array.isArray(stepBreakdown)) {
@@ -99,22 +170,25 @@ export const createRequestQuotation = async (req, res) => {
 
     const existingRequest = await RequestQuotation.findOne({
       seekerId,
-      providerId,
+      providerId: finalProviderId,
       sessionId,
     });
 
     if (existingRequest) {
       return res.status(409).json({
         success: false,
-        message:
-          "A request has already been sent to this provider for this session",
-        request: existingRequest,
+        message: "You have already requested a quotation from this provider for this service.",
+        data: existingRequest,
       });
     }
 
+    const resolvedServiceLocation = serviceLocation || location?.address || "";
+    const resolvedLatitude = serviceLatitude ?? location?.lat ?? null;
+    const resolvedLongitude = serviceLongitude ?? location?.lng ?? null;
     const request = await RequestQuotation.create({
       seekerId,
-      providerId,
+      providerId: finalProviderId,
+      postId: finalPostId,
       sessionId,
       detectedCategory,
       detectedObject,
@@ -122,7 +196,10 @@ export const createRequestQuotation = async (req, res) => {
       stepBreakdown,
       briefDescription,
       urgencyLevel,
-      serviceLocation,
+      serviceLocation: resolvedServiceLocation,
+      serviceLatitude: resolvedLatitude,
+      serviceLongitude: resolvedLongitude,
+      location: { address: resolvedServiceLocation, lat: resolvedLatitude, lng: resolvedLongitude },
       preferredStartTime: preferredStartTime || null, // Chaw - Save seeker preferred start time if provided
       preferredEndTime: preferredEndTime || null, // Chaw - Save seeker preferred end time if provided
       preferredTimeLabel: preferredTimeLabel || "", // Chaw - Save readable preferred time label
@@ -270,10 +347,10 @@ export const updateRequestStatus = async (req, res) => {
       });
     }
 
-    if (!["confirmed", "cancelled"].includes(status)) {
+    if (!["pending", "quoted", "accepted", "rejected", "cancelled", "expired"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Status must be confirmed or cancelled",
+        message: "Invalid request quotation status",
       });
     }
 
@@ -290,7 +367,7 @@ export const updateRequestStatus = async (req, res) => {
       });
     }
 
-    if (request.status !== "pending") {
+    if (["accepted", "rejected", "cancelled", "expired"].includes(request.status)) {
       return res.status(400).json({
         success: false,
         message: `Request is already ${request.status}`,
@@ -313,6 +390,42 @@ export const updateRequestStatus = async (req, res) => {
       message: "Server error",
       error: error.message,
     });
+  }
+};
+
+export const markSessionSelection = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { seekerId, acceptedRequestId } = req.body;
+
+    if (!sessionId || !mongoose.Types.ObjectId.isValid(seekerId) ||
+        !mongoose.Types.ObjectId.isValid(acceptedRequestId)) {
+      return res.status(400).json({ success: false, message: "Invalid session selection data" });
+    }
+
+    const selected = await RequestQuotation.findOne({
+      _id: acceptedRequestId,
+      seekerId,
+      sessionId,
+    });
+    if (!selected) {
+      return res.status(404).json({ success: false, message: "Selected request quotation not found" });
+    }
+
+    await RequestQuotation.updateMany(
+      { seekerId, sessionId, _id: { $ne: selected._id }, status: { $in: ["pending", "quoted"] } },
+      { $set: { status: "rejected" } }
+    );
+    selected.status = "accepted";
+    await selected.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Request quotation selection updated successfully",
+      data: selected,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Unable to update request selection", error: error.message });
   }
 };
 
@@ -456,6 +569,25 @@ export const getProviderRecommendations = async (req, res) => {
       requestsByProvider[pid].push(req);
     }
 
+    // Fetch all feedbacks to calculate real average rating and review counts per provider
+    let allFeedbacks = [];
+    try {
+      allFeedbacks = await Feedback.find({});
+    } catch (fbErr) {
+      console.warn("Could not query feedbacks:", fbErr.message);
+    }
+    const feedbackStatsByProvider = {};
+    for (const fb of allFeedbacks) {
+      const pid = String(fb.providerId);
+      if (!feedbackStatsByProvider[pid]) {
+        feedbackStatsByProvider[pid] = { total: 0, count: 0 };
+      }
+      if (typeof fb.rating === "number" && fb.rating > 0) {
+        feedbackStatsByProvider[pid].total += fb.rating;
+        feedbackStatsByProvider[pid].count += 1;
+      }
+    }
+
     const now = new Date();
 
     // Strict Filter for Recommendations:
@@ -463,6 +595,7 @@ export const getProviderRecommendations = async (req, res) => {
     // 2. Must NOT be blocked, suspended, or rejected
     // 3. Must NOT have active temporary block
     // 4. Must NOT have >3 consecutive missed or cancelled bookings
+    // 5. Must have an Average Rating >= 4.0 (with real decimal ratings)
     const eligibleProviders = allProviders.filter((p) => {
       // 1. Verified check
       if (!p.isVerified) return false;
@@ -491,12 +624,32 @@ export const getProviderRecommendations = async (req, res) => {
         if (consecutiveCancelled > 3) return false;
       }
 
+      // 5. Average Rating >= 4.0 Check (Fetch real rating from DB with decimals)
+      const fbStat = feedbackStatsByProvider[pId];
+      let avgRating = 4.8;
+      let reviewCount = 0;
+      if (fbStat && fbStat.count > 0) {
+        avgRating = Number((fbStat.total / fbStat.count).toFixed(1));
+        reviewCount = fbStat.count;
+      } else if (p.rating && typeof p.rating === "number") {
+        avgRating = Number(Number(p.rating).toFixed(1));
+        reviewCount = p.reviewCount || 0;
+      }
+
+      // Exclude providers with average rating < 4.0
+      if (avgRating < 4.0) {
+        return false;
+      }
+
+      p.computedRating = avgRating;
+      p.computedReviewCount = reviewCount;
+
       return true;
     });
 
     const normalizedSeekerDistrict = (seekerDistrict || "").trim().toLowerCase();
 
-    // 5. Categorize and rank providers
+    // 6. Categorize and rank providers
     const isNewSeeker = topCategories.length === 0;
     let matchedProviders = [];
 
@@ -582,12 +735,14 @@ export const getProviderRecommendations = async (req, res) => {
       matchedProviders = [...districtMatches, ...otherMatches];
     }
 
-    // 6. Format output for Seeker Mobile App Carousel & Navigation
+    // 7. Format output for Seeker Mobile App Carousel & Navigation
     const recommendations = matchedProviders.map((p, idx) => {
       const pId = p._id || p.id;
       const displayName = p.name || p.fullName || (p.email ? p.email.split("@")[0] : `Provider ${idx + 1}`);
       const categoryName = p.category || "General Services";
       const districtName = p.district || seekerDistrict;
+      const realRating = p.computedRating || (p.rating ? Number(Number(p.rating).toFixed(1)) : 4.8);
+      const totalReviews = p.computedReviewCount !== undefined ? p.computedReviewCount : (p.reviewCount || 14);
 
       return {
         id: String(pId),
@@ -596,8 +751,8 @@ export const getProviderRecommendations = async (req, res) => {
         subtitle: `${categoryName} • ${districtName}`,
         category: categoryName,
         district: districtName,
-        rating: p.rating || 4.9,
-        reviewsCount: p.reviewCount || 14,
+        rating: realRating,
+        reviewsCount: totalReviews,
         isVerified: Boolean(p.isVerified),
         matchReason: p.matchReason,
         matchScore: p.matchScore,
@@ -614,7 +769,7 @@ export const getProviderRecommendations = async (req, res) => {
           profileImage: p.profileImage,
           bio: p.bio,
           isVerified: Boolean(p.isVerified),
-          rating: p.rating || 4.9,
+          rating: realRating,
           location: p.location,
         },
         portfolio: {
@@ -659,22 +814,14 @@ export const getProviderRequestsbyProvider = async (req, res) => {
       });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(providerId)) {
+      return res.status(400).json({ success: false, message: "Invalid provider ID" });
+    }
+
     const requests = await RequestQuotation.find({
       $or: [
-        { providerId: providerId },
-        { selectedProviderId: providerId },
-        { assignedProviderId: providerId },
-
-        // If your schema stores providers as arrays
-        { providerIds: providerId },
-        { selectedProviderIds: providerId },
-        { assignedProviderIds: providerId },
-
-        // If your schema stores provider objects
-        { "provider.providerId": providerId },
-        { "providers.providerId": providerId },
-        { "selectedProviders.providerId": providerId },
-        { "assignedProviders.providerId": providerId },
+        { providerId },
+        { providerId: new mongoose.Types.ObjectId(providerId) },
       ],
     }).sort({ createdAt: -1 });
 

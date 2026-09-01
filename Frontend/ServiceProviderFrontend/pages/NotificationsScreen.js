@@ -18,6 +18,7 @@ import { io } from 'socket.io-client';
 import * as Notifications from 'expo-notifications';
 import { IP_ADDRESS } from '../config';
 import { ThemeContext } from '../context/ThemeContext';
+import { getStoredProviderAuth } from './IT22129376/services/providerAuthStorage';
 
 const API_URL = `http://${IP_ADDRESS}:4003`;
 const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
@@ -118,7 +119,13 @@ export default function NotificationScreen({ navigation }) {
     fetchNotifications();
     setupSocketConnection();
 
+    // Auto-poll every 2.5 seconds to guarantee live updates without requiring manual pull-to-refresh
+    const interval = setInterval(() => {
+      fetchNotifications(false);
+    }, 2500);
+
     return () => {
+      clearInterval(interval);
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
@@ -189,7 +196,8 @@ export default function NotificationScreen({ navigation }) {
   // Real-time WebSocket setup with system tray notifications
   const setupSocketConnection = async () => {
     try {
-      const userId = (await AsyncStorage.getItem('userId')) || '69fc31f3cfe41c4d62e6f9ee';
+      const { providerId: userId } = await getStoredProviderAuth();
+      if (!userId) return;
 
       socketRef.current = io(API_URL, {
         transports: ['websocket'],
@@ -253,8 +261,8 @@ export default function NotificationScreen({ navigation }) {
   const fetchNotifications = async (showLoading = true) => {
     if (showLoading && !refreshing) setLoading(true);
     try {
-      const token = await AsyncStorage.getItem('userToken');
-      const userId = (await AsyncStorage.getItem('userId')) || '69fc31f3cfe41c4d62e6f9ee';
+      const { token, providerId: userId } = await getStoredProviderAuth();
+      if (!userId) return;
 
       let adminNotifs = [];
       let authNotifs = [];

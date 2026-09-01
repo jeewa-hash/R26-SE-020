@@ -88,14 +88,19 @@ export default function FeedScreen({ navigation }) {
 
       const data = await response.json();
 
-      if (data.success) {
+      if (data.success && Array.isArray(data.posts)) {
         const formattedPosts = data.posts.map((post) => ({
           id: post._id,
-          title: post.title,
-          description: post.description,
-          image: post.image,
+          _id: post._id,
+          title: post.title || 'Untitled Post',
+          description: post.description || '',
+          image: post.image || null,
           category: post.category || 'General',
           urgency: post.urgency || 'medium',
+          location: post.location || null,
+          preferredSchedule: post.preferredSchedule || null,
+          tags: post.tags || [],
+          createdAt: post.createdAt,
           date: new Date(post.createdAt).toLocaleDateString(
             'en-US',
             {
@@ -106,6 +111,7 @@ export default function FeedScreen({ navigation }) {
           ),
           timeAgo: formatTimeAgo(post.createdAt),
           responseCount: post.appliedBy ? post.appliedBy.length : 0,
+          rawPost: post,
         }));
 
         setPosts(formattedPosts);
@@ -148,7 +154,7 @@ export default function FeedScreen({ navigation }) {
   const handleEditPost = (post) => {
     navigation.navigate('CreatePostScreen', {
       editMode: true,
-      postData: post,
+      postData: post.rawPost || post,
     });
   };
 
@@ -204,24 +210,35 @@ export default function FeedScreen({ navigation }) {
     }
   };
 
-  // ─── VIEW RESPONSES – Navigate to PostResponsesScreen ──
+  // ─── VIEW RESPONSES – Navigate with Full Post Details ─────
   const handleViewResponses = (post) => {
     navigation.navigate('PostResponsesScreen', {
       postId: post.id,
       post: {
+        ...post,
+        id: post.id,
+        _id: post.id,
         title: post.title,
         description: post.description,
         image: post.image,
         category: post.category,
         urgency: post.urgency,
+        location: post.location,
+        preferredSchedule: post.preferredSchedule,
+        tags: post.tags,
+        date: post.date,
+        timeAgo: post.timeAgo,
+        responseCount: post.responseCount,
+        createdAt: post.createdAt,
       },
     });
   };
 
   // ─── URGENCY STYLE ────────────────────────────────────────
   const getUrgencyStyle = (urgency) => {
-    switch (urgency) {
+    switch (String(urgency).toLowerCase()) {
       case 'high':
+      case 'urgent':
         return { bg: '#FEE2E2', color: '#EF4444', text: 'Urgent' };
       case 'medium':
         return { bg: '#FEF3C7', color: '#F59E0B', text: 'Medium' };
@@ -263,7 +280,9 @@ export default function FeedScreen({ navigation }) {
         </LinearGradient>
 
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading your posts...</Text>
+          <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
+            Loading your posts...
+          </Text>
         </View>
 
         <BottomNav />
@@ -355,6 +374,7 @@ export default function FeedScreen({ navigation }) {
             refreshing={refreshing}
             onRefresh={onRefresh}
             colors={['#667eea']}
+            tintColor={isDarkMode ? '#667eea' : '#667eea'}
           />
         }
         showsVerticalScrollIndicator={false}

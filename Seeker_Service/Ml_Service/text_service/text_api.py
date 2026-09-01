@@ -63,25 +63,27 @@ def get_provider_feedback_scores() -> dict:
 
 
 def is_provider_restricted(provider_id):
-    """Return whether a provider must not be suggested because of missed bookings."""
+    """Return whether a provider must not be suggested because of penalty score, suspension, block, or unverified status."""
     if not provider_id:
         return False
 
     try:
         response = requests.get(
-            f"{INQUIRY_SERVICE_URL}/api/inquiries/missed-bookings/{provider_id}",
+            f"{INQUIRY_SERVICE_URL}/api/inquiries/check-bookable/{provider_id}",
             timeout=5,
         )
         if response.status_code != 200:
             return False
 
         data = response.json()
+        penalty_score = data.get("penaltyScore", 0)
         return bool(
             data.get("isRestricted", False)
-            or data.get("provider", {}).get("isBlocked", False)
+            or data.get("isBlocked", False)
+            or not data.get("isBookable", True)
+            or (isinstance(penalty_score, (int, float)) and penalty_score >= 3)
         )
     except (requests.RequestException, ValueError):
-        # Keep matching available if the inquiry service is temporarily unavailable.
         return False
 
 def normalize_service_category(value):
@@ -190,10 +192,15 @@ def filter_matching_providers(category, providers, district=None, feedback_score
 
     for item in providers:
         provider = item.get("provider", {})
-        if provider.get("isBlocked", False):
+        if (
+            provider.get("isBlocked", False)
+            or provider.get("isSuspended", False)
+            or provider.get("isRejected", False)
+            or not provider.get("isVerified", False)
+        ):
             continue
 
-        # Do not suggest providers restricted for active missed bookings.
+        # Do not suggest providers restricted for penalty score >= 3 or missed bookings.
         provider_id = provider.get("_id") or provider.get("id") or provider.get("providerId")
         if is_provider_restricted(provider_id):
             continue

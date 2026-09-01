@@ -10,6 +10,21 @@ import { formatCurrency, formatDateTime, formatDuration } from '../utils/dateTim
 
 export default function QuoteCard({ quote, onPress, onCheckCoordination, isDarkMode }) {
   const mapped = mapCoordinationDecision(quote.coordinationDecision);
+  const duration = Number(quote.estimatedDurationHours);
+  const hourlyRate = duration > 0 ? Number(quote.quotedPrice) / duration : null;
+  const quoteStatus = String(quote.status || 'SENT').toUpperCase();
+  const actionLabel = quoteStatus === 'ACCEPTED'
+    ? 'Booking Confirmed'
+    : quoteStatus === 'REJECTED'
+    ? 'Not Selected'
+    : quote.coordinationDecision === 'NOT_CHECKED'
+    ? 'Check Availability'
+    : ['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationDecision)
+    ? 'Accept & Schedule'
+    : ['NEEDS_RESCHEDULE', 'RESCHEDULE_REQUIRED'].includes(quote.coordinationDecision)
+    ? 'Request Reschedule'
+    : 'View Suggested Times';
+  const actionDisabled = ['ACCEPTED', 'REJECTED'].includes(quoteStatus);
 
   return (
     <TouchableOpacity style={[styles.card, isDarkMode && styles.cardDark]} onPress={onPress} activeOpacity={0.9}>
@@ -41,6 +56,11 @@ export default function QuoteCard({ quote, onPress, onCheckCoordination, isDarkM
       </View>
 
       <Text style={[styles.note, isDarkMode && styles.mutedDark]} numberOfLines={2}>{quote.note}</Text>
+      {hourlyRate !== null ? (
+        <Text style={[styles.hourlyRate, isDarkMode && styles.mutedDark]}>
+          {formatCurrency(hourlyRate)} per hour
+        </Text>
+      ) : null}
 
       <View style={styles.actionRow}>
         <View style={styles.actionFlex}>
@@ -48,10 +68,10 @@ export default function QuoteCard({ quote, onPress, onCheckCoordination, isDarkM
         </View>
         <View style={styles.actionFlex}>
           <ActionButton
-            label={quote.coordinationDecision === 'NOT_CHECKED' ? 'Check Risk' : 'View Result'}
+            label={actionLabel}
             variant="primary"
             icon="rule"
-            onPress={onCheckCoordination || onPress}
+            onPress={actionDisabled ? undefined : (onCheckCoordination || onPress)}
           />
         </View>
       </View>
@@ -77,16 +97,17 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: { width: 46, height: 46, borderRadius: 15, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' },
   providerArea: { flex: 1 },
-  providerName: { fontSize: 16, fontWeight: '900', color: COLORS.text },
+  providerName: { fontSize: 16, fontWeight: '600', color: COLORS.text },
   jobTitle: { fontSize: 12, fontWeight: '600', color: COLORS.muted, marginTop: 2 },
-  price: { fontSize: 17, fontWeight: '900', color: COLORS.primary },
+  price: { fontSize: 17, fontWeight: '600', color: COLORS.primary },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   offerBox: { flexDirection: 'row', backgroundColor: '#F9FAFB', borderRadius: 16, padding: 12, marginTop: 14, gap: 12 },
   offerBoxDark: { backgroundColor: '#ffffff08' },
   offerItem: { flex: 1 },
-  offerLabel: { fontSize: 11, fontWeight: '700', color: COLORS.muted, marginBottom: 4 },
-  offerValue: { fontSize: 13, fontWeight: '800', color: COLORS.text },
+  offerLabel: { fontSize: 11, fontWeight: '600', color: COLORS.muted, marginBottom: 4 },
+  offerValue: { fontSize: 13, fontWeight: '600', color: COLORS.text },
   note: { fontSize: 13, color: COLORS.muted, lineHeight: 18, marginTop: 12 },
+  hourlyRate: { fontSize: 12, fontWeight: '600', color: COLORS.muted, marginTop: 8 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   actionFlex: { flex: 1 },
   textDark: { color: COLORS.darkText },

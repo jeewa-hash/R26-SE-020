@@ -2,6 +2,7 @@ import express from "express";
 import {
   createRescheduleRequest,
   acceptRescheduleSlot,
+  rejectRescheduleRequest,
   getReschedulesByBooking,
 } from "../controllers/rescheduleController.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -16,8 +17,14 @@ router.post(
 
 router.put(
   "/:rescheduleId/accept",
-  protect(["ServiceProvider", "Seeker"]),
+  protect(["ServiceProvider"]),
   acceptRescheduleSlot
+);
+
+router.put(
+  "/:rescheduleId/reject",
+  protect(["ServiceProvider"]),
+  rejectRescheduleRequest
 );
 
 router.get(

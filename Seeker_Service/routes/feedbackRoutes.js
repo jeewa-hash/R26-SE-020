@@ -32,4 +32,4 @@ router.put("/:id", updateFeedback);
 // DELETE
 router.delete("/:id", deleteFeedback);
 
-export default router;
+export default router;

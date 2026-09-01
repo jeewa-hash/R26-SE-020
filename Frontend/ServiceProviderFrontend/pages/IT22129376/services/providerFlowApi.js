@@ -170,6 +170,17 @@ const idMatches = (value, targetId) => {
 const belongsToProvider = (item, providerId) => {
   if (!item || !providerId) return false;
 
+  const hasProviderReference = Boolean(
+    item.providerId || item.selectedProviderId || item.assignedProviderId ||
+    item.serviceProviderId || item.provider || item.serviceProvider ||
+    item.providerIds || item.selectedProviderIds || item.assignedProviderIds ||
+    item.providers || item.selectedProviders || item.assignedProviders ||
+    item.providerSnapshot?.id || item.providerSnapshot?._id || item.providerSnapshot?.providerId
+  );
+
+  // Authenticated provider-specific endpoints can omit the provider relation.
+  if (!hasProviderReference) return true;
+
   return (
     idMatches(item.providerId, providerId) ||
     idMatches(item.selectedProviderId, providerId) ||
@@ -232,6 +243,7 @@ export const getProviderRequests = async (providerId) => {
 
   console.log('Provider requests raw count:', rawRequests.length);
   console.log('Provider requests filtered count:', requests.length);
+  console.log('Provider requests filter providerId:', providerId);
 
   return {
     raw: data,
@@ -262,6 +274,10 @@ export const getProviderQuotations = async (providerId = null) => {
     ? filterForProvider(rawQuotations, providerId)
     : rawQuotations;
 
+  console.log('Provider quotations raw count:', rawQuotations.length);
+  console.log('Provider quotations filtered count:', quotations.length);
+  console.log('Provider quotations filter providerId:', providerId);
+
   return {
     raw: data,
     usedUrl,
@@ -281,6 +297,11 @@ export const getProviderJobs = async (providerId = null) => {
       auth: true,
     })),
 
+    ...(providerId ? COORDINATION_URLS.map((base) => ({
+      url: `${base}/bookings/provider/${providerId}`,
+      auth: false,
+    })) : []),
+
     ...COORDINATION_URLS.map((base) => ({
       url: `${base}/calendar/provider/me`,
       auth: true,
@@ -299,6 +320,10 @@ export const getProviderJobs = async (providerId = null) => {
 
   const jobs = providerId ? filterForProvider(rawJobs, providerId) : rawJobs;
 
+  console.log('Provider jobs raw count:', rawJobs.length);
+  console.log('Provider jobs filtered count:', jobs.length);
+  console.log('Provider jobs filter providerId:', providerId);
+
   return {
     raw: data,
     usedUrl,
@@ -307,6 +332,29 @@ export const getProviderJobs = async (providerId = null) => {
     rawCount: rawJobs.length,
     filteredCount: jobs.length,
   };
+};
+
+export const getProviderOngoingJobs = async (providerId = null) => {
+  const candidates = [
+    ...COORDINATION_URLS.map((base) => ({
+      url: `${base}/bookings/provider/me/ongoing`,
+      auth: true,
+    })),
+    ...(providerId ? COORDINATION_URLS.map((base) => ({
+      url: `${base}/bookings/provider/${providerId}/ongoing`,
+      auth: false,
+    })) : []),
+  ];
+
+  const { data, usedUrl } = await firstSuccess(candidates);
+  const rawJobs = normalizeList(data, ['bookings', 'jobs', 'data']);
+  const jobs = providerId ? filterForProvider(rawJobs, providerId) : rawJobs;
+
+  console.log('Provider ongoing raw count:', rawJobs.length);
+  console.log('Provider ongoing filtered count:', jobs.length);
+  console.log('Provider ongoing filter providerId:', providerId);
+
+  return { raw: data, usedUrl, rawList: rawJobs, jobs };
 };
 
 export const getProviderMissedInquiries = async () => {
@@ -542,6 +590,7 @@ export default {
   getProviderRequests,
   getProviderQuotations,
   getProviderJobs,
+  getProviderOngoingJobs,
   getProviderMissedInquiries,
   createProviderQuotation,
   getQuotationById,

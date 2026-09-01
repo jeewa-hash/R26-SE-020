@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timezone
 from bson import ObjectId
 from flask import Blueprint, request, jsonify
@@ -218,6 +219,50 @@ def get_items():
     }), 200
 
 
+# ── PUT /portfolio/items/<item_id> ───────────────────────────────────────────
+
+@portfolio_bp.route("/portfolio/items/<item_id>", methods=["PUT"])
+def update_item(item_id):
+    """
+    Header: Authorization: Bearer <token>
+    Updates tags, label, or specific_label of a portfolio item.
+    """
+    user, err = get_user_from_request()
+    if err:
+        return err
+
+    user_id = str(user["_id"])
+    db = get_db()
+
+    try:
+        oid = ObjectId(item_id)
+    except Exception:
+        return jsonify({"error": "Invalid item ID format."}), 400
+
+    data = request.get_json() or {}
+    update_fields = {}
+    if "tags" in data and isinstance(data["tags"], list):
+        update_fields["tags"] = [str(t).strip() for t in data["tags"] if str(t).strip()]
+    if "label" in data:
+        update_fields["label"] = str(data["label"]).strip()
+    if "specific_label" in data:
+        update_fields["specific_label"] = str(data["specific_label"]).strip()
+
+    if not update_fields:
+        return jsonify({"error": "No update fields provided."}), 400
+
+    result = db.portfolio_items.find_one_and_update(
+        {"_id": oid, "user_id": user_id},
+        {"$set": update_fields},
+        return_document=True
+    )
+
+    if not result:
+        return jsonify({"error": "Item not found or does not belong to you."}), 404
+
+    return jsonify({"message": "Portfolio item updated.", "item": _serialize(result)}), 200
+
+
 # ── DELETE /portfolio/items/<item_id> ─────────────────────────────────────────
 
 @portfolio_bp.route("/portfolio/items/<item_id>", methods=["DELETE"])
@@ -238,13 +283,22 @@ def delete_item(item_id):
     except Exception:
         return jsonify({"error": "Invalid item ID format."}), 400
 
-    result = db.portfolio_items.delete_one({
-        "_id":     oid,
-        "user_id": user_id,
-    })
-
-    if result.deleted_count == 0:
+    item = db.portfolio_items.find_one({"_id": oid, "user_id": user_id})
+    if not item:
         return jsonify({"error": "Item not found or does not belong to you."}), 404
+
+    # Remove file from uploads folder if it exists
+    image_url = item.get("image_url", "")
+    if image_url and image_url.startswith("/uploads/"):
+        filename = image_url.replace("/uploads/", "")
+        file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", filename)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
+
+    db.portfolio_items.delete_one({"_id": oid, "user_id": user_id})
 
     return jsonify({"message": "Portfolio item deleted.", "id": item_id}), 200
 @portfolio_bp.route("/portfolio/all-providers", methods=["GET"])

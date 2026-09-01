@@ -1,5 +1,7 @@
 // screens/ProfileScreen.js
+
 import React, { useState, useEffect } from 'react';
+
 import {
   View,
   Text,
@@ -16,6 +18,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,16 +32,21 @@ const BASE_AUTH_URL = `http://${IP_ADDRESS}:4003`;
 
 const getProfileImage = (imagePath) => {
   if (!imagePath) return 'https://i.pravatar.cc/150?img=7';
+
   if (imagePath.startsWith('http')) return imagePath;
+
   return `${BASE_AUTH_URL}/${imagePath.replace(/^\/+/, '')}`;
 };
 
 const getLocationString = (userObj) => {
   if (userObj?.district) return userObj.district;
+
   if (userObj?.address) return userObj.address;
+
   if (userObj?.location && typeof userObj.location === 'string') {
     return userObj.location;
   }
+
   return 'Location not set';
 };
 
@@ -52,20 +60,20 @@ const menuItems = [
     screen: 'BookingsScreen',
   },
   {
+    id: 'serviceSessions',
+    title: 'My Service Sessions',
+    icon: 'assignment',
+    iconType: 'material',
+    color: '#667eea',
+    screen: 'SeekerServiceSessions',
+  },
+  {
     id: 'myjobs',
     title: 'My Jobs',
     icon: 'work',
     iconType: 'material',
     color: '#667eea',
     screen: 'MyJobsScreen',
-  },
-  {
-    id: 'mybids',
-    title: 'My Bids',
-    icon: 'gavel',
-    iconType: 'material',
-    color: '#4ECDC4',
-    screen: 'MyBidsScreen',
   },
   {
     id: 'myposts',
@@ -103,11 +111,15 @@ const renderMenuIcon = (item) => {
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
+
   const { isDarkMode, toggleTheme } = useTheme();
+
   const { user, saveUser, logout } = useAuth();
 
   const [showEditModal, setShowEditModal] = useState(false);
+
   const [refreshing, setRefreshing] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
 
   const [userData, setUserData] = useState({
@@ -117,8 +129,6 @@ export default function ProfileScreen() {
     location: getLocationString(user),
     memberSince: 'January 2024',
     avatar: getProfileImage(user?.profilePicture || user?.profileImage || user?.avatar),
-    starPoints: 1250,
-    totalServices: 24,
   });
 
   useEffect(() => {
@@ -337,22 +347,6 @@ export default function ProfileScreen() {
               <Ionicons name="location-outline" size={14} color="#ffffffcc" />
               <Text style={styles.locationText}>{userData.location}</Text>
             </View>
-
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.totalServices}</Text>
-              <Text style={styles.statLabel}>Services</Text>
-            </View>
-
-            <View style={styles.statDivider} />
-
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{userData.starPoints}</Text>
-              <Text style={styles.statLabel}>Star Points</Text>
-            </View>
-
           </View>
         </LinearGradient>
 
@@ -517,18 +511,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
+
   containerDark: {
     backgroundColor: '#1a1a2e',
   },
+
   scrollContent: {
     paddingBottom: 100,
   },
+
   headerGradient: {
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingBottom: 30,
     paddingTop: Platform.OS === 'android' ? 12 : 8,
   },
+
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -537,6 +535,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 20,
   },
+
   backButton: {
     width: 40,
     height: 40,
@@ -545,19 +544,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#fff',
   },
+
   profileInfo: {
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+
   avatarContainer: {
     position: 'relative',
     marginBottom: 12,
   },
+
   avatar: {
     width: 100,
     height: 100,
@@ -565,6 +568,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#fff',
   },
+
   cameraIcon: {
     position: 'absolute',
     bottom: 2,
@@ -578,66 +582,48 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
   },
+
   userName: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#fff',
     marginBottom: 4,
   },
+
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginBottom: 8,
   },
+
   locationText: {
     fontSize: 13,
     color: '#ffffffcc',
   },
+
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
+
   starsContainer: {
     flexDirection: 'row',
     gap: 2,
   },
+
   ratingText: {
     fontSize: 13,
     color: '#ffffffcc',
     fontWeight: '600',
   },
-  statsRow: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff20',
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 16,
-    padding: 16,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#ffffffcc',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#ffffff30',
-  },
+
   menuContainer: {
     paddingHorizontal: 16,
     paddingTop: 20,
   },
+
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -651,9 +637,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+
   menuItemDark: {
     backgroundColor: '#16213e',
   },
+
   menuIcon: {
     width: 44,
     height: 44,
@@ -662,12 +650,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 14,
   },
+
   menuTitle: {
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
     color: '#1F2937',
   },
+
   logoutButton: {
     marginHorizontal: 16,
     marginTop: 20,
@@ -675,6 +665,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
   },
+
   logoutGradient: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -682,25 +673,30 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 8,
   },
+
   logoutText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
   },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
+
   modalContainer: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
   },
+
   modalContainerDark: {
     backgroundColor: '#16213e',
   },
+
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -709,14 +705,17 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
+
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#fff',
   },
+
   modalBody: {
     padding: 20,
   },
+
   changePhotoButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -728,23 +727,28 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 20,
   },
+
   changePhotoButtonDark: {
     borderColor: '#2d3561',
   },
+
   changePhotoText: {
     fontSize: 14,
     color: '#667eea',
     fontWeight: '500',
   },
+
   inputGroup: {
     marginBottom: 16,
   },
+
   inputLabel: {
     fontSize: 14,
     fontWeight: '500',
     color: '#1F2937',
     marginBottom: 6,
   },
+
   input: {
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
@@ -754,26 +758,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1F2937',
   },
+
   inputDark: {
     backgroundColor: '#1a1a2e',
     borderColor: '#2d3561',
     color: '#fff',
   },
+
   saveButton: {
     borderRadius: 10,
     overflow: 'hidden',
     marginTop: 12,
     marginBottom: 30,
   },
+
   saveGradient: {
     paddingVertical: 14,
     alignItems: 'center',
   },
+
   saveButtonText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
   },
+
   textDark: {
     color: '#fff',
   },

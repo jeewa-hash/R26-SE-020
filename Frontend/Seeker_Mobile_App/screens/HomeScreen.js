@@ -15,10 +15,12 @@ import {
   Alert,
   FlatList,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { LanguageContext } from '../context/LanguageContext';
@@ -28,6 +30,15 @@ import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import { useNotification } from '../context/NotificationContext';
 import { AUTH_SERVICE_URL, API_BASE_URL, CONFIG, IP_ADDRESS } from '../config';
+import {
+  getBookingEndDate,
+  getBookingStartDate,
+  getHumanLocation,
+  getHumanProviderName,
+  getHumanServiceTitle,
+  getSeekerLiveSummary,
+  getTimeRemainingLabel,
+} from '../services/liveBookingApi';
 
 if (
   Platform.OS === 'android' &&
@@ -145,29 +156,34 @@ const Slideshow = ({ isDarkMode }) => {
                 (!p.consecutiveCancellations || p.consecutiveCancellations <= 3)
             );
             if (provList.length > 0) {
-              const formatted = provList.slice(0, 5).map((p, idx) => ({
-                id: String(p._id || p.id || idx),
-                title: p.name || p.fullName || (p.email ? p.email.split('@')[0] : `Provider ${idx + 1}`),
-                subtitle: `${p.category || 'General Service'} • ${p.district || 'Available'}`,
-                category: p.category || 'General Service',
-                district: p.district || 'All Districts',
-                rating: p.rating || 4.9,
-                reviewsCount: p.reviewCount || 12,
-                isVerified: true,
-                matchReason: `Top rated in ${p.district || 'your area'}`,
-                image: p.profileImage || null,
-                provider: p,
-                portfolio: {
-                  categories: [p.category || 'General Service'],
-                  specific_labels: [p.category || 'General Service'],
-                  images: p.profileImage ? [p.profileImage] : [],
-                  total_images: p.profileImage ? 1 : 0,
-                },
-                match: {
+              const formatted = provList.slice(0, 5).map((p, idx) => {
+                const hasRealRating = Boolean(p.hasRealRating || (typeof p.rating === 'number' && p.rating > 0));
+                const realRating = hasRealRating ? Number(Number(p.rating).toFixed(1)) : null;
+                return {
+                  id: String(p._id || p.id || idx),
+                  title: p.name || p.fullName || (p.email ? p.email.split('@')[0] : `Provider ${idx + 1}`),
+                  subtitle: `${p.category || 'General Service'} • ${p.district || 'Available'}`,
                   category: p.category || 'General Service',
-                  reason: 'Recommended for you',
-                },
-              }));
+                  district: p.district || 'All Districts',
+                  rating: realRating,
+                  reviewsCount: p.reviewCount || 0,
+                  hasRealRating: hasRealRating,
+                  isVerified: true,
+                  matchReason: `Top rated in ${p.district || 'your area'}`,
+                  image: p.profileImage || null,
+                  provider: p,
+                  portfolio: {
+                    categories: [p.category || 'General Service'],
+                    specific_labels: [p.category || 'General Service'],
+                    images: p.profileImage ? [p.profileImage] : [],
+                    total_images: p.profileImage ? 1 : 0,
+                  },
+                  match: {
+                    category: p.category || 'General Service',
+                    reason: 'Recommended for you',
+                  },
+                };
+              });
               if (isMounted) {
                 setSlides(formatted);
                 setLoading(false);
@@ -182,7 +198,11 @@ const Slideshow = ({ isDarkMode }) => {
         if (isMounted) {
           if (response && response.recommendations && response.recommendations.length > 0) {
             const onlyVerified = response.recommendations.filter(
-              (r) => r.isVerified && !r.provider?.isBlocked && !r.provider?.isRejected
+              (r) =>
+                r.isVerified &&
+                !r.provider?.isBlocked &&
+                !r.provider?.isRejected &&
+                Number(r.rating || r.provider?.rating || 0) >= 4.0
             );
             setSlides(onlyVerified);
           } else {
@@ -329,10 +349,12 @@ const Slideshow = ({ isDarkMode }) => {
                 </View>
               )}
 
-              <View style={styles.slideRatingPill}>
-                <Ionicons name="star" size={13} color="#FBBF24" />
-                <Text style={styles.slideRatingText}>{Number(item.rating || 4.9).toFixed(1)}</Text>
-              </View>
+              {(item.hasRealRating || (item.rating && item.reviewsCount > 0)) && item.rating ? (
+                <View style={styles.slideRatingPill}>
+                  <Ionicons name="star" size={13} color="#FBBF24" />
+                  <Text style={styles.slideRatingText}>{Number(item.rating).toFixed(1)}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
@@ -514,8 +536,74 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [liveSummary, setLiveSummary] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(true);
+  const [liveError, setLiveError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const navigation = useNavigation();
+
+  const loadLiveSummary = React.useCallback(async (showLoading = false) => {
+    if (showLoading) setLiveLoading(true);
+    setLiveError(false);
+    try {
+      setLiveSummary(await getSeekerLiveSummary());
+    } catch (error) {
+      console.log('Seeker live summary load error:', error?.message);
+      setLiveError(true);
+    } finally {
+      setLiveLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(React.useCallback(() => {
+    loadLiveSummary(true);
+    const interval = setInterval(() => loadLiveSummary(false), 30000);
+    return () => clearInterval(interval);
+  }, [loadLiveSummary]));
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    loadLiveSummary(false);
+  }, [loadLiveSummary]);
+
+  const formatLiveTime = (value) => value && !Number.isNaN(new Date(value).getTime())
+    ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Not scheduled';
+
+  const openBookingDetails = (booking) => navigation.navigate('IT22129376ScheduledJobDetails', { booking });
+
+  const renderLiveBooking = () => {
+    if (liveLoading) return <View style={[styles.liveStateCard, isDarkMode && styles.liveCardDark]}><ActivityIndicator color="#667eea" /><Text style={[styles.liveStateText, isDarkMode && styles.textMutedDark]}>Loading your booking status...</Text></View>;
+    if (liveError) return <View style={[styles.liveStateCard, isDarkMode && styles.liveCardDark]}><Ionicons name="warning-outline" size={26} color="#EF4444" /><Text style={[styles.liveStateText, isDarkMode && styles.textMutedDark]}>Unable to load booking status right now.</Text><TouchableOpacity onPress={() => loadLiveSummary(true)}><Text style={styles.liveRetry}>Try again</Text></TouchableOpacity></View>;
+
+    const ongoing = liveSummary?.delayedService || liveSummary?.currentService || liveSummary?.onTheWayService || null;
+    const next = liveSummary?.startingSoonBooking || liveSummary?.nextBooking || null;
+    const renderSection = (booking, kind) => {
+      const delayed = booking?.bookingStatus === 'DELAY_REPORTED';
+      const traveling = booking?.bookingStatus === 'ON_THE_WAY';
+      const soon = kind === 'next' && booking === liveSummary?.startingSoonBooking;
+      const color = delayed ? '#D97706' : traveling ? '#7C3AED' : kind === 'current' ? '#2563EB' : soon ? '#7C3AED' : '#059669';
+      const start = getBookingStartDate(booking);
+      const end = getBookingEndDate(booking);
+      return <View style={styles.liveInnerSection}>
+        <View style={styles.liveInnerHeader}><Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>{traveling ? 'Provider On the Way' : kind === 'current' ? 'In Progress Booking' : 'Next Booking'}</Text><Text style={[styles.liveInnerStatus, { color }]}>{traveling ? 'Provider is travelling to you' : kind === 'current' ? (delayed ? 'Provider reported a delay' : 'Service in progress') : (soon ? `Starting soon · ${getTimeRemainingLabel(start)}` : getTimeRemainingLabel(start))}</Text></View>
+        <Text style={[styles.liveServiceTitle, isDarkMode && styles.textDark]}>{getHumanServiceTitle(booking)}</Text>
+        <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Provider: {getHumanProviderName(booking)}</Text>
+        <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Location: {getHumanLocation(booking)}</Text>
+        {kind === 'current' ? <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{traveling ? `On the way since: ${formatLiveTime(booking.onTheWayAt)}` : delayed ? `Reason: ${booking?.delayInfo?.delayReason || 'Not provided'}` : `Started: ${formatLiveTime(booking.actualStartTime || start)}`}</Text> : <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Starts: {formatLiveTime(start)}</Text>}
+        {kind === 'current' && !traveling ? <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Expected end: {formatLiveTime(end)}</Text> : null}
+        <TouchableOpacity style={[styles.liveDetailsButton, { backgroundColor: color }]} onPress={() => openBookingDetails(booking)}><Text style={styles.liveDetailsButtonText}>View Details</Text></TouchableOpacity>
+      </View>;
+    };
+    const emptySection = (label, message) => <View style={styles.liveInnerSection}><Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>{label}</Text><Text style={[styles.liveDetail, styles.liveEmptyText, isDarkMode && styles.textMutedDark]}>{message}</Text></View>;
+    return <View style={[styles.liveBookingCard, isDarkMode && styles.liveCardDark]}>
+      {ongoing ? renderSection(ongoing, 'current') : emptySection('In Progress Booking', 'No in-progress booking')}
+      <View style={[styles.liveDivider, isDarkMode && styles.liveDividerDark]} />
+      {next ? renderSection(next, 'next') : emptySection('Next Booking', 'No upcoming confirmed booking')}
+    </View>;
+  };
 
   const totalUnreadMessages = Object.values(unreadCount).reduce(
     (sum, count) => sum + Number(count || 0),
@@ -674,6 +762,7 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#667eea" />}
       >
         <LinearGradient
           colors={
@@ -857,6 +946,11 @@ export default function HomeScreen() {
           </LinearGradient>
         </TouchableOpacity>
 
+        <View style={styles.liveSection}>
+          <Text style={[styles.liveSectionTitle, isDarkMode && styles.textDark]}>Live Booking Status</Text>
+          {renderLiveBooking()}
+        </View>
+
         <Slideshow isDarkMode={isDarkMode} />
 
         <View style={styles.sectionHeader}>
@@ -912,6 +1006,27 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 80,
   },
+  liveSection: { paddingHorizontal: 20, paddingTop: 18 },
+  liveSectionTitle: { fontSize: 19, fontWeight: '600', color: '#111827', marginBottom: 12 },
+  liveStateCard: { minHeight: 105, borderRadius: 18, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', padding: 16, gap: 9 },
+  liveCardDark: { backgroundColor: '#1a1a2e', borderColor: '#30304A' },
+  liveStateText: { color: '#6B7280', fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  liveRetry: { color: '#667eea', fontWeight: '800' },
+  liveBookingCard: { borderRadius: 18, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFF', padding: 16 },
+  liveInnerSection: { paddingVertical: 2 },
+  liveInnerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 7 },
+  liveInnerLabel: { color: '#111827', fontSize: 14, fontWeight: '600' },
+  liveInnerStatus: { fontSize: 12, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
+  liveDivider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 15 },
+  liveDividerDark: { backgroundColor: '#30304A' },
+  liveStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
+  liveStatusTitle: { fontSize: 14, fontWeight: '600', textTransform: 'uppercase' },
+  liveServiceTitle: { color: '#111827', fontSize: 18, fontWeight: '500', marginBottom: 8 },
+  liveDetail: { color: '#6B7280', fontSize: 13, lineHeight: 20 },
+  liveEmptyText: { marginTop: 8 },
+  liveRemaining: { fontSize: 13, fontWeight: '800', marginTop: 6 },
+  liveDetailsButton: { alignSelf: 'flex-start', borderRadius: 11, paddingHorizontal: 16, paddingVertical: 10, marginTop: 14 },
+  liveDetailsButtonText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
 
   headerGradient: {
     borderBottomLeftRadius: 30,

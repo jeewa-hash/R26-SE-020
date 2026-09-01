@@ -6,6 +6,7 @@ import {
   getBidCoordinationsBySession,
   selectSuggestedSlot
 } from "../controllers/bidCoordinationController.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -15,6 +16,10 @@ router.get("/session/:externalSessionId", getBidCoordinationsBySession); // Chaw
 
 router.get("/:id", getBidCoordinationById); // Chaw: fetch one bid coordination with evaluations
 
-router.patch("/:coordinationId/suggested-slots/:slotId/select",selectSuggestedSlot); // Chaw: seeker selects one suggested alternative slot
+router.patch(
+  "/:coordinationId/suggested-slots/:slotId/select",
+  protect(["ServiceProvider", "Seeker"]),
+  selectSuggestedSlot
+);
 
 export default router;

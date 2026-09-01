@@ -7,6 +7,7 @@ export const IP_ADDRESS = '192.168.1.38';
 export const API_BASE_URL = `http://${IP_ADDRESS}:6000`;   // used by ChatContext & ChatScreen
 export const SOCKET_URL = `http://${IP_ADDRESS}:6000`;     // same for socket
 
+
 // Other services
 export const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003`;
 export const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;

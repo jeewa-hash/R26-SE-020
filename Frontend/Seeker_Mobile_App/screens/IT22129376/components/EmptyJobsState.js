@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '600',
     color: COLORS.text,
     textAlign: 'center',
     marginBottom: 8,

@@ -1,93 +1,63 @@
-// pages/IT22129376/ProviderRequestDetailsScreen.js
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useContext } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS } from './theme';
-import { formatDateTime } from './utils/dateTimeFormatter';
-import { getRequestId, getServiceCategory, getServiceTitle, getSeekerName, getLocation, getStatusStyle } from './utils/providerFlowMapper';
+import { getHumanLocation, getHumanSeekerName, getHumanServiceTitle, openLocationInMaps, statusLabel } from '../../services/providerFlowApi';
+import ProviderPageHeader from '../../components/ProviderPageHeader';
+import { ThemeContext } from '../../context/ThemeContext';
 
-const Row = ({ label, value }) => (
-  <View style={styles.row}>
-    <Text style={styles.rowLabel}>{label}</Text>
-    <Text style={styles.rowValue}>{value || '-'}</Text>
-  </View>
-);
+const clean = (value, fallback = 'Not provided') => {
+  const text = value === null || value === undefined ? '' : String(value).trim();
+  return text && !/^[a-f\d]{24}$/i.test(text) ? text : fallback;
+};
 
 export default function ProviderRequestDetailsScreen({ route, navigation }) {
+  const { isDark } = useContext(ThemeContext) || { isDark: false };
+  const C = { bg: isDark ? '#0F172A' : '#F8FAFC', card: isDark ? '#1E293B' : '#FFFFFF', text: isDark ? '#F8FAFC' : '#1E293B', muted: isDark ? '#94A3B8' : '#4B5563', border: isDark ? '#334155' : '#E2E8F0' };
   const request = route?.params?.request || {};
-  const providerId = route?.params?.providerId;
-  const status = getStatusStyle(request.status || 'PENDING');
+  const requestStatus = String(request?.status || 'pending').toLowerCase();
+  const duration = request?.seekerEstimatedDurationHours || request?.estimatedDurationHours;
+  const budget = Number(request?.seekerBudgetAmount || request?.budget || 0);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-      <LinearGradient colors={[COLORS.primary, COLORS.purple]} style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={23} color="#fff" />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Request Details</Text>
-          <Text style={styles.headerSub}>Review seeker request before sending quotation</Text>
+    <View style={[styles.container, { backgroundColor: C.bg }]}>
+      <ProviderPageHeader navigation={navigation} title="Request Details" subtitle="Review the customer's service request" />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
+          <Text style={[styles.title, { color: C.text }]}>{getHumanServiceTitle(request)}</Text>
+          <Text style={styles.status}>{statusLabel(requestStatus)}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Category: {clean(request?.detectedCategory || request?.serviceCategory || request?.category, 'General')}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Detected service: {clean(request?.detectedObject || request?.serviceSubcategory, 'Service')}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Customer: {getHumanSeekerName(request)}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Location: {getHumanLocation(request)}</Text>
+          {(getHumanLocation(request) !== 'Location not provided') ? <TouchableOpacity style={styles.mapButton} onPress={() => openLocationInMaps({ latitude: request?.serviceLatitude ?? request?.location?.lat, longitude: request?.serviceLongitude ?? request?.location?.lng, address: getHumanLocation(request), label: getHumanServiceTitle(request) })}><Ionicons name="map-outline" size={17} color="#4F46E5" /><Text style={styles.mapButtonText}>Open in Maps</Text></TouchableOpacity> : null}
+          {Number(request?.estimatedTravelTimeMins) > 0 ? <Text style={[styles.row, { color: C.muted }]}>Estimated travel time: {Math.round(request.estimatedTravelTimeMins)} mins</Text> : null}
+          {Number(request?.distanceFromPreviousBookingKm) > 0 ? <Text style={[styles.row, { color: C.muted }]}>Distance: {Number(request.distanceFromPreviousBookingKm).toFixed(1)} km</Text> : null}
+          <Text style={[styles.row, { color: C.muted }]}>Preferred time: {clean(request?.preferredTimeLabel)}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Preferred start: {clean(request?.preferredStartTime || request?.requestedStartTime)}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Preferred end: {clean(request?.preferredEndTime || request?.requestedEndTime)}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Estimated duration: {duration ? `${duration} hour(s)` : 'Not provided'}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Budget: {budget ? `LKR ${budget.toLocaleString()}` : 'Not provided'}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Urgency: {clean(request?.urgencyLevel || request?.urgency)}</Text>
+          <Text style={[styles.description, { color: C.text, backgroundColor: C.bg }]}>{clean(request?.briefDescription || request?.description, 'No description provided.')}</Text>
+          {requestStatus === 'pending' ? (
+            <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('IT22129376ProviderQuotationForm', { request })}>
+              <Text style={styles.buttonText}>Send Quotation</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
-      </LinearGradient>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.card}>
-          <View style={styles.cardTop}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>{getServiceTitle(request)}</Text>
-              <Text style={styles.subtitle}>{getServiceCategory(request)}</Text>
-            </View>
-            <View style={[styles.badge, { backgroundColor: status.bg }]}>
-              <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
-            </View>
-          </View>
-
-          <Row label="Request ID" value={getRequestId(request)} />
-          <Row label="Session ID" value={request.externalSessionId || request.sessionId || request.serviceSessionId} />
-          <Row label="Seeker" value={getSeekerName(request)} />
-          <Row label="Location" value={getLocation(request)} />
-          <Row label="Preferred Start" value={formatDateTime(request.preferredStartTime || request.requestedDate)} />
-          <Row label="Preferred End" value={formatDateTime(request.preferredEndTime)} />
-          <Row label="Estimated Duration" value={`${request.seekerEstimatedDurationHours || request.estimatedDurationHours || '-'} hours`} />
-          <Row label="Budget" value={request.seekerBudgetAmount || request.budget ? `LKR ${request.seekerBudgetAmount || request.budget}` : '-'} />
-          <Row label="Urgency" value={request.urgency || request.priority} />
-          <Row label="Notes" value={request.notes || request.description || request.problemDescription} />
-        </View>
-
-        <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => navigation.navigate('IT22129376ProviderQuotationForm', { request, providerId })}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="send-outline" size={19} color="#fff" />
-          <Text style={styles.primaryButtonText}>Submit Provider Quotation</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 60 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.bg },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingBottom: 26, gap: 12, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#fff', fontSize: 24, fontWeight: '900' },
-  headerSub: { color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 3, fontWeight: '600' },
-  content: { padding: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 22, padding: 16, borderWidth: 1, borderColor: COLORS.border },
-  cardTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 },
-  title: { color: COLORS.text, fontSize: 20, fontWeight: '900' },
-  subtitle: { color: COLORS.muted, fontSize: 13, fontWeight: '700', marginTop: 4 },
-  badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-  badgeText: { fontSize: 11, fontWeight: '900' },
-  row: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-  rowLabel: { color: COLORS.muted, fontSize: 12, fontWeight: '800', marginBottom: 4 },
-  rowValue: { color: COLORS.text, fontSize: 14, fontWeight: '700', lineHeight: 20 },
-  primaryButton: { marginTop: 16, backgroundColor: COLORS.primary, borderRadius: 18, height: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  content: { padding: 16 }, card: { backgroundColor: '#fff', borderRadius: 18, padding: 18, borderWidth: 1 },
+  title: { fontSize: 20, fontWeight: '600', color: '#111827' }, status: { marginTop: 8, color: '#6366F1', fontWeight: '600' },
+  row: { marginTop: 12, color: '#4B5563', fontSize: 14, fontWeight: '400' },
+  description: { marginTop: 16, color: '#374151', lineHeight: 21, backgroundColor: '#F9FAFB', padding: 12, borderRadius: 10 },
+  button: { backgroundColor: '#667eea', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
+  buttonText: { color: '#fff', fontWeight: '600' },
+  mapButton: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#EEF2FF', borderRadius: 10 },
+  mapButtonText: { color: '#4F46E5', fontWeight: '600' },
 });
