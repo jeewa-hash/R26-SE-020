@@ -16,7 +16,7 @@ import { ThemeContext } from '../../context/ThemeContext';
 import HeaderSection from '../../components/HeaderSection';
 import { COLORS } from './theme';
 import { debugAuthStorage, getStoredProviderAuth } from './services/providerAuthStorage';
-import { getProviderJobs, getProviderOngoingJobs, getProviderQuotations, getProviderRequests } from './services/providerFlowApi';
+import { getCoordinationReview, getProviderJobs, getProviderOngoingJobs, getProviderQuotations, getProviderRequests, selectCoordinationSuggestedSlot } from './services/providerFlowApi';
 import { COORDINATION_SERVICE_URL, PROVIDER_SERVICE_API_URL, SEEKER_SERVICE_URL } from '../../config';
 import { formatDate, formatFullDate, formatTime, isSameDay } from './utils/dateTimeFormatter';
 import {
@@ -187,7 +187,7 @@ const RequestCard = ({ request, onPress, onQuote, isDark }) => {
   );
 };
 
-const QuoteCard = ({ quotation, onPress, isDark }) => {
+const QuoteCard = ({ quotation, onPress, onReviewSlots, isDark }) => {
   const status = getStatusStyle(quotation.status || quotation.coordinationStatus || 'SENT');
   return (
     <TouchableOpacity style={[styles.card, isDark && styles.cardDark]} activeOpacity={0.85} onPress={onPress}>
@@ -212,6 +212,12 @@ const QuoteCard = ({ quotation, onPress, isDark }) => {
         <Text style={styles.infoLine}>🕒 Proposed: {formatDate(quotation.proposedStartTime)} {formatTime(quotation.proposedStartTime)}</Text>
         <Text style={styles.infoLine}>⏱ Duration: {quotation.estimatedDurationHours || '-'} hours</Text>
       </View>
+      {String(quotation.coordinationStatus || '').toUpperCase() === 'RESCHEDULE_REQUIRED' ? (
+        <TouchableOpacity style={styles.primaryButton} onPress={onReviewSlots}>
+          <Ionicons name="calendar-outline" size={16} color="#fff" />
+          <Text style={styles.primaryButtonText}>View Suggested Slots</Text>
+        </TouchableOpacity>
+      ) : null}
     </TouchableOpacity>
   );
 };
@@ -285,7 +291,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const normalizedOngoing = useMemo(() => ongoingJobs.map(normalizeBooking), [ongoingJobs]);
 
   const todayJobs = useMemo(() => normalizedJobs.filter((job) => isSameDay(getBookingStart(job), new Date()) && !isClosedBooking(job)), [normalizedJobs]);
-  const scheduledJobs = useMemo(() => normalizedJobs.filter((job) => ['CONFIRMED', 'RESCHEDULED', 'RESCHEDULING_REQUIRED'].includes(getBookingStatus(job))), [normalizedJobs]);
+  const scheduledJobs = useMemo(() => normalizedJobs.filter((job) => ['CONFIRMED', 'RESCHEDULED', 'RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED'].includes(getBookingStatus(job))), [normalizedJobs]);
   const historyJobs = useMemo(() => normalizedJobs.filter(isClosedBooking), [normalizedJobs]);
 
   const loadAll = async () => {
@@ -375,7 +381,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       }
 
       const fallbackOngoing = (jobsResult.status === 'fulfilled' ? extractArray(jobsResult.value) : [])
-        .filter((booking) => ['CONFIRMED', 'IN_PROGRESS', 'DELAY_REPORTED'].includes(getBookingStatus(booking)));
+        .filter((booking) => ['CONFIRMED', 'ON_THE_WAY', 'IN_PROGRESS', 'DELAY_REPORTED'].includes(getBookingStatus(booking)));
       if (ongoingResult.status === 'fulfilled') {
         const rawOngoing = extractArray(ongoingResult.value);
         const providerOngoing = safelyFilterProviderResponse(rawOngoing, auth.providerId, 'ongoing');
@@ -415,6 +421,29 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const openRequest = (request) => navigation.navigate('IT22129376ProviderRequestDetails', { request, providerId });
   const openQuoteForm = (request) => navigation.navigate('IT22129376ProviderQuotationForm', { request, providerId });
   const openAvailability = () => (navigation.getParent() || navigation).navigate('ProviderAvailability');
+  const reviewSuggestedSlots = async (quotation) => {
+    try {
+      const coordinationId = quotation?.coordinationId?._id || quotation?.coordinationId;
+      const review = await getCoordinationReview(coordinationId);
+      const slots = review?.suggestedSlots || [];
+      if (!slots.length) return Alert.alert('Suggested Slots', 'No currently available suggested slots were found. Ask the seeker to run the availability review again.');
+      const buttons = slots.slice(0, 3).map((slot) => ({
+        text: new Date(slot.startTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
+        onPress: async () => {
+          try {
+            await selectCoordinationSuggestedSlot(coordinationId, slot._id || slot.id);
+            Alert.alert('Time Updated', 'The slot was revalidated and the quotation can now be accepted.');
+            await loadAll();
+          } catch (error) {
+            Alert.alert('Slot Unavailable', error?.message || 'This slot is no longer available.');
+          }
+        },
+      }));
+      Alert.alert('Choose a Suggested Slot', 'The selected time will be validated again before it is applied.', [...buttons, { text: 'Cancel', style: 'cancel' }]);
+    } catch (error) {
+      Alert.alert('Unable to Load Slots', error?.message || 'Please try again.');
+    }
+  };
 
   const renderTimeline = () => {
     const hours = Array.from({ length: 14 }, (_, i) => i + 7);
@@ -479,7 +508,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       return <>{warningBlock}{normalizedRequests.length === 0 ? <EmptyState isDark={isDark} icon="mail-open-outline" title="No incoming requests" message="No incoming requests yet. New quotation requests assigned to you will appear here." /> : normalizedRequests.map((r) => <RequestCard key={getRequestId(r)} request={r} isDark={isDark} onPress={() => openRequest(r)} onQuote={() => openQuoteForm(r)} />)}</>;
     }
     if (activeTab === 'Quotes') {
-      return <>{warningBlock}{normalizedQuotes.length === 0 ? <EmptyState isDark={isDark} icon="receipt-outline" title="No quotations sent" message="After submitting a quotation, its seeker decision and coordination status will appear here." /> : normalizedQuotes.map((q) => <QuoteCard key={getQuotationId(q)} quotation={q} isDark={isDark} onPress={() => Alert.alert('Quotation', `Status: ${q.status || 'SENT'}\nPrice: LKR ${q.price || '-'}`)} />)}</>;
+      return <>{warningBlock}{normalizedQuotes.length === 0 ? <EmptyState isDark={isDark} icon="receipt-outline" title="No quotations sent" message="After submitting a quotation, its seeker decision and coordination status will appear here." /> : normalizedQuotes.map((q) => <QuoteCard key={getQuotationId(q)} quotation={q} isDark={isDark} onReviewSlots={() => reviewSuggestedSlots(q)} onPress={() => Alert.alert('Quotation', `Status: ${q.status || 'SENT'}\nPrice: LKR ${q.price || '-'}`)} />)}</>;
     }
     if (activeTab === 'Scheduled') {
       return <>{warningBlock}{scheduledJobs.length === 0 ? <EmptyState isDark={isDark} icon="briefcase-outline" title="No scheduled jobs" message="Bookings appear here only after the seeker confirms a coordinated quotation." /> : scheduledJobs.map((job) => <BookingCard key={getBookingId(job)} booking={job} onPress={() => openJob(job)} isDark={isDark} />)}</>;

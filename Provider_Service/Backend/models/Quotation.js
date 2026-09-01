@@ -112,6 +112,8 @@ const quotationSchema = new mongoose.Schema(
         "REJECTED_BY_COORDINATION",
         "RESCHEDULE_REQUIRED",
         "REJECTED_DUE_TO_CONFLICT",
+        "NOT_AVAILABLE",
+        "CONFLICT_FOUND",
       ],
       default: "NOT_CHECKED",
     },

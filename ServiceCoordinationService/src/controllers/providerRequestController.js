@@ -407,7 +407,7 @@ export const acceptProviderRequest = async (req, res) => {
     const alreadyBooked = await Booking.findOne({
       postId: providerRequest.postId,
       bookingStatus: {
-        $in: ["CONFIRMED", "IN_PROGRESS", "DELAY_REPORTED", "RESCHEDULED"],
+        $in: ["CONFIRMED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "RESCHEDULE_REQUESTED", "RESCHEDULING_REQUIRED", "RESCHEDULED"],
       },
     });
 

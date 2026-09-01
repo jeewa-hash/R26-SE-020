@@ -191,8 +191,60 @@ export const updateBookingLifecycle = async (bookingId, action, body = {}) => {
 };
 
 export const startBooking = (bookingId) => updateBookingLifecycle(bookingId, 'start');
+export const markBookingOnTheWay = (bookingId) => updateBookingLifecycle(bookingId, 'on-the-way');
 export const reportBookingDelay = (bookingId, payload) => updateBookingLifecycle(bookingId, 'report-delay', payload);
 export const completeBooking = (bookingId) => updateBookingLifecycle(bookingId, 'complete');
+
+export const getCoordinationReview = async (coordinationId) => {
+  if (!coordinationId) throw new Error('Coordination review is not available yet.');
+  const payload = await requestFirstSuccess({
+    urls: COORDINATION_URLS,
+    paths: [`/bid-coordinations/${coordinationId}`],
+    label: 'coordination review',
+  });
+  return payload?.data || payload;
+};
+
+export const selectCoordinationSuggestedSlot = async (coordinationId, slotId) => {
+  if (!coordinationId || !slotId) throw new Error('A suggested slot is required.');
+  const payload = await requestFirstSuccess({
+    urls: COORDINATION_URLS,
+    paths: [`/bid-coordinations/${coordinationId}/suggested-slots/${slotId}/select`],
+    options: { method: 'PATCH' },
+    label: 'suggested slot selection',
+  });
+  return payload?.data || payload;
+};
+
+export const getBookingReschedules = async (bookingId) => {
+  const payload = await requestFirstSuccess({ urls: COORDINATION_URLS, paths: [`/reschedules/booking/${bookingId}`], label: 'reschedule requests' });
+  return normalizeArrayResponse(payload);
+};
+
+export const acceptBookingReschedule = async (rescheduleId, selectedSlot) => {
+  const payload = await requestFirstSuccess({
+    urls: COORDINATION_URLS,
+    paths: [`/reschedules/${rescheduleId}/accept`],
+    options: { method: 'PUT', body: JSON.stringify({ selectedSlot }) },
+    label: 'reschedule acceptance',
+  });
+  return payload?.data || payload;
+};
+
+export const rejectBookingReschedule = async (rescheduleId) => {
+  const payload = await requestFirstSuccess({ urls: COORDINATION_URLS, paths: [`/reschedules/${rescheduleId}/reject`], options: { method: 'PUT' }, label: 'reschedule rejection' });
+  return payload?.data || payload;
+};
+
+export const requestBookingReschedule = async (bookingId, reason = 'Provider requested a new service time') => {
+  const payload = await requestFirstSuccess({
+    urls: COORDINATION_URLS,
+    paths: [`/reschedules/bookings/${bookingId}/reschedule`],
+    options: { method: 'POST', body: JSON.stringify({ reason, createdBy: 'PROVIDER' }) },
+    label: 'reschedule request',
+  });
+  return payload?.data || payload;
+};
 
 export const submitProviderQuotation = async (payload) => {
   const responsePayload = await requestFirstSuccess({
@@ -213,7 +265,7 @@ export const getBookingStatus = (booking) => String(booking?.bookingStatus || 'C
 
 export const isOngoingBooking = (booking) => {
   const status = getBookingStatus(booking);
-  if (status === 'IN_PROGRESS' || status === 'DELAY_REPORTED') return true;
+  if (status === 'ON_THE_WAY' || status === 'IN_PROGRESS' || status === 'DELAY_REPORTED') return true;
   if (status !== 'CONFIRMED') return false;
 
   const start = getBookingStartDate(booking);
@@ -330,9 +382,11 @@ export const statusLabel = (status) => {
   const value = String(status || '').toUpperCase();
   const map = {
     CONFIRMED: 'Scheduled',
+    ON_THE_WAY: 'On the Way',
     IN_PROGRESS: 'In Progress',
     DELAY_REPORTED: 'Delay Reported',
     RESCHEDULING_REQUIRED: 'Rescheduling Required',
+    RESCHEDULE_REQUESTED: 'Reschedule Pending',
     RESCHEDULED: 'Rescheduled',
     COMPLETED: 'Completed',
     CANCELLED: 'Cancelled',

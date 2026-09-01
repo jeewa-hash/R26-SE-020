@@ -32,10 +32,12 @@ export const getStatusStyle = (status) => {
   if (value === 'AVAILABLE_WITH_CAUTION') return { label: 'Available with Caution', bg: COLORS.warningSoft, color: COLORS.warning };
   if (value.includes('CONFLICT')) return { label: 'Time Conflict', bg: COLORS.dangerSoft, color: COLORS.danger };
   if (value.includes('COMPLETED')) return { label: 'Completed', bg: COLORS.successSoft, color: COLORS.success };
+  if (value.includes('ON_THE_WAY')) return { label: 'On the Way', bg: COLORS.infoSoft, color: COLORS.info };
   if (value.includes('IN_PROGRESS')) return { label: 'In Progress', bg: COLORS.infoSoft, color: COLORS.info };
   if (value.includes('ACCEPTED')) return { label: 'Booking Confirmed', bg: COLORS.successSoft, color: COLORS.success };
   if (value.includes('CONFIRMED')) return { label: 'Scheduled', bg: COLORS.successSoft, color: COLORS.success };
   if (value.includes('SENT')) return { label: 'Waiting for Seeker', bg: COLORS.infoSoft, color: COLORS.info };
+  if (value.includes('RESCHEDULE_REQUESTED')) return { label: 'Reschedule Pending', bg: COLORS.warningSoft, color: COLORS.warning };
   if (value.includes('RESCHEDULE')) return { label: 'Reschedule', bg: COLORS.warningSoft, color: COLORS.warning };
   if (value.includes('DELAY')) return { label: 'Delay Reported', bg: COLORS.warningSoft, color: COLORS.warning };
   if (value.includes('REJECT')) return { label: 'Not Selected', bg: COLORS.dangerSoft, color: COLORS.danger };

@@ -11,7 +11,22 @@ export async function validateProviderSchedule({
   requestedDate,
   requestedStartTime,
   requestedEndTime,
+  excludeBookingId = null,
 }) {
+  const expiryCutoff = new Date(Date.now() - 45 * 60 * 1000);
+  await Booking.updateMany(
+    {
+      providerId,
+      bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
+      actualStartTime: null,
+      scheduledStartTime: { $ne: null, $lt: expiryCutoff },
+    },
+    {
+      $set: { bookingStatus: "EXPIRED", expiredAt: new Date() },
+      $push: { timeline: { status: "EXPIRED", message: "Booking expired because it was not started within 45 minutes", at: new Date() } },
+    }
+  );
+
   let availability = await ProviderAvailability.findOne({ providerId });
   let availabilityWarning = "";
 
@@ -97,12 +112,15 @@ export async function validateProviderSchedule({
 
   const providerBookingsToday = await Booking.find({
     providerId,
+    ...(excludeBookingId ? { _id: { $ne: excludeBookingId } } : {}),
     scheduledDate: requestedDate,
     bookingStatus: {
       $in: [
         "CONFIRMED",
+        "ON_THE_WAY",
         "IN_PROGRESS",
         "DELAY_REPORTED",
+        "RESCHEDULE_REQUESTED",
         "RESCHEDULING_REQUIRED",
         "RESCHEDULED",
       ],

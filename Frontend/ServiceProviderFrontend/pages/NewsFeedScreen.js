@@ -309,7 +309,7 @@ export default function NewsFeedScreen() {
           .length,
         scheduled: bookings.filter((item) => item.bookingStatus === 'CONFIRMED').length,
         ongoing: ongoingBookings.filter((item) =>
-          ['IN_PROGRESS', 'DELAY_REPORTED'].includes(item.bookingStatus)
+          ['ON_THE_WAY', 'IN_PROGRESS', 'DELAY_REPORTED'].includes(item.bookingStatus)
         ).length,
         completed: bookings.filter((item) => item.bookingStatus === 'COMPLETED').length,
         rejected: quotations.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED')
@@ -381,6 +381,7 @@ export default function NewsFeedScreen() {
       await updateBookingLifecycle(getBookingId(booking), action, payload);
 
       const messages = {
+        'on-the-way': 'The seeker can now see that you are on the way.',
         start: 'Job started successfully.',
         'report-delay': 'Delay reported successfully.',
         complete: 'Job completed successfully.',
@@ -482,15 +483,18 @@ export default function NewsFeedScreen() {
       );
     }
 
-    const ongoing = liveSummary?.delayedJob || liveSummary?.currentJob || null;
+    const ongoing = liveSummary?.delayedJob || liveSummary?.currentJob || liveSummary?.onTheWayJob || null;
     const next = liveSummary?.startingSoonBooking || liveSummary?.nextBooking || null;
 
     const renderSection = (booking, kind) => {
       const delayed = booking?.bookingStatus === 'DELAY_REPORTED';
+      const traveling = booking?.bookingStatus === 'ON_THE_WAY';
       const soon = kind === 'next' && booking === liveSummary?.startingSoonBooking;
 
       const color = delayed
         ? '#D97706'
+        : traveling
+          ? '#7C3AED'
         : kind === 'current'
           ? '#2563EB'
           : soon
@@ -499,6 +503,8 @@ export default function NewsFeedScreen() {
 
       const icon = delayed
         ? 'warning-amber'
+        : traveling
+          ? 'directions-car'
         : kind === 'current'
           ? 'engineering'
           : soon
@@ -508,12 +514,14 @@ export default function NewsFeedScreen() {
       const start = getBookingStartDate(booking);
       const end = booking?.delayInfo?.expectedEndTime || getBookingEndDate(booking);
 
-      const sectionTitle = kind === 'current' ? 'In Progress Booking' : 'Next Booking';
+      const sectionTitle = traveling ? 'On the Way' : kind === 'current' ? 'In Progress Booking' : 'Next Booking';
 
       const statusText =
         kind === 'current'
           ? delayed
             ? 'Delay reported'
+            : traveling
+              ? 'Travelling to the seeker'
             : 'Job in progress'
           : soon
             ? `Starting soon · ${getTimeRemainingLabel(start)}`
@@ -555,7 +563,7 @@ export default function NewsFeedScreen() {
             </Text>
           </View>
 
-          {kind === 'current' ? (
+          {kind === 'current' && !traveling ? (
             delayed ? (
               <View style={styles.liveInfoRow}>
                 <MaterialIcons name="info-outline" size={14} color={C.textSub} />
@@ -580,7 +588,7 @@ export default function NewsFeedScreen() {
             </View>
           )}
 
-          {kind === 'current' ? (
+          {kind === 'current' && !traveling ? (
             <View style={styles.liveInfoRow}>
               <MaterialIcons name="timer" size={14} color={C.textSub} />
               <Text style={[styles.liveDetail, { color: C.textSub }]}>
@@ -608,7 +616,7 @@ export default function NewsFeedScreen() {
               <Text style={styles.liveButtonText}>View Job</Text>
             </TouchableOpacity>
 
-            {kind === 'current' && !delayed ? (
+            {kind === 'current' && !delayed && !traveling ? (
               <TouchableOpacity
                 disabled={liveUpdating}
                 style={[styles.liveOutlineButton, { borderColor: `${color}55` }]}
@@ -619,7 +627,7 @@ export default function NewsFeedScreen() {
               </TouchableOpacity>
             ) : null}
 
-            {kind === 'current' ? (
+            {kind === 'current' && !traveling ? (
               <TouchableOpacity
                 disabled={liveUpdating}
                 style={[styles.liveOutlineButton, { borderColor: `${color}55` }]}
@@ -630,6 +638,17 @@ export default function NewsFeedScreen() {
               </TouchableOpacity>
             ) : null}
 
+            {traveling ? (
+              <TouchableOpacity
+                disabled={liveUpdating}
+                style={[styles.liveOutlineButton, { borderColor: `${color}55` }]}
+                onPress={() => runLiveAction(booking, 'start')}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.liveOutlineText, { color }]}>Start</Text>
+              </TouchableOpacity>
+            ) : null}
+
             {soon ? (
               <TouchableOpacity
                 disabled={liveUpdating}
@@ -637,7 +656,7 @@ export default function NewsFeedScreen() {
                 onPress={() => runLiveAction(booking, 'start')}
                 activeOpacity={0.85}
               >
-                <Text style={[styles.liveOutlineText, { color }]}>Start Job</Text>
+                <Text style={[styles.liveOutlineText, { color }]}>Start</Text>
               </TouchableOpacity>
             ) : null}
           </View>

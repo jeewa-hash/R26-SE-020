@@ -2,12 +2,15 @@ import mongoose from "mongoose";
 
 export const BOOKING_STATUS_VALUES = [
   "CONFIRMED",
+  "ON_THE_WAY",
   "IN_PROGRESS",
   "DELAY_REPORTED",
+  "RESCHEDULE_REQUESTED",
   "RESCHEDULING_REQUIRED",
   "RESCHEDULED",
   "COMPLETED",
   "CANCELLED",
+  "EXPIRED",
 ];
 
 const bookingSchema = new mongoose.Schema(
@@ -137,9 +140,14 @@ const bookingSchema = new mongoose.Schema(
     reminderSentAt: { type: Date, default: null },
     providerReadyConfirmed: { type: Boolean, default: false },
     providerReadyConfirmedAt: { type: Date, default: null },
+    onTheWayAt: { type: Date, default: null },
+    onTheWayBy: { type: String, enum: ["PROVIDER", ""], default: "" },
     actualStartTime: { type: Date, default: null },
+    startedBy: { type: String, enum: ["PROVIDER", "SEEKER", "SYSTEM", ""], default: "" },
     actualEndTime: { type: Date, default: null },
     completedAt: { type: Date, default: null },
+    completedBy: { type: String, enum: ["PROVIDER", "SEEKER", "SYSTEM", ""], default: "" },
+    expiredAt: { type: Date, default: null },
     startDelayMinutes: { type: Number, default: 0 },
     durationOverrunMinutes: { type: Number, default: null },
     conflictDetected: { type: Boolean, default: false },

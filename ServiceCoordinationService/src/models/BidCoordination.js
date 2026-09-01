@@ -50,6 +50,8 @@ const bidCoordinationSchema = new mongoose.Schema(
         "AVAILABLE_WITH_CAUTION",
         "RESCHEDULE_REQUIRED",
         "REJECTED_DUE_TO_CONFLICT",
+        "NOT_AVAILABLE",
+        "CONFLICT_FOUND",
       ],
       required: true,
       index: true,

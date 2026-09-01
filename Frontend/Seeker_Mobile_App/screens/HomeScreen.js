@@ -578,21 +578,22 @@ export default function HomeScreen() {
     if (liveLoading) return <View style={[styles.liveStateCard, isDarkMode && styles.liveCardDark]}><ActivityIndicator color="#667eea" /><Text style={[styles.liveStateText, isDarkMode && styles.textMutedDark]}>Loading your booking status...</Text></View>;
     if (liveError) return <View style={[styles.liveStateCard, isDarkMode && styles.liveCardDark]}><Ionicons name="warning-outline" size={26} color="#EF4444" /><Text style={[styles.liveStateText, isDarkMode && styles.textMutedDark]}>Unable to load booking status right now.</Text><TouchableOpacity onPress={() => loadLiveSummary(true)}><Text style={styles.liveRetry}>Try again</Text></TouchableOpacity></View>;
 
-    const ongoing = liveSummary?.delayedService || liveSummary?.currentService || null;
+    const ongoing = liveSummary?.delayedService || liveSummary?.currentService || liveSummary?.onTheWayService || null;
     const next = liveSummary?.startingSoonBooking || liveSummary?.nextBooking || null;
     const renderSection = (booking, kind) => {
       const delayed = booking?.bookingStatus === 'DELAY_REPORTED';
+      const traveling = booking?.bookingStatus === 'ON_THE_WAY';
       const soon = kind === 'next' && booking === liveSummary?.startingSoonBooking;
-      const color = delayed ? '#D97706' : kind === 'current' ? '#2563EB' : soon ? '#7C3AED' : '#059669';
+      const color = delayed ? '#D97706' : traveling ? '#7C3AED' : kind === 'current' ? '#2563EB' : soon ? '#7C3AED' : '#059669';
       const start = getBookingStartDate(booking);
       const end = getBookingEndDate(booking);
       return <View style={styles.liveInnerSection}>
-        <View style={styles.liveInnerHeader}><Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>{kind === 'current' ? 'In Progress Booking' : 'Next Booking'}</Text><Text style={[styles.liveInnerStatus, { color }]}>{kind === 'current' ? (delayed ? 'Provider reported a delay' : 'Service in progress') : (soon ? `Starting soon · ${getTimeRemainingLabel(start)}` : getTimeRemainingLabel(start))}</Text></View>
+        <View style={styles.liveInnerHeader}><Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>{traveling ? 'Provider On the Way' : kind === 'current' ? 'In Progress Booking' : 'Next Booking'}</Text><Text style={[styles.liveInnerStatus, { color }]}>{traveling ? 'Provider is travelling to you' : kind === 'current' ? (delayed ? 'Provider reported a delay' : 'Service in progress') : (soon ? `Starting soon · ${getTimeRemainingLabel(start)}` : getTimeRemainingLabel(start))}</Text></View>
         <Text style={[styles.liveServiceTitle, isDarkMode && styles.textDark]}>{getHumanServiceTitle(booking)}</Text>
         <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Provider: {getHumanProviderName(booking)}</Text>
         <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Location: {getHumanLocation(booking)}</Text>
-        {kind === 'current' ? <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{delayed ? `Reason: ${booking?.delayInfo?.delayReason || 'Not provided'}` : `Started: ${formatLiveTime(booking.actualStartTime || start)}`}</Text> : <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Starts: {formatLiveTime(start)}</Text>}
-        {kind === 'current' ? <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Expected end: {formatLiveTime(end)}</Text> : null}
+        {kind === 'current' ? <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{traveling ? `On the way since: ${formatLiveTime(booking.onTheWayAt)}` : delayed ? `Reason: ${booking?.delayInfo?.delayReason || 'Not provided'}` : `Started: ${formatLiveTime(booking.actualStartTime || start)}`}</Text> : <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Starts: {formatLiveTime(start)}</Text>}
+        {kind === 'current' && !traveling ? <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Expected end: {formatLiveTime(end)}</Text> : null}
         <TouchableOpacity style={[styles.liveDetailsButton, { backgroundColor: color }]} onPress={() => openBookingDetails(booking)}><Text style={styles.liveDetailsButtonText}>View Details</Text></TouchableOpacity>
       </View>;
     };

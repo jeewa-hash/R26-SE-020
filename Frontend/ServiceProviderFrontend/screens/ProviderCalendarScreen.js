@@ -73,9 +73,9 @@ const formatMoney = (amount) => {
 const getStatusStyle = (status) => {
   const value = String(status || '').toUpperCase();
   if (value === 'CONFIRMED' || value === 'ACCEPTED') return { bg: '#D1FAE5', color: '#047857' };
-  if (value === 'IN_PROGRESS' || value === 'QUOTED' || value === 'SENT') return { bg: '#DBEAFE', color: '#2563EB' };
-  if (value === 'DELAY_REPORTED' || value === 'RESCHEDULING_REQUIRED') return { bg: '#FEF3C7', color: '#D97706' };
-  if (value === 'REJECTED' || value === 'CANCELLED') return { bg: '#FEE2E2', color: '#DC2626' };
+  if (value === 'ON_THE_WAY' || value === 'IN_PROGRESS' || value === 'QUOTED' || value === 'SENT') return { bg: '#DBEAFE', color: '#2563EB' };
+  if (value === 'DELAY_REPORTED' || value === 'RESCHEDULE_REQUESTED' || value === 'RESCHEDULING_REQUIRED') return { bg: '#FEF3C7', color: '#D97706' };
+  if (value === 'REJECTED' || value === 'CANCELLED' || value === 'EXPIRED') return { bg: '#FEE2E2', color: '#DC2626' };
   if (value === 'COMPLETED' || value === 'RESCHEDULED') return { bg: '#F3F4F6', color: '#4B5563' };
   return { bg: '#EEF2FF', color: '#6366F1' };
 };
@@ -219,7 +219,7 @@ export default function ProviderCalendarScreen({ navigation }) {
 
   const historyBookings = useMemo(() => {
     return bookings
-      .filter((booking) => ['COMPLETED', 'CANCELLED'].includes(getBookingStatus(booking)))
+      .filter((booking) => ['COMPLETED', 'CANCELLED', 'EXPIRED'].includes(getBookingStatus(booking)))
       .sort((a, b) => (getBookingStartDate(b)?.getTime() || 0) - (getBookingStartDate(a)?.getTime() || 0));
   }, [bookings]);
 
@@ -241,6 +241,7 @@ export default function ProviderCalendarScreen({ navigation }) {
       await updateBookingLifecycle(bookingId, action, body);
       const messages = {
         'confirm-ready': 'Ready confirmed.',
+        'on-the-way': 'The seeker can now see that you are on the way.',
         start: 'Job started successfully.',
         'report-delay': 'Delay reported successfully.',
         complete: 'Job completed successfully.',
@@ -356,18 +357,15 @@ export default function ProviderCalendarScreen({ navigation }) {
             <TouchableOpacity style={styles.secondaryButton} onPress={() => openBooking(booking)}>
               <Text style={styles.secondaryButtonText}>View Job</Text>
             </TouchableOpacity>
-            {status === 'CONFIRMED' ? (
-              <>
-                <TouchableOpacity style={styles.primaryButton} onPress={() => updateBooking(booking, 'confirm-ready')}>
-                  <Text style={styles.primaryButtonText}>Ready</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.primaryButton} onPress={() => confirmStart(booking)}>
-                  <Text style={styles.primaryButtonText}>Start</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.warningButton} onPress={() => confirmDelay(booking)}>
-                  <Text style={styles.warningButtonText}>Delay</Text>
-                </TouchableOpacity>
-              </>
+            {['CONFIRMED', 'RESCHEDULED'].includes(status) ? (
+              <TouchableOpacity style={styles.primaryButton} onPress={() => confirmStart(booking)}>
+                <Text style={styles.primaryButtonText}>Start</Text>
+              </TouchableOpacity>
+            ) : null}
+            {status === 'ON_THE_WAY' ? (
+              <TouchableOpacity style={styles.primaryButton} onPress={() => confirmStart(booking)}>
+                <Text style={styles.primaryButtonText}>Start</Text>
+              </TouchableOpacity>
             ) : null}
             {status === 'IN_PROGRESS' ? (
               <>

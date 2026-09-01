@@ -8,6 +8,7 @@ import {
   getOngoingBookingsByProvider,
   getOngoingBookingsBySeeker,
   confirmBookingReady,
+  markBookingOnTheWay,
   startBooking,
   completeBooking,
   reportBookingDelay,
@@ -43,10 +44,11 @@ router.get("/seeker/:seekerId", getBookingsBySeeker);
 router.get("/post/:postId", getBookingByPost);
 router.post("/coordination/:coordinationId",protect(["Seeker"]),createBookingFromCoordination); // Chaw: seeker creates booking from accepted bid coordination
 router.put("/:bookingId/confirm-ready", protect(["ServiceProvider"]), confirmBookingReady);
+router.put("/:bookingId/on-the-way", protect(["ServiceProvider"]), markBookingOnTheWay);
 router.put("/:bookingId/start", protect(["ServiceProvider"]), startBooking);
 router.put("/:bookingId/report-delay", protect(["ServiceProvider"]), reportBookingDelay);
 router.put("/:bookingId/cancel", protect(["ServiceProvider", "Seeker", "Admin"]), cancelBooking);
-router.put("/:bookingId/complete", protect(["ServiceProvider"]), completeBooking);
+router.put("/:bookingId/complete", protect(["ServiceProvider", "Seeker"]), completeBooking);
 router.get("/:bookingId", protect(["ServiceProvider", "Seeker", "Admin"]), getBookingById);
 
 export default router;

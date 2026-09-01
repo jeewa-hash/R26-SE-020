@@ -11,16 +11,30 @@ export async function findPreviousProviderBooking({
     bookingStatus: {
       $in: [
         "CONFIRMED",
+        "ON_THE_WAY",
         "IN_PROGRESS",
         "DELAY_REPORTED",
+        "RESCHEDULE_REQUESTED",
         "RESCHEDULING_REQUIRED",
         "RESCHEDULED",
+        "EXPIRED",
       ],
     },
-    endTime: {
+    startTime: {
       $lte: requestedStartTime,
     },
-  }).sort({ endTime: -1 });
+  }).sort({ startTime: -1 });
 
-  return previousBookings[0] || null;
+  const previous = previousBookings[0];
+  if (!previous || previous.bookingStatus !== "EXPIRED") return previous || null;
+
+  const effectiveEnd = previous.expiredAt || previous.scheduledStartTime;
+  if (!effectiveEnd) return previous;
+  const date = new Date(effectiveEnd);
+  const pad = (value) => String(value).padStart(2, "0");
+  return {
+    ...previous.toObject(),
+    endTime: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+    effectiveEndTime: date,
+  };
 }

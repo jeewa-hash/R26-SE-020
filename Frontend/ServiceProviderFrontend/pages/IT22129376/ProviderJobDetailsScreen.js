@@ -5,7 +5,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   getBookingEndDate, getBookingId, getBookingStartDate, getBookingStatus,
   getHumanLocation, getHumanSeekerName, getHumanServiceTitle,
-  getProviderBookingById, openLocationInMaps, statusLabel, updateBookingLifecycle,
+  acceptBookingReschedule, getBookingReschedules, getProviderBookingById, openLocationInMaps,
+  rejectBookingReschedule, requestBookingReschedule, statusLabel, updateBookingLifecycle,
 } from '../../services/providerFlowApi';
 import { getStoredProviderAuth } from './services/providerAuthStorage';
 import ProviderPageHeader from '../../components/ProviderPageHeader';
@@ -25,6 +26,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
   const [updating, setUpdating] = useState(false);
   const [delayReason, setDelayReason] = useState('Provider needs additional time');
   const [extraMinutes, setExtraMinutes] = useState('30');
+  const [pendingReschedule, setPendingReschedule] = useState(null);
   const bookingId = getBookingId(booking) || getBookingId(initialBooking);
   const status = getBookingStatus(booking);
 
@@ -40,6 +42,8 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
       setError('');
       const row = await getProviderBookingById(bookingId);
       if (row && typeof row === 'object') setBooking(row);
+      const reschedules = await getBookingReschedules(bookingId);
+      setPendingReschedule(reschedules.find((item) => ['PENDING', 'PENDING_PROVIDER_REVIEW'].includes(item?.status)) || null);
     } catch (loadError) {
       console.log('Provider booking details load failed:', loadError?.message);
       setError('Unable to load data right now. Please check your connection and try again.');
@@ -54,7 +58,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
     try {
       setUpdating(true);
       await updateBookingLifecycle(bookingId, action, body);
-      const messages = { 'confirm-ready': 'Ready confirmed.', start: 'Job started successfully.', 'report-delay': 'Delay reported successfully.', complete: 'Job completed successfully.' };
+      const messages = { 'confirm-ready': 'Ready confirmed.', 'on-the-way': 'The seeker can now see that you are on the way.', start: 'Job started successfully.', 'report-delay': 'Delay reported successfully.', complete: 'Job completed successfully.' };
       Alert.alert('Success', messages[action]);
       await loadBooking();
     } catch (actionError) {
@@ -67,6 +71,45 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
   const confirmAction = (title, message, action) => Alert.alert(title, message, [
     { text: 'Cancel', style: 'cancel' }, { text: title, onPress: () => runAction(action) },
   ]);
+
+  const acceptSlot = async (slot) => {
+    try {
+      setUpdating(true);
+      await acceptBookingReschedule(pendingReschedule?._id, slot);
+      Alert.alert('Rescheduled', 'The selected time was validated and applied.');
+      await loadBooking();
+    } catch (actionError) {
+      Alert.alert('Time Unavailable', actionError?.message || 'This time could not be validated.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const keepBooking = async () => {
+    try {
+      setUpdating(true);
+      await rejectBookingReschedule(pendingReschedule?._id);
+      Alert.alert('Booking Kept', 'The current booking time remains unchanged.');
+      await loadBooking();
+    } catch (actionError) {
+      Alert.alert('Update Failed', actionError?.message || 'Please try again.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const requestReschedule = async () => {
+    try {
+      setUpdating(true);
+      await requestBookingReschedule(bookingId);
+      Alert.alert('Reschedule Requested', 'Choose a validated suggested slot in the review section.');
+      await loadBooking();
+    } catch (actionError) {
+      Alert.alert('Reschedule Unavailable', actionError?.message || 'Please try again.');
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   if (loading && !getBookingId(booking)) {
     return <View style={[styles.container, { backgroundColor: C.bg }]}><ProviderPageHeader navigation={navigation} title="Job Details" subtitle="View and manage this booking" /><View style={styles.loading}><ActivityIndicator color="#667eea" /><Text style={[styles.row, { color: C.muted }]}>Loading...</Text></View></View>;
@@ -89,6 +132,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
           <Text style={[styles.row, { color: C.muted }]}>Amount: {Number(booking?.finalAmount || booking?.amount || 0) ? `LKR ${Number(booking?.finalAmount || booking?.amount).toLocaleString()}` : 'Not set'}</Text>
           <Text style={[styles.row, { color: C.muted }]}>Delay Risk: {booking?.delayRiskLevel || 'UNKNOWN'}</Text>
           {status === 'CONFIRMED' ? <Text style={styles.info}>Booking confirmed</Text> : null}
+          {status === 'ON_THE_WAY' ? <Text style={styles.info}>You are on the way</Text> : null}
           {status === 'IN_PROGRESS' ? <Text style={styles.info}>Service in progress</Text> : null}
           {status === 'COMPLETED' ? <Text style={styles.success}>Job completed</Text> : null}
           {booking?.providerReadyConfirmed ? <Text style={styles.success}>Ready confirmed</Text> : null}
@@ -100,12 +144,31 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
               <Text style={styles.warning}>Impact: {booking?.delayInfo?.delayImpactStatus || 'NONE'}</Text>
             </View>
           ) : null}
+          {pendingReschedule ? (
+            <View style={styles.delayBox}>
+              <Text style={[styles.title, { color: C.text, fontSize: 16 }]}>Reschedule Review</Text>
+              <Text style={[styles.row, { color: C.muted }]}>{pendingReschedule.note || pendingReschedule.reason || 'A new service time was requested.'}</Text>
+              {(pendingReschedule.suggestedSlots || []).map((slot, index) => (
+                <TouchableOpacity key={`${slot.date}-${slot.startTime}-${index}`} disabled={updating} style={styles.button} onPress={() => acceptSlot(slot)}>
+                  <Text style={styles.buttonText}>Choose {slot.date} {slot.startTime}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity disabled={updating} style={styles.warningButton} onPress={keepBooking}>
+                <Text style={styles.warningButtonText}>Keep Booking</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           {booking?.delayInfo?.delayImpactStatus === 'NEXT_BOOKING_AT_RISK' ? <Text style={styles.riskWarning}>This delay may affect your next scheduled job.</Text> : null}
-          {['CONFIRMED', 'IN_PROGRESS'].includes(status) ? <><TextInput style={styles.input} value={delayReason} onChangeText={setDelayReason} placeholder="Delay reason" /><TextInput style={styles.input} value={extraMinutes} onChangeText={setExtraMinutes} keyboardType="numeric" placeholder="Extra minutes" /></> : null}
+          {['IN_PROGRESS', 'DELAY_REPORTED'].includes(status) ? <><TextInput style={styles.input} value={delayReason} onChangeText={setDelayReason} placeholder="Delay reason" /><TextInput style={styles.input} value={extraMinutes} onChangeText={setExtraMinutes} keyboardType="numeric" placeholder="Extra minutes" /></> : null}
           <View style={styles.actions}>
-            {status === 'CONFIRMED' ? <><TouchableOpacity disabled={updating} style={styles.button} onPress={() => runAction('confirm-ready')}><Text style={styles.buttonText}>Confirm Ready</Text></TouchableOpacity><TouchableOpacity disabled={updating} style={styles.button} onPress={() => confirmAction('Start Job', 'Start this job now?', 'start')}><Text style={styles.buttonText}>Start Job</Text></TouchableOpacity></> : null}
-            {['CONFIRMED', 'IN_PROGRESS'].includes(status) ? <TouchableOpacity disabled={updating} style={styles.warningButton} onPress={() => runAction('report-delay', { delayReason, extraTimeMinutes: Number(extraMinutes) || 30 })}><Text style={styles.warningButtonText}>Report Delay</Text></TouchableOpacity> : null}
+            {['CONFIRMED', 'RESCHEDULED'].includes(status) ? <TouchableOpacity disabled={updating} style={styles.button} onPress={() => confirmAction('Start', 'Start this job now?', 'start')}><Text style={styles.buttonText}>Start</Text></TouchableOpacity> : null}
+            {['CONFIRMED', 'RESCHEDULED'].includes(status) && !pendingReschedule ? <TouchableOpacity disabled={updating} style={styles.warningButton} onPress={requestReschedule}><Text style={styles.warningButtonText}>Reschedule</Text></TouchableOpacity> : null}
+            {status === 'ON_THE_WAY' ? <TouchableOpacity disabled={updating} style={styles.button} onPress={() => confirmAction('Start', 'Start this job now?', 'start')}><Text style={styles.buttonText}>Start</Text></TouchableOpacity> : null}
+            {status === 'IN_PROGRESS' ? <TouchableOpacity disabled={updating} style={styles.warningButton} onPress={() => runAction('report-delay', { delayReason, extraTimeMinutes: Number(extraMinutes) || 30 })}><Text style={styles.warningButtonText}>Report Delay</Text></TouchableOpacity> : null}
             {['IN_PROGRESS', 'DELAY_REPORTED'].includes(status) ? <TouchableOpacity disabled={updating} style={styles.successButton} onPress={() => confirmAction('Complete Job', 'Mark this job as completed?', 'complete')}><Text style={styles.successButtonText}>Complete Job</Text></TouchableOpacity> : null}
+            {status === 'COMPLETED' ? <Text style={styles.success}>Completed</Text> : null}
+            {status === 'EXPIRED' ? <Text style={styles.warning}>Expired</Text> : null}
+            {status === 'RESCHEDULE_REQUESTED' ? <Text style={styles.warning}>Reschedule Pending</Text> : null}
           </View>
         </View>
       </ScrollView>

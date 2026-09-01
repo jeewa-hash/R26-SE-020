@@ -51,6 +51,11 @@ export const startBooking = async (bookingId) => {
   return response.data;
 };
 
+export const markBookingOnTheWay = async (bookingId) => {
+  const response = await coordinationApi.put(`/bookings/${bookingId}/on-the-way`);
+  return response.data;
+};
+
 export const reportDelay = async (bookingId, payload) => {
   const response = await coordinationApi.put(`/bookings/${bookingId}/report-delay`, payload);
   return response.data;

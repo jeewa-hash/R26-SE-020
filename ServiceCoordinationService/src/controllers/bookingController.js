@@ -10,6 +10,7 @@ import {
   acceptProviderQuotation,
   updateProviderQuotationCoordination,
 } from "../clients/providerServiceClient.js";
+import { validateProviderSchedule } from "../services/scheduleValidationService.js";
 
 const canAccessBooking = (req, booking) => {
   if (req.user.role === "Admin") return true;
@@ -18,7 +19,8 @@ const canAccessBooking = (req, booking) => {
   return false;
 };
 
-const ACTIVE_BOOKING_STATUSES = ["CONFIRMED", "IN_PROGRESS", "DELAY_REPORTED"];
+const ACTIVE_BOOKING_STATUSES = ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED"];
+const START_WINDOW_MINUTES = 45;
 
 const getComparableId = (value) => value?.toString?.() || String(value || "");
 
@@ -40,19 +42,63 @@ const getBookingStartDate = (booking) => {
   return null;
 };
 
+const expireMissedBookings = async (ownerQuery = {}) => {
+  const cutoff = addMinutes(new Date(), -START_WINDOW_MINUTES);
+  await Booking.updateMany(
+    {
+      ...ownerQuery,
+      bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
+      scheduledStartTime: { $ne: null, $lt: cutoff },
+      actualStartTime: null,
+    },
+    {
+      $set: { bookingStatus: "EXPIRED", expiredAt: new Date() },
+      $push: { timeline: { status: "EXPIRED", message: "Booking expired because it was not started within 45 minutes", at: new Date() } },
+    }
+  );
+  const fallbackCandidates = await Booking.find({
+    ...ownerQuery,
+    bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
+    scheduledStartTime: null,
+    actualStartTime: null,
+  });
+  for (const booking of fallbackCandidates) await expireBookingIfMissed(booking);
+};
+
+const getStartWindowError = (booking, now = new Date()) => {
+  const scheduledStart = getBookingStartDate(booking);
+  if (!scheduledStart) return "Booking does not have a valid scheduled start time";
+  const opensAt = scheduledStart;
+  const expiresAt = addMinutes(scheduledStart, START_WINDOW_MINUTES);
+  if (now < opensAt) return "This action is available from the scheduled start time";
+  if (now > expiresAt) return "This booking has passed the 45-minute start window";
+  return "";
+};
+
+const expireBookingIfMissed = async (booking) => {
+  if (!["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"].includes(booking.bookingStatus) || booking.actualStartTime) return false;
+  const start = getBookingStartDate(booking);
+  if (!start || new Date() <= addMinutes(start, START_WINDOW_MINUTES)) return false;
+  booking.bookingStatus = "EXPIRED";
+  booking.expiredAt = new Date();
+  booking.timeline.push({ status: "EXPIRED", message: "Booking expired because it was not started within 45 minutes", at: new Date() });
+  await booking.save();
+  return true;
+};
+
 const getOngoingWindowEnd = () => addMinutes(new Date(), 24 * 60);
 
 const buildOngoingQuery = (ownerField, ownerId) => ({
   [ownerField]: ownerId,
   bookingStatus: { $in: ACTIVE_BOOKING_STATUSES },
   $or: [
-    { bookingStatus: { $in: ["IN_PROGRESS", "DELAY_REPORTED"] } },
+    { bookingStatus: { $in: ["ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED"] } },
     {
-      bookingStatus: "CONFIRMED",
+      bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED"] },
       scheduledStartTime: { $lte: getOngoingWindowEnd() },
     },
     {
-      bookingStatus: "CONFIRMED",
+      bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED"] },
       scheduledStartTime: null,
     },
   ],
@@ -94,7 +140,7 @@ const LIVE_SUMMARY_FIELDS = [
   "scheduledStartTime", "scheduledEndTime", "displayStartTime", "displayEndTime",
   "startTime", "endTime", "estimatedDurationHours", "finalAmount", "currency",
   "bookingStatus", "delayRiskLevel", "providerReadyConfirmed",
-  "providerReadyConfirmedAt", "actualStartTime", "actualEndTime", "completedAt",
+  "providerReadyConfirmedAt", "onTheWayAt", "onTheWayBy", "actualStartTime", "startedBy", "actualEndTime", "completedAt", "completedBy", "expiredAt",
   "delayInfo", "timeline",
 ].join(" ");
 const LIVE_SUMMARY_PROJECTION = Object.fromEntries(
@@ -109,9 +155,9 @@ const getTodayRange = () => {
   return { start, end };
 };
 
-const getNext15MinutesRange = () => {
+const getStartActionRange = () => {
   const now = new Date();
-  return { now, next15: new Date(now.getTime() + 15 * 60 * 1000) };
+  return { now, next15: new Date(now.getTime() + START_WINDOW_MINUTES * 60 * 1000) };
 };
 
 const buildUserIdMatch = (fieldName, id) => {
@@ -139,18 +185,20 @@ const getLiveSummary = async (req, res, owner) => {
     }
 
     const ownerMatch = buildOwnerMatch(owner, id);
+    await expireMissedBookings({ [`${owner}Id`]: id });
     const { start, end } = getTodayRange();
-    const { now, next15 } = getNext15MinutesRange();
+    const { now, next15 } = getStartActionRange();
     const withStatus = (bookingStatus, extra = {}) => ({
       $and: [ownerMatch, { bookingStatus }, extra],
     });
 
-    const [currentJob, delayedJob, nextBooking, startingSoonBooking, confirmedToday,
+    const [currentJob, onTheWayJob, delayedJob, nextBooking, startingSoonBooking, confirmedToday,
       inProgress, delayed, completedToday] = await Promise.all([
       Booking.collection.findOne(withStatus("IN_PROGRESS"), { projection: LIVE_SUMMARY_PROJECTION, sort: { actualStartTime: 1, scheduledStartTime: 1 } }),
+      Booking.collection.findOne(withStatus("ON_THE_WAY"), { projection: LIVE_SUMMARY_PROJECTION, sort: { onTheWayAt: 1, scheduledStartTime: 1 } }),
       Booking.collection.findOne(withStatus("DELAY_REPORTED"), { projection: LIVE_SUMMARY_PROJECTION, sort: { "delayInfo.reportedAt": -1, scheduledStartTime: 1 } }),
       Booking.collection.findOne(withStatus("CONFIRMED", { scheduledStartTime: { $gte: now } }), { projection: LIVE_SUMMARY_PROJECTION, sort: { scheduledStartTime: 1 } }),
-      Booking.collection.findOne(withStatus("CONFIRMED", { scheduledStartTime: { $gte: now, $lte: next15 } }), { projection: LIVE_SUMMARY_PROJECTION, sort: { scheduledStartTime: 1 } }),
+      Booking.collection.findOne(withStatus("CONFIRMED", { scheduledStartTime: { $gte: addMinutes(now, -START_WINDOW_MINUTES), $lte: next15 } }), { projection: LIVE_SUMMARY_PROJECTION, sort: { scheduledStartTime: 1 } }),
       Booking.collection.countDocuments(withStatus("CONFIRMED", { scheduledStartTime: { $gte: start, $lte: end } })),
       Booking.collection.countDocuments(withStatus("IN_PROGRESS")),
       Booking.collection.countDocuments(withStatus("DELAY_REPORTED")),
@@ -159,8 +207,8 @@ const getLiveSummary = async (req, res, owner) => {
 
     const data = {
       ...(owner === "provider"
-        ? { currentJob, delayedJob }
-        : { currentService: currentJob, delayedService: delayedJob }),
+        ? { currentJob, onTheWayJob, delayedJob }
+        : { currentService: currentJob, onTheWayService: onTheWayJob, delayedService: delayedJob }),
       nextBooking,
       startingSoonBooking,
       counts: { confirmedToday, inProgress, delayed, completedToday },
@@ -195,6 +243,7 @@ export const getBookingsByProvider = async (req, res) => {
       });
     }
 
+    await expireMissedBookings({ providerId });
     const bookings = await Booking.find({ providerId }).sort({
       scheduledDate: 1,
       startTime: 1,
@@ -235,6 +284,7 @@ export const getBookingsBySeeker = async (req, res) => {
       });
     }
 
+    await expireMissedBookings({ seekerId });
     const bookings = await Booking.find({ seekerId }).sort({
       scheduledDate: 1,
       startTime: 1,
@@ -413,6 +463,26 @@ export const createBookingFromCoordination = async (req, res) => {
       endDate.getUTCMinutes()
     )}`;
 
+    const finalDurationHours = Number(scheduleEvaluation.mlPredictedDurationHours) > 0
+      ? Number(scheduleEvaluation.mlPredictedDurationHours)
+      : Number(scheduleEvaluation.providerEstimatedDurationHours || scheduleEvaluation.finalSchedulingDurationHours);
+    if (!(finalDurationHours > 0)) {
+      return res.status(409).json({ success: false, message: "A valid service duration is required before creating the booking" });
+    }
+
+    const currentValidation = await validateProviderSchedule({
+      providerId: coordination.providerId,
+      requestedDate: scheduledDate,
+      requestedStartTime: startTime,
+      requestedEndTime: endTime,
+    });
+    if (!currentValidation.isValid) {
+      coordination.finalDecision = "RESCHEDULE_REQUIRED";
+      coordination.recommendedAction = currentValidation.message;
+      await coordination.save();
+      return res.status(409).json({ success: false, message: "The selected time is no longer available. Run the availability review again.", validation: currentValidation });
+    }
+
     let quotation = null;
     try {
       quotation = await getProviderQuotationById(
@@ -486,7 +556,7 @@ export const createBookingFromCoordination = async (req, res) => {
       displayEndTime: endTime,
 
       estimatedDurationHours:
-        scheduleEvaluation.finalSchedulingDurationHours,
+        finalDurationHours,
 
       finalAmount: priceEvaluation.providerQuotedPrice,
       currency: "LKR",
@@ -588,6 +658,7 @@ export const getOngoingBookingsByProvider = async (req, res) => {
       });
     }
 
+    await expireMissedBookings({ providerId });
     const bookings = await Booking.find(buildOngoingQuery("providerId", providerId)).sort({
       scheduledStartTime: 1,
       scheduledDate: 1,
@@ -626,6 +697,7 @@ export const getOngoingBookingsBySeeker = async (req, res) => {
       });
     }
 
+    await expireMissedBookings({ seekerId });
     const bookings = await Booking.find(buildOngoingQuery("seekerId", seekerId)).sort({
       scheduledStartTime: 1,
       scheduledDate: 1,
@@ -706,6 +778,33 @@ export const confirmBookingReady = async (req, res) => {
   }
 };
 
+export const markBookingOnTheWay = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.bookingId);
+    if (!booking) return res.status(404).json({ success: false, message: "Booking not found" });
+    if (getComparableId(booking.providerId) !== getComparableId(req.user?.id)) {
+      return res.status(403).json({ success: false, message: "Only the assigned provider can mark this booking on the way" });
+    }
+    if (await expireBookingIfMissed(booking)) {
+      return res.status(409).json({ success: false, message: "This booking expired because it was not started within 45 minutes", currentStatus: "EXPIRED" });
+    }
+    if (booking.bookingStatus !== "CONFIRMED") {
+      return res.status(400).json({ success: false, message: "Only confirmed bookings can be marked on the way", currentStatus: booking.bookingStatus });
+    }
+    const windowError = getStartWindowError(booking);
+    if (windowError) return res.status(409).json({ success: false, message: windowError, currentStatus: booking.bookingStatus });
+
+    booking.bookingStatus = "ON_THE_WAY";
+    booking.onTheWayAt = new Date();
+    booking.onTheWayBy = "PROVIDER";
+    booking.timeline.push({ status: "ON_THE_WAY", message: "Provider is on the way", at: new Date() });
+    await booking.save();
+    return res.status(200).json({ success: true, message: "Booking marked on the way", data: booking });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to update travel status", error: error.message });
+  }
+};
+
 export const startBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -735,7 +834,11 @@ export const startBooking = async (req, res) => {
       });
     }
 
-    if (booking.bookingStatus !== "CONFIRMED") {
+    if (await expireBookingIfMissed(booking)) {
+      return res.status(409).json({ success: false, message: "This booking expired because it was not started within 45 minutes", currentStatus: "EXPIRED" });
+    }
+
+    if (!["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"].includes(booking.bookingStatus)) {
       return res.status(400).json({
         success: false,
         message: "Only confirmed bookings can be started",
@@ -743,11 +846,15 @@ export const startBooking = async (req, res) => {
       });
     }
 
+    const windowError = getStartWindowError(booking);
+    if (windowError) return res.status(409).json({ success: false, message: windowError, currentStatus: booking.bookingStatus });
+
     const actualStartTime = new Date();
     const scheduledStartTime = getBookingStartDate(booking);
 
     booking.bookingStatus = "IN_PROGRESS";
     booking.actualStartTime = actualStartTime;
+    booking.startedBy = "PROVIDER";
     booking.startDelayMinutes = scheduledStartTime
       ? Math.max(0, minutesBetween(scheduledStartTime, actualStartTime))
       : 0;
@@ -805,6 +912,7 @@ export const completeBooking = async (req, res) => {
     booking.bookingStatus = "COMPLETED";
     booking.completedAt = actualEndTime;
     booking.actualEndTime = actualEndTime;
+    booking.completedBy = req.user?.role === "Seeker" ? "SEEKER" : "PROVIDER";
 
     if (booking.actualStartTime && booking.scheduledStartTime && booking.scheduledEndTime) {
       const actualDurationMinutes = Math.max(0, minutesBetween(new Date(booking.actualStartTime), actualEndTime));
@@ -974,6 +1082,8 @@ export const getBookingById = async (req, res) => {
   try {
     const { bookingId } = req.params;
 
+    await expireMissedBookings({ _id: bookingId });
+
     const booking = await Booking.findById(bookingId)
       .populate("acceptedRescheduleRequests")
       .lean();
@@ -1031,7 +1141,7 @@ export const cancelBooking = async (req, res) => {
       });
     }
 
-    if (["COMPLETED", "CANCELLED"].includes(booking.bookingStatus)) {
+    if (["COMPLETED", "CANCELLED", "EXPIRED"].includes(booking.bookingStatus)) {
       return res.status(400).json({
         success: false,
         message: `Booking cannot be cancelled because it is already ${booking.bookingStatus.toLowerCase()}`,
@@ -1119,14 +1229,18 @@ export const getProviderMissedInquiries = async (req, res) => {
       });
     }
 
+    await expireMissedBookings({ providerId });
+
     const allProviderBookings = await Booking.find({
       providerId,
       bookingStatus: {
         $in: [
           "CANCELLED",
           "CONFIRMED",
+          "ON_THE_WAY",
           "DELAY_REPORTED",
           "IN_PROGRESS",
+          "RESCHEDULE_REQUESTED",
           "RESCHEDULING_REQUIRED",
           "RESCHEDULED",
         ],

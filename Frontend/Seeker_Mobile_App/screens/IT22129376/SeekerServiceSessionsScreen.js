@@ -467,11 +467,11 @@ const getSessionStatusMeta = (session) => {
     };
   }
 
-  if (bookingStatus === 'CANCELLED' || rawStatus === 'CANCELLED') {
+  if (['CANCELLED', 'EXPIRED'].includes(bookingStatus) || ['CANCELLED', 'EXPIRED'].includes(rawStatus)) {
     return {
       tab: 'History',
-      label: 'Cancelled',
-      message: 'This service session was cancelled',
+      label: bookingStatus === 'EXPIRED' ? 'Expired' : 'Cancelled',
+      message: bookingStatus === 'EXPIRED' ? 'This booking expired before it was started' : 'This service session was cancelled',
       tone: toneColors.danger,
       icon: 'close-circle',
     };
@@ -479,14 +479,15 @@ const getSessionStatusMeta = (session) => {
 
   if (
     bookingStatus === 'IN_PROGRESS' ||
+    bookingStatus === 'ON_THE_WAY' ||
     bookingStatus === 'DELAY_REPORTED' ||
     rawStatus === 'IN_PROGRESS' ||
     rawStatus === 'ONGOING'
   ) {
     return {
       tab: 'Ongoing',
-      label: bookingStatus === 'DELAY_REPORTED' ? 'Delay Reported' : 'Ongoing',
-      message: 'Provider is working on this service',
+      label: bookingStatus === 'DELAY_REPORTED' ? 'Delay Reported' : bookingStatus === 'ON_THE_WAY' ? 'On the Way' : 'Ongoing',
+      message: bookingStatus === 'ON_THE_WAY' ? 'Provider is travelling to your location' : 'Provider is working on this service',
       tone: toneColors.warning,
       icon: 'construct',
     };
@@ -494,14 +495,17 @@ const getSessionStatusMeta = (session) => {
 
   if (
     bookingStatus === 'CONFIRMED' ||
+    bookingStatus === 'RESCHEDULE_REQUESTED' ||
+    bookingStatus === 'RESCHEDULING_REQUIRED' ||
+    bookingStatus === 'RESCHEDULED' ||
     rawStatus === 'BOOKED' ||
     rawStatus === 'SCHEDULED' ||
     rawStatus === 'CONFIRMED'
   ) {
     return {
       tab: 'Scheduled',
-      label: 'Scheduled',
-      message: 'Booking confirmed',
+      label: ['RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED'].includes(bookingStatus) ? 'Reschedule Pending' : bookingStatus === 'RESCHEDULED' ? 'Rescheduled' : 'Scheduled',
+      message: ['RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED'].includes(bookingStatus) ? 'A new schedule is awaiting review' : 'Booking confirmed',
       tone: toneColors.info,
       icon: 'calendar',
     };

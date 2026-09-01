@@ -331,6 +331,8 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw: endpoi
       "REJECTED_BY_COORDINATION",
       "RESCHEDULE_REQUIRED",
       "REJECTED_DUE_TO_CONFLICT",
+      "NOT_AVAILABLE",
+      "CONFLICT_FOUND",
     ];
 
     const allowedQuotationStatuses = [
@@ -365,6 +367,8 @@ export const updateQuotationCoordination = async (req, res) => { // Chaw: endpoi
       coordinatedStartTime: coordinatedStartTime || null,
       coordinatedEndTime: coordinatedEndTime || null,
     };
+
+    if (coordinatedStartTime) updateData.proposedStartTime = coordinatedStartTime;
 
     if (quotationStatus) {
       updateData.status = quotationStatus; // Chaw: mark quotation ACCEPTED after booking is created

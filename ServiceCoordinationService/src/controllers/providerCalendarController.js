@@ -13,8 +13,10 @@ export const getProviderCalendar = async (req, res) => {
       bookingStatus: {
         $in: [
           "CONFIRMED",
+          "ON_THE_WAY",
           "IN_PROGRESS",
           "DELAY_REPORTED",
+          "RESCHEDULE_REQUESTED",
           "RESCHEDULING_REQUIRED",
           "RESCHEDULED",
         ],
@@ -73,8 +75,10 @@ export const getSeekerCalendar = async (req, res) => {
       bookingStatus: {
         $in: [
           "CONFIRMED",
+          "ON_THE_WAY",
           "IN_PROGRESS",
           "DELAY_REPORTED",
+          "RESCHEDULE_REQUESTED",
           "RESCHEDULING_REQUIRED",
           "RESCHEDULED",
         ],
