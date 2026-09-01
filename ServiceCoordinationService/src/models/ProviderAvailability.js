@@ -33,6 +33,27 @@ const availableSlotSchema = new mongoose.Schema({
   notes: { type: String, default: "" },
 });
 
+const weeklySlotSchema = new mongoose.Schema(
+  {
+    startTime: { type: String, required: true },
+    endTime: { type: String, required: true },
+  },
+  { _id: false }
+);
+
+const weeklyAvailabilitySchema = new mongoose.Schema(
+  {
+    day: {
+      type: String,
+      required: true,
+      enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    },
+    isAvailable: { type: Boolean, default: false },
+    slots: { type: [weeklySlotSchema], default: [] },
+  },
+  { _id: false }
+);
+
 const providerAvailabilitySchema = new mongoose.Schema(
   {
     providerId: {
@@ -74,6 +95,8 @@ const providerAvailabilitySchema = new mongoose.Schema(
 
     availableSlots: { type: [availableSlotSchema], default: [] },
 
+    weeklyAvailability: { type: [weeklyAvailabilitySchema], default: [] },
+
     maxBookingsPerDay: {
       type: Number,
       default: 3,
@@ -83,6 +106,7 @@ const providerAvailabilitySchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isAvailable: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

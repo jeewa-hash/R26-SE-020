@@ -1,19 +1,39 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Modal,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTheme } from '../../hooks/useTheme';
 import { COLORS, toneColors } from './theme';
+import { getStoredSeekerAuth } from './services/seekerAuthStorage';
+import {
+  createSeekerRescheduleSuggestion,
+  getProviderQuotationsForSeeker,
+  getSeekerBookings,
+  getSeekerRequestQuotations,
+} from './services/myJobsApi';
+
+const getRecordSessionId = (item) => String(
+  item?.sessionId || item?.externalSessionId || item?.serviceSessionId || ''
+);
+const getRequestId = (item) => String(item?._id || item?.id || item?.requestQuotationId || '');
+const getQuoteRequestId = (item) => String(item?.externalRequestQuotationId || item?.requestQuotationId || item?.providerRequestId || '');
+const shortId = (value) => value ? String(value).slice(-8) : '';
 
 const formatMoney = (value) => {
   const amount = Number(value || 0);
@@ -91,9 +111,7 @@ const getProviderNameFromRequest = (request) => {
     provider?.businessName ||
     provider?.name ||
     provider?.fullName ||
-    provider?._id ||
-    provider?.id ||
-    String(provider || 'Provider')
+    (provider?._id || provider?.id || provider ? `Provider · ${shortId(provider?._id || provider?.id || provider)}` : 'Provider')
   );
 };
 
@@ -191,8 +209,48 @@ function SectionCard({ title, icon, count, children, isDarkMode }) {
 
 export default function SeekerServiceSessionDetailsScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();
+  const initialSession = route?.params?.session || {};
+  const sessionId = route?.params?.sessionId || initialSession?.sessionId;
+  const [session, setSession] = useState(initialSession);
+  const [refreshing, setRefreshing] = useState(false);
+  const [rescheduleVisible, setRescheduleVisible] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  const [rescheduleNote, setRescheduleNote] = useState('');
+  const [pickerMode, setPickerMode] = useState(null);
+  const [submittingReschedule, setSubmittingReschedule] = useState(false);
 
-  const session = route?.params?.session || {};
+  const loadRelatedData = useCallback(async () => {
+    if (!sessionId) return;
+    try {
+      setRefreshing(true);
+      const auth = await getStoredSeekerAuth();
+      if (!auth?.seekerId) return;
+      const [requestResult, quoteResult, bookingResult] = await Promise.all([
+        getSeekerRequestQuotations(auth.seekerId),
+        getProviderQuotationsForSeeker(),
+        getSeekerBookings(auth.seekerId),
+      ]);
+      const allRequests = requestResult?.requests || [];
+      const requests = allRequests.filter((item) => getRecordSessionId(item) === String(sessionId));
+      const requestIds = new Set(requests.map(getRequestId));
+      const quotations = (quoteResult?.quotations || []).filter((item) => (
+        getRecordSessionId(item) === String(sessionId) || requestIds.has(getQuoteRequestId(item))
+      ));
+      const bookings = (bookingResult?.bookings || []).filter((item) => getRecordSessionId(item) === String(sessionId));
+      setSession((current) => ({
+        ...current,
+        sessionId,
+        requests,
+        quotations,
+        bookings,
+        booking: bookings[0] || current?.booking || null,
+      }));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [sessionId]);
+
+  useFocusEffect(useCallback(() => { loadRelatedData(); }, [loadRelatedData]));
   const requests = Array.isArray(session.requests) ? session.requests : [];
   const quotations = Array.isArray(session.quotations) ? session.quotations : [];
   const booking = session.booking || null;
@@ -218,7 +276,50 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
       session,
       quotations: sortedQuotes,
       sessionId: session.sessionId,
+      quote: sortedQuotes[0],
+      quotationId: sortedQuotes[0]?._id || sortedQuotes[0]?.id || sortedQuotes[0]?.externalQuotationId,
     });
+  };
+
+  const handleSmartReviewQuote = (quote) => navigation.navigate('IT22129376CoordinationReview', {
+    session,
+    sessionId: session.sessionId,
+    quote,
+    quotations: sortedQuotes,
+    quotationId: quote?._id || quote?.id || quote?.externalQuotationId,
+  });
+
+  const submitReschedule = async () => {
+    const quote = sortedQuotes.find((item) => String(item?.status || '').toUpperCase() === 'ACCEPTED') || sortedQuotes[0];
+    if (!booking?._id && !booking?.id) {
+      Alert.alert('Booking required', 'A reschedule suggestion can be sent after a booking is confirmed.');
+      return;
+    }
+    if (rescheduleDate <= new Date()) {
+      Alert.alert('Choose a future time', 'The suggested service time must be in the future.');
+      return;
+    }
+    try {
+      setSubmittingReschedule(true);
+      const auth = await getStoredSeekerAuth();
+      await createSeekerRescheduleSuggestion({
+        sessionId,
+        quotationId: quote?._id || quote?.id || quote?.externalQuotationId,
+        bookingId: booking?._id || booking?.id,
+        seekerId: auth?.seekerId,
+        providerId: booking?.providerId || quote?.providerId,
+        requestedStartTime: rescheduleDate.toISOString(),
+        note: rescheduleNote.trim(),
+      });
+      setRescheduleVisible(false);
+      setRescheduleNote('');
+      Alert.alert('Suggestion sent', 'The provider must review and confirm the new time. Your booking has not been changed yet.');
+      await loadRelatedData();
+    } catch (error) {
+      Alert.alert('Unable to suggest reschedule', error?.message || 'Please try again.');
+    } finally {
+      setSubmittingReschedule(false);
+    }
   };
 
   const handleOpenQuote = (quote) => {
@@ -258,6 +359,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadRelatedData} />}
       >
         <View style={[styles.summaryCard, isDarkMode && styles.sectionCardDark]}>
           <Text style={[styles.mainTitle, isDarkMode && styles.textDark]} numberOfLines={2}>
@@ -265,7 +367,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           </Text>
 
           <Text style={[styles.mainSubtitle, isDarkMode && styles.textMutedDark]}>
-            Service Session ID: {String(session.sessionId || '').slice(-10)}
+            Service Session ID: {String(session.sessionId || '')}
           </Text>
 
           <View style={styles.chipRow}>
@@ -338,7 +440,10 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                   </Text>
 
                   <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>
-                    Status: {request?.status || 'request sent'}
+                    {String(request?.status || 'pending').toLowerCase() === 'pending' ? 'Request Sent' : `Status: ${request?.status}`}
+                  </Text>
+                  <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>
+                    Requested {formatDateTime(request?.createdAt || request?.requestedAt)}
                   </Text>
                 </View>
 
@@ -424,6 +529,10 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
 
                     <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
                   </View>
+
+                  <TouchableOpacity style={styles.reviewQuoteButton} onPress={() => handleSmartReviewQuote(quote)}>
+                    <Text style={styles.reviewQuoteButtonText}>Check Availability / Smart Review</Text>
+                  </TouchableOpacity>
                 </TouchableOpacity>
               );
             })
@@ -439,7 +548,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           >
             <MaterialIcons name="compare-arrows" size={20} color="#fff" />
             <Text style={styles.compareButtonText}>
-              Compare Quotes / Smart Bid
+              Compare Quotes / Smart Review
             </Text>
           </TouchableOpacity>
 
@@ -474,8 +583,30 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           </SectionCard>
         ) : null}
 
+        <TouchableOpacity style={[styles.rescheduleButton, !booking && styles.compareButtonDisabled]} onPress={() => booking ? setRescheduleVisible(true) : Alert.alert('Booking required', 'A confirmed booking is required before suggesting a reschedule.')}>
+          <Ionicons name="calendar-outline" size={19} color="#fff" />
+          <Text style={styles.compareButtonText}>Suggest Reschedule</Text>
+        </TouchableOpacity>
+
         <View style={{ height: 110 }} />
       </ScrollView>
+
+      <Modal visible={rescheduleVisible} transparent animationType="fade" onRequestClose={() => setRescheduleVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, isDarkMode && styles.sectionCardDark]}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Suggest Reschedule</Text>
+            <Text style={[styles.modalHelp, isDarkMode && styles.textMutedDark]}>The provider will review this suggestion. It will not directly change the booking.</Text>
+            <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Suggested date</Text>
+            <TouchableOpacity style={[styles.pickerButton, isDarkMode && styles.providerRowDark]} onPress={() => setPickerMode('date')}><Text style={[styles.infoValue, isDarkMode && styles.textDark]}>{rescheduleDate.toLocaleDateString()}</Text></TouchableOpacity>
+            <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Suggested time</Text>
+            <TouchableOpacity style={[styles.pickerButton, isDarkMode && styles.providerRowDark]} onPress={() => setPickerMode('time')}><Text style={[styles.infoValue, isDarkMode && styles.textDark]}>{rescheduleDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text></TouchableOpacity>
+            {pickerMode ? <DateTimePicker value={rescheduleDate} mode={pickerMode} minimumDate={pickerMode === 'date' ? new Date() : undefined} onChange={(event, value) => { setPickerMode(null); if (value) setRescheduleDate((current) => { const next = new Date(current); if (pickerMode === 'date') next.setFullYear(value.getFullYear(), value.getMonth(), value.getDate()); else next.setHours(value.getHours(), value.getMinutes(), 0, 0); return next; }); }} /> : null}
+            <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Note (optional)</Text>
+            <TextInput style={[styles.noteInput, isDarkMode && styles.providerRowDark, isDarkMode && styles.textDark]} value={rescheduleNote} onChangeText={setRescheduleNote} placeholder="Why would you like a different time?" placeholderTextColor={isDarkMode ? COLORS.darkMuted : COLORS.muted} multiline />
+            <View style={styles.modalActions}><TouchableOpacity style={styles.modalCancel} onPress={() => setRescheduleVisible(false)}><Text style={styles.modalCancelText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.modalSubmit} onPress={submitReschedule} disabled={submittingReschedule}>{submittingReschedule ? <ActivityIndicator color="#fff" /> : <Text style={styles.compareButtonText}>Send Suggestion</Text>}</TouchableOpacity></View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -809,6 +940,95 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#EEF2F7',
+  },
+  reviewQuoteButton: {
+    marginTop: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  reviewQuoteButtonText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  rescheduleButton: {
+    height: 48,
+    borderRadius: 15,
+    backgroundColor: COLORS.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    marginBottom: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.55)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalHelp: {
+    color: COLORS.muted,
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 19,
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  pickerButton: {
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    marginTop: 5,
+    marginBottom: 10,
+  },
+  noteInput: {
+    minHeight: 86,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    color: COLORS.text,
+    padding: 12,
+    marginTop: 5,
+    textAlignVertical: 'top',
+    fontWeight: '400',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 16,
+  },
+  modalCancel: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  modalCancelText: {
+    color: COLORS.muted,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  modalSubmit: {
+    minWidth: 140,
+    minHeight: 42,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
   },
   textDark: {
     color: COLORS.darkText,

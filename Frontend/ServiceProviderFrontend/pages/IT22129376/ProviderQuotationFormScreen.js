@@ -1,5 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { submitProviderQuotation } from '../../services/providerFlowApi';
 import { getStoredProviderAuth } from './services/providerAuthStorage';
 import ProviderPageHeader from '../../components/ProviderPageHeader';
@@ -11,7 +12,9 @@ export default function ProviderQuotationFormScreen({ route, navigation }) {
   const request = route?.params?.request || {};
   const [price, setPrice] = useState('');
   const [duration, setDuration] = useState(String(request?.seekerEstimatedDurationHours || request?.estimatedDurationHours || ''));
-  const [startTime, setStartTime] = useState(request?.preferredStartTime || '');
+  const preferredDate = request?.preferredStartTime ? new Date(request.preferredStartTime) : new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const [startTime, setStartTime] = useState(Number.isNaN(preferredDate.getTime()) ? new Date(Date.now() + 24 * 60 * 60 * 1000) : preferredDate);
+  const [pickerMode, setPickerMode] = useState(null);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -20,6 +23,10 @@ export default function ProviderQuotationFormScreen({ route, navigation }) {
   const submit = async () => {
     if (!price || !duration || !startTime) {
       Alert.alert('Missing Details', 'Please enter price, duration and proposed start time.');
+      return;
+    }
+    if (Number(price) <= 0 || Number(duration) <= 0 || startTime <= new Date()) {
+      Alert.alert('Invalid Details', 'Price and duration must be greater than zero, and the proposed start must be in the future.');
       return;
     }
     try {
@@ -36,7 +43,7 @@ export default function ProviderQuotationFormScreen({ route, navigation }) {
         serviceCategory: request?.detectedCategory || request?.category || request?.serviceCategory || 'General',
         serviceSubcategory: request?.detectedObject || request?.serviceSubcategory || 'Service',
         price: Number(price),
-        proposedStartTime: startTime,
+        proposedStartTime: startTime.toISOString(),
         estimatedDurationHours: Number(duration),
         durationText: `${duration} Hours`,
         notes,
@@ -59,8 +66,11 @@ export default function ProviderQuotationFormScreen({ route, navigation }) {
         <TextInput style={[styles.input, { backgroundColor: C.card, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} keyboardType="numeric" value={price} onChangeText={setPrice} placeholder="2000" />
         <Text style={[styles.label, { color: C.muted }]}>Estimated Duration Hours</Text>
         <TextInput style={[styles.input, { backgroundColor: C.card, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} keyboardType="numeric" value={duration} onChangeText={setDuration} placeholder="2" />
+        <Text style={[styles.label, { color: C.muted }]}>Proposed Date</Text>
+        <TouchableOpacity style={[styles.pickerButton, { backgroundColor: C.card, borderColor: C.border }]} onPress={() => setPickerMode('date')}><Text style={{ color: C.text }}>{startTime.toLocaleDateString()}</Text></TouchableOpacity>
         <Text style={[styles.label, { color: C.muted }]}>Proposed Start Time</Text>
-        <TextInput style={[styles.input, { backgroundColor: C.card, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} value={startTime} onChangeText={setStartTime} placeholder="2026-09-01T09:00:00" />
+        <TouchableOpacity style={[styles.pickerButton, { backgroundColor: C.card, borderColor: C.border }]} onPress={() => setPickerMode('time')}><Text style={{ color: C.text }}>{startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text></TouchableOpacity>
+        {pickerMode ? <DateTimePicker value={startTime} mode={pickerMode} minimumDate={pickerMode === 'date' ? new Date() : undefined} onChange={(event, value) => { setPickerMode(null); if (value) setStartTime((current) => { const next = new Date(current); if (pickerMode === 'date') next.setFullYear(value.getFullYear(), value.getMonth(), value.getDate()); else next.setHours(value.getHours(), value.getMinutes(), 0, 0); return next; }); }} /> : null}
         <Text style={[styles.label, { color: C.muted }]}>Notes</Text>
         <TextInput style={[styles.input, styles.textArea, { backgroundColor: C.card, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} value={notes} onChangeText={setNotes} placeholder="Add a short note" multiline />
         <TouchableOpacity style={styles.button} onPress={submit} disabled={saving}>
@@ -76,6 +86,7 @@ const styles = StyleSheet.create({
   content: { padding: 20 },
   label: { fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 8 },
   input: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', padding: 13, marginBottom: 16 },
+  pickerButton: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 13, justifyContent: 'center', marginBottom: 16 },
   textArea: { minHeight: 90, textAlignVertical: 'top' },
   button: { backgroundColor: '#667eea', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 6 },
   buttonText: { color: '#fff', fontWeight: '600' },

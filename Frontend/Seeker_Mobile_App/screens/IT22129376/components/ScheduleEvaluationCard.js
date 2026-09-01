@@ -19,7 +19,7 @@ export default function ScheduleEvaluationCard({ evaluation = {}, isDarkMode }) 
       <View style={styles.rows}>
         <Row label="Proposed start" value={formatDateTime(evaluation.proposedStartTime)} isDarkMode={isDarkMode} />
         <Row label="Provider estimate" value={formatDuration(evaluation.providerEstimatedDurationHours)} isDarkMode={isDarkMode} />
-        <Row label="ML predicted duration" value={formatDuration(evaluation.mlPredictedDurationHours)} isDarkMode={isDarkMode} />
+        <Row label="ML predicted duration" value={Number(evaluation.mlPredictedDurationHours) > 0 ? formatDuration(evaluation.mlPredictedDurationHours) : 'Not available'} isDarkMode={isDarkMode} />
         <Row label="Final scheduling duration" value={formatDuration(evaluation.finalSchedulingDurationHours)} isDarkMode={isDarkMode} />
         <Row label="Buffer" value={`${evaluation.bufferMinutes || 0} mins`} isDarkMode={isDarkMode} />
         <Row label="Bookings today" value={`${evaluation.providerBookingsToday || 0}`} isDarkMode={isDarkMode} />

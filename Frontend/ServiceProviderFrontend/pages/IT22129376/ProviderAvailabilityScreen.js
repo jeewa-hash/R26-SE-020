@@ -1,80 +1,90 @@
 import React, { useCallback, useContext, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
-import { createAvailabilitySlot, deleteAvailabilitySlot, getMyAvailability, updateAvailabilitySlot, updateProviderAvailabilityStatus } from './services/providerAvailabilityApi';
-import { getStoredProviderAuth } from './services/providerAuthStorage';
 import ProviderPageHeader from '../../components/ProviderPageHeader';
 import { ThemeContext } from '../../context/ThemeContext';
+import { getMyAvailability, saveWeeklyAvailability, updateProviderAvailabilityStatus } from './services/providerAvailabilityApi';
 
-const emptyForm = { date: '', startTime: '', endTime: '', notes: '' };
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const initialWeek = () => DAYS.map((day) => ({ day, isAvailable: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(day), slots: [{ startTime: '08:00', endTime: '17:00' }] }));
+const timeDate = (value) => { const [hours, minutes] = String(value || '08:00').split(':').map(Number); const date = new Date(); date.setHours(hours || 0, minutes || 0, 0, 0); return date; };
+const timeText = (date) => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
 export default function ProviderAvailabilityScreen({ navigation }) {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
-  const C = { bg: isDark ? '#0F172A' : '#F8FAFC', card: isDark ? '#1E293B' : '#FFFFFF', text: isDark ? '#F8FAFC' : '#1E293B', muted: isDark ? '#94A3B8' : '#64748B', border: isDark ? '#334155' : '#E2E8F0', input: isDark ? '#0F172A' : '#F8FAFC' };
-  const [form, setForm] = useState(emptyForm);
-  const [slots, setSlots] = useState([]);
-  const [editingId, setEditingId] = useState(null);
+  const C = { bg: isDark ? '#0F172A' : '#F8FAFC', card: isDark ? '#1E293B' : '#FFFFFF', text: isDark ? '#F8FAFC' : '#1E293B', muted: isDark ? '#94A3B8' : '#64748B', border: isDark ? '#334155' : '#E2E8F0' };
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [week, setWeek] = useState(initialWeek);
+  const [picker, setPicker] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [isAvailable, setIsAvailable] = useState(true);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setError('');
-      const availability = await getMyAvailability();
-      setSlots(Array.isArray(availability?.availableSlots) ? availability.availableSlots : []);
-      setIsAvailable(availability?.isActive !== false);
-    } catch (loadError) { setError('Unable to load availability right now.'); }
-    finally { setLoading(false); }
+      const data = await getMyAvailability();
+      setIsAvailable(data?.isAvailable !== false && data?.isActive !== false);
+      if (Array.isArray(data?.weeklyAvailability) && data.weeklyAvailability.length) {
+        setWeek(DAYS.map((day) => data.weeklyAvailability.find((item) => item.day === day) || { day, isAvailable: false, slots: [{ startTime: '08:00', endTime: '17:00' }] }));
+      } else if (data) {
+        setWeek(DAYS.map((day) => ({ day, isAvailable: (data.availableDays || []).includes(day), slots: [{ startTime: data.workingHours?.start || '08:00', endTime: data.workingHours?.end || '17:00' }] })));
+      }
+    } catch (error) {
+      if (error?.status !== 404) Alert.alert('Unable to load', error?.message || 'Availability could not be loaded.');
+    } finally { setLoading(false); }
   }, []);
-
   useFocusEffect(useCallback(() => { setLoading(true); load(); }, [load]));
-  const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+
+  const updateDay = (day, transform) => setWeek((current) => current.map((item) => item.day === day ? transform(item) : item));
+  const selectTime = (day, field) => setPicker({ day, field, value: timeDate(week.find((item) => item.day === day)?.slots?.[0]?.[field]) });
 
   const save = async () => {
-    const { date, startTime, endTime, notes } = form;
-    if (!date || !startTime || !endTime) return Alert.alert('Missing details', 'Date, start time and end time are required.');
-    const start = new Date(`${date}T${startTime}:00`);
-    const end = new Date(`${date}T${endTime}:00`);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return Alert.alert('Invalid time', 'Enter a valid date and make sure end time is after start time.');
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    if (start < today) return Alert.alert('Invalid date', 'Availability cannot be added for a past date.');
-    const duplicate = slots.some((slot) => String(slot._id) !== String(editingId || '') && slot.date === date && slot.startTime === startTime && slot.endTime === endTime);
-    if (duplicate) return Alert.alert('Duplicate slot', 'This exact availability slot already exists.');
-    const { providerId } = await getStoredProviderAuth();
-    const payload = { providerId, date, startTime, endTime, startDateTime: start.toISOString(), endDateTime: end.toISOString(), isAvailable: true, slotType: 'AVAILABLE', notes: notes.trim() };
+    for (const day of week.filter((item) => item.isAvailable)) {
+      const slot = day.slots?.[0];
+      if (!slot || timeDate(slot.endTime) <= timeDate(slot.startTime)) return Alert.alert('Invalid hours', `${day}'s end time must be after its start time.`);
+    }
     try {
       setSaving(true);
-      if (editingId) await updateAvailabilitySlot(editingId, payload); else await createAvailabilitySlot(payload);
-      Alert.alert('Success', editingId ? 'Availability updated successfully.' : 'Availability saved successfully.');
-      setForm(emptyForm); setEditingId(null); await load();
-    } catch (saveError) { Alert.alert('Unable to save', saveError.message || 'Unable to update availability right now.'); }
+      const enabled = week.filter((item) => item.isAvailable);
+      await saveWeeklyAvailability({
+        isAvailable,
+        isActive: isAvailable,
+        weeklyAvailability: week,
+        availableDays: enabled.map((item) => item.day),
+        workingHours: { start: '00:00', end: '23:59' },
+        unavailableSlots: [],
+        maxBookingsPerDay: 3,
+      });
+      Alert.alert('Saved', 'Your weekly availability has been updated.');
+    } catch (error) { Alert.alert('Unable to save', error?.message || 'Please try again.'); }
     finally { setSaving(false); }
   };
 
-  const edit = (slot) => { setEditingId(slot._id); setForm({ date: slot.date || '', startTime: slot.startTime || '', endTime: slot.endTime || '', notes: slot.notes || '' }); };
-  const remove = (slot) => Alert.alert('Delete availability?', `${slot.date} · ${slot.startTime}–${slot.endTime}`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: async () => { try { await deleteAvailabilitySlot(slot._id); if (editingId === slot._id) { setEditingId(null); setForm(emptyForm); } await load(); } catch (deleteError) { Alert.alert('Unable to delete', deleteError.message); } } }]);
-  const toggleStatus = async () => { try { setUpdatingStatus(true); const result = await updateProviderAvailabilityStatus(!isAvailable); setIsAvailable(result?.isActive !== false); } catch (statusError) { Alert.alert('Unable to update', statusError.message); } finally { setUpdatingStatus(false); } };
+  const toggleGlobal = async (next) => {
+    setIsAvailable(next);
+    try { await updateProviderAvailabilityStatus(next); }
+    catch (error) { setIsAvailable(!next); Alert.alert('Unable to update', error?.message || 'Please try again.'); }
+  };
 
   return <View style={[styles.container, { backgroundColor: C.bg }]}>
-    <ProviderPageHeader navigation={navigation} title="Manage Availability" subtitle="Set the time slots you are available for service bookings." />
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={[styles.quickCard, { backgroundColor: C.card, borderColor: C.border }]}><View><Text style={[styles.sectionTitle, { color: C.text }]}>Quick Availability Status</Text><Text style={[styles.quickStatus, { color: isAvailable ? '#10B981' : '#F59E0B' }]}>{isAvailable ? 'Available' : 'Unavailable'}</Text></View><TouchableOpacity disabled={updatingStatus} style={[styles.statusButton, !isAvailable && styles.statusButtonAvailable]} onPress={toggleStatus}>{updatingStatus ? <ActivityIndicator color="#FFF" /> : <Text style={styles.statusButtonText}>{isAvailable ? 'Go Unavailable' : 'Go Available'}</Text>}</TouchableOpacity></View>
-      <View style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}><Text style={[styles.sectionTitle, { color: C.text }]}>{editingId ? 'Edit Availability Slot' : 'Add Availability Slot'}</Text>
-        <Text style={[styles.label, { color: C.muted }]}>Date (YYYY-MM-DD)</Text><TextInput style={[styles.input, { backgroundColor: C.input, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} value={form.date} onChangeText={(value) => setField('date', value)} placeholder="2026-09-01" />
-        <View style={styles.row}><View style={styles.half}><Text style={[styles.label, { color: C.muted }]}>Start (HH:mm)</Text><TextInput style={[styles.input, { backgroundColor: C.input, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} value={form.startTime} onChangeText={(value) => setField('startTime', value)} placeholder="09:00" /></View><View style={styles.half}><Text style={[styles.label, { color: C.muted }]}>End (HH:mm)</Text><TextInput style={[styles.input, { backgroundColor: C.input, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} value={form.endTime} onChangeText={(value) => setField('endTime', value)} placeholder="12:00" /></View></View>
-        <Text style={[styles.label, { color: C.muted }]}>Notes (optional)</Text><TextInput style={[styles.input, { backgroundColor: C.input, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} value={form.notes} onChangeText={(value) => setField('notes', value)} placeholder="Morning service hours" />
-        <View style={styles.actions}>{editingId ? <TouchableOpacity style={styles.cancelButton} onPress={() => { setEditingId(null); setForm(emptyForm); }}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity> : null}<TouchableOpacity disabled={saving} style={styles.saveButton} onPress={save}>{saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveText}>{editingId ? 'Update Availability' : 'Save Availability'}</Text>}</TouchableOpacity></View>
-      </View>
-      <Text style={[styles.listTitle, { color: C.text }]}>Existing Availability</Text>
-      {loading ? <View style={[styles.state, { backgroundColor: C.card }]}><ActivityIndicator color="#667eea" /><Text style={[styles.stateText, { color: C.muted }]}>Loading availability...</Text></View> : error ? <View style={[styles.state, { backgroundColor: C.card }]}><Text style={styles.error}>{error}</Text><TouchableOpacity onPress={load}><Text style={styles.retry}>Try again</Text></TouchableOpacity></View> : slots.length === 0 ? <View style={[styles.state, { backgroundColor: C.card }]}><Ionicons name="calendar-outline" size={30} color="#94A3B8" /><Text style={[styles.stateText, { color: C.muted }]}>No availability slots added yet.</Text></View> : slots.map((slot) => <View key={slot._id} style={[styles.slotCard, { backgroundColor: C.card, borderColor: C.border }]}><View style={styles.slotTop}><View><Text style={[styles.slotDate, { color: C.text }]}>{slot.date}</Text><Text style={[styles.slotTime, { color: C.muted }]}>{slot.startTime} – {slot.endTime}</Text></View><Text style={[styles.status, !slot.isAvailable && styles.unavailable]}>{slot.isAvailable ? 'Available' : 'Unavailable'}</Text></View>{slot.notes ? <Text style={[styles.notes, { color: C.muted }]}>{slot.notes}</Text> : null}<View style={styles.slotActions}><TouchableOpacity onPress={() => edit(slot)}><Text style={styles.edit}>Edit</Text></TouchableOpacity><TouchableOpacity onPress={() => remove(slot)}><Text style={styles.delete}>Delete</Text></TouchableOpacity></View></View>)}
+    <ProviderPageHeader navigation={navigation} title="Manage Availability" subtitle="Set your working days and service hours." />
+    <ScrollView contentContainerStyle={styles.content}>
+      <View style={[styles.globalCard, { backgroundColor: C.card, borderColor: C.border }]}><View style={styles.flex}><Text style={[styles.title, { color: C.text }]}>Accepting new jobs</Text><Text style={[styles.body, { color: C.muted }]}>This global setting is checked before weekly hours.</Text></View><Switch value={isAvailable} onValueChange={toggleGlobal} trackColor={{ false: '#CBD5E1', true: '#A5B4FC' }} thumbColor={isAvailable ? '#667EEA' : '#F8FAFC'} /></View>
+      <Text style={[styles.heading, { color: C.text }]}>Weekly availability</Text>
+      {loading ? <ActivityIndicator color="#667EEA" style={styles.loader} /> : week.map((item) => {
+        const slot = item.slots?.[0] || { startTime: '08:00', endTime: '17:00' };
+        return <View key={item.day} style={[styles.dayCard, { backgroundColor: C.card, borderColor: C.border }]}>
+          <View style={styles.dayHeader}><Text style={[styles.day, { color: C.text }]}>{item.day}</Text><Switch value={item.isAvailable} onValueChange={(value) => updateDay(item.day, (current) => ({ ...current, isAvailable: value }))} trackColor={{ false: '#CBD5E1', true: '#A5B4FC' }} thumbColor={item.isAvailable ? '#667EEA' : '#F8FAFC'} /></View>
+          <Text style={[styles.stateText, { color: item.isAvailable ? '#18794E' : C.muted }]}>{item.isAvailable ? 'Enabled' : 'Disabled'}</Text>
+          {item.isAvailable ? <View style={styles.timeRow}><TouchableOpacity style={[styles.timeButton, { borderColor: C.border }]} onPress={() => selectTime(item.day, 'startTime')}><Text style={[styles.timeLabel, { color: C.muted }]}>Start</Text><Text style={[styles.timeValue, { color: C.text }]}>{slot.startTime}</Text></TouchableOpacity><Text style={{ color: C.muted }}>–</Text><TouchableOpacity style={[styles.timeButton, { borderColor: C.border }]} onPress={() => selectTime(item.day, 'endTime')}><Text style={[styles.timeLabel, { color: C.muted }]}>End</Text><Text style={[styles.timeValue, { color: C.text }]}>{slot.endTime}</Text></TouchableOpacity></View> : null}
+        </View>;
+      })}
+      <TouchableOpacity style={styles.saveButton} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveText}>Save Availability</Text>}</TouchableOpacity>
     </ScrollView>
+    {picker ? <DateTimePicker value={picker.value} mode="time" onChange={(event, date) => { if (date) updateDay(picker.day, (item) => ({ ...item, slots: [{ ...(item.slots?.[0] || {}), [picker.field]: timeText(date) }] })); setPicker(null); }} /> : null}
   </View>;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' }, content: { padding: 16, paddingBottom: 50 }, quickCard: { backgroundColor: '#FFF', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }, quickStatus: { fontSize: 13, fontWeight: '500' }, statusButton: { backgroundColor: '#B45309', borderRadius: 11, minWidth: 128, paddingHorizontal: 14, paddingVertical: 11, alignItems: 'center' }, statusButtonAvailable: { backgroundColor: '#059669' }, statusButtonText: { color: '#FFF', fontWeight: '600', fontSize: 12 }, card: { backgroundColor: '#FFF', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#E5E7EB' }, sectionTitle: { fontSize: 17, fontWeight: '600', color: '#111827', marginBottom: 8 }, label: { color: '#475569', fontSize: 12, fontWeight: '500', marginTop: 10, marginBottom: 6 }, input: { borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC', borderRadius: 11, paddingHorizontal: 12, minHeight: 46, color: '#111827' }, row: { flexDirection: 'row', gap: 10 }, half: { flex: 1 }, actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 16 }, saveButton: { backgroundColor: '#667eea', borderRadius: 11, paddingHorizontal: 16, paddingVertical: 12, minWidth: 145, alignItems: 'center' }, saveText: { color: '#FFF', fontWeight: '600' }, cancelButton: { paddingHorizontal: 16, paddingVertical: 12 }, cancelText: { color: '#64748B', fontWeight: '500' }, listTitle: { fontSize: 17, fontWeight: '600', color: '#111827', marginTop: 22, marginBottom: 10 }, state: { backgroundColor: '#FFF', borderRadius: 16, padding: 24, alignItems: 'center', gap: 9 }, stateText: { color: '#64748B' }, error: { color: '#B91C1C' }, retry: { color: '#667eea', fontWeight: '500' }, slotCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#E5E7EB' }, slotTop: { flexDirection: 'row', justifyContent: 'space-between' }, slotDate: { color: '#111827', fontWeight: '600' }, slotTime: { color: '#64748B', marginTop: 4 }, status: { color: '#047857', backgroundColor: '#D1FAE5', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 5, fontSize: 11 }, unavailable: { color: '#B45309', backgroundColor: '#FEF3C7' }, notes: { color: '#64748B', marginTop: 9, fontSize: 12 }, slotActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 20, marginTop: 12 }, edit: { color: '#4F46E5', fontWeight: '500' }, delete: { color: '#DC2626', fontWeight: '500' },
+  container: { flex: 1 }, content: { padding: 16, paddingBottom: 50 }, flex: { flex: 1 }, globalCard: { borderRadius: 18, padding: 16, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }, title: { fontSize: 17, fontWeight: '600' }, body: { fontSize: 12, fontWeight: '400', lineHeight: 18, marginTop: 4 }, heading: { fontSize: 18, fontWeight: '600', marginTop: 22, marginBottom: 10 }, loader: { margin: 30 }, dayCard: { borderRadius: 16, borderWidth: 1, padding: 15, marginBottom: 10 }, dayHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, day: { fontSize: 15, fontWeight: '600' }, stateText: { fontSize: 12, fontWeight: '500', marginTop: -5 }, timeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 13 }, timeButton: { flex: 1, borderWidth: 1, borderRadius: 12, padding: 10 }, timeLabel: { fontSize: 10, fontWeight: '500' }, timeValue: { fontSize: 14, fontWeight: '500', marginTop: 2 }, saveButton: { height: 48, borderRadius: 13, backgroundColor: '#667EEA', alignItems: 'center', justifyContent: 'center', marginTop: 10 }, saveText: { color: '#FFF', fontSize: 14, fontWeight: '500' },
 });

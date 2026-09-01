@@ -24,9 +24,9 @@ import {
   getSeekerBookings,
 } from './services/myJobsApi';
 
-import { IP_ADDRESS } from '../../config';
+import { CONFIG } from '../../config';
 
-const SEEKER_SERVICE_URL = `http://${IP_ADDRESS}:6000`;
+const SEEKER_SERVICE_URL = CONFIG.SEEKER_SERVICE_URL;
 
 const TABS = ['Active', 'Scheduled', 'Ongoing', 'History'];
 
@@ -327,6 +327,7 @@ const buildGroupedSessions = ({ serviceSessions = [], requests = [], quotations 
       requests: [],
       quotations: [],
       booking: null,
+      bookings: [],
       createdAt: session?.createdAt || session?.created_at || new Date().toISOString(),
     });
   });
@@ -341,6 +342,7 @@ const buildGroupedSessions = ({ serviceSessions = [], requests = [], quotations 
       requests: [],
       quotations: [],
       booking: null,
+      bookings: [],
       createdAt: request?.createdAt || request?.created_at || new Date().toISOString(),
     };
 
@@ -377,6 +379,7 @@ const buildGroupedSessions = ({ serviceSessions = [], requests = [], quotations 
       requests: relatedRequest ? [relatedRequest] : [],
       quotations: [],
       booking: null,
+      bookings: [],
       createdAt: quotation?.createdAt || quotation?.created_at || new Date().toISOString(),
     };
 
@@ -407,10 +410,13 @@ const buildGroupedSessions = ({ serviceSessions = [], requests = [], quotations 
       requests: [],
       quotations: [],
       booking: null,
+      bookings: [],
       createdAt: booking?.createdAt || booking?.created_at || new Date().toISOString(),
     };
 
-    existing.booking = booking;
+    existing.bookings = Array.isArray(existing.bookings) ? existing.bookings : [];
+    existing.bookings.push(booking);
+    existing.booking = existing.booking || booking;
     existing.bookingStatus = booking?.bookingStatus || booking?.status;
     existing.title = existing.title || booking?.serviceSubcategory || booking?.serviceCategory || 'Booked Service';
     existing.detectedCategory = existing.detectedCategory || booking?.serviceCategory;
@@ -434,6 +440,7 @@ const buildGroupedSessions = ({ serviceSessions = [], requests = [], quotations 
         booking,
         requestedProvidersCount: requestCount,
         quoteCount,
+        bookingCount: session.bookings?.length || (booking ? 1 : 0),
       };
     })
     .sort((a, b) => {
@@ -539,7 +546,7 @@ function ServiceSessionsHeader({ isDarkMode, activeCount, scheduledCount, ongoin
     >
       <View style={styles.titleRow}>
         <View>
-          <Text style={styles.headerTitle}>My Requests</Text>
+          <Text style={styles.headerTitle}>My Service Sessions</Text>
           <Text style={styles.headerSubtitle}>
             Grouped service sessions with requests, quotes and bookings
           </Text>
@@ -714,7 +721,7 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
 
         <View style={[styles.metricBox, isDarkMode && styles.metricBoxDark]}>
           <Text style={styles.metricNumber}>
-            {session?.booking ? '1' : '0'}
+            {session?.bookingCount || session?.bookings?.length || (session?.booking ? 1 : 0)}
           </Text>
           <Text style={[styles.metricLabel, isDarkMode && styles.textMutedDark]}>
             Booking

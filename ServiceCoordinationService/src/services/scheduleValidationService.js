@@ -27,7 +27,7 @@ export async function validateProviderSchedule({
     };
   }
 
-  if (!availability.isActive) {
+  if (availability.isActive === false || availability.isAvailable === false) {
     return {
       isValid: false,
       validationStatus: "CONFLICT",
@@ -38,10 +38,19 @@ export async function validateProviderSchedule({
 
   const configuredSlots = (availability.availableSlots || []).filter((slot) => slot.isAvailable && slot.date === requestedDate);
   const requestedDay = getDayName(requestedDate);
+  const weeklyDay = (availability.weeklyAvailability || []).find((item) => item.day === requestedDay);
 
   if (configuredSlots.length > 0) {
     const containingSlot = configuredSlots.find((slot) => requestedStartTime >= slot.startTime && requestedEndTime <= slot.endTime);
     if (!containingSlot) return { isValid: false, validationStatus: "CONFLICT", message: "Provider is not available at the proposed time.", providerBookingsToday: 0 };
+  } else if (weeklyDay) {
+    if (!weeklyDay.isAvailable) {
+      return { isValid: false, validationStatus: "CONFLICT", message: `Provider is not available on ${requestedDay}`, providerBookingsToday: 0 };
+    }
+    const containingWeeklySlot = (weeklyDay.slots || []).find((slot) => requestedStartTime >= slot.startTime && requestedEndTime <= slot.endTime);
+    if (!containingWeeklySlot) {
+      return { isValid: false, validationStatus: "CONFLICT", message: "Provider is not available at the proposed time.", providerBookingsToday: 0 };
+    }
   } else if (!availability.availableDays.includes(requestedDay)) {
     return {
       isValid: false,
@@ -56,7 +65,7 @@ export async function validateProviderSchedule({
   const workingStart = timeToMinutes(availability.workingHours.start);
   const workingEnd = timeToMinutes(availability.workingHours.end);
 
-  if (configuredSlots.length === 0 && (requestStart < workingStart || requestEnd > workingEnd)) {
+  if (configuredSlots.length === 0 && !weeklyDay && (requestStart < workingStart || requestEnd > workingEnd)) {
     return {
       isValid: false,
       validationStatus: "CONFLICT",

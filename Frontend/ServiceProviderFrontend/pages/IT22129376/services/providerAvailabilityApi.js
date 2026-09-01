@@ -38,3 +38,4 @@ export const getProviderAvailabilityStatus = async () => {
   return availability?.isActive !== false;
 };
 export const updateProviderAvailabilityStatus = (isAvailable) => request('/availability/provider/me/status', { method: 'PATCH', body: JSON.stringify({ isAvailable }) });
+export const saveWeeklyAvailability = (payload) => request('/availability', { method: 'POST', body: JSON.stringify(payload) });

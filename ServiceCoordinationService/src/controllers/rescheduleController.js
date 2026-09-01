@@ -19,7 +19,14 @@ const canAccessBooking = (req, booking) => {
 export const createRescheduleRequest = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const { reason = "Schedule change required" } = req.body;
+    const {
+      reason = "Schedule change required",
+      sessionId = "",
+      quotationId = null,
+      requestedStartTime = null,
+      note = "",
+      createdBy,
+    } = req.body;
 
     const booking = await Booking.findById(bookingId);
 
@@ -55,7 +62,7 @@ export const createRescheduleRequest = async (req, res) => {
 
     const existingPending = await RescheduleRequest.findOne({
       bookingId,
-      status: "PENDING",
+      status: { $in: ["PENDING", "PENDING_PROVIDER_REVIEW"] },
     });
 
     if (existingPending) {
@@ -72,13 +79,42 @@ export const createRescheduleRequest = async (req, res) => {
       estimatedDurationHours: booking.estimatedDurationHours,
     });
 
+    let requestedSlot = null;
+    if (requestedStartTime) {
+      const start = new Date(requestedStartTime);
+      if (Number.isNaN(start.getTime()) || start <= new Date()) {
+        return res.status(400).json({ success: false, message: "requestedStartTime must be a valid future date and time" });
+      }
+      const durationHours = Number(booking.estimatedDurationHours) > 0 ? Number(booking.estimatedDurationHours) : 1;
+      const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
+      const pad = (value) => String(value).padStart(2, "0");
+      const date = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+      const time = (value) => `${pad(value.getHours())}:${pad(value.getMinutes())}`;
+      requestedSlot = {
+        date,
+        startTime: time(start),
+        endTime: time(end),
+        score: 0,
+        riskLevel: "UNKNOWN",
+        reason: note || "Seeker-proposed reschedule time",
+      };
+    }
+
+    const requesterType = getRequesterType(req.user.role);
+
     const rescheduleRequest = await RescheduleRequest.create({
       bookingId: booking._id,
       postId: booking.postId,
       seekerId: booking.seekerId,
       providerId: booking.providerId,
 
-      requestedByType: getRequesterType(req.user.role),
+      sessionId: sessionId || booking.externalSessionId || "",
+      quotationId: quotationId || booking.externalQuotationId || null,
+      requestedStartTime: requestedStartTime || null,
+      note,
+      createdBy: createdBy === requesterType ? createdBy : requesterType,
+
+      requestedByType: requesterType,
       requestedById: req.user.id,
       reason,
 
@@ -88,8 +124,8 @@ export const createRescheduleRequest = async (req, res) => {
         endTime: booking.endTime,
       },
 
-      suggestedSlots,
-      status: "PENDING",
+      suggestedSlots: requestedSlot ? [requestedSlot, ...suggestedSlots] : suggestedSlots,
+      status: requesterType === "SEEKER" && requestedSlot ? "PENDING_PROVIDER_REVIEW" : "PENDING",
     });
 
     booking.bookingStatus = "RESCHEDULING_REQUIRED";
@@ -135,7 +171,7 @@ export const acceptRescheduleSlot = async (req, res) => {
       });
     }
 
-    if (rescheduleRequest.status !== "PENDING") {
+    if (!["PENDING", "PENDING_PROVIDER_REVIEW"].includes(rescheduleRequest.status)) {
       return res.status(400).json({
         success: false,
         message: "Only pending reschedule requests can be accepted",

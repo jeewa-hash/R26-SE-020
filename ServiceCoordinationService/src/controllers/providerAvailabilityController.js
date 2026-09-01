@@ -19,6 +19,23 @@ const hasOverlap = (slots, candidate, ignoredId = null) => slots.some((slot) =>
   candidate.startDateTime < new Date(slot.endDateTime) && candidate.endDateTime > new Date(slot.startDateTime)
 );
 
+const validateWeeklyAvailability = (week) => {
+  if (!Array.isArray(week)) return "weeklyAvailability must be an array";
+  for (const entry of week) {
+    if (!entry?.day || typeof entry.isAvailable !== "boolean" || !Array.isArray(entry.slots)) {
+      return "Each weekly availability entry requires day, isAvailable and slots";
+    }
+    for (const slot of entry.slots) {
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(slot.startTime || "") || !/^([01]\d|2[0-3]):[0-5]\d$/.test(slot.endTime || "")) {
+        return `Invalid time slot for ${entry.day}`;
+      }
+      if (slot.endTime <= slot.startTime) return `${entry.day} end time must be after start time`;
+    }
+    if (entry.isAvailable && entry.slots.length === 0) return `${entry.day} requires at least one time slot when enabled`;
+  }
+  return "";
+};
+
 export const upsertProviderAvailability = async (req, res) => {
   try {
     const {
@@ -27,6 +44,8 @@ export const upsertProviderAvailability = async (req, res) => {
       unavailableSlots = [],
       maxBookingsPerDay = 3,
       isActive = true,
+      isAvailable = isActive,
+      weeklyAvailability = [],
     } = req.body;
 
     const providerId = req.user?.id;
@@ -38,10 +57,10 @@ export const upsertProviderAvailability = async (req, res) => {
       });
     }
 
-    if (!availableDays || !Array.isArray(availableDays) || availableDays.length === 0) {
+    if (!Array.isArray(availableDays)) {
       return res.status(400).json({
         success: false,
-        message: "availableDays must be a non-empty array",
+        message: "availableDays must be an array",
       });
     }
 
@@ -52,6 +71,9 @@ export const upsertProviderAvailability = async (req, res) => {
       });
     }
 
+    const weeklyError = validateWeeklyAvailability(weeklyAvailability);
+    if (weeklyError) return res.status(400).json({ success: false, message: weeklyError });
+
     const availability = await ProviderAvailability.findOneAndUpdate(
       { providerId },
       {
@@ -60,7 +82,9 @@ export const upsertProviderAvailability = async (req, res) => {
         workingHours,
         unavailableSlots,
         maxBookingsPerDay,
-        isActive,
+        isActive: Boolean(isAvailable),
+        isAvailable: Boolean(isAvailable),
+        weeklyAvailability,
       },
       {
         new: true,
@@ -180,7 +204,7 @@ export const updateAvailabilityStatus = async (req, res) => {
     if (!providerId || typeof req.body.isAvailable !== "boolean") return res.status(400).json({ success: false, message: "isAvailable boolean is required" });
     const availability = await ProviderAvailability.findOneAndUpdate(
       { providerId },
-      { $set: { isActive: req.body.isAvailable }, $setOnInsert: { providerId, availableDays: [], workingHours: { start: "00:00", end: "23:59" } } },
+      { $set: { isActive: req.body.isAvailable, isAvailable: req.body.isAvailable }, $setOnInsert: { providerId, availableDays: [], workingHours: { start: "00:00", end: "23:59" } } },
       { new: true, upsert: true, runValidators: true }
     );
     return res.json({ success: true, message: req.body.isAvailable ? "You are now available" : "You are now unavailable", data: availability });
