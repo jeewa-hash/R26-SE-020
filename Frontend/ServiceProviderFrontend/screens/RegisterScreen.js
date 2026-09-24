@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { Picker } from '@react-native-picker/picker';
-import MapView, { Marker } from 'react-native-maps';
+import MapPicker from '../components/MapPicker';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import { IP_ADDRESS } from '../config';
@@ -446,13 +446,11 @@ export default function RegisterScreen({ navigation }) {
 
       <Modal visible={mapVisible} animationType="slide">
         <View style={styles.fullScreenMapContainer}>
-          <MapView 
+          <MapPicker 
             style={styles.fullScreenMap} 
             region={tempLocation}
             onPress={handleMapPress}
-          >
-            <Marker coordinate={{ latitude: tempLocation.latitude, longitude: tempLocation.longitude }} />
-          </MapView>
+          />
           
           <View style={styles.mapTopButtons}>
             <TouchableOpacity style={styles.mapCancelBtn} onPress={closeMap}>
