@@ -104,3 +104,6 @@ __pycache__/
 *.rar
 *.tar.gz
 *.tar
+
+postman/
+docs/
