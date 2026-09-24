@@ -37,6 +37,29 @@ TEXT_SESSION_LANGUAGE = {}
 
 PROVIDER_SERVICE_URL = "http://localhost:5000/portfolio/all-providers"
 INQUIRY_SERVICE_URL = os.getenv("INQUIRY_SERVICE_URL", "http://localhost:5001")
+SEEKER_SERVICE_URL = os.getenv("SEEKER_SERVICE_URL", "http://localhost:6000")
+
+
+def get_provider_feedback_scores() -> dict:
+    """
+    Fetch aggregated feedback scores from the Seeker Node.js service.
+    Returns a dict keyed by providerId:
+        { providerId: { avgRating, totalReviews, recommendationRate } }
+    Falls back to an empty dict if the service is unavailable.
+    """
+    try:
+        response = requests.get(
+            f"{SEEKER_SERVICE_URL}/feedback/provider-scores",
+            timeout=5,
+        )
+        if response.status_code != 200:
+            print("[Feedback Service] Non-200 response:", response.status_code)
+            return {}
+        data = response.json()
+        return data.get("scores", {})
+    except (requests.RequestException, ValueError) as err:
+        print("[Feedback Service] Error fetching scores:", err)
+        return {}
 
 
 def is_provider_restricted(provider_id):
@@ -161,10 +184,11 @@ def get_all_providers():
     except Exception:
         return []
 
-def filter_matching_providers(category, providers, district=None):
+def filter_matching_providers(category, providers, district=None, feedback_scores=None):
     matching = []
     requested_category = normalize_service_category(category)
     requested_district = normalize_service_category(district) if district else None
+    scores = feedback_scores or {}
 
     for item in providers:
         provider = item.get("provider", {})
@@ -190,9 +214,20 @@ def filter_matching_providers(category, providers, district=None):
         if requested_district:
             district_match = (requested_district == provider_district)
 
+        # Attach feedback score (0 if no reviews yet)
+        feedback = scores.get(str(provider_id), {})
+        avg_rating = feedback.get("avgRating") or 0
+        total_reviews = feedback.get("totalReviews") or 0
+        recommendation_rate = feedback.get("recommendationRate") or 0
+
         matching.append({
             "provider": provider,
             "portfolio": portfolio,
+            "feedback_score": {
+                "avgRating": avg_rating,
+                "totalReviews": total_reviews,
+                "recommendationRate": recommendation_rate
+            },
             "match": {
                 "category_match": True,
                 "district_match": district_match,
@@ -200,7 +235,12 @@ def filter_matching_providers(category, providers, district=None):
             }
         })
 
-    matching.sort(key=lambda x: 0 if x["match"]["priority"] == "HIGH" else 1)
+    # Sort: HIGH district match first, then by avgRating descending within each group
+    matching.sort(key=lambda x: (
+        0 if x["match"]["priority"] == "HIGH" else 1,  # district priority
+        -x["feedback_score"]["avgRating"],              # higher rating first
+        -x["feedback_score"]["totalReviews"]            # more reviews as tiebreaker
+    ))
     return matching
 
 def find_matching_providers(category, answers):
@@ -212,6 +252,9 @@ def find_matching_providers(category, answers):
             "providers": [],
             "message": "Unable to retrieve providers."
         }
+
+    # Fetch feedback scores from Seeker service (fails gracefully)
+    feedback_scores = get_provider_feedback_scores()
 
     address = None
     for key in ["step_7", "step_6", "step_5"]:
@@ -234,7 +277,7 @@ def find_matching_providers(category, answers):
                 district = d
                 break
 
-    matching = filter_matching_providers(category, all_providers, district)
+    matching = filter_matching_providers(category, all_providers, district, feedback_scores)
 
     if district:
         exact_district = [p for p in matching if p["match"]["district_match"]]
