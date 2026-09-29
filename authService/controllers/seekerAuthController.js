@@ -6,12 +6,12 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT, 10) || 587,
+  secure: process.env.SMTP_SECURE === 'true',
   auth: {
-    user: "assigmentgroupy@gmail.com",
-    pass: "iehl zcwp pdmy anld",
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 });
 
@@ -85,7 +85,7 @@ exports.register = async (req, res) => {
 
     // Send Email
     const mailOptions = {
-      from: '"WorkWave Service App" <assigmentgroupy@gmail.com>',
+      from: process.env.EMAIL_FROM || 'WorkWave <noreply@workwave.com>',
       to: email,
       subject: "Verify Your Email - WorkWave",
       text: `Welcome to WorkWave! Your OTP for email verification is: ${otp}. It will expire in 10 minutes.`,

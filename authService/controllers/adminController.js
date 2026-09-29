@@ -16,12 +16,12 @@ const AuditLog = require('../models/AuditLog');
 
 // Email transporter (same config as seeker)
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT, 10) || 587,
+  secure: process.env.SMTP_SECURE === 'true',
   auth: {
-    user: "assigmentgroupy@gmail.com",
-    pass: "iehl zcwp pdmy anld",
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 });
 
@@ -89,7 +89,7 @@ exports.register = async (req, res) => {
 
     // Send credentials email to the new admin
     const mailOptions = {
-      from: '"WorkWave Admin" <assigmentgroupy@gmail.com>',
+      from: process.env.EMAIL_FROM || 'WorkWave Admin <noreply@workwave.com>',
       to: email,
       subject: "Your Admin Account Credentials - WorkWave",
       text: `Hello ${fullName},\n\nYour admin account has been created successfully.\n\nHere are your login credentials:\nEmail: ${email}\nPassword: ${password}\n\nPlease login at your earliest convenience and keep your credentials safe.\n\nRegards,\nWorkWave Admin Team`,
@@ -210,7 +210,7 @@ exports.forgotPassword = async (req, res) => {
     } catch (emailErr) {
       console.error('Failed to send OTP email via primary helper, attempting fallback...', emailErr);
       const fallbackMailOptions = {
-        from: '"WorkWave Security" <assigmentgroupy@gmail.com>',
+        from: process.env.EMAIL_FROM || 'WorkWave Security <noreply@workwave.com>',
         to: admin.email,
         subject: '🔐 Admin Password Reset OTP - WorkWave',
         html: `
