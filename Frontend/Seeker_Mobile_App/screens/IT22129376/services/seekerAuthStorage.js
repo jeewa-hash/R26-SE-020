@@ -42,6 +42,10 @@ export const getUserIdFromJwt = (token) => {
   if (!payload) return null;
 
   return (
+    payload.user?.id ||
+    payload.user?._id ||
+    payload.user?.userId ||
+    payload.user?.seekerId ||
     payload.userId ||
     payload.id ||
     payload._id ||

@@ -33,7 +33,7 @@ exports.generateBio = async (req, res) => {
 // Registration Logic
 exports.register = async (req, res) => {
   try {
-    const { email, password, nicNumber, category, district, latitude, longitude, telephone, rawBio, gender, address } = req.body;
+    const { email, name, fullName, password, nicNumber, category, district, latitude, longitude, telephone, rawBio, gender, address } = req.body;
 
     // Force provider role to ServiceProvider
     const forcedRole = 'ServiceProvider';
@@ -69,6 +69,8 @@ exports.register = async (req, res) => {
     // Create a new Provider
     user = new Provider({
       email,
+      name ,
+      fullName ,
       password: hashedPassword,
       role: forcedRole,
       nicNumber,
@@ -117,6 +119,8 @@ exports.register = async (req, res) => {
     const userResponse = {
       _id: user._id,
       email: user.email,
+      name: user.name,
+      fullName: user.fullName,
       role: user.role,
       nicNumber: user.nicNumber,
       nicImage: user.nicImage,

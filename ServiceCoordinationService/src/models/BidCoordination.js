@@ -34,6 +34,15 @@ const bidCoordinationSchema = new mongoose.Schema(
       index: true,
     }, // Chaw: copied for local filtering
 
+    serviceLocation: { type: String, default: "" },
+    serviceLatitude: { type: Number, default: null },
+    serviceLongitude: { type: Number, default: null },
+    location: {
+      address: { type: String, default: "" },
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+    },
+
     finalDecision: {
       type: String,
       enum: [
@@ -41,6 +50,8 @@ const bidCoordinationSchema = new mongoose.Schema(
         "AVAILABLE_WITH_CAUTION",
         "RESCHEDULE_REQUIRED",
         "REJECTED_DUE_TO_CONFLICT",
+        "NOT_AVAILABLE",
+        "CONFLICT_FOUND",
       ],
       required: true,
       index: true,

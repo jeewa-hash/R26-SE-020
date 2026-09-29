@@ -11,19 +11,38 @@ export async function validateProviderSchedule({
   requestedDate,
   requestedStartTime,
   requestedEndTime,
+  excludeBookingId = null,
 }) {
-  const availability = await ProviderAvailability.findOne({ providerId });
+  const expiryCutoff = new Date(Date.now() - 45 * 60 * 1000);
+  await Booking.updateMany(
+    {
+      providerId,
+      bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
+      actualStartTime: null,
+      scheduledStartTime: { $ne: null, $lt: expiryCutoff },
+    },
+    {
+      $set: { bookingStatus: "EXPIRED", expiredAt: new Date() },
+      $push: { timeline: { status: "EXPIRED", message: "Booking expired because it was not started within 45 minutes", at: new Date() } },
+    }
+  );
+
+  let availability = await ProviderAvailability.findOne({ providerId });
+  let availabilityWarning = "";
 
   if (!availability) {
-    return {
-      isValid: false,
-      validationStatus: "CONFLICT",
-      message: "Provider availability is not configured",
-      providerBookingsToday: 0,
+    availabilityWarning = "Provider availability is not fully configured. Schedule check used existing bookings only.";
+    availability = {
+      isActive: true,
+      availableDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      workingHours: { start: "00:00", end: "23:59" },
+      unavailableSlots: [],
+      availableSlots: [],
+      maxBookingsPerDay: Number.MAX_SAFE_INTEGER,
     };
   }
 
-  if (!availability.isActive) {
+  if (availability.isActive === false || availability.isAvailable === false) {
     return {
       isValid: false,
       validationStatus: "CONFLICT",
@@ -32,9 +51,22 @@ export async function validateProviderSchedule({
     };
   }
 
+  const configuredSlots = (availability.availableSlots || []).filter((slot) => slot.isAvailable && slot.date === requestedDate);
   const requestedDay = getDayName(requestedDate);
+  const weeklyDay = (availability.weeklyAvailability || []).find((item) => item.day === requestedDay);
 
-  if (!availability.availableDays.includes(requestedDay)) {
+  if (configuredSlots.length > 0) {
+    const containingSlot = configuredSlots.find((slot) => requestedStartTime >= slot.startTime && requestedEndTime <= slot.endTime);
+    if (!containingSlot) return { isValid: false, validationStatus: "CONFLICT", message: "Provider is not available at the proposed time.", providerBookingsToday: 0 };
+  } else if (weeklyDay) {
+    if (!weeklyDay.isAvailable) {
+      return { isValid: false, validationStatus: "CONFLICT", message: `Provider is not available on ${requestedDay}`, providerBookingsToday: 0 };
+    }
+    const containingWeeklySlot = (weeklyDay.slots || []).find((slot) => requestedStartTime >= slot.startTime && requestedEndTime <= slot.endTime);
+    if (!containingWeeklySlot) {
+      return { isValid: false, validationStatus: "CONFLICT", message: "Provider is not available at the proposed time.", providerBookingsToday: 0 };
+    }
+  } else if (!availability.availableDays.includes(requestedDay)) {
     return {
       isValid: false,
       validationStatus: "CONFLICT",
@@ -48,7 +80,7 @@ export async function validateProviderSchedule({
   const workingStart = timeToMinutes(availability.workingHours.start);
   const workingEnd = timeToMinutes(availability.workingHours.end);
 
-  if (requestStart < workingStart || requestEnd > workingEnd) {
+  if (configuredSlots.length === 0 && !weeklyDay && (requestStart < workingStart || requestEnd > workingEnd)) {
     return {
       isValid: false,
       validationStatus: "CONFLICT",
@@ -80,12 +112,15 @@ export async function validateProviderSchedule({
 
   const providerBookingsToday = await Booking.find({
     providerId,
+    ...(excludeBookingId ? { _id: { $ne: excludeBookingId } } : {}),
     scheduledDate: requestedDate,
     bookingStatus: {
       $in: [
         "CONFIRMED",
+        "ON_THE_WAY",
         "IN_PROGRESS",
         "DELAY_REPORTED",
+        "RESCHEDULE_REQUESTED",
         "RESCHEDULING_REQUIRED",
         "RESCHEDULED",
       ],
@@ -121,8 +156,8 @@ export async function validateProviderSchedule({
 
   return {
     isValid: true,
-    validationStatus: "VALIDATED",
-    message: "Provider schedule is available",
+    validationStatus: availabilityWarning ? "VALIDATED_WITH_CAUTION" : "VALIDATED",
+    message: availabilityWarning || "Provider is available at the proposed time.",
     providerBookingsToday: providerBookingsToday.length,
   };
 }

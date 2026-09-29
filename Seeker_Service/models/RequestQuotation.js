@@ -32,6 +32,12 @@ const requestQuotationSchema = new mongoose.Schema(
       required: true,
     },
 
+    postId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
+
     sessionId: {
       type: String,
       required: true,
@@ -79,6 +85,13 @@ const requestQuotationSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    serviceLatitude: { type: Number, default: null },
+    serviceLongitude: { type: Number, default: null },
+    location: {
+      address: { type: String, default: "", trim: true },
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+    },
 
     preferredStartTime: { // Chaw - Added seeker preferred start time for the job
       type: Date,
@@ -110,13 +123,18 @@ const requestQuotationSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "confirmed", "cancelled"],
+      enum: ["pending", "quoted", "accepted", "rejected", "cancelled", "expired"],
       default: "pending",
     },
   },
   {
     timestamps: true,
   }
+);
+
+requestQuotationSchema.index(
+  { seekerId: 1, providerId: 1, sessionId: 1 },
+  { unique: true }
 );
 
 const RequestQuotation = mongoose.model(

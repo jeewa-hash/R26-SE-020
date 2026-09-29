@@ -123,6 +123,18 @@ export default function CoordinationReviewScreen({ route, navigation }) {
       <PriceEvaluationCard evaluation={quote.priceEvaluation} isDarkMode={isDarkMode} />
       <ScheduleEvaluationCard evaluation={quote.scheduleEvaluation} isDarkMode={isDarkMode} />
 
+      {decision !== 'NOT_CHECKED' ? (
+        <View style={styles.section}>
+          <ActionButton
+            label="Run Availability Check Again"
+            icon="refresh"
+            variant="secondary"
+            onPress={runCoordination}
+            loading={loading}
+          />
+        </View>
+      ) : null}
+
       {quote.suggestedSlots?.length ? (
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
@@ -145,6 +157,6 @@ export default function CoordinationReviewScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   section: { marginTop: 2 },
-  sectionTitle: { color: COLORS.text, fontSize: 17, fontWeight: '900', marginBottom: 10 },
+  sectionTitle: { color: COLORS.text, fontSize: 17, fontWeight: '600', marginBottom: 10 },
   textDark: { color: COLORS.darkText },
 });

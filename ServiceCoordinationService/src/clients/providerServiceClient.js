@@ -50,3 +50,12 @@ export const updateProviderQuotationCoordination = async (
     throw new Error("Unable to update provider quotation coordination status");
   }
 };
+
+export const acceptProviderQuotation = async (quotationId, authorization = "") => {
+  const response = await axios.patch(
+    `${PROVIDER_SERVICE_BASE_URL}/api/provider/quotations/${quotationId}/accept`,
+    {},
+    { headers: authorization ? { Authorization: authorization } : {} }
+  );
+  return response.data?.data || response.data;
+};

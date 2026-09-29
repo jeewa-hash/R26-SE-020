@@ -165,31 +165,6 @@ export const getUserRole = async () => {
   }
 };
 
-const ALL_AUTH_KEYS = [
-  'userToken',
-  'token',
-  'authToken',
-  'accessToken',
-  'userId',
-  'providerId',
-  'seekerId',
-  'userRole',
-  'role',
-  'user',
-  'currentUser',
-  'provider',
-  'seeker',
-];
-
-export const clearUserData = async () => {
-  try {
-    await AsyncStorage.multiRemove(ALL_AUTH_KEYS);
-    console.log('LOGOUT: all auth keys cleared');
-  } catch (error) {
-    console.warn('Error clearing user data:', error?.message);
-  }
-};
-
 export default {
   decodeJwt,
   getUserIdFromJwt,
@@ -197,5 +172,4 @@ export default {
   getStoredUserId,
   getUserFromToken,
   getUserRole,
-  clearUserData,
 };

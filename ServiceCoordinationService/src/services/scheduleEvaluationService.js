@@ -5,15 +5,15 @@ const pad = (value) => String(value).padStart(2, "0"); // Chaw: format date/time
 const formatDateToYMD = (date) => {
   const d = new Date(date);
 
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(
-    d.getUTCDate()
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+    d.getDate()
   )}`;
 }; // Chaw: convert proposed Date into YYYY-MM-DD for existing schedule validator
 
 const formatDateToHHMM = (date) => {
   const d = new Date(date);
 
-  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }; // Chaw: convert proposed Date into HH:mm for existing schedule validator
 
 export const evaluateBidSchedule = async ({
@@ -61,17 +61,9 @@ export const evaluateBidSchedule = async ({
       ? null
       : Number(mlPredictedDurationHours);
 
-  const validDurations = [providerDuration];
-
-  if (seekerDuration && seekerDuration > 0) {
-    validDurations.push(seekerDuration);
-  }
-
-  if (mlDuration && mlDuration > 0) {
-    validDurations.push(mlDuration);
-  }
-
-  const finalSchedulingDurationHours = Math.max(...validDurations); // Chaw: use safer duration for schedule validation
+  const finalSchedulingDurationHours = mlDuration && mlDuration > 0
+    ? mlDuration
+    : providerDuration; // A zero/missing ML value is not a duration prediction.
 
   const totalMinutes =
     finalSchedulingDurationHours * 60 + Number(bufferMinutes || 0);
@@ -115,6 +107,7 @@ export const evaluateBidSchedule = async ({
     requiredWindowEnd,
     conflictDetected: !validation.isValid, // Chaw: mark conflict if schedule validator fails
     conflictReason: validation.isValid ? "" : validation.message, // Chaw: store readable conflict reason
+    availabilityMessage: validation.message,
     delayRiskLevel,
     providerBookingsToday: validation.providerBookingsToday || 0,
   };

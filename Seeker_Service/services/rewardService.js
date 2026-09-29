@@ -2,7 +2,7 @@ import RewardAccount from "../models/RewardAccount.js";
 import RewardTransaction from "../models/RewardTransaction.js";
 import mongoose from "mongoose";
 
-const POINTS_PER_UNIT = 10; // 10 points per currency unit (configurable)
+const POINTS_PER_UNIT = 0.05; // 5% of the final bill amount is awarded as Star Points
 
 export async function awardPointsForBooking({ bookingId, seekerId, finalAmount, bookingStatus }) {
   if (!mongoose.isValidObjectId(bookingId) || !mongoose.isValidObjectId(seekerId)) {

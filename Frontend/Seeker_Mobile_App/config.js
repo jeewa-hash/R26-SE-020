@@ -16,4 +16,8 @@ export const PROVIDER_API_BASE = `http://${IP_ADDRESS}:5000`;
 // If you need a legacy CONFIG object (points to main backend on port 5002)
 export const CONFIG = {
     API_BASE_URL: `http://${IP_ADDRESS}:5002`,
+    AUTH_SERVICE_URL,
+    SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6000`,
+    PROVIDER_SERVICE_API_URL: `http://${IP_ADDRESS}:3002`,
+    COORDINATION_SERVICE_URL: `http://${IP_ADDRESS}:5010`,
 };

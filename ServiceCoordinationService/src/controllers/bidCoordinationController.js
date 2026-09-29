@@ -14,12 +14,24 @@ import { evaluateBidPrice } from "../services/pricingService.js";
 import { evaluateBidSchedule } from "../services/scheduleEvaluationService.js";
 import { decideBidCoordination } from "../services/bidDecisionService.js";
 import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
+import Booking from "../models/Booking.js";
+import { getRoadDistanceAndTime } from "../services/osrmService.js";
 import { generateSuggestedSlots } from "../services/suggestedSlotService.js";
 import { predictDelayRisk } from "../clients/mlPredictionClient.js";
 import {
   buildDelayRiskPayload,
   normalizeDelayRiskLevel,
 } from "../services/mlPayloadBuilderService.js";
+import { validateProviderSchedule } from "../services/scheduleValidationService.js";
+
+const toScheduleParts = (value) => {
+  const date = new Date(value);
+  const pad = (part) => String(part).padStart(2, "0");
+  return {
+    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+  };
+};
 
 export const checkBidCoordination = async (req, res) => {
   try {
@@ -139,6 +151,36 @@ export const checkBidCoordination = async (req, res) => {
       bufferMinutes,
     }); // Chaw: first calculate schedule window and booking conflict
 
+    const proposedStart = new Date(providerQuotation.proposedStartTime);
+    const previousBooking = !Number.isNaN(proposedStart.getTime()) ? await Booking.findOne({
+      providerId: providerQuotation.providerId,
+      bookingStatus: { $in: ["CONFIRMED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "COMPLETED", "EXPIRED"] },
+      scheduledStartTime: { $lt: proposedStart },
+    }).sort({ scheduledStartTime: -1 }) : null;
+    let travelInfo = { distanceKm: 0, estimatedTravelTimeMins: 0, source: "NO_COORDINATES" };
+    let gapFromPreviousBookingMins = null;
+    const destinationLat = requestQuotation.serviceLatitude ?? requestQuotation.location?.lat;
+    const destinationLng = requestQuotation.serviceLongitude ?? requestQuotation.location?.lng;
+    if (previousBooking?.location?.lat != null && previousBooking?.location?.lng != null && destinationLat != null && destinationLng != null) {
+      travelInfo = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, destinationLat, destinationLng);
+      const previousEnd = previousBooking.bookingStatus === "EXPIRED"
+        ? (previousBooking.expiredAt || previousBooking.scheduledStartTime)
+        : (previousBooking.actualEndTime || previousBooking.scheduledEndTime);
+      if (previousEnd) gapFromPreviousBookingMins = Math.round((proposedStart.getTime() - new Date(previousEnd).getTime()) / 60000);
+    }
+    const insufficientTravelGap = gapFromPreviousBookingMins !== null && gapFromPreviousBookingMins < travelInfo.estimatedTravelTimeMins;
+    scheduleEvaluationData = {
+      ...scheduleEvaluationData,
+      distanceFromPreviousBookingKm: travelInfo.distanceKm,
+      estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
+      gapFromPreviousBookingMins,
+      travelInfoSource: travelInfo.source,
+      conflictDetected: scheduleEvaluationData.conflictDetected || insufficientTravelGap,
+      conflictReason: insufficientTravelGap
+        ? "Provider may not have enough travel time from the previous booking."
+        : scheduleEvaluationData.conflictReason,
+    };
+
     const delayRiskPayload = buildDelayRiskPayload({
       requestQuotation,
       providerQuotation,
@@ -169,6 +211,14 @@ export const checkBidCoordination = async (req, res) => {
         externalQuotationId,
         seekerId: requestQuotation.seekerId,
         providerId: requestQuotation.providerId,
+        serviceLocation: requestQuotation.serviceLocation || requestQuotation.location?.address || "",
+        serviceLatitude: requestQuotation.serviceLatitude ?? requestQuotation.location?.lat ?? null,
+        serviceLongitude: requestQuotation.serviceLongitude ?? requestQuotation.location?.lng ?? null,
+        location: {
+          address: requestQuotation.serviceLocation || requestQuotation.location?.address || "",
+          lat: requestQuotation.serviceLatitude ?? requestQuotation.location?.lat ?? null,
+          lng: requestQuotation.serviceLongitude ?? requestQuotation.location?.lng ?? null,
+        },
         finalDecision: decisionData.finalDecision,
         recommendedAction: decisionData.recommendedAction,
         status: "ready_for_seeker_review",
@@ -303,12 +353,18 @@ export const getBidCoordinationById = async (req, res) => {
       bidCoordinationId: coordination._id,
     });
 
+    const suggestedSlots = await BidSuggestedSlot.find({
+      bidCoordinationId: coordination._id,
+      status: "AVAILABLE",
+    }).sort({ startTime: 1 });
+
     return res.status(200).json({
       success: true,
       data: {
         coordination,
         priceEvaluation,
         scheduleEvaluation,
+        suggestedSlots,
       },
     });
   } catch (error) {
@@ -340,10 +396,16 @@ export const getBidCoordinationsBySession = async (req, res) => {
           bidCoordinationId: coordination._id,
         });
 
+        const suggestedSlots = await BidSuggestedSlot.find({
+          bidCoordinationId: coordination._id,
+          status: "AVAILABLE",
+        }).sort({ startTime: 1 });
+
         return {
           coordination,
           priceEvaluation,
           scheduleEvaluation,
+          suggestedSlots,
         };
       })
     );
@@ -390,6 +452,14 @@ export const selectSuggestedSlot = async (req, res) => {
         });
       }
 
+      const currentUserId = String(req.user?.id || "");
+      const ownsCoordination = req.user?.role === "ServiceProvider"
+        ? String(coordination.providerId) === currentUserId
+        : String(coordination.seekerId) === currentUserId;
+      if (!ownsCoordination) {
+        return res.status(403).json({ success: false, message: "Access denied for this coordination." });
+      }
+
       if (coordination.status !== "ready_for_seeker_review") {
         return res.status(400).json({
           success: false,
@@ -433,16 +503,59 @@ export const selectSuggestedSlot = async (req, res) => {
         });
       }
   
-      const selectedDurationHours =
-        scheduleEvaluation.finalSchedulingDurationHours;
+      const selectedDurationHours = Number(scheduleEvaluation.mlPredictedDurationHours) > 0
+        ? Number(scheduleEvaluation.mlPredictedDurationHours)
+        : Number(scheduleEvaluation.providerEstimatedDurationHours);
+      if (!(selectedDurationHours > 0)) {
+        return res.status(409).json({ success: false, message: "A valid provider duration is required before selecting a slot." });
+      }
+
+      const selectedStart = new Date(selectedSlot.startTime);
+      const selectedEnd = new Date(selectedStart.getTime() + (selectedDurationHours * 60 + Number(scheduleEvaluation.bufferMinutes || 0)) * 60000);
+      const startParts = toScheduleParts(selectedStart);
+      const endParts = toScheduleParts(selectedEnd);
+      const validation = await validateProviderSchedule({
+        providerId: coordination.providerId,
+        requestedDate: startParts.date,
+        requestedStartTime: startParts.time,
+        requestedEndTime: endParts.time,
+      });
+      if (!validation.isValid) {
+        selectedSlot.status = "EXPIRED";
+        await selectedSlot.save();
+        return res.status(409).json({ success: false, message: "Selected slot is no longer available.", validation });
+      }
+
+      const previousBooking = await Booking.findOne({
+        providerId: coordination.providerId,
+        bookingStatus: { $in: ["CONFIRMED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "COMPLETED", "EXPIRED"] },
+        scheduledStartTime: { $lt: selectedStart },
+      }).sort({ scheduledStartTime: -1 });
+      let travelInfo = { distanceKm: 0, estimatedTravelTimeMins: 0, source: "NO_COORDINATES" };
+      let gapFromPreviousBookingMins = null;
+      if (previousBooking?.location?.lat != null && previousBooking?.location?.lng != null && coordination.serviceLatitude != null && coordination.serviceLongitude != null) {
+        travelInfo = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, coordination.serviceLatitude, coordination.serviceLongitude);
+        const previousEnd = previousBooking.bookingStatus === "EXPIRED"
+          ? (previousBooking.expiredAt || previousBooking.scheduledStartTime)
+          : (previousBooking.actualEndTime || previousBooking.scheduledEndTime);
+        if (previousEnd) gapFromPreviousBookingMins = Math.round((selectedStart.getTime() - new Date(previousEnd).getTime()) / 60000);
+      }
+      if (gapFromPreviousBookingMins !== null && gapFromPreviousBookingMins < travelInfo.estimatedTravelTimeMins) {
+        return res.status(409).json({ success: false, message: "Selected slot does not leave enough travel time from the previous booking." });
+      }
   
       const updatedScheduleData = {
-        proposedStartTime: selectedSlot.startTime,
-        requiredWindowStart: selectedSlot.startTime,
-        requiredWindowEnd: selectedSlot.endTime,
+        proposedStartTime: selectedStart,
+        requiredWindowStart: selectedStart,
+        requiredWindowEnd: selectedEnd,
         finalSchedulingDurationHours: selectedDurationHours,
         conflictDetected: false,
         conflictReason: "",
+        availabilityMessage: validation.message,
+        distanceFromPreviousBookingKm: travelInfo.distanceKm,
+        estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
+        gapFromPreviousBookingMins,
+        travelInfoSource: travelInfo.source,
       }; // Chaw: selected suggested slot becomes the new valid schedule window
   
       const updatedScheduleEvaluation =
@@ -457,10 +570,10 @@ export const selectSuggestedSlot = async (req, res) => {
           }
         );
   
-      const decisionData = decideBidCoordination({
-        priceEvaluation,
-        scheduleEvaluation: updatedScheduleEvaluation,
-      }); // Chaw: recalculate decision after seeker selects available slot
+      const decisionData = {
+        finalDecision: "CAN_ACCEPT",
+        recommendedAction: "The selected slot was revalidated and can be accepted.",
+      };
   
       const updatedCoordination = await BidCoordination.findByIdAndUpdate(
         coordination._id,

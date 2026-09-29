@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
   iconCircle: { width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   textArea: { flex: 1 },
-  title: { fontSize: 19, fontWeight: '900', color: COLORS.text },
+  title: { fontSize: 19, fontWeight: '600', color: COLORS.text },
   message: { color: COLORS.muted, fontSize: 13, lineHeight: 19, marginTop: 4 },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   recommendation: { marginTop: 12, fontSize: 13, lineHeight: 19, color: COLORS.muted, fontWeight: '600' },

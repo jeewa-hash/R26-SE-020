@@ -1,13 +1,16 @@
 import axios from "axios";
 
 const ML_SERVICE_BASE_URL =
-  process.env.ML_SERVICE_BASE_URL || "http://localhost:8000"; // Chaw: separate FastAPI ML service URL
+  process.env.ML_SERVICE_URL ||
+  process.env.ML_SERVICE_BASE_URL ||
+  "http://localhost:8000";
 
 export const predictDelayRisk = async (payload) => {
   try {
     const response = await axios.post(
       `${ML_SERVICE_BASE_URL}/predict-risk`,
-      payload
+      payload,
+      { timeout: 5000 }
     ); // Chaw: current ML service exposes POST /predict-risk
 
     return response.data;

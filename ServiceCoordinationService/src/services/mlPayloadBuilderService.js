@@ -21,19 +21,31 @@ const mapUrgencyToPriority = (urgencyLevel = "") => {
     providerQuotation,
     scheduleEvaluation,
   }) => {
+    const requestedCategory = String(
+      requestQuotation.detectedCategory || requestQuotation.serviceCategory || ""
+    ).trim().toLowerCase();
+    const providerCategory = String(
+      providerQuotation.serviceCategory || providerQuotation.category || ""
+    ).trim().toLowerCase();
+    const expertiseMatch = !requestedCategory || !providerCategory
+      ? 1
+      : Number(
+          requestedCategory.includes(providerCategory) ||
+          providerCategory.includes(requestedCategory)
+        );
+
     return {
-      expertiseMatch: 1, // Chaw: temporary default; later can come from provider category matching
+      expertiseMatch,
       taskPriority: mapUrgencyToPriority(requestQuotation.urgencyLevel),
       taskDuration: Number(
         scheduleEvaluation.finalSchedulingDurationHours ||
           providerQuotation.estimatedDurationHours ||
           1
       ),
-      distanceBetweenBookingsKm: 0, // Chaw: temporary default until location/travel calculation is connected
-      estimatedTravelTimeMins: 0, // Chaw: temporary default until maps/travel logic is connected
-      gapBetweenBookingsMins: scheduleEvaluation.conflictDetected ? 0 : 999, // Chaw: safe gap when no conflict is known
+      distanceBetweenBookingsKm: Number(scheduleEvaluation.distanceFromPreviousBookingKm || 0),
+      estimatedTravelTimeMins: Number(scheduleEvaluation.estimatedTravelTimeMins || 0),
+      gapBetweenBookingsMins: scheduleEvaluation.gapFromPreviousBookingMins ?? (scheduleEvaluation.conflictDetected ? 0 : 999),
       providerBookingsToday: Number(scheduleEvaluation.providerBookingsToday || 0),
-      taskCompleted: 1, // Chaw: default positive historical signal for prospective booking
     };
   };
   

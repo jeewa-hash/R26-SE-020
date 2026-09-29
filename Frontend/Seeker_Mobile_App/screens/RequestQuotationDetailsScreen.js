@@ -32,8 +32,6 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
   const { requestId, quoteId, request: initialRequest } = route.params || {};
   const { isDarkMode } = useTheme();
 
-  // Preserve any request details supplied by the caller, then refresh them
-  // from the Seeker Service for notifications that only contain IDs.
   const [request, setRequest] = useState(initialRequest || null);
   const [quotations, setQuotations] = useState([]);
   const [providersMap, setProvidersMap] = useState({});
@@ -115,8 +113,6 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
           (quote) => String(quote.providerRequestId) === String(requestId)
         );
 
-        // A notification identifies one provider quotation. When quoteId is
-        // supplied, show only that quotation under its seeker request summary.
         setQuotations(
           quoteId
             ? requestQuotations.filter((quote) => String(quote._id) === String(quoteId))
@@ -152,43 +148,6 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
     setRefreshing(true);
     Promise.all([fetchProviders(), fetchRequestDetails(), fetchQuotations()]).finally(() =>
       setRefreshing(false)
-    );
-  };
-
-  // ─────────────────────────────────────────────────────────────
-  // Accept quotation
-  // ─────────────────────────────────────────────────────────────
-  const handleAccept = (quote) => {
-    Alert.alert(
-      'Accept Quotation',
-      `Accept quotation of LKR ${quote.price}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Accept',
-          onPress: async () => {
-            try {
-              const token = await AsyncStorage.getItem('userToken');
-              const res = await fetch(`${PROVIDER_API}/${quote._id}/accept`, {
-                method: 'PATCH',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-              });
-              const data = await res.json();
-              if (data.success) {
-                Alert.alert('Success', 'Quotation accepted!');
-                fetchQuotations();
-              } else {
-                Alert.alert('Error', data.message || 'Failed to accept.');
-              }
-            } catch {
-              Alert.alert('Error', 'Network error.');
-            }
-          },
-        },
-      ]
     );
   };
 
@@ -534,23 +493,7 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
                       ) : null}
                     </View>
 
-                    {/* Accept button (only for SENT/pending quotes) */}
-                    {quote.status === 'SENT' && (
-                      <TouchableOpacity
-                        style={styles.acceptButton}
-                        onPress={() => handleAccept(quote)}
-                      >
-                        <LinearGradient
-                          colors={['#10B981', '#059669']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.acceptGradient}
-                        >
-                          <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                          <Text style={styles.acceptButtonText}>Accept Quotation</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    )}
+                    {/* Accept button removed entirely */}
                   </View>
                 );
               })
@@ -1003,24 +946,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     flex: 1,
     lineHeight: 19,
-  },
-
-  // ── Accept button ──
-  acceptButton: {
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  acceptGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 13,
-    gap: 8,
-  },
-  acceptButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 15,
   },
 
   // ── Shared text overrides ──

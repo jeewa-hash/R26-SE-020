@@ -69,8 +69,8 @@ export default function JobHistoryDetailsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   card: { backgroundColor: COLORS.card, borderRadius: 22, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: '#EEF2F7' },
   cardDark: { backgroundColor: COLORS.darkCard, borderColor: COLORS.darkBorder },
-  title: { fontSize: 23, fontWeight: '900', color: COLORS.text, marginTop: 14 },
-  provider: { fontSize: 14, fontWeight: '700', color: COLORS.muted, marginTop: 5 },
+  title: { fontSize: 23, fontWeight: '600', color: COLORS.text, marginTop: 14 },
+  provider: { fontSize: 14, fontWeight: '600', color: COLORS.muted, marginTop: 5 },
   divider: { height: 1, backgroundColor: '#EEF2F7', marginVertical: 16 },
   actions: { gap: 10 },
   textDark: { color: COLORS.darkText },

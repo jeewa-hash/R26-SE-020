@@ -8,21 +8,20 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  StatusBar,
-  Platform,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
+import HeaderSection from '../../components/HeaderSection';
 import { COLORS } from './theme';
-import { getStoredProviderAuth } from './services/providerAuthStorage';
-import { getProviderJobs, getProviderQuotations, getProviderRequests } from './services/providerFlowApi';
+import { debugAuthStorage, getStoredProviderAuth } from './services/providerAuthStorage';
+import { getCoordinationReview, getProviderJobs, getProviderOngoingJobs, getProviderQuotations, getProviderRequests, selectCoordinationSuggestedSlot } from './services/providerFlowApi';
+import { COORDINATION_SERVICE_URL, PROVIDER_SERVICE_API_URL, SEEKER_SERVICE_URL } from '../../config';
 import { formatDate, formatFullDate, formatTime, isSameDay } from './utils/dateTimeFormatter';
 import {
   getBookingStart,
+  getBookingStatus,
   getBookingEnd,
   getBookingId,
   getQuotationId,
@@ -31,7 +30,6 @@ import {
   getServiceCategory,
   getServiceTitle,
   getSeekerName,
-  getStatus,
   getStatusStyle,
   isClosedBooking,
   normalizeBooking,
@@ -39,7 +37,25 @@ import {
   normalizeRequest,
 } from './utils/providerFlowMapper';
 
-const TABS = ['Today', 'Requests', 'Quotes', 'Scheduled', 'History'];
+const TABS = ['Today', 'Ongoing', 'Requests', 'Quotes', 'Scheduled', 'History'];
+
+const extractArray = (response) => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.data)) return response.data.data;
+  if (Array.isArray(response?.rawList)) return response.rawList;
+  if (Array.isArray(response?.items)) return response.items;
+  if (Array.isArray(response?.bookings)) return response.bookings;
+  if (Array.isArray(response?.jobs)) return response.jobs;
+  if (Array.isArray(response?.quotations)) return response.quotations;
+  if (Array.isArray(response?.requests)) return response.requests;
+  return [];
+};
+
+const getProviderIdFromItem = (item) =>
+  item?.providerId?._id || item?.providerId || item?.provider?._id || item?.provider?.id ||
+  item?.serviceProvider?._id || item?.serviceProvider?.id || item?.serviceProviderId ||
+  item?.providerSnapshot?.providerId?._id || item?.providerSnapshot?.providerId || '';
 
 const toComparableId = (value) => {
   if (!value) return '';
@@ -103,6 +119,18 @@ const filterForLoggedProvider = (items, providerId) => {
   return items.filter((item) => belongsToLoggedProvider(item, providerId));
 };
 
+const safelyFilterProviderResponse = (items, providerId, label) => {
+  const raw = Array.isArray(items) ? items : [];
+  console.log('Filtering item provider ids:', raw.map(getProviderIdFromItem));
+  const filtered = filterForLoggedProvider(raw, providerId);
+  if (raw.length > 0 && filtered.length === 0) {
+    console.warn('Provider filter removed all items. Check providerId shape.', { label, providerId });
+    // Every source used here is already provider-scoped by URL or auth token.
+    return raw;
+  }
+  return filtered;
+};
+
 const Badge = ({ label, bg, color }) => (
   <View style={[styles.badge, { backgroundColor: bg }]}> 
     <Text style={[styles.badgeText, { color }]}>{label}</Text>
@@ -159,7 +187,7 @@ const RequestCard = ({ request, onPress, onQuote, isDark }) => {
   );
 };
 
-const QuoteCard = ({ quotation, onPress, isDark }) => {
+const QuoteCard = ({ quotation, onPress, onReviewSlots, isDark }) => {
   const status = getStatusStyle(quotation.status || quotation.coordinationStatus || 'SENT');
   return (
     <TouchableOpacity style={[styles.card, isDark && styles.cardDark]} activeOpacity={0.85} onPress={onPress}>
@@ -173,13 +201,23 @@ const QuoteCard = ({ quotation, onPress, isDark }) => {
       <View style={styles.badgeRow}>
         <Badge label={status.label} bg={status.bg} color={status.color} />
         {quotation.coordinationStatus ? (
-          <Badge label={quotation.coordinationStatus} bg={COLORS.infoSoft} color={COLORS.info} />
+          <Badge
+            label={getStatusStyle(quotation.coordinationStatus).label}
+            bg={COLORS.infoSoft}
+            color={COLORS.info}
+          />
         ) : null}
       </View>
       <View style={styles.infoBlock}>
         <Text style={styles.infoLine}>🕒 Proposed: {formatDate(quotation.proposedStartTime)} {formatTime(quotation.proposedStartTime)}</Text>
         <Text style={styles.infoLine}>⏱ Duration: {quotation.estimatedDurationHours || '-'} hours</Text>
       </View>
+      {String(quotation.coordinationStatus || '').toUpperCase() === 'RESCHEDULE_REQUIRED' ? (
+        <TouchableOpacity style={styles.primaryButton} onPress={onReviewSlots}>
+          <Ionicons name="calendar-outline" size={16} color="#fff" />
+          <Text style={styles.primaryButtonText}>View Suggested Slots</Text>
+        </TouchableOpacity>
+      ) : null}
     </TouchableOpacity>
   );
 };
@@ -187,7 +225,7 @@ const QuoteCard = ({ quotation, onPress, isDark }) => {
 const BookingCard = ({ booking, onPress, isDark }) => {
   const start = getBookingStart(booking);
   const end = getBookingEnd(booking);
-  const status = getStatusStyle(getStatus(booking));
+  const status = getStatusStyle(getBookingStatus(booking));
   const risk = getRiskStyle(booking.delayRiskLevel || booking.predictedDelayRiskLevel);
   return (
     <TouchableOpacity style={[styles.card, isDark && styles.cardDark]} activeOpacity={0.85} onPress={onPress}>
@@ -237,17 +275,23 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const [requests, setRequests] = useState([]);
   const [quotations, setQuotations] = useState([]);
   const [jobs, setJobs] = useState([]);
+  const [ongoingJobs, setOngoingJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [backendWarning, setBackendWarning] = useState(null);
 
-  const normalizedRequests = useMemo(() => requests.map(normalizeRequest), [requests]);
-  const normalizedQuotes = useMemo(() => quotations.map((q) => normalizeQuotation(q, normalizedRequests)), [quotations, normalizedRequests]);
+  const normalizedRequests = useMemo(() => requests
+    .filter((request) => String(request?.status || 'pending').toLowerCase() === 'pending')
+    .map(normalizeRequest), [requests]);
+  const normalizedQuotes = useMemo(() => quotations
+    .filter((quotation) => ['SENT', 'COUNTER_OFFERED', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CANCELLED'].includes(String(quotation?.status || 'SENT').toUpperCase()))
+    .map((q) => normalizeQuotation(q, normalizedRequests)), [quotations, normalizedRequests]);
   const normalizedJobs = useMemo(() => jobs.map(normalizeBooking), [jobs]);
+  const normalizedOngoing = useMemo(() => ongoingJobs.map(normalizeBooking), [ongoingJobs]);
 
   const todayJobs = useMemo(() => normalizedJobs.filter((job) => isSameDay(getBookingStart(job), new Date()) && !isClosedBooking(job)), [normalizedJobs]);
-  const scheduledJobs = useMemo(() => normalizedJobs.filter((job) => !isClosedBooking(job)), [normalizedJobs]);
+  const scheduledJobs = useMemo(() => normalizedJobs.filter((job) => ['CONFIRMED', 'RESCHEDULED', 'RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED'].includes(getBookingStatus(job))), [normalizedJobs]);
   const historyJobs = useMemo(() => normalizedJobs.filter(isClosedBooking), [normalizedJobs]);
 
   const loadAll = async () => {
@@ -255,32 +299,43 @@ export default function ProviderMyJobsScreen({ navigation }) {
       setError(null);
       setBackendWarning(null);
       const auth = await getStoredProviderAuth();
+      await debugAuthStorage();
       if (!auth.isLoggedIn || !auth.providerId) {
         setProviderId(null);
         setRequests([]);
         setQuotations([]);
         setJobs([]);
+        setOngoingJobs([]);
         setError('Provider login details were not found. Please login again.');
         return;
       }
       setProviderId(auth.providerId);
       console.log('LOGGED PROVIDER ID:', auth.providerId);
+      console.log('MY JOBS AUTH:', { providerId: auth.providerId, hasToken: Boolean(auth.token) });
+      console.log('REQUESTS API URL:', `${SEEKER_SERVICE_URL}/request-quotations/provider-filtered/${auth.providerId}`);
+      console.log('QUOTATIONS API URL:', `${PROVIDER_SERVICE_API_URL}/api/provider/quotations/provider/me`);
+      console.log('BOOKINGS API URL:', `${COORDINATION_SERVICE_URL}/bookings/provider/me`);
+      console.log('ONGOING API URL:', `${COORDINATION_SERVICE_URL}/bookings/provider/me/ongoing`);
 
-      const [reqResult, quoteResult, jobsResult] = await Promise.allSettled([
+      const [reqResult, quoteResult, jobsResult, ongoingResult] = await Promise.allSettled([
         getProviderRequests(auth.providerId),
         getProviderQuotations(auth.providerId),
         getProviderJobs(auth.providerId),
+        getProviderOngoingJobs(auth.providerId),
       ]);
 
       if (reqResult.status === 'fulfilled') {
-        const rawRequests = reqResult.value.rawList || reqResult.value.requests || [];
-        const providerRequests = filterForLoggedProvider(rawRequests, auth.providerId);
+        const rawRequests = extractArray(reqResult.value);
+        const providerRequests = safelyFilterProviderResponse(rawRequests, auth.providerId, 'requests');
 
         console.log('RAW PROVIDER REQUESTS:', rawRequests.length);
         console.log('FILTERED PROVIDER REQUESTS:', providerRequests.length);
+        console.log('Provider requests filter providerId:', auth.providerId);
         console.log('FIRST RAW REQUEST:', JSON.stringify(rawRequests[0], null, 2));
 
         setRequests(providerRequests);
+        console.log('Provider requests raw:', rawRequests);
+        console.log('Provider requests count:', rawRequests.length);
 
         if (rawRequests.length === 0) {
           setBackendWarning('No incoming requests yet. New quotation requests assigned to you will appear here.');
@@ -294,33 +349,55 @@ export default function ProviderMyJobsScreen({ navigation }) {
       }
 
       if (quoteResult.status === 'fulfilled') {
-        const rawQuotations = quoteResult.value.rawList || quoteResult.value.quotations || [];
-        const providerQuotations = filterForLoggedProvider(rawQuotations, auth.providerId);
+        const rawQuotations = extractArray(quoteResult.value);
+        const providerQuotations = safelyFilterProviderResponse(rawQuotations, auth.providerId, 'quotations');
 
         console.log('RAW PROVIDER QUOTATIONS:', rawQuotations.length);
         console.log('FILTERED PROVIDER QUOTATIONS:', providerQuotations.length);
+        console.log('Provider quotations filter providerId:', auth.providerId);
 
         setQuotations(providerQuotations);
+        console.log('Provider quotations raw:', rawQuotations);
+        console.log('Provider quotations count:', rawQuotations.length);
       } else {
         console.log('Provider quotations failed:', quoteResult.reason?.message);
         setQuotations([]);
       }
 
       if (jobsResult.status === 'fulfilled') {
-        const rawJobs = jobsResult.value.rawList || jobsResult.value.jobs || [];
-        const providerJobs = filterForLoggedProvider(rawJobs, auth.providerId);
+        const rawJobs = extractArray(jobsResult.value);
+        const providerJobs = safelyFilterProviderResponse(rawJobs, auth.providerId, 'bookings');
 
         console.log('RAW PROVIDER JOBS:', rawJobs.length);
         console.log('FILTERED PROVIDER JOBS:', providerJobs.length);
+        console.log('Provider jobs filter providerId:', auth.providerId);
 
         setJobs(providerJobs);
+        console.log('Provider bookings raw:', rawJobs);
+        console.log('Provider bookings count:', rawJobs.length);
       } else {
         console.log('Provider jobs failed:', jobsResult.reason?.message);
         setJobs([]);
       }
 
+      const fallbackOngoing = (jobsResult.status === 'fulfilled' ? extractArray(jobsResult.value) : [])
+        .filter((booking) => ['CONFIRMED', 'ON_THE_WAY', 'IN_PROGRESS', 'DELAY_REPORTED'].includes(getBookingStatus(booking)));
+      if (ongoingResult.status === 'fulfilled') {
+        const rawOngoing = extractArray(ongoingResult.value);
+        const providerOngoing = safelyFilterProviderResponse(rawOngoing, auth.providerId, 'ongoing');
+        setOngoingJobs(providerOngoing.length ? providerOngoing : fallbackOngoing);
+        console.log('Provider ongoing raw:', rawOngoing);
+        console.log('Provider ongoing count:', rawOngoing.length);
+      } else {
+        console.log('Provider ongoing failed:', ongoingResult.reason?.message);
+        console.log('Provider ongoing raw:', []);
+        console.log('Provider ongoing count:', 0);
+        setOngoingJobs(fallbackOngoing);
+      }
+
     } catch (err) {
       console.log('Provider My Jobs load error:', err);
+      setOngoingJobs([]);
       setError(err.message || 'Failed to load provider flow.');
     } finally {
       setLoading(false);
@@ -343,6 +420,30 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const openJob = (booking) => navigation.navigate('IT22129376ProviderJobDetails', { booking, bookingId: getBookingId(booking) });
   const openRequest = (request) => navigation.navigate('IT22129376ProviderRequestDetails', { request, providerId });
   const openQuoteForm = (request) => navigation.navigate('IT22129376ProviderQuotationForm', { request, providerId });
+  const openAvailability = () => (navigation.getParent() || navigation).navigate('ProviderAvailability');
+  const reviewSuggestedSlots = async (quotation) => {
+    try {
+      const coordinationId = quotation?.coordinationId?._id || quotation?.coordinationId;
+      const review = await getCoordinationReview(coordinationId);
+      const slots = review?.suggestedSlots || [];
+      if (!slots.length) return Alert.alert('Suggested Slots', 'No currently available suggested slots were found. Ask the seeker to run the availability review again.');
+      const buttons = slots.slice(0, 3).map((slot) => ({
+        text: new Date(slot.startTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
+        onPress: async () => {
+          try {
+            await selectCoordinationSuggestedSlot(coordinationId, slot._id || slot.id);
+            Alert.alert('Time Updated', 'The slot was revalidated and the quotation can now be accepted.');
+            await loadAll();
+          } catch (error) {
+            Alert.alert('Slot Unavailable', error?.message || 'This slot is no longer available.');
+          }
+        },
+      }));
+      Alert.alert('Choose a Suggested Slot', 'The selected time will be validated again before it is applied.', [...buttons, { text: 'Cancel', style: 'cancel' }]);
+    } catch (error) {
+      Alert.alert('Unable to Load Slots', error?.message || 'Please try again.');
+    }
+  };
 
   const renderTimeline = () => {
     const hours = Array.from({ length: 14 }, (_, i) => i + 7);
@@ -355,6 +456,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
           </View>
           <Badge label={`${todayJobs.length} jobs`} bg={COLORS.primarySoft} color={COLORS.primary} />
         </View>
+        <TouchableOpacity style={styles.manageAvailabilityButton} onPress={openAvailability}><Ionicons name="calendar-outline" size={17} color={COLORS.primary} /><Text style={styles.manageAvailabilityText}>Manage Availability</Text></TouchableOpacity>
         {todayJobs.length === 0 ? (
           <EmptyState isDark={isDark} icon="calendar-clear-outline" title="No jobs today" message="Confirmed seeker bookings scheduled for today will appear here." />
         ) : (
@@ -365,7 +467,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
             <View style={styles.scheduleColumn}>
               {hours.map((h) => <View key={h} style={styles.scheduleLine} />)}
               {todayJobs.map((job) => {
-                const status = getStatusStyle(getStatus(job));
+                const status = getStatusStyle(getBookingStatus(job));
                 return (
                   <TouchableOpacity
                     key={getBookingId(job)}
@@ -391,7 +493,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       return <View style={[styles.stateCard, isDark && styles.cardDark]}><ActivityIndicator size="large" color={COLORS.primary} /><Text style={[styles.stateTitle, isDark && styles.textDark]}>Loading provider flow...</Text></View>;
     }
     if (error) {
-      return <View style={[styles.stateCard, isDark && styles.cardDark]}><Ionicons name="warning-outline" size={34} color={COLORS.danger} /><Text style={[styles.stateTitle, isDark && styles.textDark]}>Real Data Not Loaded</Text><Text style={styles.stateMsg}>{error}</Text>{providerId ? <Text style={styles.debugText}>providerId: {providerId}</Text> : null}<TouchableOpacity style={styles.primaryButton} onPress={onRefresh}><Text style={styles.primaryButtonText}>Try Again</Text></TouchableOpacity></View>;
+      return <View style={[styles.stateCard, isDark && styles.cardDark]}><Ionicons name="warning-outline" size={34} color={COLORS.danger} /><Text style={[styles.stateTitle, isDark && styles.textDark]}>Real Data Not Loaded</Text><Text style={styles.stateMsg}>{error}</Text><TouchableOpacity style={styles.primaryButton} onPress={onRefresh}><Text style={styles.primaryButtonText}>Try Again</Text></TouchableOpacity></View>;
     }
 
     const warningBlock = backendWarning ? <View style={[styles.warningCard, isDark && styles.warningCardDark]}><Ionicons name="information-circle-outline" size={20} color="#F59E0B" /><Text style={[styles.warningText, isDark && styles.textMutedDark]}>{backendWarning}</Text></View> : null;
@@ -399,11 +501,14 @@ export default function ProviderMyJobsScreen({ navigation }) {
     if (activeTab === 'Today') {
       return <>{warningBlock}{renderTimeline()}{todayJobs.map((job) => <BookingCard key={getBookingId(job)} booking={job} onPress={() => openJob(job)} isDark={isDark} />)}</>;
     }
+    if (activeTab === 'Ongoing') {
+      return <>{warningBlock}{normalizedOngoing.length === 0 ? <EmptyState isDark={isDark} icon="time-outline" title="No ongoing jobs" message="Confirmed, in-progress, and delayed bookings will appear here." /> : normalizedOngoing.map((job) => <BookingCard key={getBookingId(job)} booking={job} onPress={() => openJob(job)} isDark={isDark} />)}</>;
+    }
     if (activeTab === 'Requests') {
       return <>{warningBlock}{normalizedRequests.length === 0 ? <EmptyState isDark={isDark} icon="mail-open-outline" title="No incoming requests" message="No incoming requests yet. New quotation requests assigned to you will appear here." /> : normalizedRequests.map((r) => <RequestCard key={getRequestId(r)} request={r} isDark={isDark} onPress={() => openRequest(r)} onQuote={() => openQuoteForm(r)} />)}</>;
     }
     if (activeTab === 'Quotes') {
-      return <>{warningBlock}{normalizedQuotes.length === 0 ? <EmptyState isDark={isDark} icon="receipt-outline" title="No quotations sent" message="After submitting a quotation, its seeker decision and coordination status will appear here." /> : normalizedQuotes.map((q) => <QuoteCard key={getQuotationId(q)} quotation={q} isDark={isDark} onPress={() => Alert.alert('Quotation', `Status: ${q.status || 'SENT'}\nPrice: LKR ${q.price || '-'}`)} />)}</>;
+      return <>{warningBlock}{normalizedQuotes.length === 0 ? <EmptyState isDark={isDark} icon="receipt-outline" title="No quotations sent" message="After submitting a quotation, its seeker decision and coordination status will appear here." /> : normalizedQuotes.map((q) => <QuoteCard key={getQuotationId(q)} quotation={q} isDark={isDark} onReviewSlots={() => reviewSuggestedSlots(q)} onPress={() => Alert.alert('Quotation', `Status: ${q.status || 'SENT'}\nPrice: LKR ${q.price || '-'}`)} />)}</>;
     }
     if (activeTab === 'Scheduled') {
       return <>{warningBlock}{scheduledJobs.length === 0 ? <EmptyState isDark={isDark} icon="briefcase-outline" title="No scheduled jobs" message="Bookings appear here only after the seeker confirms a coordinated quotation." /> : scheduledJobs.map((job) => <BookingCard key={getBookingId(job)} booking={job} onPress={() => openJob(job)} isDark={isDark} />)}</>;
@@ -412,22 +517,22 @@ export default function ProviderMyJobsScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, isDark && styles.safeAreaDark]}>
-      <StatusBar barStyle="light-content" backgroundColor={isDark ? COLORS.darkBg : COLORS.primary} />
-      <LinearGradient colors={isDark ? ['#0F1121', '#16213E'] : ['#5B6EF5', '#8B5CF6']} style={styles.header}>
+    <View style={[styles.safeArea, isDark && styles.safeAreaDark]}>
+      <HeaderSection navigation={navigation} onInboxPress={() => navigation.navigate('InboxScreen')} />
+      <View style={[styles.header, isDark && styles.headerDark]}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.headerTitle}>My Jobs</Text>
-            <Text style={styles.headerSubtitle}>Requests, quotations and scheduled bookings</Text>
+            <Text style={[styles.headerTitle, isDark && styles.textDark]}>My Jobs</Text>
+            <Text style={[styles.headerSubtitle, isDark && styles.textMutedDark]}>Requests, quotations and scheduled bookings</Text>
           </View>
-          <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}><Ionicons name="refresh" size={21} color="#fff" /></TouchableOpacity>
+          <TouchableOpacity style={[styles.refreshButton, isDark && styles.refreshButtonDark]} onPress={onRefresh}><Ionicons name="refresh" size={20} color={COLORS.primary} /></TouchableOpacity>
         </View>
         <View style={styles.statsRow}>
           <StatCard isDark={isDark} icon="mail-outline" value={normalizedRequests.length} label="Requests" color={COLORS.primary} bg={COLORS.primarySoft} />
           <StatCard isDark={isDark} icon="receipt-outline" value={normalizedQuotes.length} label="Quotes" color={COLORS.info} bg={COLORS.infoSoft} />
           <StatCard isDark={isDark} icon="briefcase-outline" value={scheduledJobs.length} label="Jobs" color={COLORS.success} bg={COLORS.successSoft} />
         </View>
-      </LinearGradient>
+      </View>
       <View style={[styles.tabBar, isDark && styles.tabBarDark]}>
         {TABS.map((tab) => {
           const active = activeTab === tab;
@@ -438,73 +543,77 @@ export default function ProviderMyJobsScreen({ navigation }) {
         {renderContent()}
         <View style={{ height: 110 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.bg },
   safeAreaDark: { backgroundColor: COLORS.darkBg },
-  header: { paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 22 : 16, paddingBottom: 26, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+  header: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 24, backgroundColor: COLORS.bg },
+  headerDark: { backgroundColor: COLORS.darkBg },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { color: '#fff', fontSize: 31, fontWeight: '900', letterSpacing: -0.8 },
-  headerSubtitle: { color: 'rgba(255,255,255,0.82)', fontSize: 13, marginTop: 4, fontWeight: '600' },
-  refreshButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  statsRow: { flexDirection: 'row', marginTop: 20, gap: 10 },
+  headerTitle: { color: COLORS.text, fontSize: 24, fontWeight: '600', letterSpacing: -0.4 },
+  headerSubtitle: { color: COLORS.muted, fontSize: 13, marginTop: 4, fontWeight: '400' },
+  refreshButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  refreshButtonDark: { backgroundColor: COLORS.darkCard },
+  statsRow: { flexDirection: 'row', marginTop: 16, gap: 10 },
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 18, padding: 12, alignItems: 'center' },
   statCardDark: { backgroundColor: COLORS.darkCard },
   statIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  statValue: { fontSize: 22, fontWeight: '900', color: COLORS.text },
-  statLabel: { color: COLORS.muted, fontSize: 11, fontWeight: '800', marginTop: 2 },
+  statValue: { fontSize: 22, fontWeight: '600', color: COLORS.text },
+  statLabel: { color: COLORS.muted, fontSize: 11, fontWeight: '400', marginTop: 2 },
   tabBar: { flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 12, marginTop: -18, padding: 5, borderRadius: 18, elevation: 5, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12 },
   tabBarDark: { backgroundColor: COLORS.darkCard },
   tab: { flex: 1, height: 36, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   tabActive: { backgroundColor: COLORS.primary },
-  tabText: { fontSize: 11, fontWeight: '900', color: COLORS.muted },
+  tabText: { fontSize: 11, fontWeight: '600', color: COLORS.muted },
   tabTextActive: { color: '#fff' },
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 18 },
   contentContainer: { paddingBottom: 20 },
   card: { backgroundColor: '#fff', borderRadius: 22, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: COLORS.border, elevation: 3, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
   cardDark: { backgroundColor: COLORS.darkCard, borderColor: COLORS.darkBorder },
   cardTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  cardTitle: { flex: 1, color: COLORS.text, fontSize: 16, fontWeight: '900' },
-  cardSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '700' },
-  priceText: { color: COLORS.primary, fontSize: 17, fontWeight: '900' },
+  cardTitle: { flex: 1, color: COLORS.text, fontSize: 16, fontWeight: '600' },
+  cardSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '400' },
+  priceText: { color: COLORS.primary, fontSize: 17, fontWeight: '600' },
   infoBlock: { backgroundColor: '#F9FAFB', borderRadius: 16, padding: 12, marginTop: 12, gap: 6 },
-  infoLine: { color: COLORS.text, fontSize: 12, fontWeight: '700' },
+  infoLine: { color: COLORS.text, fontSize: 12, fontWeight: '400' },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, alignSelf: 'flex-start' },
-  badgeText: { fontSize: 11, fontWeight: '900' },
+  badgeText: { fontSize: 11, fontWeight: '600' },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   primaryButton: { backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  primaryButtonText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  primaryButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   secondaryButton: { flex: 1, borderWidth: 1, borderColor: COLORS.border, paddingVertical: 10, borderRadius: 14, alignItems: 'center' },
-  secondaryButtonText: { color: COLORS.text, fontSize: 13, fontWeight: '900' },
+  secondaryButtonText: { color: COLORS.text, fontSize: 13, fontWeight: '600' },
   timelineCard: { backgroundColor: '#fff', borderRadius: 22, padding: 16, marginBottom: 18, borderWidth: 1, borderColor: COLORS.border },
   timelineHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  sectionTitle: { fontSize: 17, color: COLORS.text, fontWeight: '900' },
-  sectionSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '600' },
+  sectionTitle: { fontSize: 17, color: COLORS.text, fontWeight: '600' },
+  sectionSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '400' },
   timelineBody: { flexDirection: 'row', minHeight: 1008 },
   timeColumn: { width: 58 },
   timeSlot: { height: 72 },
-  timeLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '800' },
+  timeLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '600' },
   scheduleColumn: { flex: 1, position: 'relative' },
   scheduleLine: { height: 72, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
   timelineJob: { position: 'absolute', left: 4, right: 0, backgroundColor: '#F8FAFF', borderRadius: 14, borderLeftWidth: 4, padding: 10, borderWidth: 1, borderColor: '#E0E7FF' },
-  timelineJobTitle: { color: COLORS.text, fontWeight: '900', fontSize: 13 },
-  timelineJobTime: { color: COLORS.primary, fontSize: 11, fontWeight: '800', marginTop: 4 },
-  timelineJobCustomer: { color: COLORS.muted, fontSize: 11, fontWeight: '700', marginTop: 3 },
+  timelineJobTitle: { color: COLORS.text, fontWeight: '600', fontSize: 13 },
+  timelineJobTime: { color: COLORS.primary, fontSize: 11, fontWeight: '600', marginTop: 4 },
+  timelineJobCustomer: { color: COLORS.muted, fontSize: 11, fontWeight: '400', marginTop: 3 },
   emptyCard: { backgroundColor: '#fff', borderRadius: 22, padding: 24, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
   emptyIconBox: { width: 58, height: 58, borderRadius: 22, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  emptyTitle: { color: COLORS.text, fontSize: 16, fontWeight: '900', textAlign: 'center' },
-  emptyMessage: { color: COLORS.muted, fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 6, lineHeight: 18 },
+  emptyTitle: { color: COLORS.text, fontSize: 16, fontWeight: '600', textAlign: 'center' },
+  emptyMessage: { color: COLORS.muted, fontSize: 13, fontWeight: '400', textAlign: 'center', marginTop: 6, lineHeight: 18 },
   stateCard: { backgroundColor: '#fff', borderRadius: 22, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  stateTitle: { marginTop: 12, color: COLORS.text, fontWeight: '900', fontSize: 17, textAlign: 'center' },
+  stateTitle: { marginTop: 12, color: COLORS.text, fontWeight: '600', fontSize: 17, textAlign: 'center' },
   stateMsg: { color: COLORS.muted, textAlign: 'center', marginTop: 8, lineHeight: 19 },
   debugText: { color: COLORS.muted, fontSize: 11, marginTop: 10 },
   warningCard: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 18, padding: 12, marginBottom: 14, flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   warningCardDark: { backgroundColor: '#2A2112', borderColor: '#92400E' },
-  warningText: { flex: 1, color: '#92400E', fontSize: 12, fontWeight: '700', lineHeight: 17 },
+  warningText: { flex: 1, color: '#92400E', fontSize: 12, fontWeight: '600', lineHeight: 17 },
+  manageAvailabilityButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderColor: '#C7D2FE', backgroundColor: '#EEF2FF', borderRadius: 11, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 14 },
+  manageAvailabilityText: { color: COLORS.primary, fontSize: 12, fontWeight: '600' },
   textDark: { color: COLORS.darkText },
   textMutedDark: { color: COLORS.darkMuted },
 });

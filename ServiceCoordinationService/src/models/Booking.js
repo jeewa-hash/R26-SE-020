@@ -1,5 +1,18 @@
 import mongoose from "mongoose";
 
+export const BOOKING_STATUS_VALUES = [
+  "CONFIRMED",
+  "ON_THE_WAY",
+  "IN_PROGRESS",
+  "DELAY_REPORTED",
+  "RESCHEDULE_REQUESTED",
+  "RESCHEDULING_REQUIRED",
+  "RESCHEDULED",
+  "COMPLETED",
+  "CANCELLED",
+  "EXPIRED",
+];
+
 const bookingSchema = new mongoose.Schema(
   {
     postId: {
@@ -67,115 +80,103 @@ const bookingSchema = new mongoose.Schema(
     providerRequestId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
-    }, // Chaw: optional old-flow reference; no populate/ref because ProviderRequest is not used in new flow
+    },
+
     bidCoordinationId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
       index: true,
-    }, // Chaw: links booking to BidCoordination record
-    
+    },
+
     externalSessionId: {
       type: String,
       default: "",
       index: true,
       trim: true,
-    }, // Chaw: links booking to ServiceSession
-    
+    },
+
     externalRequestQuotationId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
       index: true,
-    }, // Chaw: RequestQuotation ID from Seeker Service
-    
+    },
+
     externalQuotationId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
       index: true,
-    }, // Chaw: Provider Quotation ID from Provider Service
-    
+    },
+
     finalAmount: {
       type: Number,
       default: 0,
       min: 0,
-    }, // Chaw: final accepted provider quote amount
-    
-    scheduleSource: {
-      type: String,
-      enum: ["PROVIDER_PROPOSED_TIME", "COORDINATED_SUGGESTED_SLOT"],
-      default: "PROVIDER_PROPOSED_TIME",
-    }, // Chaw: shows whether booking used original provider time or selected suggested slot
+    },
+    currency: { type: String, default: "LKR" },
+    serviceCategory: { type: String, default: "" },
+    serviceSubcategory: { type: String, default: "" },
+    serviceLocation: { type: String, default: "" },
+
+    scheduledStartTime: { type: Date, default: null, index: true },
+    scheduledEndTime: { type: Date, default: null },
+    displayStartTime: { type: String, default: "" },
+    displayEndTime: { type: String, default: "" },
+    scheduledDate: { type: String, default: "", index: true },
+    startTime: { type: String, default: "" },
+    endTime: { type: String, default: "" },
+
     initialSchedule: {
-      date: {
-        type: String,
-        required: true,
-      },
-      startTime: {
-        type: String,
-        required: true,
-      },
-      endTime: {
-        type: String,
-        required: true,
-      },
-    },
-
-    scheduledDate: {
-      type: String,
-      required: true,
-    },
-
-    startTime: {
-      type: String,
-      required: true,
-    },
-
-    endTime: {
-      type: String,
-      required: true,
+      date: { type: String, default: "" },
+      startTime: { type: String, default: "" },
+      endTime: { type: String, default: "" },
     },
 
     estimatedDurationHours: {
       type: Number,
-      required: true,
+      default: null,
+    },
+    mlPredictedDurationHours: { type: Number, default: null },
+
+    reminderSentAt: { type: Date, default: null },
+    providerReadyConfirmed: { type: Boolean, default: false },
+    providerReadyConfirmedAt: { type: Date, default: null },
+    onTheWayAt: { type: Date, default: null },
+    onTheWayBy: { type: String, enum: ["PROVIDER", ""], default: "" },
+    actualStartTime: { type: Date, default: null },
+    startedBy: { type: String, enum: ["PROVIDER", "SEEKER", "SYSTEM", ""], default: "" },
+    actualEndTime: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    completedBy: { type: String, enum: ["PROVIDER", "SEEKER", "SYSTEM", ""], default: "" },
+    expiredAt: { type: Date, default: null },
+    startDelayMinutes: { type: Number, default: 0 },
+    durationOverrunMinutes: { type: Number, default: null },
+    conflictDetected: { type: Boolean, default: false },
+
+    timeline: [
+      {
+        status: { type: String, default: "" },
+        message: { type: String, default: "" },
+        at: { type: Date, default: Date.now },
+      },
+    ],
+
+    scheduleSource: {
+      type: String,
+      enum: ["PROVIDER_PROPOSED_TIME", "COORDINATED_SUGGESTED_SLOT"],
+      default: "PROVIDER_PROPOSED_TIME",
     },
 
     location: {
-      address: {
-        type: String,
-        default: "",
-      },
-      district: {
-        type: String,
-        default: "",
-      },
-      city: {
-        type: String,
-        default: "",
-      },
-      lat: {
-        type: Number,
-        default: null,
-      },
-      lng: {
-        type: Number,
-        default: null,
-      },
+      address: { type: String, default: "" },
+      district: { type: String, default: "" },
+      city: { type: String, default: "" },
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
     },
 
-    distanceFromPreviousBookingKm: {
-      type: Number,
-      default: 0,
-    },
-
-    estimatedTravelTimeMins: {
-      type: Number,
-      default: 0,
-    },
-
-    gapFromPreviousBookingMins: {
-      type: Number,
-      default: null,
-    },
+    distanceFromPreviousBookingKm: { type: Number, default: 0 },
+    estimatedTravelTimeMins: { type: Number, default: 0 },
+    gapFromPreviousBookingMins: { type: Number, default: null },
 
     delayRiskLevel: {
       type: String,
@@ -183,32 +184,29 @@ const bookingSchema = new mongoose.Schema(
       default: "UNKNOWN",
     },
 
-    delayRiskScore: {
-      type: Number,
-      default: 0,
-    },
+    delayRiskScore: { type: Number, default: 0 },
 
     delayInfo: {
-      delayReason: {
-        type: String,
-        default: "",
-      },
-      additionalDelayMins: {
-        type: Number,
-        default: 0,
-      },
+      delayReason: { type: String, default: "" },
+      additionalDelayMins: { type: Number, default: 0 },
       reportedBy: {
         type: String,
         enum: ["PROVIDER", "SEEKER", "SYSTEM", ""],
         default: "",
       },
-      reportedAt: {
-        type: Date,
+      reportedAt: { type: Date, default: null },
+      expectedEndTime: { type: Date, default: null },
+      delayImpactStatus: {
+        type: String,
+        enum: ["NO_CONFLICT", "NEXT_BOOKING_AT_RISK", ""],
+        default: "",
+      },
+      affectedNextBookingId: {
+        type: mongoose.Schema.Types.ObjectId,
         default: null,
       },
     },
 
-    // Accepted reschedule request references for booking history/admin review
     acceptedRescheduleRequests: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -216,18 +214,13 @@ const bookingSchema = new mongoose.Schema(
       },
     ],
 
+    // Single source of truth for booking lifecycle.
+    // Admin Service also depends on this field, so do not rename/remove it.
     bookingStatus: {
       type: String,
-      enum: [
-        "CONFIRMED",
-        "IN_PROGRESS",
-        "DELAY_REPORTED",
-        "RESCHEDULING_REQUIRED",
-        "RESCHEDULED",
-        "COMPLETED",
-        "CANCELLED",
-      ],
+      enum: BOOKING_STATUS_VALUES,
       default: "CONFIRMED",
+      index: true,
     },
 
     cancellationInfo: {
@@ -236,14 +229,8 @@ const bookingSchema = new mongoose.Schema(
         enum: ["PROVIDER", "SEEKER", "ADMIN", ""],
         default: "",
       },
-      cancellationReason: {
-        type: String,
-        default: "",
-      },
-      cancelledAt: {
-        type: Date,
-        default: null,
-      },
+      cancellationReason: { type: String, default: "" },
+      cancelledAt: { type: Date, default: null },
       inquiryStatus: {
         type: String,
         enum: ["NOT_REQUIRED", "NOT_SUBMITTED", "PENDING", "APPROVED", "REJECTED"],

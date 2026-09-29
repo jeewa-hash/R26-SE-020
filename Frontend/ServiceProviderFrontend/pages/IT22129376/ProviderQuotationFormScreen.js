@@ -1,132 +1,93 @@
-// pages/IT22129376/ProviderQuotationFormScreen.js
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS } from './theme';
-import { toDatetimeLocalString, datetimeLocalToIso, formatDateTime } from './utils/dateTimeFormatter';
-import { buildQuotationPayload, createProviderQuotation } from './services/providerFlowApi';
+import React, { useContext, useState } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { submitProviderQuotation } from '../../services/providerFlowApi';
 import { getStoredProviderAuth } from './services/providerAuthStorage';
-import { getRequestId, getServiceCategory, getServiceTitle } from './utils/providerFlowMapper';
-
-const Field = ({ label, value, onChangeText, placeholder, keyboardType = 'default', multiline = false }) => (
-  <View style={styles.field}>
-    <Text style={styles.label}>{label}</Text>
-    <TextInput
-      style={[styles.input, multiline && styles.textArea]}
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor="#9CA3AF"
-      keyboardType={keyboardType}
-      multiline={multiline}
-    />
-  </View>
-);
+import ProviderPageHeader from '../../components/ProviderPageHeader';
+import { ThemeContext } from '../../context/ThemeContext';
 
 export default function ProviderQuotationFormScreen({ route, navigation }) {
+  const { isDark } = useContext(ThemeContext) || { isDark: false };
+  const C = { bg: isDark ? '#0F172A' : '#F8FAFC', card: isDark ? '#1E293B' : '#FFFFFF', text: isDark ? '#F8FAFC' : '#1E293B', muted: isDark ? '#CBD5E1' : '#374151', border: isDark ? '#334155' : '#E2E8F0' };
   const request = route?.params?.request || {};
-  const routeProviderId = route?.params?.providerId;
   const [price, setPrice] = useState('');
-  const [estimatedDurationHours, setEstimatedDurationHours] = useState(String(request.providerEstimatedDurationHours || request.estimatedDurationHours || request.seekerEstimatedDurationHours || ''));
-  const [proposedStartTime, setProposedStartTime] = useState(toDatetimeLocalString(request.preferredStartTime || new Date()));
+  const [duration, setDuration] = useState(String(request?.seekerEstimatedDurationHours || request?.estimatedDurationHours || ''));
+  const preferredDate = request?.preferredStartTime ? new Date(request.preferredStartTime) : new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const [startTime, setStartTime] = useState(Number.isNaN(preferredDate.getTime()) ? new Date(Date.now() + 24 * 60 * 60 * 1000) : preferredDate);
+  const [pickerMode, setPickerMode] = useState(null);
   const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const previewIso = useMemo(() => datetimeLocalToIso(proposedStartTime), [proposedStartTime]);
+  const requestId = request?._id || request?.id || request?.requestQuotationId;
 
-  const submitQuotation = async () => {
-    if (!price || Number(price) <= 0) {
-      Alert.alert('Missing Price', 'Please enter a valid quotation amount.');
+  const submit = async () => {
+    if (!price || !duration || !startTime) {
+      Alert.alert('Missing Details', 'Please enter price, duration and proposed start time.');
       return;
     }
-    if (!estimatedDurationHours || Number(estimatedDurationHours) <= 0) {
-      Alert.alert('Missing Duration', 'Please enter estimated duration in hours.');
+    if (Number(price) <= 0 || Number(duration) <= 0 || startTime <= new Date()) {
+      Alert.alert('Invalid Details', 'Price and duration must be greater than zero, and the proposed start must be in the future.');
       return;
     }
-    if (!previewIso) {
-      Alert.alert('Invalid Time', 'Please enter proposed start time like 2026-08-30T10:30.');
-      return;
-    }
-
-    setLoading(true);
     try {
-      const auth = await getStoredProviderAuth();
-      const providerId = routeProviderId || auth.providerId;
-      if (!providerId) throw new Error('Provider ID not found. Please login again.');
-
-      const payload = buildQuotationPayload({ request, providerId, price, proposedStartTime: previewIso, estimatedDurationHours, notes });
-      console.log('Submitting provider quotation:', payload);
-      const result = await createProviderQuotation(payload);
-      Alert.alert('Quotation Sent', 'Your quotation was sent to the seeker successfully.', [
+      setSaving(true);
+      const { token, providerId } = await getStoredProviderAuth();
+      console.log('LOGGED PROVIDER ID:', providerId);
+      if (!token || !providerId || !requestId) throw new Error('Your provider session or request details are missing. Please login again.');
+      await submitProviderQuotation({
+        providerRequestId: requestId,
+        externalRequestQuotationId: requestId,
+        externalSessionId: request?.sessionId,
+        seekerId: request?.seekerId,
+        providerId,
+        serviceCategory: request?.detectedCategory || request?.category || request?.serviceCategory || 'General',
+        serviceSubcategory: request?.detectedObject || request?.serviceSubcategory || 'Service',
+        price: Number(price),
+        proposedStartTime: startTime.toISOString(),
+        estimatedDurationHours: Number(duration),
+        durationText: `${duration} Hours`,
+        notes,
+      });
+      Alert.alert('Success', 'Quotation sent successfully.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-      console.log('Quotation submit result:', result);
     } catch (error) {
-      console.log('Submit quotation failed:', error);
-      Alert.alert('Submit Failed', error.message || 'Could not submit quotation.');
+      Alert.alert('Failed', error?.message || 'Could not submit quotation. Please try again.');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
-      <LinearGradient colors={[COLORS.primary, COLORS.purple]} style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={23} color="#fff" />
+    <View style={[styles.container, { backgroundColor: C.bg }]}>
+      <ProviderPageHeader navigation={navigation} title="Submit Quotation" subtitle="Prepare your price and schedule proposal" />
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={[styles.label, { color: C.muted }]}>Price (LKR)</Text>
+        <TextInput style={[styles.input, { backgroundColor: C.card, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} keyboardType="numeric" value={price} onChangeText={setPrice} placeholder="2000" />
+        <Text style={[styles.label, { color: C.muted }]}>Estimated Duration Hours</Text>
+        <TextInput style={[styles.input, { backgroundColor: C.card, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} keyboardType="numeric" value={duration} onChangeText={setDuration} placeholder="2" />
+        <Text style={[styles.label, { color: C.muted }]}>Proposed Date</Text>
+        <TouchableOpacity style={[styles.pickerButton, { backgroundColor: C.card, borderColor: C.border }]} onPress={() => setPickerMode('date')}><Text style={{ color: C.text }}>{startTime.toLocaleDateString()}</Text></TouchableOpacity>
+        <Text style={[styles.label, { color: C.muted }]}>Proposed Start Time</Text>
+        <TouchableOpacity style={[styles.pickerButton, { backgroundColor: C.card, borderColor: C.border }]} onPress={() => setPickerMode('time')}><Text style={{ color: C.text }}>{startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text></TouchableOpacity>
+        {pickerMode ? <DateTimePicker value={startTime} mode={pickerMode} minimumDate={pickerMode === 'date' ? new Date() : undefined} onChange={(event, value) => { setPickerMode(null); if (value) setStartTime((current) => { const next = new Date(current); if (pickerMode === 'date') next.setFullYear(value.getFullYear(), value.getMonth(), value.getDate()); else next.setHours(value.getHours(), value.getMinutes(), 0, 0); return next; }); }} /> : null}
+        <Text style={[styles.label, { color: C.muted }]}>Notes</Text>
+        <TextInput style={[styles.input, styles.textArea, { backgroundColor: C.card, borderColor: C.border, color: C.text }]} placeholderTextColor={isDark ? '#64748B' : '#94A3B8'} value={notes} onChangeText={setNotes} placeholder="Add a short note" multiline />
+        <TouchableOpacity style={styles.button} onPress={submit} disabled={saving}>
+          <Text style={styles.buttonText}>{saving ? 'Submitting...' : 'Submit Quotation'}</Text>
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Submit Quotation</Text>
-          <Text style={styles.headerSub}>Price, time and duration for coordination</Text>
-        </View>
-      </LinearGradient>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.requestCard}>
-          <Text style={styles.requestTitle}>{getServiceTitle(request)}</Text>
-          <Text style={styles.requestSub}>{getServiceCategory(request)}</Text>
-          <Text style={styles.requestMeta}>Request: {getRequestId(request) || '-'}</Text>
-          <Text style={styles.requestMeta}>Seeker preferred: {formatDateTime(request.preferredStartTime)}</Text>
-        </View>
-
-        <View style={styles.formCard}>
-          <Field label="Quotation Amount (LKR)" value={price} onChangeText={setPrice} placeholder="Example: 2700" keyboardType="numeric" />
-          <Field label="Proposed Start Time" value={proposedStartTime} onChangeText={setProposedStartTime} placeholder="2026-08-30T10:30" />
-          <Text style={styles.helperText}>Use format: YYYY-MM-DDTHH:mm. Example: 2026-08-30T10:30</Text>
-          <Field label="Estimated Duration (hours)" value={estimatedDurationHours} onChangeText={setEstimatedDurationHours} placeholder="Example: 3" keyboardType="numeric" />
-          <Field label="Notes / Warranty / Conditions" value={notes} onChangeText={setNotes} placeholder="Example: I can bring materials. Warranty 7 days." multiline />
-        </View>
-
-        <TouchableOpacity style={[styles.primaryButton, loading && styles.disabled]} onPress={submitQuotation} disabled={loading} activeOpacity={0.85}>
-          {loading ? <ActivityIndicator color="#fff" /> : <><Ionicons name="send-outline" size={19} color="#fff" /><Text style={styles.primaryButtonText}>Send Quotation</Text></>}
-        </TouchableOpacity>
-        <View style={{ height: 80 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.bg },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingBottom: 26, gap: 12, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
-  backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#fff', fontSize: 24, fontWeight: '900' },
-  headerSub: { color: 'rgba(255,255,255,0.82)', fontSize: 12, marginTop: 3, fontWeight: '600' },
-  content: { padding: 16 },
-  requestCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: COLORS.border, marginBottom: 14 },
-  requestTitle: { color: COLORS.text, fontSize: 18, fontWeight: '900' },
-  requestSub: { color: COLORS.muted, fontSize: 13, marginTop: 4, fontWeight: '700' },
-  requestMeta: { color: COLORS.muted, fontSize: 12, marginTop: 8, fontWeight: '600' },
-  formCard: { backgroundColor: '#fff', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: COLORS.border },
-  field: { marginBottom: 16 },
-  label: { color: COLORS.text, fontSize: 13, fontWeight: '900', marginBottom: 7 },
-  input: { minHeight: 48, backgroundColor: '#F9FAFB', borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, color: COLORS.text, fontWeight: '700' },
-  textArea: { height: 110, textAlignVertical: 'top', paddingTop: 12 },
-  helperText: { color: COLORS.muted, fontSize: 11, marginTop: -10, marginBottom: 14, lineHeight: 16 },
-  primaryButton: { marginTop: 16, backgroundColor: COLORS.primary, borderRadius: 18, height: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  disabled: { opacity: 0.65 },
-  primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  content: { padding: 20 },
+  label: { fontSize: 14, fontWeight: '500', color: '#374151', marginBottom: 8 },
+  input: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', padding: 13, marginBottom: 16 },
+  pickerButton: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 13, justifyContent: 'center', marginBottom: 16 },
+  textArea: { minHeight: 90, textAlignVertical: 'top' },
+  button: { backgroundColor: '#667eea', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 6 },
+  buttonText: { color: '#fff', fontWeight: '600' },
 });
