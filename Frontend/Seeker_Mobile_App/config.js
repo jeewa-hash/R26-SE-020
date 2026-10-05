@@ -1,7 +1,7 @@
 // config.js
 // Use your machine's local IP (for physical devices) or '10.0.2.2' (for Android emulator)
 
-export const IP_ADDRESS = '10.235.249.144';
+export const IP_ADDRESS = '192.168.1.10';
 
 // Chat service (port 6000)
 export const API_BASE_URL = `http://${IP_ADDRESS}:6000`;   // used by ChatContext & ChatScreen
