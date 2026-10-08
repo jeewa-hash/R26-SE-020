@@ -21,7 +21,6 @@ import { useAppliedJobs } from '../context/AppliedJobsContext';
 import { IP_ADDRESS, CONFIG } from '../config';
 import PostCard from '../components/feed/PostCard';
 import AnnouncementSlideshow from '../components/feed/AnnouncementSlideshow';
-import MidAnnouncementCard from '../components/feed/MidAnnouncementCard';
 import HeaderSection from '../components/HeaderSection';
 import i18n from '../locales';
 import { ThemeContext } from '../context/ThemeContext';
@@ -29,16 +28,12 @@ import { ThemeContext } from '../context/ThemeContext';
 const { width } = Dimensions.get('window');
 
 // ── Inline Applied Jobs View ──
-function AppliedJobsView({ isDark }) {
-  const { appliedJobs, updateJobStatus } = useAppliedJobs();
+function AppliedJobsView({ isDark, onViewMore, appliedJobs }) {
+  const { updateJobStatus } = useAppliedJobs();
   const isSi = i18n.language === 'si';
-
-  const cycleStatus = (job) => {
-    const statuses = Object.values(JOB_STATUS).map((s) => s.key);
-    const currentIndex = statuses.indexOf(job.status);
-    const next = statuses[(currentIndex + 1) % statuses.length];
-    updateJobStatus(job.id, next);
-  };
+  
+  // Show only first 3 jobs in feed view
+  const displayJobs = appliedJobs.slice(0, 3);
 
   const C = isDark
     ? { bg: '#1C1C1E', card: '#2C2C2E', text: '#F2F2F7', textSub: '#8E8E93', border: '#3A3A3C' }
@@ -54,13 +49,19 @@ function AppliedJobsView({ isDark }) {
         <Text style={[styles.emptySubtitle, { color: C.textSub }]}>
           Switch to All Jobs and apply to service requests
         </Text>
+        <TouchableOpacity style={[styles.viewMoreButton, { backgroundColor: C.card, borderColor: '#7C3AED', borderWidth: 2 }]} onPress={onViewMore}>
+          <View style={styles.viewMoreContent}>
+            <Text style={[styles.viewMoreText, { color: '#7C3AED' }]}>View All Applied Jobs</Text>
+            <MaterialIcons name="arrow-forward" size={20} color="#7C3AED" />
+          </View>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
     <View style={[styles.appliedList, { backgroundColor: C.bg }]}>
-      {appliedJobs.map((job) => {
+      {displayJobs.map((job) => {
         const status = Object.values(JOB_STATUS).find((s) => s.key === job.status) || JOB_STATUS.PENDING;
         const initials = job.customer ? job.customer.split(' ').map((n) => n[0]).join('').toUpperCase() : 'U';
         const appliedDate = new Date(job.appliedAt).toLocaleDateString('en-US', {
@@ -132,6 +133,27 @@ function AppliedJobsView({ isDark }) {
           </View>
         );
       })}
+      
+      {/* Always show the link to the full applied-jobs page. */}
+      <TouchableOpacity
+          style={[styles.viewMoreButton, { 
+            backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
+            borderColor: '#7C3AED',
+            borderWidth: 2,
+          }]}
+          onPress={onViewMore}
+          activeOpacity={0.7}
+        >
+          <View style={styles.viewMoreContent}>
+            <Text style={[styles.viewMoreText, { color: '#7C3AED' }]}>
+              View All Applied Jobs
+            </Text>
+            <View style={styles.viewMoreBadge}>
+              <Text style={styles.viewMoreBadgeText}>{appliedJobs.length}</Text>
+            </View>
+            <MaterialIcons name="arrow-forward" size={20} color="#7C3AED" />
+          </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -170,7 +192,7 @@ export default function NewsFeedScreen() {
       'Moving': 'local-shipping',
       'Renovation': 'construction',
       'Maintenance': 'build',
-      'Repair': '',
+      'Repair': 'build',
       'default': 'category',
     };
     return icons[category] || icons.default;
@@ -331,17 +353,36 @@ export default function NewsFeedScreen() {
     return () => { mounted = false; };
   }, []);
 
+  // Sort posts: Most viewed first, then least applied, then by date
+  const sortedPosts = useMemo(() => {
+    return [...posts].sort((a, b) => {
+      // First sort by views (highest first)
+      if (a.views !== b.views) {
+        return (b.views || 0) - (a.views || 0);
+      }
+      // Then by applied count (lowest first - less applied posts should show up)
+      if (a.appliedCount !== b.appliedCount) {
+        return (a.appliedCount || 0) - (b.appliedCount || 0);
+      }
+      // Finally by date (newest first)
+      return new Date(b.postedAt) - new Date(a.postedAt);
+    });
+  }, [posts]);
+
   const filteredPosts = useMemo(() =>
-    posts.filter((post) => {
-      const matchCat = selectedCategory === 'All' || post.category === selectedCategory;
+    sortedPosts.filter((post) => {
+      const matchCat = selectedCategory === 'All' || 
+        post.category === selectedCategory ||
+        (post.tags && post.tags.includes(selectedCategory));
       const lowerSearch = search.toLowerCase();
       const matchSearch =
         (post.description || '').toLowerCase().includes(lowerSearch) ||
         (post.category || '').toLowerCase().includes(lowerSearch) ||
-        (post.location || '').toLowerCase().includes(lowerSearch);
+        (post.location || '').toLowerCase().includes(lowerSearch) ||
+        (post.tags && post.tags.some(tag => tag.toLowerCase().includes(lowerSearch)));
       return matchCat && matchSearch;
     }),
-    [search, selectedCategory, posts]
+    [search, selectedCategory, sortedPosts]
   );
 
   const feedItems = useMemo(() => {
@@ -357,14 +398,44 @@ export default function NewsFeedScreen() {
 
   const handleApply = async (post) => {
     const params = { post: { ...post, _id: post._id || post.id } };
-    // NewsFeedScreen is inside HomeStack -> bottom tabs, while the detail
-    // screen is registered on the root stack.
     const rootNavigation = navigation.getParent()?.getParent();
     (rootNavigation || navigation).navigate('ProviderPostDetail', params);
   };
 
-  // Predefined categories for quick selection
-  const quickCategories = ['All', 'Plumbing', 'Electrical', 'Cleaning', 'Maintenance', 'Repair'];
+  // Navigate to Applied Jobs Screen
+  const handleViewMoreApplied = () => {
+    console.log('Navigating to AppliedJobs...'); // Debug log
+    // Try different navigation approaches
+    try {
+      // Try root navigation first
+      const rootNavigation = navigation.getParent()?.getParent();
+      if (rootNavigation) {
+        rootNavigation.navigate('AppliedJobs');
+      } else {
+        // Fallback to current navigation
+        navigation.navigate('AppliedJobs');
+      }
+    } catch (error) {
+      console.log('Navigation error:', error);
+      // Alternative: navigate through the stack
+      navigation.getParent()?.navigate('AppliedJobs');
+    }
+  };
+
+  // Get all unique categories from posts including tags
+  const allCategories = useMemo(() => {
+    const categories = new Set(['All']);
+    posts.forEach(post => {
+      if (post.category) categories.add(post.category);
+      if (post.tags && Array.isArray(post.tags)) {
+        post.tags.forEach(tag => categories.add(tag));
+      }
+    });
+    return Array.from(categories);
+  }, [posts]);
+
+  // Keep the category filter simple and independent of the posts returned by the API.
+  const quickCategories = ['All', 'Home Service', 'Plumbing', 'Electrical', 'Carpentry', 'Cleaning'];
 
   return (
     <View style={[styles.container, { backgroundColor: C.bg }]}>
@@ -372,15 +443,14 @@ export default function NewsFeedScreen() {
       
       {/* Profile Header with Sidebar */}
       <HeaderSection 
-                    navigation={navigation}
-                    userName={userName}          // From your state: 'Kasun' or loaded from storage
-                    avatarUrl={userAvatar}       // From your state: null or loaded from storage
-                    search={search}              // Your search state
-                    onSearchChange={setSearch}   // Your search setter
-                    unreadCount={unreadCount}    // Your notification count
-                    onInboxPress={() => navigation.navigate('InboxScreen')}
-                    //onMenuPress is optional - the HeaderSection now handles it internally
-                  />
+        navigation={navigation}
+        userName={userName}
+        avatarUrl={userAvatar}
+        search={search}
+        onSearchChange={setSearch}
+        unreadCount={unreadCount}
+        onInboxPress={() => navigation.navigate('InboxScreen')}
+      />
 
       <ScrollView 
         showsVerticalScrollIndicator={false}
@@ -391,7 +461,7 @@ export default function NewsFeedScreen() {
           <AnnouncementSlideshow />
         </View>
 
-        {/* Quick Categories - Horizontal Scrolling */}
+        {/* Quick Categories - Horizontal Scrolling with Tag Matching */}
         <View style={styles.quickCategoriesWrapper}>
           <ScrollView
             horizontal
@@ -440,11 +510,18 @@ export default function NewsFeedScreen() {
           </ScrollView>
         </View>
 
-        {/* Toggle: All Jobs vs Applied */}
+        {/* Toggle: All Jobs vs Applied - Modern Design */}
         <View style={styles.toggleSection}>
-          <Surface style={[styles.toggleContainer, { backgroundColor: isDark ? '#2C2C2E' : '#F3F4F6' }]}>
+          <Surface style={[styles.toggleContainer, { 
+            backgroundColor: isDark ? '#2C2C2E' : '#F3F4F6',
+            borderColor: isDark ? '#3A3A3C' : '#E5E7EB',
+          }]}>
             <TouchableOpacity
-              style={[styles.toggleOption, !showApplied && styles.toggleOptionActive]}
+              style={[
+                styles.toggleOption, 
+                !showApplied && styles.toggleOptionActive,
+                !showApplied && { backgroundColor: '#7C3AED' }
+              ]}
               onPress={() => setShowApplied(false)}
             >
               <MaterialIcons 
@@ -452,13 +529,21 @@ export default function NewsFeedScreen() {
                 size={18} 
                 color={!showApplied ? '#FFFFFF' : (isDark ? '#8E8E93' : '#6B7280')} 
               />
-              <Text style={[styles.toggleOptionText, !showApplied && styles.toggleOptionTextActive]}>
+              <Text style={[
+                styles.toggleOptionText, 
+                !showApplied && styles.toggleOptionTextActive,
+                !showApplied && { color: '#FFFFFF' }
+              ]}>
                 All Jobs
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.toggleOption, showApplied && styles.toggleOptionActive]}
+              style={[
+                styles.toggleOption, 
+                showApplied && styles.toggleOptionActive,
+                showApplied && { backgroundColor: '#7C3AED' }
+              ]}
               onPress={() => setShowApplied(true)}
             >
               <MaterialIcons 
@@ -466,12 +551,22 @@ export default function NewsFeedScreen() {
                 size={18} 
                 color={showApplied ? '#FFFFFF' : (isDark ? '#8E8E93' : '#6B7280')} 
               />
-              <Text style={[styles.toggleOptionText, showApplied && styles.toggleOptionTextActive]}>
+              <Text style={[
+                styles.toggleOptionText, 
+                showApplied && styles.toggleOptionTextActive,
+                showApplied && { color: '#FFFFFF' }
+              ]}>
                 Applied
               </Text>
               {appliedJobs.length > 0 && (
-                <View style={styles.toggleCount}>
-                  <Text style={styles.toggleCountText}>{appliedJobs.length}</Text>
+                <View style={[
+                  styles.toggleCount,
+                  { backgroundColor: showApplied ? 'rgba(255,255,255,0.25)' : '#7C3AED' }
+                ]}>
+                  <Text style={[
+                    styles.toggleCountText,
+                    { color: showApplied ? '#FFFFFF' : '#FFFFFF' }
+                  ]}>{appliedJobs.length}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -480,7 +575,11 @@ export default function NewsFeedScreen() {
 
         {/* Applied View vs Feed View */}
         {showApplied ? (
-          <AppliedJobsView isDark={isDark} />
+          <AppliedJobsView 
+            isDark={isDark} 
+            onViewMore={handleViewMoreApplied}
+            appliedJobs={appliedJobs}
+          />
         ) : (
           <View style={styles.contentArea}>
             {/* Section Header */}
@@ -492,7 +591,7 @@ export default function NewsFeedScreen() {
                     <Text style={[styles.sectionTitle, { color: C.text }]}>Recent Opportunities</Text>
                   </View>
                   <Text style={[styles.sectionSubtitle, { color: C.textSub }]}>
-                    Latest service requests near you
+                    {filteredPosts.length} service requests available
                   </Text>
                 </View>
                 <View style={[styles.resultBadge, { backgroundColor: isDark ? '#1E293B' : '#F3E8FF' }]}>
@@ -506,7 +605,7 @@ export default function NewsFeedScreen() {
             {/* Feed */}
             <View style={styles.feedContainer}>
               {feedItems.length > 0 ? (
-                feedItems.map((item, index) =>
+                feedItems.map((item) =>
                   item.type === 'post' ? (
                     <PostCard
                       key={item.data.id}
@@ -514,9 +613,7 @@ export default function NewsFeedScreen() {
                       onApply={handleApply}
                       applying={applyingId === item.data.id}
                     />
-                  ) : (
-                    <MidAnnouncementCard key={`mid_${index}`} />
-                  )
+                  ) : null
                 )
               ) : (
                 <View style={[styles.noJobsContainer, { backgroundColor: C.card }]}>
@@ -572,6 +669,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
   },
+  chipGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 25,
+    margin: -1,
+  },
   quickCategoryText: {
     fontSize: 13,
     fontWeight: '600',
@@ -579,16 +685,8 @@ const styles = StyleSheet.create({
   quickCategoryTextActive: {
     fontWeight: '700',
   },
-  activeIndicator: {
-    position: 'absolute',
-    bottom: -2,
-    width: 20,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#FFFFFF',
-  },
 
-  // Toggle
+  // Toggle - Modern Design
   toggleSection: {
     paddingHorizontal: 20,
     marginBottom: 16,
@@ -597,6 +695,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderRadius: 14,
     padding: 4,
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   toggleOption: {
     flex: 1,
@@ -608,7 +712,6 @@ const styles = StyleSheet.create({
     borderRadius: 11,
   },
   toggleOptionActive: {
-    backgroundColor: '#7C3AED',
     elevation: 2,
     shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
@@ -618,21 +721,20 @@ const styles = StyleSheet.create({
   toggleOptionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
   },
   toggleOptionTextActive: {
-    color: '#FFFFFF',
+    fontWeight: '700',
   },
   toggleCount: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
   },
   toggleCountText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
 
   // Content
@@ -644,6 +746,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  sectionAccentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionAccent: {
+    width: 4,
+    height: 24,
+    borderRadius: 2,
   },
   sectionTitle: {
     fontSize: 20,
@@ -759,4 +871,41 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
   emptySubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 21 },
+
+  // View More Button - ENHANCED STYLES
+  viewMoreButton: {
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    elevation: 2,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  viewMoreContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  viewMoreText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  viewMoreBadge: {
+    backgroundColor: '#7C3AED',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  viewMoreBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });

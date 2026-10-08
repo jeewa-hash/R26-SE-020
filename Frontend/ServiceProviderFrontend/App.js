@@ -61,7 +61,8 @@ import ProfileScreen from './pages/ProfileScreen';
 import ProviderJobDetailsScreen from './pages/IT22129376/ProviderJobDetailsScreen';
 import ProviderRequestDetailsScreen from './pages/IT22129376/ProviderRequestDetailsScreen';
 import ProviderQuotationFormScreen from './pages/IT22129376/ProviderQuotationFormScreen';
-
+import ServicesListScreen from './pages/ServicesListScreen';
+import ServiceFormScreen from './pages/ServiceFormScreen';
 
 const Stack = createStackNavigator();
 
@@ -176,6 +177,19 @@ function AppContent() {
             <Stack.Screen name="IT22129376ProviderJobDetails" component={ProviderJobDetailsScreen} />
             <Stack.Screen name="IT22129376ProviderRequestDetails" component={ProviderRequestDetailsScreen} />
             <Stack.Screen name="IT22129376ProviderQuotationForm" component={ProviderQuotationFormScreen} />
+            <Stack.Screen
+              name="ServicesList"
+              component={ServicesListScreen}
+              options={{ headerShown: true, title: 'My Services' }}
+            />
+            <Stack.Screen
+              name="ServiceForm"
+              component={ServiceFormScreen}
+              options={({ route }) => ({
+                headerShown: true,
+                title: route.params?.serviceId ? 'Edit Service' : 'Add New Service',
+              })}
+            />
 
           </Stack.Navigator>
         </NavigationContainer>

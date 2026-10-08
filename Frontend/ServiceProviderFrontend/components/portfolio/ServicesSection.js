@@ -1,6 +1,6 @@
 // components/portfolio/ServicesSection.js
 import React, { useState, useEffect, useCallback, useContext } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,7 +23,15 @@ const getMeta = (key) => CATEGORY_META[(key || '').toLowerCase()] || DEFAULT_MET
 
 const INITIAL_SERVICE_LIMIT = 4;
 
-export default function ServicesSection({ navigation, C, initialCategory, onAddServicePress }) {
+// Resolve image URL the same way PortfolioContext does
+const resolveUrl = (raw) => {
+  if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('file://')) return raw;
+  if (raw.startsWith('/uploads/')) return `${CONFIG.ML_SERVICE_URL}${raw}`;
+  return raw;
+};
+
+export default function ServicesSection({ navigation, C, initialCategory, onAddImagePress }) {
   const { isDark } = useContext(ThemeContext) || {};
   const [addedServices, setAddedServices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,9 +63,13 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddS
             title: item.label,
             categoryGroup: item.category_group,
             count: item.image_count || 1,
+            coverImage: resolveUrl(item.latest_image),
           };
         } else {
           grouped[key].count += (item.image_count || 1);
+          if (!grouped[key].coverImage && item.latest_image) {
+            grouped[key].coverImage = resolveUrl(item.latest_image);
+          }
         }
       });
 
@@ -73,16 +85,14 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddS
     fetchAddedServices();
   }, [fetchAddedServices]);
 
-  const handleAddService = () => {
-    if (onAddServicePress) {
-      onAddServicePress();
-    } else {
-      navigation.getParent()?.navigate('PortfolioGallery');
-    }
+  const handleAddImage = () => {
+    if (onAddImagePress) onAddImagePress();
   };
 
   const handleCategoryPress = (categoryLabel) => {
-    navigation.getParent()?.navigate('PortfolioGallery', { category: categoryLabel });
+    navigation.navigate('ServiceForm', {
+      ...(typeof categoryLabel === 'string' ? { category: categoryLabel } : {}),
+    });
   };
 
   const displayedServices = showAllServices
@@ -95,8 +105,13 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddS
     <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: C.text }]}>My Services</Text>
-        <TouchableOpacity onPress={handleAddService}>
-          <Text style={styles.seeAll}>+ Add Service</Text>
+        <TouchableOpacity
+          style={styles.addImageBtn}
+          onPress={() => handleCategoryPress()}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons name="add" size={15} color="#7C3AED" />
+          <Text style={styles.addImageBtnText}>Add Services</Text>
         </TouchableOpacity>
       </View>
 
@@ -127,10 +142,22 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddS
               onPress={() => handleCategoryPress(svc.title)}
               activeOpacity={0.85}
             >
+              {/* Count badge */}
               <View style={styles.countBadge}>
                 <Text style={styles.countBadgeText}>{svc.count}</Text>
               </View>
-              <MaterialIcons name={meta.icon} size={26} color={meta.color} />
+
+              {/* Cover image or fallback icon */}
+              {svc.coverImage ? (
+                <Image
+                  source={{ uri: svc.coverImage }}
+                  style={styles.coverImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <MaterialIcons name={meta.icon} size={26} color={meta.color} />
+              )}
+
               <Text style={[styles.squareLabel, { color: meta.color }]} numberOfLines={1}>
                 {svc.title}
               </Text>
@@ -169,21 +196,44 @@ const styles = StyleSheet.create({
   section:       { borderRadius: 18, borderWidth: 0.5, padding: 16, marginBottom: 14 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   sectionTitle:  { fontSize: 15, fontWeight: '700' },
-  seeAll:        { fontSize: 13, color: '#2563EB', fontWeight: '600' },
+
+  addImageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#7C3AED18',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#7C3AED40',
+  },
+  addImageBtnText: { fontSize: 12, color: '#7C3AED', fontWeight: '700' },
+
   servicesRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   squareCard: {
     width: 88, height: 88, borderRadius: 14, borderWidth: 1,
     justifyContent: 'center', alignItems: 'center', gap: 6,
-    position: 'relative', paddingHorizontal: 6,
+    position: 'relative', paddingHorizontal: 6, overflow: 'hidden',
   },
-  primaryBadge: { position: 'absolute', top: 6, right: 6 },
+  primaryBadge: { position: 'absolute', top: 6, right: 6, zIndex: 2 },
   countBadge: {
-    position: 'absolute', top: 6, right: 6,
+    position: 'absolute', top: 6, right: 6, zIndex: 2,
     backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 8,
     minWidth: 16, paddingHorizontal: 4, alignItems: 'center',
   },
   countBadgeText: { fontSize: 9, color: '#fff', fontWeight: '700' },
-  squareLabel:  { fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  coverImage: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    width: '100%', height: '100%', opacity: 0.85,
+  },
+  squareLabel: {
+    fontSize: 11, fontWeight: '700', textAlign: 'center',
+    position: 'absolute', bottom: 6, zIndex: 2,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4,
+    color: '#fff',
+  },
   seeMoreBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 4, marginTop: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1,
@@ -192,4 +242,3 @@ const styles = StyleSheet.create({
   loadingText:  { fontSize: 11, marginTop: 8, fontStyle: 'italic' },
   emptyText:    { fontSize: 12 },
 });
-

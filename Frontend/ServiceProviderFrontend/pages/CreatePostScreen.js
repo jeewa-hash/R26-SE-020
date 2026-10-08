@@ -1,11 +1,24 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, TextInput, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { Text, Button, Card, Chip, IconButton, Switch } from 'react-native-paper';
+import { 
+  View, 
+  ScrollView, 
+  StyleSheet, 
+  TextInput, 
+  Alert, 
+  ActivityIndicator, 
+  TouchableOpacity,
+  StatusBar,
+  Dimensions,
+} from 'react-native';
+import { Text, Button, Card, Chip, IconButton, Switch, Surface } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { ThemeContext } from '../context/ThemeContext';
 import { CONFIG } from '../config';
+
+const { width } = Dimensions.get('window');
 
 const TONES = [
   { id: 'professional', icon: 'business-center', color: '#2563EB' },
@@ -14,13 +27,14 @@ const TONES = [
   { id: 'promotional', icon: 'campaign', color: '#7C3AED' },
   { id: 'trustworthy', icon: 'verified', color: '#059669' },
 ];
+
 const LANGUAGES = ["en", "si", "ta"];
 const CATEGORIES = ["home service", "plumbing", "electrical", "carpentry", "cleaning"];
 
 export default function CreatePostScreen({ navigation }) {
   const { isDark } = useContext(ThemeContext);
   const [loading, setLoading] = useState(false);
-  const [generatedBy, setGeneratedBy] = useState(null); // 'gemini' | 'fallback' | null
+  const [generatedBy, setGeneratedBy] = useState(null);
   const [providerInfo, setProviderInfo] = useState({
     providerId: '',
     providerName: '',
@@ -42,13 +56,61 @@ export default function CreatePostScreen({ navigation }) {
   const [penaltyRestricted, setPenaltyRestricted] = useState(false);
   const [penaltyRatio, setPenaltyRatio] = useState('3/3');
 
+  // Theme-based colors
+  const C = isDark ? {
+    bg: '#0F172A',
+    card: '#1E293B',
+    cardBorder: '#334155',
+    text: '#F1F5F9',
+    textSecondary: '#94A3B8',
+    textMuted: '#64748B',
+    input: '#1E293B',
+    inputBorder: '#334155',
+    primary: '#3B82F6',
+    primaryLight: '#1E3A5F',
+    primaryDark: '#2563EB',
+    success: '#10B981',
+    successLight: '#064E3B',
+    warning: '#F59E0B',
+    warningLight: '#78350F',
+    danger: '#EF4444',
+    dangerLight: '#7F1D1D',
+    border: '#334155',
+    white: '#FFFFFF',
+    shadow: '#000000',
+    gradientStart: '#1E293B',
+    gradientEnd: '#0F172A',
+  } : {
+    bg: '#F0F4F8',
+    card: '#FFFFFF',
+    cardBorder: '#E2E8F0',
+    text: '#1E293B',
+    textSecondary: '#475569',
+    textMuted: '#94A3B8',
+    input: '#F8FAFC',
+    inputBorder: '#E2E8F0',
+    primary: '#2563EB',
+    primaryLight: '#DBEAFE',
+    primaryDark: '#1E40AF',
+    success: '#10B981',
+    successLight: '#D1FAE5',
+    warning: '#F59E0B',
+    warningLight: '#FEF3C7',
+    danger: '#EF4444',
+    dangerLight: '#FEE2E2',
+    border: '#E2E8F0',
+    white: '#FFFFFF',
+    shadow: '#E2E8F0',
+    gradientStart: '#667eea',
+    gradientEnd: '#764ba2',
+  };
+
   useEffect(() => {
     const fetchProviderInfo = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
         const userId = await AsyncStorage.getItem('userId');
         
-        // Check penalty score & restrictions
         if (userId) {
           try {
             const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
@@ -62,7 +124,7 @@ export default function CreatePostScreen({ navigation }) {
               }
             }
           } catch (e) {
-            console.log('Error checking penalty status in CreatePost:', e.message);
+            console.log('Error checking penalty status:', e.message);
           }
         }
 
@@ -72,13 +134,11 @@ export default function CreatePostScreen({ navigation }) {
         const data = await res.json();
         
         if (data.provider) {
-          // Handle location properly - check if it's an object or string
           let locationString = 'Not specified';
           if (data.provider.location) {
             if (typeof data.provider.location === 'string') {
               locationString = data.provider.location;
             } else if (typeof data.provider.location === 'object') {
-              // Handle location object with latitude/longitude
               if (data.provider.location.address) {
                 locationString = data.provider.location.address;
               } else if (data.provider.location.city || data.provider.location.district) {
@@ -107,22 +167,6 @@ export default function CreatePostScreen({ navigation }) {
     };
     fetchProviderInfo();
   }, []);
-
-  // White and Blue theme
-  const C = {
-    bg: '#F0F4F8',
-    card: '#FFFFFF',
-    text: '#1E293B',
-    subText: '#64748B',
-    input: '#F8FAFC',
-    primary: '#2563EB',
-    primaryLight: '#DBEAFE',
-    primaryDark: '#1E40AF',
-    border: '#E2E8F0',
-    accent: '#3B82F6',
-    success: '#10B981',
-    white: '#FFFFFF',
-  };
 
   const handleGenerate = async () => {
     if (!form.serviceLabel) return Alert.alert("Required", "Please enter the service performed.");
@@ -156,7 +200,7 @@ export default function CreatePostScreen({ navigation }) {
         },
         {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          timeout: 45000, // generous because backend may retry Gemini several times
+          timeout: 45000,
         }
       );
 
@@ -200,14 +244,11 @@ export default function CreatePostScreen({ navigation }) {
       const isNetwork = !err.response && (err.message?.includes('Network') || !rawServer);
       let friendly;
       if (isTimeout) {
-        friendly =
-          "Generation is taking longer than usual because the AI is busy. The backend retried several times.\n\nChoose OK to keep a template-based draft using your details, or Try Again to wait once more.";
+        friendly = "Generation is taking longer than usual because the AI is busy. The backend retried several times.\n\nChoose OK to keep a template-based draft using your details, or Try Again to wait once more.";
       } else if (isNetwork) {
-        friendly =
-          "Could not reach the server. Please check your connection and confirm the Provider Service is running.";
+        friendly = "Could not reach the server. Please check your connection and confirm the Provider Service is running.";
       } else if (status && status >= 500) {
-        friendly =
-          `Server issue (${status}). The backend is set up to return a backup draft for most AI errors — try once more or contact support if this persists.`;
+        friendly = `Server issue (${status}). The backend is set up to return a backup draft for most AI errors — try once more or contact support if this persists.`;
       } else if (err.response?.data?.errors) {
         friendly = err.response.data.errors.join('\n');
       } else {
@@ -226,11 +267,7 @@ export default function CreatePostScreen({ navigation }) {
               const provider = providerInfo.providerName || "Our team";
               const loc = providerInfo.location || "your area";
               const contact = providerInfo.contact || "us";
-              const sample =
-                `${provider} offers ${label} services in ${loc}.\n\n` +
-                (form.extraInfo ? `${form.extraInfo}\n\n` : '') +
-                `Contact ${contact} to book an appointment. Free quotes available.\n\n` +
-                `#${label.replace(/\s+/g, '')} #LocalServices #QualityWork`;
+              const sample = `${provider} offers ${label} services in ${loc}.\n\n` + (form.extraInfo ? `${form.extraInfo}\n\n` : '') + `Contact ${contact} to book an appointment. Free quotes available.\n\n` + `#${label.replace(/\s+/g, '')} #LocalServices #QualityWork`;
               setResult(sample);
               setGeneratedBy('fallback');
             },
@@ -261,332 +298,367 @@ export default function CreatePostScreen({ navigation }) {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: C.bg }]} showsVerticalScrollIndicator={false}>
-      {/* Penalty Restriction Alert Banner */}
-      {penaltyRestricted && (
-        <View style={styles.penaltyAlertCard}>
-          <View style={styles.penaltyAlertHeader}>
-            <MaterialIcons name="warning" size={22} color="#EF4444" />
-            <Text style={styles.penaltyAlertTitle}>Posting Restricted ({penaltyRatio})</Text>
-          </View>
-          <Text style={styles.penaltyAlertDesc}>
-            Your penalty score has reached <Text style={{ fontWeight: 'bold', color: '#EF4444' }}>{penaltyRatio}</Text> due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.
-            {'\n\n'}
-            Please submit an inquiry for your missed bookings immediately to get approval from the Administrator and restore your account access.
-          </Text>
-          <TouchableOpacity
-            style={styles.penaltyAlertBtn}
-            onPress={() => navigation.navigate('SubmitInquiry')}
-            activeOpacity={0.85}
-          >
-            <MaterialIcons name="rate-review" size={16} color="#FFFFFF" />
-            <Text style={styles.penaltyAlertBtnText}>Submit Inquiry for Missed Bookings</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Header Section */}
-      <View style={styles.headerSection}>
-        <View style={styles.headerIconContainer}>
-          <MaterialIcons name="auto-awesome" size={28} color={C.white} />
-        </View>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>Create Ad Post</Text>
-          <Text style={styles.headerSubtitle}>Generate compelling content with AI</Text>
-        </View>
-      </View>
-
-      {/* Provider Info Card */}
-      <Card style={[styles.providerCard, { backgroundColor: C.card }]}>
-        <Card.Content>
-          <View style={styles.providerRow}>
-            <View style={styles.avatarContainer}>
-              <MaterialIcons name="person" size={24} color={C.primary} />
-            </View>
-            <View style={styles.providerInfo}>
-              <Text style={styles.providerName}>
-                {typeof providerInfo.providerName === 'string' ? providerInfo.providerName : 'Unknown'}
+    <View style={[styles.container, { backgroundColor: C.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Penalty Restriction Alert Banner */}
+        {penaltyRestricted && (
+          <Surface style={[styles.penaltyAlertCard, { 
+            backgroundColor: isDark ? C.dangerLight : '#FEF2F2',
+            borderColor: C.danger,
+          }]} elevation={2}>
+            <View style={styles.penaltyAlertHeader}>
+              <View style={[styles.penaltyIconBg, { backgroundColor: C.danger + '20' }]}>
+                <MaterialIcons name="warning" size={22} color={C.danger} />
+              </View>
+              <Text style={[styles.penaltyAlertTitle, { color: C.danger }]}>
+                Posting Restricted ({penaltyRatio})
               </Text>
-              <View style={styles.providerDetails}>
-                <MaterialIcons name="location-on" size={14} color={C.subText} />
-                <Text style={styles.providerDetailText}>
-                  {typeof providerInfo.location === 'string' ? providerInfo.location : 'Not specified'}
+            </View>
+            <Text style={[styles.penaltyAlertDesc, { color: isDark ? '#FCA5A5' : '#7F1D1D' }]}>
+              Your penalty score has reached <Text style={{ fontWeight: 'bold', color: C.danger }}>{penaltyRatio}</Text> due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.
+              {'\n\n'}
+              Please submit an inquiry for your missed bookings immediately to get approval from the Administrator and restore your account access.
+            </Text>
+            <TouchableOpacity
+              style={[styles.penaltyAlertBtn, { backgroundColor: C.danger }]}
+              onPress={() => navigation.navigate('SubmitInquiry')}
+              activeOpacity={0.85}
+            >
+              <MaterialIcons name="rate-review" size={16} color="#FFFFFF" />
+              <Text style={styles.penaltyAlertBtnText}>Submit Inquiry for Missed Bookings</Text>
+            </TouchableOpacity>
+          </Surface>
+        )}
+
+        {/* Header Section */}
+        <LinearGradient
+          colors={isDark ? ['#1E293B', '#0F172A'] : [C.gradientStart, C.gradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerSection}>
+            <View style={[styles.headerIconContainer, { backgroundColor: C.white + '20' }]}>
+              <MaterialIcons name="auto-awesome" size={28} color={C.white} />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>Create Ad Post</Text>
+              <Text style={styles.headerSubtitle}>Generate compelling content with AI</Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* Provider Info Card */}
+        <Surface style={[styles.providerCard, { 
+          backgroundColor: C.card,
+          borderColor: C.cardBorder,
+        }]} elevation={2}>
+          <View style={styles.providerContent}>
+            <View style={styles.providerRow}>
+              <View style={[styles.avatarContainer, { backgroundColor: C.primaryLight }]}>
+                <MaterialIcons name="person" size={24} color={C.primary} />
+              </View>
+              <View style={styles.providerInfo}>
+                <Text style={[styles.providerName, { color: C.text }]}>
+                  {typeof providerInfo.providerName === 'string' ? providerInfo.providerName : 'Unknown'}
                 </Text>
+                <View style={styles.providerDetails}>
+                  <MaterialIcons name="location-on" size={14} color={C.textSecondary} />
+                  <Text style={[styles.providerDetailText, { color: C.textSecondary }]}>
+                    {typeof providerInfo.location === 'string' ? providerInfo.location : 'Not specified'}
+                  </Text>
+                </View>
+              </View>
+              <View style={[styles.verifiedBadge, { backgroundColor: C.successLight }]}>
+                <MaterialIcons name="verified" size={16} color={C.success} />
               </View>
             </View>
-            <MaterialIcons name="verified" size={20} color={C.success} />
           </View>
-        </Card.Content>
-      </Card>
+        </Surface>
 
-      {/* Service Input Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Service Details</Text>
-        
-        <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <MaterialIcons name="home-repair-service" size={16} color={C.primary} />
-            <Text style={styles.label}>Service Done</Text>
+        {/* Service Input Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: C.text }]}>Service Details</Text>
+          
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <MaterialIcons name="home-repair-service" size={16} color={C.primary} />
+              <Text style={[styles.label, { color: C.text }]}>Service Done</Text>
+            </View>
+            <View style={[styles.inputWrapper, { 
+              backgroundColor: C.input,
+              borderColor: C.inputBorder,
+            }]}>
+              <TextInput
+                style={[styles.input, { color: C.text }]}
+                placeholder="e.g. Full House Re-piping"
+                placeholderTextColor={C.textMuted}
+                value={form.serviceLabel}
+                onChangeText={(v) => setForm({...form, serviceLabel: v})}
+              />
+            </View>
           </View>
-          <View style={[styles.inputWrapper, { backgroundColor: C.input }]}>
-            <TextInput
-              style={[styles.input, { color: C.text }]}
-              placeholder="e.g. Full House Re-piping"
-              placeholderTextColor={C.subText}
-              value={form.serviceLabel}
-              onChangeText={(v) => setForm({...form, serviceLabel: v})}
-            />
+
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <MaterialIcons name="category" size={16} color={C.primary} />
+              <Text style={[styles.label, { color: C.text }]}>Category</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+              {CATEGORIES.map(cat => (
+                <TouchableOpacity
+                  key={cat}
+                  onPress={() => setForm({...form, category: cat})}
+                  style={[
+                    styles.categoryChip,
+                    { 
+                      backgroundColor: form.category === cat ? C.primary : C.card,
+                      borderColor: form.category === cat ? C.primary : C.cardBorder,
+                    }
+                  ]}
+                >
+                  <Text style={[
+                    styles.categoryChipText,
+                    { color: form.category === cat ? C.white : C.textSecondary }
+                  ]}>
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <MaterialIcons name="tag" size={16} color={C.primary} />
+              <Text style={[styles.label, { color: C.text }]}>Tags</Text>
+            </View>
+            <View style={styles.tagInputRow}>
+              <View style={[styles.tagInputWrapper, { 
+                backgroundColor: C.input,
+                borderColor: C.inputBorder,
+              }]}>
+                <TextInput
+                  style={[styles.input, styles.tagInput, { color: C.text }]}
+                  placeholder="Add relevant tags"
+                  placeholderTextColor={C.textMuted}
+                  value={tagInput}
+                  onChangeText={setTagInput}
+                  onSubmitEditing={addTag}
+                />
+              </View>
+              <TouchableOpacity style={[styles.addTagButton, { backgroundColor: C.primary }]} onPress={addTag}>
+                <MaterialIcons name="add" size={24} color={C.white} />
+              </TouchableOpacity>
+            </View>
+            {form.tags.length > 0 && (
+              <View style={styles.tagsContainer}>
+                {form.tags.map((tag, index) => (
+                  <View key={index} style={[styles.tag, { backgroundColor: C.primaryLight }]}>
+                    <Text style={[styles.tagText, { color: C.primary }]}>{tag}</Text>
+                    <TouchableOpacity onPress={() => {
+                      const newTags = form.tags.filter((_, i) => i !== index);
+                      setForm({...form, tags: newTags});
+                    }}>
+                      <MaterialIcons name="close" size={16} color={C.primary} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </View>
 
-        <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <MaterialIcons name="category" size={16} color={C.primary} />
-            <Text style={styles.label}>Category</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-            {CATEGORIES.map(cat => (
+        {/* Tone Selection Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: C.text }]}>Tone of Voice</Text>
+          <View style={styles.toneGrid}>
+            {TONES.map(tone => (
               <TouchableOpacity
-                key={cat}
-                onPress={() => setForm({...form, category: cat})}
+                key={tone.id}
+                onPress={() => setForm({...form, tone: tone.id})}
                 style={[
-                  styles.categoryChip,
+                  styles.toneCard,
                   { 
-                    backgroundColor: form.category === cat ? C.primary : C.white,
-                    borderColor: form.category === cat ? C.primary : C.border,
+                    backgroundColor: form.tone === tone.id ? tone.color : C.card,
+                    borderColor: form.tone === tone.id ? tone.color : C.cardBorder,
                   }
                 ]}
+                activeOpacity={0.8}
               >
+                <MaterialIcons 
+                  name={tone.icon} 
+                  size={24} 
+                  color={form.tone === tone.id ? C.white : tone.color} 
+                />
                 <Text style={[
-                  styles.categoryChipText,
-                  { color: form.category === cat ? C.white : C.subText }
+                  styles.toneText,
+                  { color: form.tone === tone.id ? C.white : C.text }
                 ]}>
-                  {cat}
+                  {tone.id}
                 </Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
         </View>
 
-        <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <MaterialIcons name="tag" size={16} color={C.primary} />
-            <Text style={styles.label}>Tags</Text>
-          </View>
-          <View style={styles.tagInputRow}>
-            <View style={[styles.tagInputWrapper, { backgroundColor: C.input }]}>
-              <TextInput
-                style={[styles.input, styles.tagInput, { color: C.text }]}
-                placeholder="Add relevant tags"
-                placeholderTextColor={C.subText}
-                value={tagInput}
-                onChangeText={setTagInput}
-                onSubmitEditing={addTag}
-              />
+        {/* Additional Options */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: C.text }]}>Options</Text>
+          
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <MaterialIcons name="language" size={16} color={C.primary} />
+              <Text style={[styles.label, { color: C.text }]}>Language</Text>
             </View>
-            <TouchableOpacity style={[styles.addTagButton, { backgroundColor: C.primary }]} onPress={addTag}>
-              <MaterialIcons name="add" size={24} color={C.white} />
-            </TouchableOpacity>
-          </View>
-          {form.tags.length > 0 && (
-            <View style={styles.tagsContainer}>
-              {form.tags.map((tag, index) => (
-                <View key={index} style={[styles.tag, { backgroundColor: C.primaryLight }]}>
-                  <Text style={[styles.tagText, { color: C.primaryDark }]}>{tag}</Text>
-                  <TouchableOpacity onPress={() => {
-                    const newTags = form.tags.filter((_, i) => i !== index);
-                    setForm({...form, tags: newTags});
-                  }}>
-                    <MaterialIcons name="close" size={16} color={C.primaryDark} />
-                  </TouchableOpacity>
-                </View>
+            <View style={styles.languageRow}>
+              {LANGUAGES.map(lang => (
+                <TouchableOpacity
+                  key={lang}
+                  onPress={() => setForm({...form, language: lang})}
+                  style={[
+                    styles.languageChip,
+                    { 
+                      backgroundColor: form.language === lang ? C.primary : C.card,
+                      borderColor: form.language === lang ? C.primary : C.cardBorder,
+                    }
+                  ]}
+                >
+                  <Text style={[
+                    styles.languageChipText,
+                    { color: form.language === lang ? C.white : C.textSecondary }
+                  ]}>
+                    {lang.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
               ))}
             </View>
-          )}
-        </View>
-      </View>
+          </View>
 
-      {/* Tone Selection Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Tone of Voice</Text>
-        <View style={styles.toneGrid}>
-          {TONES.map(tone => (
-            <TouchableOpacity
-              key={tone.id}
-              onPress={() => setForm({...form, tone: tone.id})}
-              style={[
-                styles.toneCard,
-                { 
-                  backgroundColor: form.tone === tone.id ? tone.color : C.white,
-                  borderColor: form.tone === tone.id ? tone.color : C.border,
-                }
-              ]}
-            >
-              <MaterialIcons 
-                name={tone.icon} 
-                size={24} 
-                color={form.tone === tone.id ? C.white : tone.color} 
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <MaterialIcons name="notes" size={16} color={C.primary} />
+              <Text style={[styles.label, { color: C.text }]}>Additional Information</Text>
+            </View>
+            <View style={[styles.inputWrapper, { 
+              backgroundColor: C.input,
+              borderColor: C.inputBorder,
+            }]}>
+              <TextInput
+                style={[styles.input, styles.textArea, { color: C.text }]}
+                placeholder="Any specific details to include..."
+                placeholderTextColor={C.textMuted}
+                value={form.extraInfo}
+                onChangeText={(v) => setForm({...form, extraInfo: v})}
+                multiline
+                numberOfLines={4}
               />
-              <Text style={[
-                styles.toneText,
-                { color: form.tone === tone.id ? C.white : C.text }
-              ]}>
-                {tone.id}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+            </View>
+          </View>
 
-      {/* Additional Options */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Options</Text>
-        
-        <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <MaterialIcons name="language" size={16} color={C.primary} />
-            <Text style={styles.label}>Language</Text>
-          </View>
-          <View style={styles.languageRow}>
-            {LANGUAGES.map(lang => (
-              <Chip
-                key={lang}
-                selected={form.language === lang}
-                onPress={() => setForm({...form, language: lang})}
-                style={[
-                  styles.languageChip,
-                  { 
-                    backgroundColor: form.language === lang ? C.primary : C.white,
-                    borderColor: form.language === lang ? C.primary : C.border,
-                  }
-                ]}
-                textStyle={{ 
-                  color: form.language === lang ? C.white : C.subText,
-                  fontWeight: '600',
-                }}
-              >
-                {lang.toUpperCase()}
-              </Chip>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <View style={styles.labelRow}>
-            <MaterialIcons name="notes" size={16} color={C.primary} />
-            <Text style={styles.label}>Additional Information</Text>
-          </View>
-          <View style={[styles.inputWrapper, { backgroundColor: C.input }]}>
-            <TextInput
-              style={[styles.input, styles.textArea, { color: C.text }]}
-              placeholder="Any specific details to include..."
-              placeholderTextColor={C.subText}
-              value={form.extraInfo}
-              onChangeText={(v) => setForm({...form, extraInfo: v})}
-              multiline
-              numberOfLines={4}
+          <View style={[styles.switchRow, { borderTopColor: C.cardBorder }]}>
+            <View style={styles.switchLabel}>
+              <MaterialIcons name="image" size={20} color={C.primary} />
+              <Text style={[styles.switchText, { color: C.text }]}>Generate Image</Text>
+            </View>
+            <Switch
+              value={form.generateImage}
+              onValueChange={(v) => setForm({...form, generateImage: v})}
+              trackColor={{ false: C.cardBorder, true: C.primary }}
+              thumbColor={form.generateImage ? C.white : C.textMuted}
             />
           </View>
         </View>
 
-        <View style={styles.switchRow}>
-          <View style={styles.switchLabel}>
-            <MaterialIcons name="image" size={20} color={C.primary} />
-            <Text style={styles.switchText}>Generate Image</Text>
-          </View>
-          <Switch
-            value={form.generateImage}
-            onValueChange={(v) => setForm({...form, generateImage: v})}
-            color={C.primary}
-          />
-        </View>
-      </View>
+        {/* Generate Button */}
+        <TouchableOpacity
+          onPress={handleGenerate}
+          disabled={loading || penaltyRestricted}
+          style={[
+            styles.generateButton, 
+            { backgroundColor: (loading || penaltyRestricted) ? C.textMuted : C.primary }
+          ]}
+          activeOpacity={0.8}
+        >
+          {loading ? (
+            <ActivityIndicator color={C.white} size="small" />
+          ) : (
+            <>
+              <LinearGradient
+                colors={[C.gradientStart, C.gradientEnd]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.generateGradient}
+              >
+                <MaterialIcons name="auto-awesome" size={20} color={C.white} />
+                <Text style={styles.generateButtonText}>Generate AI Post</Text>
+              </LinearGradient>
+            </>
+          )}
+        </TouchableOpacity>
 
-      {/* Generate Button */}
-      <TouchableOpacity
-        onPress={handleGenerate}
-        disabled={loading}
-        style={[styles.generateButton, { backgroundColor: C.primary }]}
-        activeOpacity={0.8}
-      >
-        {loading ? (
-          <ActivityIndicator color={C.white} size="small" />
-        ) : (
-          <>
-            <MaterialIcons name="auto-awesome" size={20} color={C.white} />
-            <Text style={styles.generateButtonText}>Generate AI Post</Text>
-          </>
-        )}
-      </TouchableOpacity>
-
-      {/* Result Card */}
-      {result && (
-        <Card style={[styles.resultCard, { backgroundColor: C.card }]}>
-          <Card.Content>
-            <View style={styles.resultHeader}>
-              <View style={styles.resultTitleContainer}>
-                <View
-                  style={[
-                    styles.resultIconContainer,
-                    {
-                      backgroundColor:
-                        generatedBy === 'fallback' ? '#FEF3C7' : C.primaryLight,
-                    },
-                  ]}
-                >
-                  <MaterialIcons
-                    name={generatedBy === 'fallback' ? 'edit-note' : 'check-circle'}
-                    size={20}
-                    color={generatedBy === 'fallback' ? '#D97706' : C.primary}
-                  />
-                </View>
-                <View>
-                  <Text style={styles.resultTitle}>
-                    {generatedBy === 'fallback'
-                      ? 'Template Draft (AI was busy)'
-                      : 'AI-Generated Content'}
-                  </Text>
-                  <Text style={[styles.resultSubtitle, { color: C.subText }]}>
-                    {generatedBy === 'fallback'
-                      ? 'Based on your service details. Feel free to edit.'
-                      : 'Generated with Gemini AI'}
-                  </Text>
-                </View>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {generatedBy === 'fallback' && (
-                  <TouchableOpacity
-                    style={[styles.retryChip, { backgroundColor: C.primaryLight }]}
-                    onPress={handleGenerate}
-                    disabled={loading}
-                  >
-                    <MaterialIcons name="refresh" size={14} color={C.primary} />
-                    <Text style={[styles.retryChipText, { color: C.primary }]}>
-                      Re-try AI
+        {/* Result Card */}
+        {result && (
+          <Surface style={[styles.resultCard, { 
+            backgroundColor: C.card,
+            borderColor: C.cardBorder,
+          }]} elevation={3}>
+            <View style={styles.resultContent}>
+              <View style={styles.resultHeader}>
+                <View style={styles.resultTitleContainer}>
+                  <View style={[styles.resultIconContainer, { 
+                    backgroundColor: generatedBy === 'fallback' ? C.warningLight : C.primaryLight 
+                  }]}>
+                    <MaterialIcons 
+                      name={generatedBy === 'fallback' ? 'edit-note' : 'check-circle'} 
+                      size={20} 
+                      color={generatedBy === 'fallback' ? C.warning : C.primary} 
+                    />
+                  </View>
+                  <View>
+                    <Text style={[styles.resultTitle, { color: C.text }]}>
+                      {generatedBy === 'fallback' ? 'Template Draft (AI was busy)' : 'AI-Generated Content'}
                     </Text>
+                    <Text style={[styles.resultSubtitle, { color: C.textSecondary }]}>
+                      {generatedBy === 'fallback' ? 'Based on your service details. Feel free to edit.' : 'Generated with Gemini AI'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.resultActions}>
+                  {generatedBy === 'fallback' && (
+                    <TouchableOpacity
+                      style={[styles.retryChip, { backgroundColor: C.primaryLight }]}
+                      onPress={handleGenerate}
+                      disabled={loading}
+                    >
+                      <MaterialIcons name="refresh" size={14} color={C.primary} />
+                      <Text style={[styles.retryChipText, { color: C.primary }]}>Re-try AI</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity style={[styles.copyButton, { backgroundColor: C.primaryLight }]}>
+                    <MaterialIcons name="content-copy" size={18} color={C.primary} />
                   </TouchableOpacity>
-                )}
-                <TouchableOpacity style={[styles.copyButton, { backgroundColor: C.primaryLight }]}>
-                  <MaterialIcons name="content-copy" size={18} color={C.primary} />
-                </TouchableOpacity>
+                </View>
               </View>
+              <View style={[styles.resultTextContainer, { backgroundColor: C.input }]}>
+                <Text style={[styles.resultText, { color: C.text }]}>{result}</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: C.primary }]}
+                onPress={() => navigation.navigate('Profile')}
+              >
+                <MaterialIcons name="save" size={18} color={C.white} />
+                <Text style={styles.saveButtonText}>Save to Feed</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={[styles.resultText, { color: C.text }]}>{result}</Text>
-          </Card.Content>
-          <Card.Actions style={styles.resultActions}>
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: C.primary }]}
-              onPress={() => navigation.navigate('Profile')}
-            >
-              <MaterialIcons name="save" size={18} color={C.white} />
-              <Text style={styles.saveButtonText}>Save to Feed</Text>
-            </TouchableOpacity>
-          </Card.Actions>
-        </Card>
-      )}
-      
-      <View style={{ height: 30 }} />
-    </ScrollView>
+          </Surface>
+        )}
+        
+        <View style={{ height: 30 }} />
+      </ScrollView>
+    </View>
   );
 }
 
@@ -594,17 +666,27 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+
+  // Header
+  headerGradient: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
   headerSection: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
-    paddingBottom: 15,
   },
   headerIconContainer: {
     width: 50,
     height: 50,
     borderRadius: 15,
-    backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -615,18 +697,25 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1E293B',
+    color: '#FFFFFF',
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#64748B',
+    color: '#FFFFFFCC',
     marginTop: 2,
   },
+
+  // Provider Card
   providerCard: {
-    marginHorizontal: 20,
-    borderRadius: 15,
-    elevation: 3,
-    marginBottom: 10,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  providerContent: {
+    padding: 16,
   },
   providerRow: {
     flexDirection: 'row',
@@ -636,7 +725,6 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 22.5,
-    backgroundColor: '#DBEAFE',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -647,7 +735,6 @@ const styles = StyleSheet.create({
   providerName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
   },
   providerDetails: {
     flexDirection: 'row',
@@ -656,19 +743,28 @@ const styles = StyleSheet.create({
   },
   providerDetailText: {
     fontSize: 12,
-    color: '#64748B',
     marginLeft: 4,
   },
+  verifiedBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Sections
   section: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 15,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1E293B',
     marginBottom: 15,
   },
+
+  // Inputs
   inputGroup: {
     marginBottom: 15,
   },
@@ -681,12 +777,10 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1E293B',
   },
   inputWrapper: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     overflow: 'hidden',
   },
   input: {
@@ -698,6 +792,8 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
+
+  // Categories
   categoryScroll: {
     flexDirection: 'row',
   },
@@ -712,6 +808,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+
+  // Tags
   tagInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -720,7 +818,6 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     overflow: 'hidden',
   },
   tagInput: {
@@ -753,13 +850,15 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginRight: 6,
   },
+
+  // Tones
   toneGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
   },
   toneCard: {
-    width: '31%',
+    width: (width - 72) / 3,
     aspectRatio: 1.2,
     borderRadius: 12,
     borderWidth: 1,
@@ -773,19 +872,30 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textTransform: 'capitalize',
   },
+
+  // Languages
   languageRow: {
     flexDirection: 'row',
     gap: 8,
   },
   languageChip: {
-    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
+    borderWidth: 1,
   },
+  languageChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // Switch
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 12,
+    borderTopWidth: 1,
   },
   switchLabel: {
     flexDirection: 'row',
@@ -794,40 +904,51 @@ const styles = StyleSheet.create({
   switchText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#1E293B',
     marginLeft: 8,
   },
+
+  // Generate Button
   generateButton: {
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     marginTop: 20,
     borderRadius: 15,
-    paddingVertical: 15,
+    overflow: 'hidden',
+    elevation: 3,
+  },
+  generateGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 15,
     gap: 8,
-    elevation: 3,
   },
   generateButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
+
+  // Result Card
   resultCard: {
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     marginTop: 25,
-    borderRadius: 15,
-    elevation: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  resultContent: {
+    padding: 16,
   },
   resultHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
   },
   resultTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   resultIconContainer: {
     width: 35,
@@ -840,11 +961,15 @@ const styles = StyleSheet.create({
   resultTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1E293B',
   },
   resultSubtitle: {
     fontSize: 11,
     marginTop: 2,
+  },
+  resultActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   retryChip: {
     flexDirection: 'row',
@@ -865,20 +990,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  resultTextContainer: {
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
   resultText: {
     fontSize: 15,
     lineHeight: 22,
   },
-  resultActions: {
-    padding: 15,
-    paddingTop: 0,
-  },
   saveButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 12,
     gap: 6,
   },
@@ -888,21 +1013,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // ── Penalty Restriction Banner Styles ──
+  // Penalty Alert
   penaltyAlertCard: {
     marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 4,
+    marginTop: 12,
+    marginBottom: 8,
     padding: 16,
     borderRadius: 16,
-    backgroundColor: '#FEF2F2',
     borderWidth: 1.5,
-    borderColor: '#FCA5A5',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
   },
   penaltyAlertHeader: {
     flexDirection: 'row',
@@ -910,15 +1029,20 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
+  penaltyIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   penaltyAlertTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#DC2626',
   },
   penaltyAlertDesc: {
     fontSize: 13,
     lineHeight: 19,
-    color: '#7F1D1D',
     marginBottom: 12,
   },
   penaltyAlertBtn: {
@@ -926,7 +1050,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#DC2626',
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 16,

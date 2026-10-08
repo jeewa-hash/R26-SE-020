@@ -14,7 +14,7 @@ import { initNotificationSocket } from "./sockets/notificationSocket.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import webhookRoutes from "./routes/webhookRoutes.js";
 import commissionBillingRoutes from "./routes/commissionBillingRoutes.js";
-
+import serviceRoutes from "./routes/serviceRoutes.js";
 // ─────────────────────────────────────────────
 // Config
 // ─────────────────────────────────────────────
@@ -102,7 +102,7 @@ app.use("/api/provider/jobs", jobStatusRoutes);
 app.use("/api/provider/quotations", quotationRoutes);
 app.use("/api/provider/billing", commissionBillingRoutes); // Monthly 5% service charge commission & payment portal
 app.use("/api/notifications", notificationRoutes);
-
+app.use("/api/provider/services", serviceRoutes); // Manual service CRUD with duplicate check
 // ─────────────────────────────────────────────
 // 404 Handler
 // ─────────────────────────────────────────────

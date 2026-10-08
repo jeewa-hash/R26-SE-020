@@ -6,6 +6,7 @@ import {
   StyleSheet,
   RefreshControl,
   StatusBar,
+  Image,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -13,17 +14,24 @@ import { usePortfolio } from '../context/PortfolioContext';
 import { ThemeContext } from '../context/ThemeContext';
 import { Colors } from '../theme';
 import TagGallerySection from '../components/portfolio/TagGallerySection';
+import { CONFIG } from '../config';
+
+const resolveUrl = (raw) => {
+  if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('file://')) return raw;
+  if (raw.startsWith('/uploads/')) return `${CONFIG.ML_SERVICE_URL}${raw}`;
+  return raw;
+};
 
 export default function PortfolioGalleryScreen({ navigation, route }) {
   const { isDark } = useContext(ThemeContext) || {};
-  const { portfolioImages, getAllTags, getImagesByTag, loadPortfolio, loading } = usePortfolio();
-  const [searchTag, setSearchTag] = useState('');
-  const [selectedTag, setSelectedTag] = useState(route?.params?.category || 'All');
+  const { portfolioImages, portfolioCategories, loadPortfolio, loading } = usePortfolio();
+  const [selectedService, setSelectedService] = useState(route?.params?.category || 'All');
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (route?.params?.category) {
-      setSelectedTag(route.params.category);
+      setSelectedService(route.params.category);
     }
   }, [route?.params?.category]);
 
@@ -33,54 +41,67 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
     setRefreshing(false);
   };
 
-  const allTags = getAllTags();
-
-  // Track which tags are new (added in last 24h)
-  const newTags = useMemo(() => {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentImages = portfolioImages.filter(
-      (img) => new Date(img.uploadedAt) > yesterday
-    );
-    const recentTagSet = new Set();
-    recentImages.forEach((img) => {
-      if (Array.isArray(img.tags)) img.tags.forEach((t) => recentTagSet.add(t));
-    });
-    const oldTags = new Set();
-    portfolioImages
-      .filter((img) => new Date(img.uploadedAt) <= yesterday)
-      .forEach((img) => {
-        if (Array.isArray(img.tags)) img.tags.forEach((t) => oldTags.add(t));
+  // Build service list from portfolioCategories or fall back to image labels
+  const serviceList = useMemo(() => {
+    if (portfolioCategories && portfolioCategories.length > 0) {
+      const grouped = {};
+      portfolioCategories.forEach((c) => {
+        const key = c.label || c.category_group;
+        if (!grouped[key]) {
+          grouped[key] = {
+            name: key,
+            count: c.image_count || 1,
+            coverImage: resolveUrl(c.latest_image),
+          };
+        } else {
+          grouped[key].count += c.image_count || 1;
+          if (!grouped[key].coverImage && c.latest_image) {
+            grouped[key].coverImage = resolveUrl(c.latest_image);
+          }
+        }
       });
-    return new Set([...recentTagSet].filter((t) => !oldTags.has(t)));
-  }, [portfolioImages]);
+      return Object.values(grouped);
+    }
+    const groupMap = {};
+    portfolioImages.forEach((img) => {
+      const key = img.label || img.category || 'General';
+      if (!groupMap[key]) groupMap[key] = { name: key, count: 0, coverImage: resolveUrl(img.uri) };
+      groupMap[key].count += 1;
+    });
+    return Object.values(groupMap);
+  }, [portfolioCategories, portfolioImages]);
 
-  const filteredTags = useMemo(() => {
-    if (selectedTag !== 'All') return [selectedTag];
-    return allTags.filter((tag) =>
-      tag.toLowerCase().includes(searchTag.toLowerCase())
+  // Filter images by selected service
+  const filteredImages = useMemo(() => {
+    if (selectedService === 'All') return portfolioImages;
+    return portfolioImages.filter(
+      (img) => (img.label || img.category || 'General') === selectedService
     );
-  }, [allTags, searchTag, selectedTag]);
+  }, [portfolioImages, selectedService]);
+
+  // Group each image once by service/category, not once for every tag.
+  const serviceGroups = useMemo(() => {
+    const serviceMap = {};
+    filteredImages.forEach((img) => {
+      const service = img.label || img.category || 'General';
+      if (!serviceMap[service]) serviceMap[service] = [];
+      serviceMap[service].push(img);
+    });
+    return serviceMap;
+  }, [filteredImages]);
+
+  const serviceKeys = Object.keys(serviceGroups);
 
   const C = isDark
     ? {
-        bg: '#0f0f0f',
-        card: '#1c1c1e',
-        text: '#F2F2F7',
-        textSub: '#8E8E93',
-        border: '#2c2c2e',
-        chipBg: '#2a2a2a',
-        chipBorder: '#3a3a3c',
-        divider: '#2c2c2e',
+        bg: '#0f0f0f', card: '#1c1c1e', text: '#F2F2F7',
+        textSub: '#8E8E93', border: '#2c2c2e',
+        chipBg: '#2a2a2a', chipBorder: '#3a3a3c', divider: '#2c2c2e',
       }
     : {
-        bg: '#F8FAFC',
-        card: '#FFFFFF',
-        text: '#111111',
-        textSub: '#6B7280',
-        border: '#E2E8F0',
-        chipBg: '#FFFFFF',
-        chipBorder: '#E2E8F0',
-        divider: '#E2E8F0',
+        bg: '#F8FAFC', card: '#FFFFFF', text: '#111111',
+        textSub: '#6B7280', border: '#E2E8F0',
+        chipBg: '#FFFFFF', chipBorder: '#E2E8F0', divider: '#E2E8F0',
       };
 
   return (
@@ -98,15 +119,15 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
           <View>
             <Text style={[styles.headerTitle, { color: C.text }]}>Portfolio Gallery</Text>
             <Text style={[styles.headerSub, { color: C.textSub }]}>
-              {portfolioImages.length} images · {allTags.length} categories & tags
+              {portfolioImages.length} images · {serviceList.length} services
             </Text>
           </View>
         </View>
 
         <View style={styles.headerRight}>
           <View style={styles.countBadge}>
-            <MaterialIcons name="label" size={13} color="#FFFFFF" />
-            <Text style={styles.countText}>{allTags.length}</Text>
+            <MaterialIcons name="work-outline" size={13} color="#FFFFFF" />
+            <Text style={styles.countText}>{serviceList.length}</Text>
           </View>
         </View>
       </View>
@@ -116,7 +137,7 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366F1" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7C3AED" />
           }
         >
           <MaterialIcons name="photo-library" size={64} color={isDark ? '#334155' : '#CBD5E1'} />
@@ -131,7 +152,7 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366F1" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7C3AED" />
           }
         >
           {/* Stats Row */}
@@ -142,28 +163,46 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
             </View>
             <View style={[styles.statDivider, { backgroundColor: C.divider }]} />
             <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: '#6366F1' }]}>{allTags.length}</Text>
-              <Text style={[styles.statLabel, { color: C.textSub }]}>Tags & Categories</Text>
+              <Text style={[styles.statValue, { color: '#7C3AED' }]}>{serviceList.length}</Text>
+              <Text style={[styles.statLabel, { color: C.textSub }]}>Services</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: C.divider }]} />
             <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: '#16A34A' }]}>{newTags.size}</Text>
-              <Text style={[styles.statLabel, { color: C.textSub }]}>Recent</Text>
+              <Text style={[styles.statValue, { color: '#16A34A' }]}>{filteredImages.length}</Text>
+              <Text style={[styles.statLabel, { color: C.textSub }]}>Showing</Text>
             </View>
           </View>
 
-          {/* Tag Filter Pills */}
+          {/* Service Filter Pills (horizontal) */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterRow}
           >
-            {['All', ...allTags].map((tag) => {
-              const isSelected = selectedTag === tag;
+            {/* "All" pill */}
+            <TouchableOpacity
+              onPress={() => setSelectedService('All')}
+              style={[
+                styles.filterChip,
+                { backgroundColor: C.chipBg, borderColor: C.chipBorder },
+                selectedService === 'All' && styles.filterChipSelected,
+              ]}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                styles.filterChipText, { color: C.text },
+                selectedService === 'All' && styles.filterChipTextSelected,
+              ]}>
+                All
+              </Text>
+            </TouchableOpacity>
+
+            {serviceList.map((svc) => {
+              const isSelected = selectedService === svc.name;
               return (
                 <TouchableOpacity
-                  key={tag}
-                  onPress={() => setSelectedTag(tag)}
+                  key={svc.name}
+                  onPress={() => setSelectedService(svc.name)}
                   style={[
                     styles.filterChip,
                     { backgroundColor: C.chipBg, borderColor: C.chipBorder },
@@ -171,34 +210,46 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
                   ]}
                   activeOpacity={0.7}
                 >
-                  {newTags.has(tag) && <View style={styles.newDot} />}
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      { color: C.text },
-                      isSelected && styles.filterChipTextSelected,
-                    ]}
-                  >
-                    {tag}
+                  {/* Mini cover thumbnail inside pill */}
+                  {svc.coverImage && (
+                    <Image
+                      source={{ uri: svc.coverImage }}
+                      style={styles.pillThumb}
+                    />
+                  )}
+                  <Text style={[
+                    styles.filterChipText, { color: C.text },
+                    isSelected && styles.filterChipTextSelected,
+                  ]}>
+                    {svc.name}
+                  </Text>
+                  <Text style={[
+                    styles.filterChipCount,
+                    { color: isSelected ? 'rgba(255,255,255,0.8)' : C.textSub },
+                  ]}>
+                    {svc.count}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          {/* Gallery Sections */}
+          {/* Gallery Sections — one section per service */}
           <View style={styles.sectionsWrap}>
-            {filteredTags.length === 0 ? (
+            {serviceKeys.length === 0 ? (
               <View style={styles.noResults}>
-                <Text style={[styles.noResultsText, { color: C.textSub }]}>No tags or photos found</Text>
+                <MaterialIcons name="image-not-supported" size={36} color={isDark ? '#334155' : '#CBD5E1'} />
+                <Text style={[styles.noResultsText, { color: C.textSub }]}>
+                  No images in this service yet
+                </Text>
               </View>
             ) : (
-              filteredTags.map((tag) => (
+              serviceKeys.map((service) => (
                 <TagGallerySection
-                  key={tag}
-                  tag={tag}
-                  images={getImagesByTag(tag)}
-                  isNew={newTags.has(tag)}
+                  key={service}
+                  tag={service}
+                  images={serviceGroups[service]}
+                  isNew={false}
                 />
               ))
             )}
@@ -227,7 +278,7 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: 'row', gap: 8 },
   countBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#6366F1', borderRadius: 12,
+    backgroundColor: '#7C3AED', borderRadius: 12,
     paddingHorizontal: 10, paddingVertical: 4,
   },
   countText: { fontSize: 12, color: '#FFFFFF', fontWeight: '700' },
@@ -247,22 +298,19 @@ const styles = StyleSheet.create({
   filterRow: { paddingHorizontal: 14, gap: 8, paddingVertical: 12 },
   filterChip: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 14, paddingVertical: 7,
+    paddingHorizontal: 12, paddingVertical: 7,
     borderRadius: 20, borderWidth: 1,
   },
-  filterChipSelected: {
-    backgroundColor: '#6366F1', borderColor: '#6366F1',
-  },
+  filterChipSelected: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
   filterChipText: { fontSize: 13, fontWeight: '600' },
   filterChipTextSelected: { color: '#FFFFFF', fontWeight: '700' },
-  newDot: {
-    width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A',
-  },
+  filterChipCount: { fontSize: 11, fontWeight: '700' },
+  pillThumb: { width: 16, height: 16, borderRadius: 4 },
 
   // Gallery
   scrollContent: { paddingBottom: 20 },
   sectionsWrap: { paddingHorizontal: 14 },
-  noResults: { alignItems: 'center', paddingVertical: 32 },
+  noResults: { alignItems: 'center', paddingVertical: 40, gap: 10 },
   noResultsText: { fontSize: 14 },
 
   // Empty
@@ -271,4 +319,4 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 18, fontWeight: 'bold', marginTop: 16, marginBottom: 8 },
   emptySubtitle: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
-});
+});

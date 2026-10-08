@@ -19,7 +19,7 @@ import { getSystemTotalIncome } from "../controllers/analyticsController.js";
 const router = express.Router();
 
 // Generation (Protected & Blocked if payment suspended)
-router.post("/generate", protect(["ServiceProvider"]), checkPaymentSuspension, generateManualPost); // manual input flow
+router.post("/generate", protect(["ServiceProvider"]),  generateManualPost); // manual input flow
 router.post("/generate/ml", protect(["ServiceProvider"]), checkPaymentSuspension, generateFromMLResult); // ML portfolio-classification flow
 router.post("/:id/regenerate", protect(["ServiceProvider"]), checkPaymentSuspension, regeneratePost); // regenerate an existing post
 
