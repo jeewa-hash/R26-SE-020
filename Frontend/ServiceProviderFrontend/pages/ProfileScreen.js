@@ -161,7 +161,7 @@ export default function ProfileScreen({ navigation }) {
               //search={search}              // Your search state
               //onSearchChange={setSearch}   // Your search setter
               //unreadCount={unreadCount}    // Your notification count
-              onInboxPress={() => navigation.navigate('Messages')}
+              onInboxPress={() => navigation.navigate('InboxScreen')}
               // onMenuPress is optional - the HeaderSection now handles it internally
             />
 
