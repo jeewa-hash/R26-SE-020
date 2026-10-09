@@ -84,9 +84,9 @@ const quotationSchema = new mongoose.Schema(
       default: null,
     }, // Chaw: final selected end time after bid coordination/reschedule
 
-    estimatedDurationHours: { // Chaw: numeric duration used for scheduling/conflict calculation
+    estimatedDurationHours: { // Legacy compatibility only; duration is now predicted by the Coordination/ML flow
       type: Number,
-      required: true,
+      default: null,
       min: 0.25,
     },
 
