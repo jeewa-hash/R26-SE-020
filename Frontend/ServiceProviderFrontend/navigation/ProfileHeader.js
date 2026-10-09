@@ -4,7 +4,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
-  Dimensions,
+  Modal,
+  useWindowDimensions,
   Switch,
   ScrollView,
 } from 'react-native';
@@ -17,9 +18,6 @@ import { LanguageContext } from '../context/LanguageContext';
 import SettingsScreen from '../screens/SettingsScreen';
 import { clearAllAuthStorage } from '../pages/IT22129376/services/providerAuthStorage';
 import { CommonActions, useNavigation } from '@react-navigation/native';
-
-const { width } = Dimensions.get('window');
-const SIDEBAR_WIDTH = width * 0.72;
 
 const LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -42,7 +40,10 @@ export default function ProfileHeader({
   onClose = null,
   userName = 'Kasun Perera',
   userInitials = 'KP',
+  showHeader = true,
 }) {
+  const { width } = useWindowDimensions();
+  const sidebarWidth = width * 0.72;
   const { i18n } = useTranslation();
   const { isDark, toggleTheme } = useContext(ThemeContext);
   const { language, setLanguage } = useContext(LanguageContext);
@@ -52,14 +53,14 @@ export default function ProfileHeader({
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const sideAnim = useRef(new Animated.Value(SIDEBAR_WIDTH)).current;
+  const sideAnim = useRef(new Animated.Value(sidebarWidth)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
   // Control sidebar from external props
   useEffect(() => {
     if (externalVisible) {
       openSidebar();
-    } else {
+    } else if (sidebarOpen) {
       closeSidebar();
     }
   }, [externalVisible]);
@@ -74,9 +75,10 @@ export default function ProfileHeader({
 
   const closeSidebar = () => {
     Animated.parallel([
-      Animated.spring(sideAnim, { toValue: SIDEBAR_WIDTH, useNativeDriver: true, tension: 65, friction: 11 }),
+      Animated.spring(sideAnim, { toValue: sidebarWidth, useNativeDriver: true, tension: 65, friction: 11 }),
       Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-    ]).start(() => {
+    ]).start(({ finished }) => {
+      if (!finished) return;
       setSidebarOpen(false);
       if (onClose) onClose(); // Call external close handler
     });
@@ -117,7 +119,7 @@ export default function ProfileHeader({
   return (
     <>
       {/* ── Top Header Bar ── */}
-      <View style={[styles.header, { backgroundColor: isDark ? '#1c1c1e' : '#fff', borderBottomColor: isDark ? '#2c2c2e' : '#F0F0F5' }]}>
+      {showHeader && <View style={[styles.header, { backgroundColor: isDark ? '#1c1c1e' : '#fff', borderBottomColor: isDark ? '#2c2c2e' : '#F0F0F5' }]}>
         {/* Logo + App name */}
         <View style={styles.brandRow}>
           <View style={[styles.logoBox, { backgroundColor: isDark ? '#fff' : '#111' }]}>
@@ -150,8 +152,16 @@ export default function ProfileHeader({
             </View>
           </TouchableOpacity>
         </View>
-      </View>
+      </View>}
 
+      <Modal
+        visible={sidebarOpen}
+        transparent
+        animationType="none"
+        presentationStyle="overFullScreen"
+        onRequestClose={closeSidebar}
+      >
+      <View style={styles.modalRoot}>
       {/* ── Sidebar Overlay ── */}
       {sidebarOpen && (
         <Animated.View style={[styles.overlay, { opacity: overlayAnim }]} pointerEvents="auto">
@@ -160,7 +170,7 @@ export default function ProfileHeader({
       )}
 
       {/* ── Right Sidebar ── */}
-      <Animated.View style={[styles.sidebar, { backgroundColor: isDark ? '#1c1c1e' : '#fff', transform: [{ translateX: sideAnim }] }]}>
+      <Animated.View style={[styles.sidebar, { width: sidebarWidth, backgroundColor: isDark ? '#1c1c1e' : '#fff', transform: [{ translateX: sideAnim }] }]}>
         <ScrollView
   showsVerticalScrollIndicator={false}
   contentContainerStyle={styles.sidebarContent}
@@ -303,11 +313,14 @@ export default function ProfileHeader({
           
         </ScrollView>
       </Animated.View>
+      </View>
+      </Modal>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  modalRoot: { flex: 1 },
   /* ── Header bar ── */
   header: {
     flexDirection: 'row',
@@ -395,7 +408,6 @@ const styles = StyleSheet.create({
   sidebar: {
     position: 'absolute',
     top: 0, right: 0, bottom: 0,
-    width: SIDEBAR_WIDTH,
     zIndex: 11,
     elevation: 20,
     shadowColor: '#000',

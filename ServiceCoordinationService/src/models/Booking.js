@@ -135,7 +135,12 @@ const bookingSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
-    mlPredictedDurationHours: { type: Number, default: null },
+    predictedDurationHours: { type: Number, default: null },
+    predictedDurationMins: { type: Number, default: null },
+    mlPredictedDurationHours: { type: Number, default: null }, // legacy alias
+    mlPredictedDurationMins: { type: Number, default: null }, // legacy alias
+    durationPredictionSource: { type: String, default: "ML_MODEL" },
+    durationModelVersion: { type: String, default: null },
 
     reminderSentAt: { type: Date, default: null },
     providerReadyConfirmed: { type: Boolean, default: false },
@@ -177,7 +182,16 @@ const bookingSchema = new mongoose.Schema(
     distanceFromPreviousBookingKm: { type: Number, default: 0 },
     estimatedTravelTimeMins: { type: Number, default: 0 },
     gapFromPreviousBookingMins: { type: Number, default: null },
+    effectiveBufferMins: { type: Number, default: null },
+    routingSource: { type: String, default: "NO_COORDINATES" },
+    routingTrafficAware: { type: Boolean, default: false },
+    coordinationStatus: {
+      type: String,
+      enum: ["FEASIBLE", "CAUTION", "RESCHEDULE_REQUIRED", "UNKNOWN"],
+      default: "UNKNOWN",
+    },
 
+    // Legacy fields retained for backward compatibility only.
     delayRiskLevel: {
       type: String,
       enum: ["LOW", "MEDIUM", "HIGH", "UNKNOWN"],

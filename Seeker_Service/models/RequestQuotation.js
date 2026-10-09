@@ -109,7 +109,7 @@ const requestQuotationSchema = new mongoose.Schema(
       trim: true,
     },
 
-    seekerEstimatedDurationHours: { // Chaw - Added optional seeker-estimated duration for comparison with provider and ML estimates
+    seekerEstimatedDurationHours: { // Legacy compatibility only; duration prediction belongs to ML/Coordination
       type: Number,
       default: null,
       min: 0.25,

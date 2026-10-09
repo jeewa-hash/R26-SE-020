@@ -3,23 +3,27 @@ import axios from "axios";
 const ML_SERVICE_BASE_URL =
   process.env.ML_SERVICE_URL ||
   process.env.ML_SERVICE_BASE_URL ||
-  "http://localhost:8000";
+  "http://localhost:8001";
 
-export const predictDelayRisk = async (payload) => {
+/**
+ * Final research ML contract: duration prediction only.
+ * Delay/schedule feasibility is evaluated deterministically in the Coordination Service.
+ */
+export const predictDuration = async (payload) => {
   try {
     const response = await axios.post(
-      `${ML_SERVICE_BASE_URL}/predict-risk`,
+      `${ML_SERVICE_BASE_URL}/predict-duration`,
       payload,
-      { timeout: 5000 }
-    ); // Chaw: current ML service exposes POST /predict-risk
+      { timeout: Number(process.env.ML_SERVICE_TIMEOUT_MS || 5000) }
+    );
 
     return response.data;
   } catch (error) {
     console.error(
-      "ML DELAY RISK PREDICTION ERROR:",
+      "ML DURATION PREDICTION ERROR:",
       error.response?.data || error.message
     );
 
-    return null; // Chaw: fallback safely if ML is unavailable
+    return null;
   }
 };
