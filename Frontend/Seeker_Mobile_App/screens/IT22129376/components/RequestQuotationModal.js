@@ -56,8 +56,6 @@ export default function RequestQuotationModal({
   const [preferredDate, setPreferredDate] = useState(new Date());
   const [preferredTimeLabel, setPreferredTimeLabel] = useState("Morning");
   const [startTime, setStartTime] = useState(atHour(new Date(), 8));
-  const [endTime, setEndTime] = useState(atHour(new Date(), 12));
-  const [duration, setDuration] = useState("");
   const [budget, setBudget] = useState("");
   const [location, setLocation] = useState(defaultLocation);
   const [coordinates, setCoordinates] = useState(null);
@@ -84,8 +82,6 @@ export default function RequestQuotationModal({
     setPreferredDate(date);
     setPreferredTimeLabel("Morning");
     setStartTime(atHour(date, 9));
-    setEndTime(atHour(date, 12));
-    setDuration("");
     setBudget("");
     setLocation(typeof defaultLocation === "string" ? defaultLocation : "");
     setCoordinates(null);
@@ -99,7 +95,6 @@ export default function RequestQuotationModal({
     setPreferredTimeLabel(label);
     if (TIME_WINDOWS[label]) {
       setStartTime(atHour(preferredDate, TIME_WINDOWS[label][0]));
-      setEndTime(atHour(preferredDate, TIME_WINDOWS[label][1]));
     }
   };
 
@@ -110,13 +105,9 @@ export default function RequestQuotationModal({
       setPreferredDate(value);
       if (TIME_WINDOWS[preferredTimeLabel]) {
         setStartTime(atHour(value, TIME_WINDOWS[preferredTimeLabel][0]));
-        setEndTime(atHour(value, TIME_WINDOWS[preferredTimeLabel][1]));
       }
     } else if (picker === "start") {
       setStartTime(value);
-      setPreferredTimeLabel("Custom");
-    } else if (picker === "end") {
-      setEndTime(value);
       setPreferredTimeLabel("Custom");
     }
   };
@@ -156,20 +147,18 @@ export default function RequestQuotationModal({
     if (!resolvedSeekerId) return Alert.alert("Sign in required", "Please sign in before requesting a quotation.");
     if (!providerId) return Alert.alert("Provider unavailable", "Please select a provider again.");
     if (!sessionId) return Alert.alert("Service details unavailable", "Please complete the service diagnosis first.");
-    if (!preferredDate || !startTime || !endTime)
+    if (!preferredDate || !startTime)
       return Alert.alert("Missing time", "Please select a preferred date and time.");
     if (!location.trim()) return Alert.alert("Missing location", "Please enter your service location.");
-    if (!duration.trim() || Number(duration) <= 0)
-      return Alert.alert("Missing duration", "Please enter your estimated duration.");
     if (!budget.trim() || Number(budget) < 0 || Number.isNaN(Number(budget)))
       return Alert.alert("Missing budget", "Please enter your budget amount.");
 
     const preferredStartTime = new Date(preferredDate);
     preferredStartTime.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
-    const preferredEndTime = new Date(preferredDate);
-    preferredEndTime.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
-    if (preferredEndTime <= preferredStartTime)
-      return Alert.alert("Invalid time", "Preferred end time must be after the start time.");
+    // A preset cutoff is an availability preference, not the predicted job end.
+    const preferredEndTime = TIME_WINDOWS[preferredTimeLabel]
+      ? atHour(preferredDate, TIME_WINDOWS[preferredTimeLabel][1])
+      : null;
 
     const detectedCategory = firstValue(
       sessionData?.detectedCategory,
@@ -231,9 +220,8 @@ export default function RequestQuotationModal({
         lng: coordinates?.longitude ?? null,
       },
       preferredStartTime: preferredStartTime.toISOString(),
-      preferredEndTime: preferredEndTime.toISOString(),
+      preferredEndTime: preferredEndTime?.toISOString() ?? null,
       preferredTimeLabel,
-      seekerEstimatedDurationHours: Number(duration),
       seekerBudgetAmount: Number(budget),
     };
 
@@ -328,16 +316,11 @@ export default function RequestQuotationModal({
                 <Text style={styles.label}>Start time</Text>
                 <TouchableOpacity style={styles.input} onPress={() => setPicker("start")}><Text>{formatTime(startTime)}</Text></TouchableOpacity>
               </View>
-              <View style={styles.timeField}>
-                <Text style={styles.label}>End time</Text>
-                <TouchableOpacity style={styles.input} onPress={() => setPicker("end")}><Text>{formatTime(endTime)}</Text></TouchableOpacity>
-              </View>
             </View>
 
-            {picker && <DateTimePicker value={picker === "date" ? preferredDate : picker === "start" ? startTime : endTime} mode={picker === "date" ? "date" : "time"} minimumDate={picker === "date" ? new Date() : undefined} onChange={handlePickerChange} />}
+            {picker && <DateTimePicker value={picker === "date" ? preferredDate : startTime} mode={picker === "date" ? "date" : "time"} minimumDate={picker === "date" ? new Date() : undefined} onChange={handlePickerChange} />}
 
-            <Text style={styles.label}>Estimated duration (hours)</Text>
-            <TextInput style={styles.input} value={duration} onChangeText={setDuration} keyboardType="decimal-pad" placeholder="e.g. 2" />
+            <Text style={styles.coordinationHint}>Service duration will be estimated automatically during schedule coordination.</Text>
             <Text style={styles.label}>Budget amount (LKR)</Text>
             <TextInput style={styles.input} value={budget} onChangeText={setBudget} keyboardType="decimal-pad" placeholder="e.g. 5000" />
             <Text style={styles.label}>Service location</Text>
@@ -394,6 +377,7 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: "#6366F1", borderColor: "#6366F1" },
   chipText: { color: "#475569" },
   chipTextActive: { color: "#FFF", fontWeight: "600" },
+  coordinationHint: { fontSize: 12, color: "#64748B", marginTop: 8 },
   timeRow: { flexDirection: "row", gap: 12 },
   timeField: { flex: 1 },
   actions: { flexDirection: "row", gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: "#E2E8F0" },
