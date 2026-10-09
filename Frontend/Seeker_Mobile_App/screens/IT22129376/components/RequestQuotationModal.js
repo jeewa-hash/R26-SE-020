@@ -14,7 +14,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker } from "../../../components/SafeMapView";
 import * as ExpoLocation from "expo-location";
 import { createRequestQuotation } from "../services/requestQuotationApi";
 

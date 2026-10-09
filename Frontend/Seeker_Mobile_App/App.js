@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
@@ -78,7 +78,13 @@ function AppNavigator({ initialRouteName }) {
   const { t } = useTranslation();
 
   return (
-    <Stack.Navigator initialRouteName={initialRouteName}>
+    <Stack.Navigator
+      initialRouteName={initialRouteName}
+      screenOptions={{
+        // Expo locks body scrolling; keep scrolling inside each screen.
+        cardStyle: Platform.OS === 'web' ? { flex: 1, minHeight: 0, height: '100%' } : undefined,
+      }}
+    >
       {/* Authentication Screens */}
       <Stack.Screen
         name="Login"
