@@ -1,0 +1,30 @@
+{
+  "model_version": "duration-v2-no-manual-estimate",
+  "model_name": "Ridge",
+  "features": [
+    "service_category",
+    "service_type",
+    "task_name",
+    "years_experience",
+    "task_frequency_per_month",
+    "planned_team_size"
+  ],
+  "categorical_features": [
+    "service_category",
+    "service_type",
+    "task_name"
+  ],
+  "numeric_features": [
+    "years_experience",
+    "task_frequency_per_month",
+    "planned_team_size"
+  ],
+  "target": "actual_duration_mins",
+  "group_key": "provider_id",
+  "eligible_rows": 1556,
+  "unique_providers": 334,
+  "unique_tasks": 137,
+  "manual_duration_input_used": false,
+  "purpose": "Predict service duration automatically from service/task/provider context without asking the seeker or provider to estimate duration.",
+  "important_note": "This model predicts task duration only. Delay-aware schedule feasibility is calculated deterministically by the Coordination Service."
+}
