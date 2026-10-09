@@ -3,6 +3,8 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  KeyboardAvoidingView,
+  useWindowDimensions,
   Platform,
   ScrollView,
   StyleSheet,
@@ -11,6 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from "../../../hooks/useTheme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
@@ -53,6 +57,18 @@ export default function RequestQuotationModal({
   onClose,
   onSuccess,
 }) {
+  const { isDarkMode } = useTheme();
+  const { width, height } = useWindowDimensions();
+  const colors = useMemo(() => isDarkMode ? {
+    surface: "#171C28", input: "#222A39", text: "#F1F5F9",
+    muted: "#A8B5C7", border: "#43516A", tint: "#29264B",
+    accent: "#B4ACFF", primary: "#6366F1",
+  } : {
+    surface: "#FFFFFF", input: "#F8FAFC", text: "#0F172A",
+    muted: "#475569", border: "#CBD5E1", tint: "#EEF2FF",
+    accent: "#4338CA", primary: "#6366F1",
+  }, [isDarkMode]);
+  const styles = useMemo(() => createStyles(colors, width, height), [colors, width, height]);
   const [preferredDate, setPreferredDate] = useState(new Date());
   const [preferredTimeLabel, setPreferredTimeLabel] = useState("Morning");
   const [startTime, setStartTime] = useState(atHour(new Date(), 8));
@@ -275,18 +291,19 @@ export default function RequestQuotationModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <SafeAreaView style={styles.sheetArea} edges={["top", "bottom"]}>
         <View style={styles.card}>
           <View style={styles.header}>
-            <View>
+            <View style={styles.headerText}>
               <Text style={styles.title}>Request Quotation</Text>
               <Text style={styles.provider}>To: {providerName}</Text>
             </View>
-            <TouchableOpacity onPress={onClose} disabled={submitting}>
-              <Ionicons name="close" size={24} color="#64748B" />
+            <TouchableOpacity style={styles.closeButton} accessibilityLabel="Close quotation form" onPress={onClose} disabled={submitting}>
+              <Ionicons name="close" size={24} color={colors.muted} />
             </TouchableOpacity>
           </View>
-          <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
             <View style={styles.summary}>
               <Text style={styles.summaryTitle}>
                 {firstValue(sessionData?.detectedObject, sessionData?.detected_object, sessionData?.object, diagnosisData?.detectedObject, diagnosisData?.detected_object, "Service")}
@@ -296,10 +313,10 @@ export default function RequestQuotationModal({
               </Text>
             </View>
             <Text style={styles.label}>Requirements &amp; Details</Text>
-            <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} multiline placeholder="Describe what work needs to be done..." />
+            <TextInput placeholderTextColor={colors.muted} selectionColor={colors.accent} keyboardAppearance={isDarkMode ? "dark" : "light"} style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} multiline placeholder="Describe what work needs to be done..." />
             <Text style={styles.label}>Preferred date</Text>
             <TouchableOpacity style={styles.input} onPress={() => setPicker("date")}>
-              <Text>{formatDate(preferredDate)}</Text>
+              <Text style={styles.valueText}>{formatDate(preferredDate)}</Text>
             </TouchableOpacity>
 
             <Text style={styles.label}>Preferred time window</Text>
@@ -314,20 +331,40 @@ export default function RequestQuotationModal({
             <View style={styles.timeRow}>
               <View style={styles.timeField}>
                 <Text style={styles.label}>Start time</Text>
-                <TouchableOpacity style={styles.input} onPress={() => setPicker("start")}><Text>{formatTime(startTime)}</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.input} onPress={() => setPicker("start")}><Text style={styles.valueText}>{formatTime(startTime)}</Text></TouchableOpacity>
               </View>
             </View>
 
-            {picker && <DateTimePicker value={picker === "date" ? preferredDate : startTime} mode={picker === "date" ? "date" : "time"} minimumDate={picker === "date" ? new Date() : undefined} onChange={handlePickerChange} />}
+            {picker && Platform.OS !== "web" && <DateTimePicker themeVariant={isDarkMode ? "dark" : "light"} value={picker === "date" ? preferredDate : startTime} mode={picker === "date" ? "date" : "time"} minimumDate={picker === "date" ? new Date() : undefined} onChange={handlePickerChange} />}
+
+            {picker && Platform.OS === "web" && React.createElement("input", {
+              type: picker === "date" ? "date" : "time",
+              "aria-label": picker === "date" ? "Preferred date" : "Start time",
+              value: picker === "date"
+                ? `${preferredDate.getFullYear()}-${String(preferredDate.getMonth() + 1).padStart(2, "0")}-${String(preferredDate.getDate()).padStart(2, "0")}`
+                : `${String(startTime.getHours()).padStart(2, "0")}:${String(startTime.getMinutes()).padStart(2, "0")}`,
+              onChange: (event) => {
+                if (!event.target.value) return;
+                const value = picker === "date" ? new Date(`${event.target.value}T12:00:00`) : new Date(startTime);
+                if (picker === "start") {
+                  const [hours, minutes] = event.target.value.split(":").map(Number);
+                  value.setHours(hours, minutes, 0, 0);
+                }
+                handlePickerChange({ type: "set" }, value);
+              },
+              style: { width: "100%", boxSizing: "border-box", minHeight: 48, marginTop: 12,
+                padding: 12, borderRadius: 12, border: `1px solid ${colors.border}`,
+                backgroundColor: colors.input, color: colors.text, colorScheme: isDarkMode ? "dark" : "light" },
+            })}
 
             <Text style={styles.coordinationHint}>Service duration will be estimated automatically during schedule coordination.</Text>
             <Text style={styles.label}>Budget amount (LKR)</Text>
-            <TextInput style={styles.input} value={budget} onChangeText={setBudget} keyboardType="decimal-pad" placeholder="e.g. 5000" />
+            <TextInput placeholderTextColor={colors.muted} selectionColor={colors.accent} keyboardAppearance={isDarkMode ? "dark" : "light"} style={styles.input} value={budget} onChangeText={setBudget} keyboardType="decimal-pad" placeholder="e.g. 5000" />
             <Text style={styles.label}>Service location</Text>
-            <TextInput style={styles.input} value={location} onChangeText={setLocation} placeholder="Address, city or district" />
+            <TextInput placeholderTextColor={colors.muted} selectionColor={colors.accent} keyboardAppearance={isDarkMode ? "dark" : "light"} style={styles.input} value={location} onChangeText={setLocation} placeholder="Address, city or district" />
             <View style={styles.locationActions}>
-              <TouchableOpacity style={styles.locationButton} onPress={() => setShowMap(true)}><Ionicons name="map-outline" size={17} color="#4F46E5" /><Text style={styles.locationButtonText}>Pick from Map</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.locationButton} onPress={useCurrentLocation} disabled={locating}><Ionicons name="locate-outline" size={17} color="#4F46E5" /><Text style={styles.locationButtonText}>{locating ? 'Locating...' : 'Use Current Location'}</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.locationButton} onPress={() => setShowMap(true)}><Ionicons name="map-outline" size={17} color={colors.accent} /><Text style={styles.locationButtonText}>Pick from Map</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.locationButton} onPress={useCurrentLocation} disabled={locating}><Ionicons name="locate-outline" size={17} color={colors.accent} /><Text style={styles.locationButtonText}>{locating ? 'Locating...' : 'Use Current Location'}</Text></TouchableOpacity>
             </View>
             {coordinates ? <Text style={styles.coordinatesText}>{coordinates.latitude.toFixed(6)}, {coordinates.longitude.toFixed(6)}</Text> : null}
             <Text style={styles.label}>Urgency level</Text>
@@ -346,53 +383,59 @@ export default function RequestQuotationModal({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
       <Modal visible={showMap} animationType="slide" onRequestClose={() => setShowMap(false)}>
-        <View style={styles.mapScreen}>
+        <SafeAreaView style={styles.mapScreen}>
           <MapView style={styles.map} initialRegion={{ latitude: coordinates?.latitude || 7.8731, longitude: coordinates?.longitude || 80.7718, latitudeDelta: 3.5, longitudeDelta: 3.5 }} onPress={(event) => setCoordinates(event.nativeEvent.coordinate)}>
             {coordinates ? <Marker coordinate={coordinates} /> : null}
           </MapView>
-          <View style={styles.mapFooter}><Text style={styles.mapHint}>Tap the map to choose the service location.</Text><View style={styles.mapFooterActions}><TouchableOpacity style={styles.cancel} onPress={() => setShowMap(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.send} disabled={!coordinates} onPress={async () => { await resolveSelectedAddress(coordinates); setShowMap(false); }}><Text style={styles.sendText}>Use Location</Text></TouchableOpacity></View></View>
-        </View>
+          <View style={styles.mapFooter}><Text style={styles.mapHint}>Tap the map to choose the service location.</Text><View style={styles.mapFooterActions}><TouchableOpacity style={styles.cancel} onPress={() => setShowMap(false)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={[styles.send, !coordinates && styles.disabled]} disabled={!coordinates} onPress={async () => { await resolveSelectedAddress(coordinates); setShowMap(false); }}><Text style={styles.sendText}>Use Location</Text></TouchableOpacity></View></View>
+        </SafeAreaView>
       </Modal>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, width, height) => StyleSheet.create({
+  sheetArea: { width: "100%", maxWidth: 640, alignSelf: "center", flex: 1, justifyContent: "flex-end" },
+  scroll: { flex: 1, minHeight: 0 },
+  headerText: { flex: 1, paddingRight: 12 },
+  closeButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  valueText: { color: colors.text },
   overlay: { flex: 1, backgroundColor: "rgba(15,23,42,0.55)", justifyContent: "flex-end" },
-  card: { maxHeight: "92%", backgroundColor: "#FFF", borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1, borderBottomColor: "#E2E8F0" },
-  title: { fontSize: 20, fontWeight: "600", color: "#0F172A" },
-  provider: { marginTop: 3, color: "#64748B" },
-  body: { padding: 20, paddingBottom: 8 },
-  summary: { backgroundColor: "#EEF2FF", padding: 12, borderRadius: 12, marginBottom: 5 },
-  summaryTitle: { color: "#3730A3", fontWeight: "600" },
-  summaryCategory: { color: "#6366F1", fontSize: 12, marginTop: 3 },
-  label: { fontSize: 13, fontWeight: "600", color: "#334155", marginBottom: 7, marginTop: 11 },
-  input: { minHeight: 48, borderWidth: 1, borderColor: "#CBD5E1", borderRadius: 12, paddingHorizontal: 14, justifyContent: "center", backgroundColor: "#F8FAFC" },
+  card: { height: "92%", maxHeight: Math.max(240, height - 24), minHeight: 0, overflow: "hidden", backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: width < 360 ? 14 : 20, borderBottomWidth: 1, borderBottomColor: colors.border },
+  title: { fontSize: 20, fontWeight: "600", color: colors.text },
+  provider: { marginTop: 3, color: colors.muted },
+  body: { padding: width < 360 ? 14 : 20, paddingBottom: 8 },
+  summary: { backgroundColor: colors.tint, padding: 12, borderRadius: 12, marginBottom: 5 },
+  summaryTitle: { color: colors.accent, fontWeight: "600" },
+  summaryCategory: { color: colors.primary, fontSize: 12, marginTop: 3 },
+  label: { fontSize: 13, fontWeight: "600", color: colors.text, marginBottom: 7, marginTop: 11 },
+  input: { color: colors.text, paddingVertical: 12, minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, justifyContent: "center", backgroundColor: colors.input },
   textArea: { minHeight: 88, paddingTop: 12, textAlignVertical: "top" },
   options: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { borderWidth: 1, borderColor: "#CBD5E1", borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },
-  chipActive: { backgroundColor: "#6366F1", borderColor: "#6366F1" },
-  chipText: { color: "#475569" },
+  chip: { borderWidth: 1, borderColor: colors.border, borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { color: colors.muted },
   chipTextActive: { color: "#FFF", fontWeight: "600" },
-  coordinationHint: { fontSize: 12, color: "#64748B", marginTop: 8 },
+  coordinationHint: { fontSize: 12, color: colors.muted, marginTop: 8 },
   timeRow: { flexDirection: "row", gap: 12 },
   timeField: { flex: 1 },
-  actions: { flexDirection: "row", gap: 12, padding: 20, borderTopWidth: 1, borderTopColor: "#E2E8F0" },
-  cancel: { flex: 1, alignItems: "center", padding: 14, borderRadius: 12, borderWidth: 1, borderColor: "#CBD5E1" },
-  cancelText: { color: "#475569", fontWeight: "600" },
-  send: { flex: 1.5, alignItems: "center", padding: 14, borderRadius: 12, backgroundColor: "#6366F1" },
+  actions: { flexDirection: "row", flexWrap: "wrap", flexShrink: 0, gap: 12, padding: width < 360 ? 14 : 20, borderTopWidth: 1, borderTopColor: colors.border },
+  cancel: { flex: 1, minWidth: 100, alignItems: "center", padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border },
+  cancelText: { color: colors.muted, fontWeight: "600" },
+  send: { flex: 1.5, minWidth: 140, alignItems: "center", padding: 14, borderRadius: 12, backgroundColor: colors.primary },
   sendText: { color: "#FFF", fontWeight: "600" },
   disabled: { opacity: 0.6 },
   locationActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 9 },
-  locationButton: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#C7D2FE', backgroundColor: '#EEF2FF', borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9 },
-  locationButtonText: { color: '#4F46E5', fontWeight: '600', fontSize: 12 },
-  coordinatesText: { color: '#64748B', fontSize: 11, marginTop: 7 },
-  mapScreen: { flex: 1, backgroundColor: '#FFF' },
+  locationButton: { maxWidth: "100%", flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.tint, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9 },
+  locationButtonText: { flexShrink: 1, color: colors.accent, fontWeight: '600', fontSize: 12 },
+  coordinatesText: { color: colors.muted, fontSize: 11, marginTop: 7 },
+  mapScreen: { flex: 1, backgroundColor: colors.surface },
   map: { flex: 1 },
-  mapFooter: { padding: 18, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
-  mapHint: { color: '#475569', marginBottom: 12 },
+  mapFooter: { padding: 18, borderTopWidth: 1, borderTopColor: colors.border },
+  mapHint: { color: colors.muted, marginBottom: 12 },
   mapFooterActions: { flexDirection: 'row', gap: 12 },
 });
