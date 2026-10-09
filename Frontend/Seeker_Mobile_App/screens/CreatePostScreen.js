@@ -47,8 +47,8 @@ import { useTheme } from '../hooks/useTheme';
 
 const API_BASE_URL =
   Platform.OS === 'android'
-    ? 'http://10.0.2.2:6001'
-    : 'http://localhost:6001';
+    ? 'http://10.0.2.2:6000'
+    : 'http://localhost:6000';
 
 
 // =======================================================

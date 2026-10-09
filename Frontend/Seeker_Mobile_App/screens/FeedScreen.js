@@ -29,7 +29,7 @@ import RequestQuotationModal from './IT22129376/components/RequestQuotationModal
 // ======================================================
 const hostIp = IP_ADDRESS || '10.0.2.2';
 const API_BASE_URL = `http://${hostIp}:3002`;
-const QUOTATION_API_URL = `http://${hostIp}:6001/request-quotations`;
+const QUOTATION_API_URL = `http://${hostIp}:6000/request-quotations`;
 
 // ======================================================
 // FEED SCREEN – SHOWS PROVIDER ADS WITH LIKE & REQUEST QUOTE

@@ -16,7 +16,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config'; // adjust path if needed
 
 // Use the proxy endpoint from the seeker service
-const API_BASE = `http://${IP_ADDRESS}:6001`;
+const API_BASE = `http://${IP_ADDRESS}:6000`;
 const QUOTATIONS_URL = `${API_BASE}/request-quotations/seeker/me`;
 
 export default function NotificationsScreen() {

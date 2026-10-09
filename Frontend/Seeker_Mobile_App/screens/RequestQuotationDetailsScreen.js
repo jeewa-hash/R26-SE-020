@@ -25,7 +25,7 @@ import { useTheme } from '../hooks/useTheme';
 const { width } = Dimensions.get('window');
 
 const PROVIDER_API = `http://${IP_ADDRESS}:3002/api/provider/quotations`;
-const SEEKER_API = `http://${IP_ADDRESS}:6001`;
+const SEEKER_API = `http://${IP_ADDRESS}:6000`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
 
 export default function RequestQuotationDetailsScreen({ route, navigation }) {

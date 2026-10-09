@@ -17,7 +17,7 @@ const uniqueUrls = (items) => {
 const SEEKER_URLS = uniqueUrls([
   CONFIG?.SEEKER_SERVICE_URL,
   CONFIG?.API_BASE_URL,
-  `http://${IP_ADDRESS}:6001`,
+  `http://${IP_ADDRESS}:6000`,
 ]);
 
 const PROVIDER_URLS = uniqueUrls([

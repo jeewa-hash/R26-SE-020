@@ -4,8 +4,8 @@
 export const IP_ADDRESS = '192.168.1.3';
 
 // Chat service (port 6000)
-export const API_BASE_URL = `http://${IP_ADDRESS}:6001`;   // used by ChatContext & ChatScreen
-export const SOCKET_URL = `http://${IP_ADDRESS}:6001`;     // same for socket
+export const API_BASE_URL = `http://${IP_ADDRESS}:6000`;   // used by ChatContext & ChatScreen
+export const SOCKET_URL = `http://${IP_ADDRESS}:6000`;     // same for socket
 
 
 // Other services
@@ -17,7 +17,7 @@ export const PROVIDER_API_BASE = `http://${IP_ADDRESS}:5000`;
 export const CONFIG = {
     API_BASE_URL: `http://${IP_ADDRESS}:5002`,
     AUTH_SERVICE_URL,
-    SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6001`,
+    SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6000`,
     PROVIDER_SERVICE_API_URL: `http://${IP_ADDRESS}:3002`,
     COORDINATION_SERVICE_URL: `http://${IP_ADDRESS}:5010`,
 };

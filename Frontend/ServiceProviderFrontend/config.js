@@ -4,8 +4,8 @@ export const IP_ADDRESS =
   process.env.EXPO_PUBLIC_API_HOST || '192.168.1.3'; //'192.168.1.38';
 
 export const CONFIG = {
-  API_BASE_URL: `http://${IP_ADDRESS}:6001`,
-  SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6001`,
+  API_BASE_URL: `http://${IP_ADDRESS}:6000`,
+  SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6000`,
   AUTH_SERVICE_URL: `http://${IP_ADDRESS}:4003`,
   ADMIN_SERVICE_URL: `http://${IP_ADDRESS}:5001`,
   PROVIDER_SERVICE_URL: `http://${IP_ADDRESS}:3002`,

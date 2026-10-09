@@ -20,7 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // -------------------- API Base URLs --------------------
 const API_BASE_URL =
-  Platform.OS === 'android' ? 'http://10.0.2.2:6001' : 'http://localhost:6001';
+  Platform.OS === 'android' ? 'http://10.0.2.2:6000' : 'http://localhost:6000';
 
 const COORDINATION_API_BASE_URL =
   Platform.OS === 'android' ? 'http://10.0.2.2:5010' : 'http://localhost:5010';
