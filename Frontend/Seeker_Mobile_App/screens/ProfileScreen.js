@@ -52,14 +52,6 @@ const getLocationString = (userObj) => {
 
 const menuItems = [
   {
-    id: 'bookings',
-    title: 'My Requests',
-    icon: 'calendar',
-    iconType: 'ion',
-    color: '#667eea',
-    screen: 'BookingsScreen',
-  },
-  {
     id: 'serviceSessions',
     title: 'My Service Sessions',
     icon: 'assignment',

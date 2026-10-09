@@ -23,7 +23,7 @@ import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
+const API_BASE_URL = `http://${IP_ADDRESS}:6001`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
 
 // ─────────────────────────────────────────────────────────────

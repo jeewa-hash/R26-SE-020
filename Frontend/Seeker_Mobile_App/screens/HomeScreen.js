@@ -130,7 +130,7 @@ const Slideshow = ({ isDarkMode }) => {
         // Fallback to Seeker_Service endpoint if needed
         if (!response || !response.success) {
           try {
-            const fallbackUrl = `http://${IP_ADDRESS}:6000/request-quotations/recommendations/seeker/${userId || 'guest'}`;
+            const fallbackUrl = `http://${IP_ADDRESS}:6001/request-quotations/recommendations/seeker/${userId || 'guest'}`;
             const res2 = await fetch(fallbackUrl, {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
             });

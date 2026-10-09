@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const SEEKER_SERVICE_BASE_URL =
-  process.env.SEEKER_SERVICE_BASE_URL || "http://localhost:6000"; // Chaw - Added Seeker Service base URL for RequestQuotation lookup
+  process.env.SEEKER_SERVICE_BASE_URL || "http://localhost:6001"; // Chaw - Added Seeker Service base URL for RequestQuotation lookup
 
 export const getRequestQuotationById = async (requestQuotationId) => {
   try {
