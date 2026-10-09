@@ -229,8 +229,8 @@ const transporter = nodemailer.createTransport({
   port: parseInt(process.env.SMTP_PORT, 10) || 587,
   secure: process.env.SMTP_SECURE === 'true',
   auth: {
-    user: process.env.SMTP_USER || 'assigmentgroupy@gmail.com',
-    pass: process.env.SMTP_PASS || 'iehl zcwp pdmy anld',
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 });
 
@@ -303,7 +303,7 @@ exports.sendPaymentReminder = async (req, res) => {
     if (providerEmail && providerEmail !== 'N/A') {
       try {
         const mailOptions = {
-          from: process.env.EMAIL_FROM || '"WorkWave Platform" <assigmentgroupy@gmail.com>',
+          from: process.env.EMAIL_FROM || 'WorkWave Platform <noreply@workwave.com>',
           to: providerEmail,
           subject: `[WorkWave] Payment Reminder: 5% Platform Commission for ${bill.billingMonth}`,
           html: `
