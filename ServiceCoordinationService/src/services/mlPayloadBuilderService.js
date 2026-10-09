@@ -1,69 +1,80 @@
-const mapUrgencyToPriority = (urgencyLevel = "") => {
-    const urgency = String(urgencyLevel).toLowerCase();
-  
-    if (
-      urgency.includes("critical") ||
-      urgency.includes("emergency") ||
-      urgency.includes("urgent")
-    ) {
-      return 3;
-    }
-  
-    if (urgency.includes("today") || urgency.includes("medium")) {
-      return 2;
-    }
-  
-    return 1;
-  }; // Chaw: converts seeker urgency text into ML taskPriority
-  
-  export const buildDelayRiskPayload = ({
-    requestQuotation,
-    providerQuotation,
-    scheduleEvaluation,
-  }) => {
-    const requestedCategory = String(
-      requestQuotation.detectedCategory || requestQuotation.serviceCategory || ""
-    ).trim().toLowerCase();
-    const providerCategory = String(
-      providerQuotation.serviceCategory || providerQuotation.category || ""
-    ).trim().toLowerCase();
-    const expertiseMatch = !requestedCategory || !providerCategory
-      ? 1
-      : Number(
-          requestedCategory.includes(providerCategory) ||
-          providerCategory.includes(requestedCategory)
-        );
+const firstDefined = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== "");
 
-    return {
-      expertiseMatch,
-      taskPriority: mapUrgencyToPriority(requestQuotation.urgencyLevel),
-      taskDuration: Number(
-        scheduleEvaluation.finalSchedulingDurationHours ||
-          providerQuotation.estimatedDurationHours ||
-          1
-      ),
-      distanceBetweenBookingsKm: Number(scheduleEvaluation.distanceFromPreviousBookingKm || 0),
-      estimatedTravelTimeMins: Number(scheduleEvaluation.estimatedTravelTimeMins || 0),
-      gapBetweenBookingsMins: scheduleEvaluation.gapFromPreviousBookingMins ?? (scheduleEvaluation.conflictDetected ? 0 : 999),
-      providerBookingsToday: Number(scheduleEvaluation.providerBookingsToday || 0),
-    };
-  };
-  
-  export const normalizeDelayRiskLevel = (mlResponse) => {
-    const rawRisk =
-      mlResponse?.riskLevel ||
-      mlResponse?.risk_level ||
-      mlResponse?.delayRiskLevel ||
-      mlResponse?.delay_risk_level ||
-      mlResponse?.prediction ||
-      mlResponse?.risk ||
-      "";
-  
-    const risk = String(rawRisk).toLowerCase();
-  
-    if (risk.includes("high")) return "High";
-    if (risk.includes("medium")) return "Medium";
-    if (risk.includes("low")) return "Low";
-  
-    return "NOT_CHECKED";
-  }; // Chaw: supports different possible FastAPI response field names
+const toOptionalNumber = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+/**
+ * Builds the payload expected by Duration ML v2.
+ *
+ * IMPORTANT: No seeker/provider-entered duration is used here.
+ * The duration model predicts service duration from service/task/provider context.
+ * Missing optional numeric context is sent as null and handled by the Python
+ * preprocessing pipeline.
+ */
+export const buildDurationPredictionPayload = ({
+  requestQuotation,
+  providerQuotation,
+}) => ({
+  serviceCategory: String(
+    firstDefined(
+      requestQuotation.serviceCategory,
+      requestQuotation.detectedCategory,
+      providerQuotation.serviceCategory,
+      providerQuotation.category,
+      "Unknown"
+    )
+  ).trim(),
+
+  serviceType: String(
+    firstDefined(
+      requestQuotation.serviceType,
+      requestQuotation.serviceSubcategory,
+      providerQuotation.serviceType,
+      providerQuotation.serviceSubcategory,
+      providerQuotation.category,
+      "Unknown"
+    )
+  ).trim(),
+
+  taskName: String(
+    firstDefined(
+      requestQuotation.taskName,
+      requestQuotation.detectedTask,
+      requestQuotation.detectedObject,
+      providerQuotation.taskName,
+      providerQuotation.serviceName,
+      requestQuotation.serviceSubcategory,
+      requestQuotation.detectedCategory,
+      "Unknown"
+    )
+  ).trim(),
+
+  yearsExperience: toOptionalNumber(
+    firstDefined(
+      providerQuotation.yearsExperience,
+      providerQuotation.providerYearsExperience,
+      providerQuotation.providerSnapshot?.yearsExperience
+    )
+  ),
+
+  taskFrequencyPerMonth: toOptionalNumber(
+    firstDefined(
+      providerQuotation.taskFrequencyPerMonth,
+      providerQuotation.providerTaskFrequencyPerMonth,
+      providerQuotation.providerSnapshot?.taskFrequencyPerMonth
+    )
+  ),
+
+  plannedTeamSize: toOptionalNumber(
+    firstDefined(
+      providerQuotation.plannedTeamSize,
+      providerQuotation.teamSize,
+      providerQuotation.numberOfWorkers,
+      providerQuotation.providerSnapshot?.teamSize
+    )
+  ),
+});

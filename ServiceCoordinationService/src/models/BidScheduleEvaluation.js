@@ -33,22 +33,27 @@ const bidScheduleEvaluationSchema = new mongoose.Schema(
       default: "NO_PREFERENCE_PROVIDED",
     }, // Chaw: checks whether provider time fits seeker preference
 
+    // Legacy fields retained only so older records remain readable.
     providerEstimatedDurationHours: {
       type: Number,
-      required: true,
+      default: null,
       min: 0.25,
-    }, // Chaw: provider estimated duration
+    },
 
     seekerEstimatedDurationHours: {
       type: Number,
       default: null,
     }, // Chaw: optional seeker estimated duration
 
-    mlPredictedDurationHours: {
-      type: Number,
-      default: null,
-    }, // Chaw: ML predicted duration later
+    providerEstimatedDurationMins: { type: Number, default: null },
+    predictedDurationMins: { type: Number, default: null },
+    predictedDurationHours: { type: Number, default: null },
+    mlPredictedDurationMins: { type: Number, default: null },
+    mlPredictedDurationHours: { type: Number, default: null },
+    durationPredictionSource: { type: String, default: "ML_MODEL" },
+    durationModelVersion: { type: String, default: null },
 
+    finalSchedulingDurationMins: { type: Number, default: null },
     finalSchedulingDurationHours: {
       type: Number,
       required: true,
@@ -85,13 +90,25 @@ const bidScheduleEvaluationSchema = new mongoose.Schema(
     estimatedTravelTimeMins: { type: Number, default: 0 },
     gapFromPreviousBookingMins: { type: Number, default: null },
     travelInfoSource: { type: String, default: "NO_COORDINATES" },
+    routingTrafficAware: { type: Boolean, default: false },
+    effectiveBufferMins: { type: Number, default: null },
+    minimumBufferMins: { type: Number, default: 15 },
+    travelFeasible: { type: Boolean, default: true },
+    coordinationStatus: {
+      type: String,
+      enum: ["FEASIBLE", "CAUTION", "RESCHEDULE_REQUIRED"],
+      default: "FEASIBLE",
+    },
+    coordinationReason: { type: String, default: "" },
     availabilityMessage: { type: String, default: "" },
 
+    // Legacy field retained for backward compatibility only. Final design does
+    // not use a delay-risk ML classifier.
     delayRiskLevel: {
       type: String,
       enum: ["Low", "Medium", "High", "NOT_CHECKED"],
       default: "NOT_CHECKED",
-    }, // Chaw: ML delay risk later
+    },
   },
   {
     timestamps: true,

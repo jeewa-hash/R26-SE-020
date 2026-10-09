@@ -3,7 +3,7 @@ export const evaluateBidPrice = ({
     urgencyLevel,
     providerQuotedPrice,
     seekerBudgetAmount,
-    providerEstimatedDurationHours,
+    estimatedDurationHours,
   }) => {
     const price = Number(providerQuotedPrice);
     const budget =
@@ -11,7 +11,7 @@ export const evaluateBidPrice = ({
         ? null
         : Number(seekerBudgetAmount);
   
-    const durationHours = Number(providerEstimatedDurationHours || 1);
+    const durationHours = Number(estimatedDurationHours || 1);
   
     const basePrices = {
       plumbing: 3500,
