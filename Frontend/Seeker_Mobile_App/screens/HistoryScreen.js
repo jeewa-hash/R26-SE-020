@@ -121,11 +121,12 @@ export default function HistoryScreen({ navigation }) {
         .filter((booking) => booking.bookingStatus === 'COMPLETED')
         .map((booking) => {
           // --- Provider Details from snapshot ---
-          const providerName =
-            booking.providerSnapshot?.name ||
-            booking.providerSnapshot?.businessName ||
-            booking.providerName ||
-            'Service Provider';
+          let pName = booking.providerSnapshot?.name;
+          if (pName === 'Service Provider' || !pName) {
+            pName = booking.providerSnapshot?.businessName || booking.providerName || booking.providerSnapshot?.fullName || 'Service Provider';
+          }
+          
+          const providerName = booking.providerSnapshot?.businessName || pName;
 
           const businessName =
             booking.providerSnapshot?.businessName &&

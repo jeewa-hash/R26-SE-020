@@ -581,6 +581,16 @@ export default function CreatePostScreen() {
           description || ''
         );
 
+        formData.append(
+          'language',
+          language || 'en'
+        );
+
+        const loggedUser = await getLoggedUser();
+        if (loggedUser && loggedUser.userId) {
+          formData.append('userId', loggedUser.userId);
+        }
+
         console.log(
           'GENERATING AI PREVIEW...'
         );
