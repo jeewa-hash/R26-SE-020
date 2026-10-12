@@ -256,6 +256,17 @@ export default function NotificationScreen({ navigation }) {
     return 'admin';
   };
 
+  const fetchWithTimeout = async (url, options = {}, timeoutMs = 5000) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      return response;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+
   const fetchNotifications = async (showLoading = true) => {
     if (showLoading && !refreshing) setLoading(true);
     try {
@@ -266,7 +277,7 @@ export default function NotificationScreen({ navigation }) {
       let authNotifs = [];
 
       try {
-        const adminRes = await fetch(`${ADMIN_API_URL}/api/inquiries/notifications/${userId}`);
+        const adminRes = await fetchWithTimeout(`${ADMIN_API_URL}/api/inquiries/notifications/${userId}`);
         const adminData = await adminRes.json();
         if (adminRes.ok && adminData.data) {
           adminNotifs = adminData.data.map((item) => ({
@@ -280,7 +291,7 @@ export default function NotificationScreen({ navigation }) {
 
       if (token) {
         try {
-          const response = await fetch(`${API_URL}/notifications`, {
+          const response = await fetchWithTimeout(`${API_URL}/notifications`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await response.json();

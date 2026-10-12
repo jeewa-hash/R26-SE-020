@@ -55,13 +55,21 @@ export default function ServicesListScreen({ navigation }) {
       const token = await AsyncStorage.getItem('userToken');
       if (!token) return;
 
-      const res = await fetch(`${CONFIG.PROVIDER_SERVICE_URL}/api/provider/services/provider`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      let res;
+      try {
+        res = await fetch(`${CONFIG.PROVIDER_SERVICE_URL}/api/provider/services/provider`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();

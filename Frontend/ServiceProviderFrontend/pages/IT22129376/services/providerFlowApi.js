@@ -55,10 +55,24 @@ const parseResponse = async (response) => {
   return data;
 };
 
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 4000) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 const requestJson = async (url, options = {}) => {
   const headers = await buildAuthHeaders();
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -72,7 +86,7 @@ const requestJson = async (url, options = {}) => {
 };
 
 const requestJsonNoAuth = async (url, options = {}) => {
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -273,13 +287,21 @@ export const getProviderQuotations = async (providerId = null) => {
 };
 
 export const getProviderJobs = async (providerId = null) => {
-  // 1. /bookings/provider/me
-  // 2. /calendar/provider/me
+  // 1. /bookings/provider/me (authenticated)
+  // 2. /bookings/provider/:providerId (unauthenticated / fallback)
+  // 3. /calendar/provider/me (authenticated)
   const candidates = [
     ...COORDINATION_URLS.map((base) => ({
       url: `${base}/bookings/provider/me`,
       auth: true,
     })),
+
+    ...(providerId
+      ? COORDINATION_URLS.map((base) => ({
+          url: `${base}/bookings/provider/${providerId}`,
+          auth: false,
+        }))
+      : []),
 
     ...COORDINATION_URLS.map((base) => ({
       url: `${base}/calendar/provider/me`,
