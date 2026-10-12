@@ -929,7 +929,21 @@ exports.createAuditLogInternal = async (req, res) => {
 exports.dispatchHighDemandAlerts = async (req, res) => {
   try {
     const { category, district, timeframe, avgDemand, confidence } = req.body;
-    
+
+    const CONFIDENCE_THRESHOLD = 90;
+    const HIGH_DEMAND_THRESHOLD = 10;
+
+    const confNum = parseFloat(String(confidence || '0').replace('%', ''));
+    const demandNum = Number(avgDemand || 0);
+
+    // Enforce condition: Only dispatch if confidence >= 90% and average demand >= 10
+    if (confNum < CONFIDENCE_THRESHOLD || demandNum < HIGH_DEMAND_THRESHOLD) {
+      return res.status(400).json({
+        success: false,
+        message: `High demand alert requires confidence >= ${CONFIDENCE_THRESHOLD}% and average demand >= ${HIGH_DEMAND_THRESHOLD}. Current values: confidence=${confNum}%, demand=${demandNum}. Alert skipped.`
+      });
+    }
+
     // Find active providers in the district and category (case-insensitive regex)
     const providerQuery = {
       isBlocked: false,
