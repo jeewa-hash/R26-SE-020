@@ -144,23 +144,27 @@ const DemandForecastingPage = () => {
 
       setPredictions(finalResults);
 
-      // Auto-trigger High Demand Alerts for confidence >= 90%
+      // Auto-trigger High Demand Alerts only when Confidence >= 90% and Average Demand >= 10
+      const HIGH_DEMAND_THRESHOLD = 10;
+      const CONFIDENCE_THRESHOLD = 90;
       const token = localStorage.getItem('adminToken');
       if (token) {
         for (const res of finalResults) {
           const confValue = parseFloat(String(res.Average_Confidence || '0').replace('%', ''));
-          if (confValue >= 90) {
+          const avgDemand = Number(res.Average_Demand || 0);
+
+          if (confValue >= CONFIDENCE_THRESHOLD && avgDemand >= HIGH_DEMAND_THRESHOLD) {
             try {
               await axios.post(`${API_BASE_URL}/notify-high-demand`, {
                 category: res.Category,
                 district: res.District,
                 timeframe: selectedTimeframe,
-                avgDemand: res.Average_Demand,
+                avgDemand: avgDemand,
                 confidence: confValue
               }, {
                 headers: { Authorization: `Bearer ${token}` }
               });
-              console.log(`Dispatched high demand alert for ${res.Category} in ${res.District} (${confValue}%)`);
+              console.log(`Dispatched high demand alert for ${res.Category} in ${res.District} (Demand: ${avgDemand}, Conf: ${confValue}%)`);
             } catch (alertErr) {
               console.warn(`Failed to dispatch alert for ${res.Category}:`, alertErr.response?.data?.message || alertErr.message);
             }
