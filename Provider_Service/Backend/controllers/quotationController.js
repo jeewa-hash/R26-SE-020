@@ -23,7 +23,7 @@ export const createQuotation = async (req, res) => {
       postId = null,
       price,
       proposedStartTime, // Chaw: added provider proposed job start date/time
-      estimatedDurationHours, // Chaw: added numeric duration for coordination calculation
+      estimatedDurationHours = null, // Legacy compatibility only; new flow predicts duration in Coordination Service
       durationText = "",
       notes = "",
       serviceCategory = "",
@@ -36,13 +36,12 @@ export const createQuotation = async (req, res) => {
       !externalSessionId || // Chaw: required to link quotation to ServiceSession
       !seekerId ||
       price == null ||
-      !proposedStartTime || // Chaw: required for scheduling/conflict validation
-      estimatedDurationHours == null // Chaw: required to calculate proposed end time
+      !proposedStartTime // Chaw: required for scheduling/conflict validation
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "providerRequestId, externalSessionId, seekerId, price, proposedStartTime, and estimatedDurationHours are required.", // Chaw: updated validation message
+          "providerRequestId, externalSessionId, seekerId, price, and proposedStartTime are required.",
       });
     }
 
@@ -53,10 +52,11 @@ export const createQuotation = async (req, res) => {
       });
     }
 
-    if (Number(estimatedDurationHours) <= 0) { // Chaw: validate numeric duration
+    // Legacy clients may still send estimatedDurationHours. Validate it only when present.
+    if (estimatedDurationHours != null && Number(estimatedDurationHours) <= 0) {
       return res.status(400).json({
         success: false,
-        message: "estimatedDurationHours must be greater than 0.",
+        message: "estimatedDurationHours must be greater than 0 when provided.",
       });
     }
 
@@ -97,8 +97,10 @@ export const createQuotation = async (req, res) => {
       providerId,
       price,
       proposedStartTime, // Chaw: save provider proposed job start time
-      estimatedDurationHours, // Chaw: save numeric duration for coordination
-      durationText: durationText || `${estimatedDurationHours} Hours`, // Chaw: auto-generate display text if missing
+      estimatedDurationHours: estimatedDurationHours ?? null, // Legacy field; normal flow leaves this null
+      durationText:
+        durationText ||
+        (estimatedDurationHours != null ? `${estimatedDurationHours} Hours` : ""),
       notes,
       serviceCategory,
       serviceSubcategory,

@@ -23,7 +23,7 @@ export const createRequestQuotation = async (req, res) => {
       preferredStartTime, // Chaw - Added seeker preferred start time
       preferredEndTime, // Chaw - Added seeker preferred end time/window
       preferredTimeLabel, // Chaw - Added readable preferred time label
-      seekerEstimatedDurationHours, // Chaw - Added optional seeker duration estimate
+      seekerEstimatedDurationHours, // Legacy clients only; never required for scheduling
       seekerBudgetAmount, // Chaw - Added optional seeker budget amount
     } = req.body;
 
@@ -151,7 +151,7 @@ export const createRequestQuotation = async (req, res) => {
     if (
       seekerEstimatedDurationHours != null &&
       Number(seekerEstimatedDurationHours) <= 0
-    ) { // Chaw - Validate optional seeker duration estimate
+    ) { // Validate only when a legacy client supplies a duration
       return res.status(400).json({
         success: false,
         message: "seekerEstimatedDurationHours must be greater than 0",
@@ -203,7 +203,7 @@ export const createRequestQuotation = async (req, res) => {
       preferredStartTime: preferredStartTime || null, // Chaw - Save seeker preferred start time if provided
       preferredEndTime: preferredEndTime || null, // Chaw - Save seeker preferred end time if provided
       preferredTimeLabel: preferredTimeLabel || "", // Chaw - Save readable preferred time label
-      seekerEstimatedDurationHours: seekerEstimatedDurationHours ?? null, // Chaw - Save seeker duration estimate if provided
+      seekerEstimatedDurationHours: seekerEstimatedDurationHours ?? null, // Preserve legacy values; new requests store null
       seekerBudgetAmount: seekerBudgetAmount ?? null, // Chaw - Save seeker budget if provided
       status: "pending",
     });

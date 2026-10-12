@@ -244,15 +244,15 @@ export default function HeaderSection({
       </View>
 
       {isSidebarVisible && (
-        <View style={StyleSheet.absoluteFillObject}>
           <ProfileHeader
             navigation={navigation}
             userName={actualUserName}
+            userInitials={getInitials(actualUserName)}
+            showHeader={false}
             onLogout={handleCloseSidebar}
             externalVisible={isSidebarVisible}
             onClose={handleCloseSidebar}
           />
-        </View>
       )}
     </>
   );

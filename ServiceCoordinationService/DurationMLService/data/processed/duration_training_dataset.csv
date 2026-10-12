@@ -1,0 +1,1557 @@
+provider_id,service_category,service_type,task_name,years_experience,task_frequency_per_month,planned_team_size,provider_estimated_duration_mins,provider_typical_duration_mins,actual_duration_mins
+P001,Gardening,Garden Cleaning,General Garden Cleaning,18,5,2,110,110,115
+P001,Gardening,Garden Maintenance,Water Plants,18,21,2,35,35,40
+P001,Gardening,Garden Maintenance,Trim Tree Branches,18,6,2,120,120,135
+P001,Gardening,Garden Maintenance,General Garden Maintenance,18,6,2,145,145,145
+P002,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,18,7,1,65,65,65
+P002,Cleaning,Kitchen Cleaning,Deep Clean Kitchen,18,3,1,115,115,115
+P002,Cleaning,Kitchen Cleaning,Degrease Cooking Area,18,5,1,65,65,75
+P002,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,18,11,1,25,25,20
+P002,Cleaning,Move In/Out Cleaning,Move-In Cleaning,18,5,1,185,185,195
+P002,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,18,6,1,190,190,185
+P002,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,18,2,1,310,310,315
+P003,Gardening,Garden Maintenance,Water Plants,6,14,1,40,40,40
+P003,Gardening,Garden Maintenance,Mow Lawn,6,6,1,80,80,90
+P003,Gardening,Garden Maintenance,Remove Weeds,6,4,1,90,90,90
+P003,Gardening,Garden Maintenance,General Garden Maintenance,6,5,1,150,150,140
+P003,Gardening,Garden Maintenance,Prune Plants,6,8,1,65,65,65
+P004,Gardening,Planting Services,Plant Flowers,5,5,1,65,65,65
+P004,Gardening,Planting Services,Plant Small Tree,5,5,1,45,45,60
+P004,Gardening,Planting Services,Prepare Planting Area,5,5,1,120,120,130
+P005,Cleaning,Kitchen Cleaning,Clean Kitchen Cabinets,7,3,1,80,80,80
+P005,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,7,9,1,30,30,45
+P005,Cleaning,Move In/Out Cleaning,Move-In Cleaning,7,3,1,245,245,235
+P005,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,7,4,1,230,230,235
+P006,Gardening,Garden Cleaning,General Garden Cleaning,21,5,1,125,125,140
+P006,Gardening,Garden Maintenance,Mow Lawn,21,14,1,75,75,65
+P006,Gardening,Garden Maintenance,Remove Weeds,21,9,1,80,80,80
+P006,Gardening,Garden Maintenance,Prune Plants,21,9,1,65,65,65
+P008,Care Support,Elderly Care,Medication Assistance,9,16,3,25,25,40
+P009,Repairing,Plumbing Repair,Repair Tap,6,5,3,35,35,45
+P009,Repairing,Plumbing Repair,Clean Water Tank,6,2,3,155,155,155
+P009,Repairing,Plumbing Repair,Repair Water Tank Connection,6,3,3,65,65,65
+P009,Repairing,Plumbing Repair,Install Sink Plumbing,6,3,3,95,95,105
+P009,Repairing,Plumbing Repair,Install Bathroom Pipe,6,2,3,150,150,160
+P010,Gardening,Planting Services,Plant Flowers,8,4,2,60,60,60
+P010,Gardening,Planting Services,Plant Vegetables,8,4,2,100,100,105
+P010,Gardening,Planting Services,Plant Small Tree,8,7,2,40,40,35
+P010,Gardening,Planting Services,Plant Large Tree,8,2,2,105,105,100
+P010,Gardening,Planting Services,Plant Garden Plants,8,4,2,80,80,90
+P010,Gardening,Planting Services,Prepare Planting Area,8,3,2,90,90,100
+P011,Repairing,Plumbing Repair,Install Water Pipe,18,3,1,115,115,130
+P011,Repairing,Plumbing Repair,Repair Water Tank Connection,18,4,1,60,60,50
+P011,Repairing,Plumbing Repair,Repair Sink Plumbing,18,8,1,50,50,55
+P011,Repairing,Plumbing Repair,Install Sink Plumbing,18,3,1,80,80,75
+P011,Repairing,Plumbing Repair,Repair Toilet Plumbing,18,4,1,70,70,65
+P011,Repairing,Plumbing Repair,Replace Toilet Pipe,18,2,1,80,80,80
+P012,Cleaning,House Cleaning,Deep Clean House,3,4,2,250,250,250
+P012,Cleaning,House Cleaning,Clean Single Room,3,9,2,55,55,45
+P012,Cleaning,House Cleaning,Mop and Clean Floors,3,9,2,65,65,80
+P012,Cleaning,House Cleaning,Dust and Surface Cleaning,3,6,2,60,60,50
+P013,Repairing,Electrical Repair,Repair Ceiling Fan,9,6,2,55,55,70
+P013,Repairing,Electrical Repair,Install Light Fitting,9,3,2,40,40,30
+P013,Repairing,Electrical Repair,Repair Power Socket,9,6,2,35,35,50
+P013,Repairing,Electrical Repair,Replace Damaged Wiring,9,1,2,150,150,150
+P013,Repairing,Electrical Repair,Repair Washing Machine,9,2,2,95,95,95
+P014,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,7,3,1,75,75,65
+P014,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,7,5,1,75,75,80
+P014,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,7,4,1,95,95,110
+P014,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Mattress,7,5,1,95,95,85
+P015,Cleaning,House Cleaning,Deep Clean House,6,4,2,240,240,255
+P015,Cleaning,House Cleaning,Clean Single Room,6,14,2,50,50,50
+P015,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,6,6,2,65,65,55
+P016,Cleaning,House Cleaning,General House Cleaning,2,12,4,145,145,150
+P016,Cleaning,House Cleaning,Deep Clean House,2,6,4,175,175,175
+P016,Cleaning,House Cleaning,Clean Single Room,2,8,4,50,50,50
+P016,Cleaning,House Cleaning,Mop and Clean Floors,2,13,4,60,60,50
+P016,Cleaning,House Cleaning,Dust and Surface Cleaning,2,11,4,45,45,50
+P016,Cleaning,House Cleaning,Full Home Cleaning,2,7,4,215,215,215
+P017,Repairing,Electrical Repair,Replace Ceiling Fan,4,3,2,70,70,75
+P017,Repairing,Electrical Repair,Repair Light Circuit,4,4,2,45,45,60
+P017,Repairing,Electrical Repair,Repair Switch,4,3,2,30,30,45
+P017,Repairing,Electrical Repair,Replace Power Socket,4,5,2,30,30,20
+P017,Repairing,Electrical Repair,Repair Washing Machine,4,1,2,105,105,100
+P018,Repairing,Plumbing Repair,Install Water Pipe,8,1,1,125,125,130
+P018,Repairing,Plumbing Repair,Replace Water Pipe,8,2,1,120,120,135
+P018,Repairing,Plumbing Repair,Replace Tap,8,8,1,30,30,30
+P018,Repairing,Plumbing Repair,Repair Tap,8,6,1,30,30,30
+P018,Repairing,Plumbing Repair,Repair Bathroom Pipe,8,5,1,75,75,80
+P020,Gardening,Planting Services,Plant Small Tree,10,4,2,40,40,40
+P020,Gardening,Planting Services,Plant Garden Plants,10,5,2,65,65,60
+P020,Gardening,Planting Services,Prepare Planting Area,10,3,2,85,85,95
+P021,Gardening,Garden Maintenance,Water Plants,5,20,4,35,35,40
+P021,Gardening,Garden Maintenance,Trim Shrubs,5,9,4,70,70,70
+P021,Gardening,Garden Maintenance,Cut Grass,5,10,4,90,90,90
+P021,Gardening,Garden Maintenance,Trim Tree Branches,5,2,4,130,130,130
+P021,Gardening,Garden Maintenance,General Garden Maintenance,5,8,4,135,135,145
+P022,Care Support,Personal Assistance,Daily Household Assistance,4,6,1,165,165,155
+P022,Care Support,Pet Care,Feed Pet,4,12,1,25,25,15
+P022,Care Support,Pet Care,Bathe Pet,4,13,1,55,55,65
+P022,Care Support,Pet Care,Pet Cleaning,4,3,1,55,55,55
+P023,Gardening,Garden Cleaning,General Garden Cleaning,3,3,2,125,125,140
+P023,Gardening,Garden Cleaning,Remove Garden Waste,3,3,2,85,85,85
+P023,Gardening,Garden Cleaning,Clear Overgrown Garden,3,1,2,240,240,250
+P024,Repairing,Plumbing Repair,Repair Water Leak,8,5,2,65,65,55
+P024,Repairing,Plumbing Repair,Install Tap,8,5,2,35,35,30
+P024,Repairing,Plumbing Repair,Replace Tap,8,9,2,30,30,45
+P024,Repairing,Plumbing Repair,Repair Tap,8,8,2,30,30,40
+P024,Repairing,Plumbing Repair,Install Water Tank,8,2,2,165,165,165
+P024,Repairing,Plumbing Repair,Clean Water Tank,8,3,2,120,120,130
+P024,Repairing,Plumbing Repair,Repair Sink Plumbing,8,4,2,60,60,55
+P025,Cleaning,Office Cleaning,Clean Small Office,10,7,1,115,115,115
+P025,Cleaning,Office Cleaning,Deep Clean Office,10,2,1,355,355,370
+P025,Cleaning,Post-Construction Cleaning,Remove Construction Dust,10,4,1,175,175,175
+P026,Cleaning,House Cleaning,General House Cleaning,5,13,3,125,125,130
+P026,Cleaning,House Cleaning,Deep Clean House,5,6,3,225,225,215
+P026,Cleaning,House Cleaning,Clean Single Room,5,13,3,50,50,40
+P026,Cleaning,House Cleaning,Mop and Clean Floors,5,20,3,60,60,55
+P026,Cleaning,House Cleaning,Dust and Surface Cleaning,5,10,3,50,50,60
+P026,Cleaning,House Cleaning,Full Home Cleaning,5,8,3,180,180,170
+P027,Cleaning,House Cleaning,Deep Clean House,4,4,3,245,245,245
+P027,Cleaning,House Cleaning,Full Home Cleaning,4,5,3,230,230,225
+P027,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,4,2,3,90,90,90
+P027,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,4,3,3,70,70,80
+P027,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Mattress,4,2,3,100,100,115
+P028,Repairing,Electrical Repair,Replace Ceiling Fan,7,3,1,75,75,75
+P028,Repairing,Electrical Repair,Install Light Fitting,7,6,1,45,45,60
+P028,Repairing,Electrical Repair,Install Power Socket,7,5,1,40,40,45
+P028,Repairing,Electrical Repair,Replace Power Socket,7,7,1,30,30,25
+P028,Repairing,Electrical Repair,Repair Distribution Board,7,1,1,140,140,150
+P029,Cleaning,Bathroom Cleaning,Deep Clean Bathroom,11,6,1,75,75,90
+P029,Cleaning,Bathroom Cleaning,Clean Toilet,11,4,1,20,20,15
+P029,Cleaning,Bathroom Cleaning,Remove Bathroom Stains,11,6,1,55,55,55
+P029,Cleaning,House Cleaning,General House Cleaning,11,12,1,130,130,135
+P029,Cleaning,House Cleaning,Clean Single Room,11,19,1,45,45,45
+P029,Cleaning,House Cleaning,Dust and Surface Cleaning,11,16,1,45,45,45
+P029,Cleaning,House Cleaning,Full Home Cleaning,11,10,1,195,195,195
+P030,Repairing,Plumbing Repair,Replace Water Pipe,8,3,2,130,130,130
+P030,Repairing,Plumbing Repair,Repair Leaking Pipe,8,10,2,60,60,60
+P030,Repairing,Plumbing Repair,Install Tap,8,6,2,35,35,25
+P030,Repairing,Plumbing Repair,Clean Water Tank,8,3,2,140,140,155
+P030,Repairing,Plumbing Repair,Repair Bathroom Pipe,8,3,2,75,75,65
+P031,Cleaning,House Cleaning,General House Cleaning,6,8,3,130,130,130
+P031,Cleaning,House Cleaning,Dust and Surface Cleaning,6,11,3,55,55,45
+P031,Cleaning,House Cleaning,Full Home Cleaning,6,9,3,215,215,230
+P031,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,6,3,3,115,115,110
+P031,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,6,4,3,65,65,80
+P031,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Carpet,6,5,3,120,120,115
+P031,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,6,5,3,90,90,90
+P032,Repairing,Plumbing Repair,Replace Tap,4,6,2,30,30,20
+P032,Repairing,Plumbing Repair,Clear Blocked Drain,4,9,2,80,80,70
+P032,Repairing,Plumbing Repair,Repair Sink Plumbing,4,5,2,65,65,65
+P032,Repairing,Plumbing Repair,Install Bathroom Pipe,4,2,2,120,120,125
+P033,Gardening,Landscaping & Design,Design Medium Garden,14,2,2,250,250,265
+P033,Gardening,Landscaping & Design,Basic Landscaping,14,2,2,280,280,270
+P033,Gardening,Planting Services,Plant Flowers,14,2,2,60,60,60
+P034,Repairing,Furniture Repair,Repair Wooden Door,15,4,1,100,100,100
+P034,Repairing,Furniture Repair,Replace Door Hinges,15,12,1,30,30,20
+P034,Repairing,Furniture Repair,Replace Furniture Hardware,15,5,1,25,25,25
+P034,Repairing,Furniture Repair,Assemble Furniture,15,7,1,90,90,90
+P034,Repairing,Painting & Renovation,Paint Room,15,3,1,220,220,220
+P035,Care Support,Pet Care,Feed Pet,4,8,2,25,25,25
+P035,Care Support,Pet Care,Pet Grooming,4,5,2,80,80,70
+P035,Care Support,Pet Care,Bathe Pet,4,5,2,55,55,50
+P036,Care Support,Personal Assistance,Daily Household Assistance,4,6,1,160,160,170
+P037,Cleaning,House Cleaning,General House Cleaning,5,6,2,145,145,145
+P037,Cleaning,House Cleaning,Deep Clean House,5,4,2,210,210,200
+P037,Cleaning,House Cleaning,Clean Single Room,5,14,2,55,55,55
+P037,Cleaning,House Cleaning,Mop and Clean Floors,5,6,2,60,60,60
+P037,Cleaning,House Cleaning,Dust and Surface Cleaning,5,10,2,50,50,65
+P037,Cleaning,House Cleaning,Full Home Cleaning,5,5,2,200,200,210
+P038,Gardening,Garden Cleaning,General Garden Cleaning,6,2,2,100,100,110
+P038,Gardening,Garden Cleaning,Remove Garden Waste,6,3,2,85,85,90
+P038,Gardening,Garden Cleaning,Clear Overgrown Garden,6,3,2,210,210,220
+P039,Care Support,Personal Assistance,Errand Assistance,13,9,1,90,90,95
+P040,Repairing,Electrical Repair,Repair Ceiling Fan,8,4,1,60,60,50
+P040,Repairing,Electrical Repair,Repair Switch,8,8,1,25,25,25
+P040,Repairing,Electrical Repair,Replace Damaged Wiring,8,2,1,130,130,140
+P040,Repairing,Electrical Repair,Diagnose Refrigerator Fault,8,2,1,55,55,65
+P040,Repairing,Electrical Repair,Repair Rice Cooker,8,2,1,50,50,60
+P040,Repairing,Electrical Repair,Repair Air Conditioner,8,4,1,100,100,100
+P040,Repairing,Electrical Repair,Service Air Conditioner,8,9,1,60,60,65
+P041,Gardening,Landscaping & Design,Design Small Garden,13,3,3,185,185,175
+P041,Gardening,Landscaping & Design,Design Medium Garden,13,3,3,280,280,285
+P041,Gardening,Landscaping & Design,Set Up New Garden,13,3,3,280,280,280
+P041,Gardening,Landscaping & Design,Basic Landscaping,13,2,3,255,255,255
+P041,Gardening,Landscaping & Design,Landscape Existing Garden,13,4,3,415,415,420
+P042,Repairing,Electrical Repair,Install Ceiling Fan,2,4,1,75,75,75
+P042,Repairing,Electrical Repair,Repair Light Circuit,2,5,1,50,50,40
+P042,Repairing,Electrical Repair,Install Switch,2,8,1,30,30,45
+P042,Repairing,Electrical Repair,Replace Distribution Board Component,2,2,1,80,80,75
+P043,Cleaning,Office Cleaning,Clean Small Office,19,5,4,110,110,120
+P043,Cleaning,Office Cleaning,Clean Retail Shop,19,9,4,125,125,140
+P043,Cleaning,Office Cleaning,Deep Clean Office,19,5,4,280,280,295
+P043,Cleaning,Office Cleaning,Clean Office Floors,19,11,4,70,70,85
+P043,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,19,3,4,270,270,265
+P043,Cleaning,Post-Construction Cleaning,Remove Construction Dust,19,3,4,180,180,175
+P043,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,19,4,4,165,165,155
+P044,Cleaning,Bathroom Cleaning,Deep Clean Bathroom,8,6,1,95,95,95
+P044,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,8,4,1,80,80,95
+P044,Cleaning,Kitchen Cleaning,Clean Kitchen Cabinets,8,7,1,75,75,70
+P044,Cleaning,Kitchen Cleaning,Degrease Cooking Area,8,8,1,65,65,65
+P044,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,8,5,1,30,30,20
+P045,Repairing,Plumbing Repair,Install Tap,7,3,2,35,35,35
+P045,Repairing,Plumbing Repair,Replace Tap,7,7,2,30,30,45
+P045,Repairing,Plumbing Repair,Clean Water Tank,7,2,2,135,135,135
+P045,Repairing,Plumbing Repair,Install Bathroom Pipe,7,2,2,140,140,140
+P046,Cleaning,Bathroom Cleaning,General Bathroom Cleaning,10,8,2,60,60,70
+P046,Cleaning,Bathroom Cleaning,Clean Toilet,10,4,2,25,25,25
+P046,Cleaning,Bathroom Cleaning,Clean Washroom,10,8,2,40,40,55
+P046,Cleaning,Bathroom Cleaning,Remove Bathroom Stains,10,4,2,55,55,50
+P046,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,10,7,2,30,30,45
+P047,Gardening,Garden Maintenance,Mow Lawn,4,8,1,80,80,80
+P047,Gardening,Garden Maintenance,Remove Weeds,4,6,1,95,95,90
+P047,Gardening,Garden Maintenance,Trim Tree Branches,4,4,1,130,130,135
+P048,Repairing,Painting & Renovation,Paint Interior Wall,9,2,2,125,125,120
+P048,Repairing,Painting & Renovation,Paint Exterior Wall,9,2,2,220,220,230
+P048,Repairing,Painting & Renovation,Paint Ceiling,9,2,2,110,110,110
+P048,Repairing,Painting & Renovation,Repair Wall Crack,9,5,2,70,70,80
+P048,Repairing,Painting & Renovation,Minor Renovation Work,9,2,2,250,250,250
+P050,Repairing,Furniture Repair,Repair Wooden Chair,4,4,3,50,50,50
+P050,Repairing,Furniture Repair,Repair Dining Table,4,3,3,80,80,95
+P050,Repairing,Furniture Repair,Repair Cabinet,4,6,3,90,90,105
+P051,Repairing,Painting & Renovation,Paint Ceiling,5,2,4,115,115,120
+P051,Repairing,Painting & Renovation,Repair Ceiling,5,3,4,135,135,135
+P051,Repairing,Painting & Renovation,Repair Floor Tile,5,4,4,120,120,130
+P052,Gardening,Garden Maintenance,Water Plants,11,14,1,35,35,25
+P052,Gardening,Garden Maintenance,Cut Grass,11,8,1,90,90,90
+P052,Gardening,Garden Maintenance,Prune Plants,11,7,1,70,70,85
+P053,Repairing,Electrical Repair,Replace Switch,17,15,1,20,20,25
+P053,Repairing,Electrical Repair,Repair Power Socket,17,7,1,35,35,40
+P053,Repairing,Electrical Repair,Replace Damaged Wiring,17,3,1,125,125,140
+P053,Repairing,Electrical Repair,Repair Distribution Board,17,3,1,125,125,125
+P053,Repairing,Electrical Repair,Repair Microwave Oven,17,2,1,60,60,50
+P053,Repairing,Electrical Repair,Repair Air Conditioner,17,4,1,85,85,80
+P054,Care Support,Elderly Care,Medication Assistance,5,12,1,20,20,30
+P054,Care Support,Personal Assistance,Daily Household Assistance,5,6,1,180,180,170
+P055,Repairing,Furniture Repair,Repair Wooden Chair,6,6,1,50,50,55
+P055,Repairing,Furniture Repair,Repair Dining Table,6,6,1,85,85,95
+P055,Repairing,Furniture Repair,Repair Sofa Frame,6,1,1,115,115,130
+P055,Repairing,Furniture Repair,Repair Bed Frame,6,3,1,120,120,120
+P055,Repairing,Furniture Repair,Repair Cabinet,6,5,1,85,85,85
+P055,Repairing,Furniture Repair,Replace Furniture Hardware,6,5,1,25,25,35
+P055,Repairing,Furniture Repair,Assemble Furniture,6,4,1,90,90,95
+P057,Cleaning,Bathroom Cleaning,General Bathroom Cleaning,2,15,2,55,55,60
+P057,Cleaning,Bathroom Cleaning,Deep Clean Bathroom,2,6,2,95,95,90
+P057,Cleaning,Bathroom Cleaning,Clean Toilet,2,6,2,30,30,35
+P057,Cleaning,Bathroom Cleaning,Clean Washroom,2,7,2,45,45,35
+P057,Cleaning,Bathroom Cleaning,Remove Bathroom Stains,2,3,2,60,60,70
+P058,Gardening,Garden Cleaning,General Garden Cleaning,6,2,2,120,120,135
+P058,Gardening,Garden Cleaning,Remove Garden Waste,6,3,2,90,90,85
+P058,Gardening,Planting Services,Plant Vegetables,6,5,2,90,90,95
+P058,Gardening,Planting Services,Plant Small Tree,6,8,2,50,50,45
+P058,Gardening,Planting Services,Plant Large Tree,6,2,2,115,115,130
+P058,Gardening,Planting Services,Plant Garden Plants,6,4,2,95,95,90
+P058,Gardening,Planting Services,Prepare Planting Area,6,3,2,105,105,100
+P059,Cleaning,House Cleaning,General House Cleaning,9,12,3,110,110,115
+P059,Cleaning,House Cleaning,Deep Clean House,9,7,3,195,195,195
+P059,Cleaning,House Cleaning,Mop and Clean Floors,9,13,3,55,55,45
+P059,Cleaning,House Cleaning,Dust and Surface Cleaning,9,14,3,50,50,50
+P059,Cleaning,House Cleaning,Full Home Cleaning,9,6,3,185,185,185
+P059,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,9,5,3,65,65,65
+P059,Cleaning,Kitchen Cleaning,Clean Kitchen Cabinets,9,3,3,65,65,55
+P059,Cleaning,Kitchen Cleaning,Degrease Cooking Area,9,4,3,65,65,70
+P060,Gardening,Landscaping & Design,Basic Landscaping,4,1,4,270,270,270
+P060,Gardening,Landscaping & Design,Landscape Existing Garden,4,2,4,360,360,360
+P060,Gardening,Planting Services,Plant Flowers,4,7,4,60,60,50
+P060,Gardening,Planting Services,Plant Vegetables,4,6,4,75,75,70
+P060,Gardening,Planting Services,Plant Garden Plants,4,5,4,70,70,70
+P061,Care Support,Personal Assistance,Daily Household Assistance,7,7,1,175,175,170
+P062,Cleaning,Office Cleaning,Clean Small Office,11,8,2,105,105,100
+P062,Cleaning,Office Cleaning,Clean Medium Office,11,5,2,160,160,155
+P062,Cleaning,Office Cleaning,Clean Retail Shop,11,5,2,130,130,120
+P062,Cleaning,Office Cleaning,Deep Clean Office,11,3,2,245,245,240
+P062,Cleaning,Office Cleaning,Clean Office Floors,11,7,2,85,85,80
+P062,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,11,2,2,345,345,345
+P062,Cleaning,Post-Construction Cleaning,Remove Construction Dust,11,2,2,185,185,185
+P062,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,11,3,2,155,155,160
+P063,Repairing,Electrical Repair,Repair Light Circuit,3,3,2,50,50,40
+P063,Repairing,Electrical Repair,Replace Switch,3,6,2,20,20,15
+P063,Repairing,Electrical Repair,Replace Damaged Wiring,3,2,2,125,125,115
+P063,Repairing,Electrical Repair,Repair Television,3,3,2,110,110,100
+P063,Repairing,Electrical Repair,Repair Air Conditioner,3,4,2,105,105,105
+P063,Repairing,Electrical Repair,Service Air Conditioner,3,6,2,65,65,55
+P064,Gardening,Garden Maintenance,Water Plants,3,15,5,35,35,40
+P064,Gardening,Garden Maintenance,Mow Lawn,3,8,5,70,70,60
+P064,Gardening,Garden Maintenance,Remove Weeds,3,9,5,70,70,85
+P064,Gardening,Landscaping & Design,Design Small Garden,3,2,5,225,225,225
+P064,Gardening,Landscaping & Design,Landscape Existing Garden,3,2,5,390,390,400
+P064,Gardening,Planting Services,Plant Vegetables,3,5,5,80,80,70
+P064,Gardening,Planting Services,Prepare Planting Area,3,3,5,85,85,85
+P065,Care Support,Pet Care,Feed Pet,3,12,1,25,25,35
+P065,Care Support,Pet Care,Pet Grooming,3,7,1,85,85,85
+P065,Care Support,Pet Care,Pet Cleaning,3,8,1,60,60,50
+P066,Gardening,Planting Services,Plant Vegetables,3,3,3,75,75,75
+P066,Gardening,Planting Services,Plant Small Tree,3,3,3,50,50,40
+P066,Gardening,Planting Services,Plant Large Tree,3,4,3,90,90,90
+P067,Care Support,Elderly Care,Medication Assistance,18,23,1,20,20,35
+P068,Repairing,Painting & Renovation,Paint Interior Wall,5,1,5,120,120,120
+P068,Repairing,Painting & Renovation,Paint Exterior Wall,5,5,5,225,225,230
+P068,Repairing,Painting & Renovation,Paint Whole House,5,2,5,470,470,475
+P068,Repairing,Painting & Renovation,Replace Damaged Tile,5,1,5,75,75,90
+P069,Cleaning,House Cleaning,Clean Single Room,5,9,5,50,50,55
+P069,Cleaning,House Cleaning,Dust and Surface Cleaning,5,10,5,55,55,50
+P069,Cleaning,House Cleaning,Full Home Cleaning,5,8,5,200,200,215
+P070,Repairing,Electrical Repair,Replace Ceiling Fan,9,2,1,65,65,70
+P070,Repairing,Electrical Repair,Install Light Fitting,9,10,1,40,40,55
+P070,Repairing,Electrical Repair,Install Power Socket,9,3,1,40,40,40
+P070,Repairing,Electrical Repair,Repair Distribution Board,9,2,1,115,115,110
+P070,Repairing,Electrical Repair,Repair Television,9,3,1,80,80,70
+P070,Repairing,Electrical Repair,Repair Air Conditioner,9,3,1,115,115,110
+P071,Repairing,Plumbing Repair,Install Water Pipe,3,2,2,150,150,140
+P071,Repairing,Plumbing Repair,Repair Leaking Pipe,3,3,2,70,70,80
+P071,Repairing,Plumbing Repair,Repair Tap,3,6,2,30,30,35
+P071,Repairing,Plumbing Repair,Clear Blocked Drain,3,6,2,95,95,85
+P071,Repairing,Plumbing Repair,Repair Sink Plumbing,3,5,2,65,65,65
+P071,Repairing,Plumbing Repair,Repair Toilet Plumbing,3,5,2,65,65,60
+P071,Repairing,Plumbing Repair,Replace Toilet Pipe,3,2,2,80,80,85
+P071,Repairing,Plumbing Repair,Install Bathroom Pipe,3,1,2,150,150,160
+P072,Cleaning,Bathroom Cleaning,General Bathroom Cleaning,8,4,3,50,50,55
+P072,Cleaning,Bathroom Cleaning,Clean Toilet,8,7,3,20,20,30
+P072,Cleaning,Bathroom Cleaning,Remove Bathroom Stains,8,6,3,55,55,45
+P072,Cleaning,Kitchen Cleaning,Deep Clean Kitchen,8,3,3,130,130,135
+P073,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,5,5,2,65,65,65
+P073,Cleaning,Kitchen Cleaning,Deep Clean Kitchen,5,5,2,135,135,135
+P073,Cleaning,Kitchen Cleaning,Clean Kitchen Cabinets,5,5,2,80,80,85
+P073,Cleaning,Kitchen Cleaning,Degrease Cooking Area,5,4,2,65,65,75
+P073,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,5,7,2,30,30,25
+P073,Cleaning,Move In/Out Cleaning,Move-In Cleaning,5,2,2,210,210,210
+P073,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,5,4,2,210,210,210
+P073,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,5,1,2,315,315,320
+P074,Cleaning,House Cleaning,General House Cleaning,1,10,2,145,145,145
+P074,Cleaning,House Cleaning,Mop and Clean Floors,1,7,2,65,65,60
+P074,Cleaning,Office Cleaning,Clean Small Office,1,5,2,125,125,125
+P074,Cleaning,Office Cleaning,Clean Medium Office,1,4,2,235,235,250
+P074,Cleaning,Office Cleaning,Clean Retail Shop,1,3,2,145,145,160
+P075,Cleaning,House Cleaning,General House Cleaning,6,8,1,170,170,170
+P075,Cleaning,House Cleaning,Clean Single Room,6,10,1,60,60,60
+P075,Cleaning,House Cleaning,Mop and Clean Floors,6,11,1,70,70,60
+P075,Cleaning,House Cleaning,Dust and Surface Cleaning,6,9,1,60,60,50
+P075,Cleaning,House Cleaning,Full Home Cleaning,6,6,1,240,240,230
+P075,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,6,4,1,70,70,75
+P075,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,6,2,1,220,220,215
+P076,Repairing,Electrical Repair,Install Ceiling Fan,9,4,2,75,75,80
+P076,Repairing,Electrical Repair,Repair Ceiling Fan,9,2,2,55,55,60
+P076,Repairing,Electrical Repair,Replace Light Fitting,9,9,2,20,20,30
+P076,Repairing,Electrical Repair,Repair Switch,9,6,2,30,30,30
+P076,Repairing,Electrical Repair,Install New Wiring,9,2,2,200,200,205
+P076,Repairing,Electrical Repair,Replace Distribution Board Component,9,3,2,70,70,70
+P076,Repairing,Electrical Repair,Repair Air Conditioner,9,4,2,95,95,95
+P076,Repairing,Electrical Repair,Service Air Conditioner,9,4,2,65,65,60
+P077,Gardening,Garden Maintenance,Water Plants,6,12,2,40,40,30
+P077,Gardening,Garden Maintenance,Trim Shrubs,6,3,2,85,85,100
+P077,Gardening,Garden Maintenance,Cut Grass,6,7,2,105,105,110
+P077,Gardening,Garden Maintenance,Mow Lawn,6,6,2,85,85,95
+P077,Gardening,Garden Maintenance,Remove Weeds,6,3,2,70,70,85
+P077,Gardening,Garden Maintenance,General Garden Maintenance,6,11,2,160,160,160
+P078,Gardening,Garden Maintenance,Water Plants,8,12,1,40,40,35
+P078,Gardening,Garden Maintenance,Cut Grass,8,8,1,100,100,100
+P078,Gardening,Garden Maintenance,General Garden Maintenance,8,4,1,150,150,155
+P079,Care Support,Personal Assistance,Daily Household Assistance,3,8,1,180,180,180
+P079,Care Support,Personal Assistance,Errand Assistance,3,7,1,110,110,105
+P079,Care Support,Pet Care,Pet Grooming,3,6,1,95,95,95
+P080,Care Support,Personal Assistance,Daily Household Assistance,14,10,2,155,155,165
+P080,Care Support,Personal Assistance,Errand Assistance,14,8,2,95,95,85
+P081,Gardening,Garden Maintenance,Water Plants,6,12,1,45,45,50
+P081,Gardening,Garden Maintenance,General Garden Maintenance,6,5,1,145,145,150
+P081,Gardening,Planting Services,Plant Large Tree,6,2,1,120,120,130
+P082,Repairing,Plumbing Repair,Install Water Pipe,5,2,2,125,125,130
+P082,Repairing,Plumbing Repair,Repair Tap,5,7,2,30,30,25
+P082,Repairing,Plumbing Repair,Clear Blocked Drain,5,4,2,75,75,80
+P083,Cleaning,Bathroom Cleaning,General Bathroom Cleaning,3,6,3,50,50,45
+P083,Cleaning,Bathroom Cleaning,Deep Clean Bathroom,3,3,3,85,85,95
+P083,Cleaning,Bathroom Cleaning,Remove Bathroom Stains,3,3,3,60,60,60
+P083,Cleaning,Kitchen Cleaning,Deep Clean Kitchen,3,4,3,125,125,130
+P084,Cleaning,Move In/Out Cleaning,Move-In Cleaning,9,4,5,160,160,170
+P084,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,9,6,5,155,155,150
+P084,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,9,3,5,215,215,215
+P084,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,9,1,5,135,135,130
+P084,Cleaning,Post-Construction Cleaning,Clean Newly Built Property,9,3,5,340,340,350
+P085,Repairing,Painting & Renovation,Paint Interior Wall,5,2,2,145,145,145
+P085,Repairing,Painting & Renovation,Paint Exterior Wall,5,2,2,255,255,260
+P085,Repairing,Painting & Renovation,Paint Ceiling,5,1,2,110,110,105
+P085,Repairing,Painting & Renovation,Paint Whole House,5,3,2,485,485,485
+P085,Repairing,Painting & Renovation,Repair Wall Crack,5,3,2,80,80,85
+P085,Repairing,Painting & Renovation,Replace Damaged Tile,5,4,2,100,100,100
+P085,Repairing,Painting & Renovation,Repair Floor Tile,5,4,2,130,130,135
+P085,Repairing,Painting & Renovation,Minor Renovation Work,5,3,2,260,260,270
+P086,Care Support,Pet Care,Feed Pet,5,11,1,25,25,30
+P086,Care Support,Pet Care,Pet Grooming,5,9,1,90,90,85
+P086,Care Support,Pet Care,Bathe Pet,5,12,1,50,50,50
+P086,Care Support,Pet Care,Pet Cleaning,5,3,1,60,60,65
+P087,Repairing,Furniture Repair,Repair Wooden Door,4,2,1,100,100,90
+P087,Repairing,Painting & Renovation,Paint Interior Wall,4,1,1,165,165,170
+P087,Repairing,Roofing Repair,Minor Roof Maintenance,4,2,1,110,110,110
+P089,Repairing,Plumbing Repair,Repair Water Leak,13,5,1,65,65,60
+P089,Repairing,Plumbing Repair,Repair Tap,13,8,1,30,30,40
+P089,Repairing,Plumbing Repair,Install Water Tank,13,1,1,190,190,190
+P089,Repairing,Plumbing Repair,Clean Water Tank,13,4,1,140,140,135
+P089,Repairing,Plumbing Repair,Clear Blocked Drain,13,9,1,75,75,65
+P089,Repairing,Plumbing Repair,Replace Toilet Pipe,13,5,1,80,80,80
+P091,Care Support,Personal Assistance,Daily Household Assistance,6,10,1,150,150,155
+P091,Care Support,Personal Assistance,Errand Assistance,6,10,1,95,95,90
+P092,Repairing,Roofing Repair,Inspect Roof Damage,4,3,2,65,65,75
+P092,Repairing,Roofing Repair,Repair Roof Structure,4,3,2,300,300,295
+P092,Repairing,Roofing Repair,Minor Roof Maintenance,4,3,2,115,115,125
+P093,Repairing,Roofing Repair,Inspect Roof Damage,4,3,1,60,60,60
+P093,Repairing,Roofing Repair,Repair Roof Leak,4,2,1,110,110,110
+P093,Repairing,Roofing Repair,Seal Roof Leakage,4,2,1,85,85,95
+P093,Repairing,Roofing Repair,Minor Roof Maintenance,4,2,1,95,95,110
+P094,Gardening,Garden Maintenance,Trim Shrubs,9,9,1,70,70,80
+P094,Gardening,Garden Maintenance,Cut Grass,9,5,1,100,100,100
+P094,Gardening,Garden Maintenance,Remove Weeds,9,4,1,85,85,90
+P095,Cleaning,House Cleaning,Deep Clean House,8,5,1,235,235,235
+P095,Cleaning,House Cleaning,Dust and Surface Cleaning,8,11,1,50,50,40
+P095,Cleaning,Office Cleaning,Clean Medium Office,8,3,1,180,180,170
+P095,Cleaning,Office Cleaning,Clean Office Floors,8,5,1,95,95,95
+P096,Repairing,Furniture Repair,Repair Wooden Chair,12,5,2,45,45,40
+P096,Repairing,Furniture Repair,Repair Dining Table,12,5,2,70,70,75
+P096,Repairing,Furniture Repair,Repair Bed Frame,12,3,2,95,95,100
+P096,Repairing,Furniture Repair,Repair Cupboard,12,5,2,90,90,90
+P096,Repairing,Furniture Repair,Repair Wooden Door,12,4,2,80,80,80
+P096,Repairing,Furniture Repair,Replace Door Hinges,12,6,2,25,25,40
+P096,Repairing,Furniture Repair,Replace Furniture Hardware,12,10,2,20,20,35
+P097,Care Support,Personal Assistance,Daily Household Assistance,12,7,1,185,185,180
+P098,Repairing,Electrical Repair,Repair Ceiling Fan,7,3,2,50,50,45
+P098,Repairing,Electrical Repair,Install Light Fitting,7,5,2,40,40,40
+P098,Repairing,Electrical Repair,Repair Switch,7,4,2,30,30,35
+P098,Repairing,Electrical Repair,Repair Power Socket,7,4,2,40,40,40
+P098,Repairing,Electrical Repair,Service Air Conditioner,7,5,2,80,80,85
+P100,Gardening,Garden Maintenance,Water Plants,10,13,1,40,40,45
+P100,Gardening,Garden Maintenance,Cut Grass,10,7,1,100,100,90
+P100,Gardening,Garden Maintenance,Trim Tree Branches,10,4,1,120,120,110
+P100,Gardening,Garden Maintenance,Prune Plants,10,7,1,70,70,80
+P101,Repairing,Electrical Repair,Replace Switch,7,7,2,25,25,25
+P101,Repairing,Electrical Repair,Repair Switch,7,8,2,30,30,20
+P101,Repairing,Electrical Repair,Install Power Socket,7,6,2,40,40,40
+P101,Repairing,Electrical Repair,Install New Wiring,7,3,2,175,175,165
+P102,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,15,4,1,70,70,75
+P102,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,15,4,1,70,70,85
+P102,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,15,6,1,55,55,65
+P103,Repairing,Roofing Repair,Inspect Roof Damage,3,2,1,70,70,70
+P103,Repairing,Roofing Repair,Repair Roof Leak,3,2,1,155,155,150
+P103,Repairing,Roofing Repair,Replace Roof Sheet,3,2,1,155,155,150
+P103,Repairing,Roofing Repair,Replace Roof Tile,3,2,1,200,200,200
+P103,Repairing,Roofing Repair,Seal Roof Leakage,3,2,1,105,105,120
+P103,Repairing,Roofing Repair,Minor Roof Maintenance,3,2,1,100,100,115
+P104,Cleaning,House Cleaning,General House Cleaning,18,10,4,120,120,120
+P104,Cleaning,House Cleaning,Clean Single Room,18,10,4,45,45,50
+P104,Cleaning,House Cleaning,Dust and Surface Cleaning,18,14,4,45,45,40
+P104,Cleaning,House Cleaning,Full Home Cleaning,18,11,4,180,180,180
+P104,Cleaning,Kitchen Cleaning,Deep Clean Kitchen,18,5,4,90,90,105
+P104,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,18,9,4,25,25,40
+P105,Repairing,Painting & Renovation,Prepare Wall Surface,3,2,3,90,90,90
+P105,Repairing,Painting & Renovation,Repair Ceiling,3,2,3,105,105,120
+P105,Repairing,Painting & Renovation,Replace Damaged Tile,3,5,3,75,75,65
+P106,Repairing,Furniture Repair,Repair Sofa Frame,2,2,1,115,115,110
+P106,Repairing,Furniture Repair,Repair Bed Frame,2,2,1,105,105,105
+P106,Repairing,Furniture Repair,Repair Wooden Door,2,4,1,90,90,80
+P107,Gardening,Planting Services,Plant Flowers,7,5,1,70,70,70
+P107,Gardening,Planting Services,Plant Small Tree,7,3,1,50,50,50
+P107,Gardening,Planting Services,Plant Garden Plants,7,3,1,70,70,70
+P107,Gardening,Planting Services,Prepare Planting Area,7,4,1,105,105,110
+P108,Cleaning,House Cleaning,Mop and Clean Floors,14,10,2,65,65,80
+P108,Cleaning,House Cleaning,Dust and Surface Cleaning,14,12,2,55,55,70
+P108,Cleaning,House Cleaning,Full Home Cleaning,14,6,2,210,210,205
+P109,Repairing,Electrical Repair,Replace Ceiling Fan,6,2,1,70,70,70
+P109,Repairing,Electrical Repair,Replace Light Fitting,6,9,1,25,25,20
+P109,Repairing,Electrical Repair,Install Switch,6,8,1,35,35,40
+P109,Repairing,Electrical Repair,Replace Power Socket,6,8,1,30,30,30
+P109,Repairing,Electrical Repair,Repair Power Socket,6,5,1,45,45,40
+P109,Repairing,Electrical Repair,Repair Television,6,2,1,95,95,95
+P109,Repairing,Electrical Repair,Diagnose Refrigerator Fault,6,2,1,55,55,65
+P110,Cleaning,House Cleaning,Mop and Clean Floors,8,13,1,70,70,60
+P110,Cleaning,House Cleaning,Dust and Surface Cleaning,8,17,1,60,60,65
+P110,Cleaning,House Cleaning,Full Home Cleaning,8,9,1,230,230,235
+P110,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,8,4,1,80,80,90
+P110,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,8,10,1,35,35,45
+P111,Cleaning,House Cleaning,Deep Clean House,5,5,2,245,245,255
+P111,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,5,4,2,140,140,150
+P111,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,5,7,2,55,55,70
+P112,Gardening,Landscaping & Design,Set Up New Garden,2,1,4,285,285,285
+P112,Gardening,Landscaping & Design,Basic Landscaping,2,2,4,285,285,285
+P112,Gardening,Planting Services,Plant Vegetables,2,4,4,95,95,90
+P112,Gardening,Planting Services,Prepare Planting Area,2,8,4,75,75,75
+P113,Repairing,Electrical Repair,Install New Wiring,9,2,3,140,140,140
+P113,Repairing,Electrical Repair,Diagnose Television Fault,9,4,3,30,30,40
+P113,Repairing,Electrical Repair,Repair Television,9,2,3,85,85,95
+P113,Repairing,Electrical Repair,Diagnose Refrigerator Fault,9,3,3,55,55,55
+P114,Gardening,Planting Services,Plant Flowers,6,5,1,70,70,60
+P114,Gardening,Planting Services,Plant Vegetables,6,5,1,90,90,105
+P114,Gardening,Planting Services,Plant Small Tree,6,6,1,50,50,45
+P114,Gardening,Planting Services,Prepare Planting Area,6,4,1,105,105,110
+P115,Gardening,Garden Cleaning,Clear Overgrown Garden,7,3,1,300,300,305
+P115,Gardening,Garden Maintenance,Water Plants,7,14,1,40,40,35
+P115,Gardening,Garden Maintenance,Trim Shrubs,7,11,1,80,80,80
+P115,Gardening,Garden Maintenance,Cut Grass,7,10,1,110,110,110
+P115,Gardening,Garden Maintenance,Mow Lawn,7,7,1,85,85,85
+P115,Gardening,Garden Maintenance,Trim Tree Branches,7,6,1,120,120,120
+P115,Gardening,Garden Maintenance,General Garden Maintenance,7,9,1,145,145,140
+P115,Gardening,Garden Maintenance,Prune Plants,7,7,1,75,75,85
+P116,Care Support,Elderly Care,Medication Assistance,25,12,2,20,20,15
+P117,Cleaning,House Cleaning,General House Cleaning,5,6,2,140,140,155
+P117,Cleaning,House Cleaning,Mop and Clean Floors,5,13,2,65,65,65
+P117,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,5,4,2,110,110,115
+P118,Care Support,Personal Assistance,Daily Household Assistance,8,11,2,150,150,140
+P118,Care Support,Personal Assistance,Errand Assistance,8,13,2,90,90,80
+P119,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,7,3,2,230,230,245
+P119,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,7,3,2,340,340,350
+P119,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,7,2,2,380,380,385
+P119,Cleaning,Post-Construction Cleaning,Remove Construction Dust,7,2,2,195,195,195
+P119,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,7,2,2,210,210,205
+P119,Cleaning,Post-Construction Cleaning,Clean Newly Built Property,7,1,2,380,380,385
+P120,Cleaning,House Cleaning,General House Cleaning,5,7,1,165,165,155
+P120,Cleaning,House Cleaning,Mop and Clean Floors,5,8,1,70,70,70
+P120,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,5,6,1,90,90,90
+P121,Gardening,Garden Cleaning,General Garden Cleaning,11,3,1,105,105,115
+P121,Gardening,Planting Services,Plant Flowers,11,10,1,65,65,70
+P121,Gardening,Planting Services,Plant Vegetables,11,4,1,85,85,75
+P121,Gardening,Planting Services,Plant Small Tree,11,3,1,50,50,60
+P122,Cleaning,Kitchen Cleaning,Clean Kitchen Cabinets,6,5,3,80,80,90
+P122,Cleaning,Kitchen Cleaning,Degrease Cooking Area,6,6,3,60,60,65
+P122,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,6,5,3,30,30,35
+P123,Repairing,Plumbing Repair,Install Water Pipe,3,2,1,125,125,125
+P123,Repairing,Plumbing Repair,Replace Water Pipe,3,2,1,120,120,115
+P123,Repairing,Plumbing Repair,Repair Leaking Pipe,3,6,1,55,55,55
+P123,Repairing,Plumbing Repair,Replace Tap,3,5,1,25,25,30
+P123,Repairing,Plumbing Repair,Repair Tap,3,6,1,30,30,20
+P123,Repairing,Plumbing Repair,Repair Bathroom Pipe,3,5,1,70,70,85
+P124,Gardening,Planting Services,Plant Flowers,4,2,1,70,70,70
+P124,Gardening,Planting Services,Plant Vegetables,4,4,1,95,95,105
+P124,Gardening,Planting Services,Plant Small Tree,4,2,1,45,45,60
+P124,Gardening,Planting Services,Plant Large Tree,4,2,1,115,115,105
+P124,Gardening,Planting Services,Plant Garden Plants,4,5,1,75,75,65
+P124,Gardening,Planting Services,Prepare Planting Area,4,4,1,105,105,115
+P125,Gardening,Garden Cleaning,Remove Garden Waste,13,3,1,95,95,95
+P125,Gardening,Garden Maintenance,Mow Lawn,13,8,1,75,75,85
+P125,Gardening,Garden Maintenance,Trim Tree Branches,13,5,1,125,125,125
+P127,Repairing,Plumbing Repair,Repair Leaking Pipe,21,5,1,55,55,65
+P127,Repairing,Plumbing Repair,Repair Water Leak,21,4,1,50,50,50
+P127,Repairing,Plumbing Repair,Install Tap,21,6,1,30,30,40
+P127,Repairing,Plumbing Repair,Repair Tap,21,9,1,25,25,15
+P127,Repairing,Plumbing Repair,Install Water Tank,21,3,1,160,160,165
+P127,Repairing,Plumbing Repair,Clear Blocked Drain,21,9,1,65,65,80
+P127,Repairing,Plumbing Repair,Replace Toilet Pipe,21,2,1,60,60,70
+P127,Repairing,Plumbing Repair,Repair Bathroom Pipe,21,4,1,60,60,70
+P128,Cleaning,House Cleaning,General House Cleaning,4,9,1,165,165,160
+P128,Cleaning,House Cleaning,Deep Clean House,4,2,1,260,260,260
+P128,Cleaning,House Cleaning,Clean Single Room,4,16,1,55,55,45
+P128,Cleaning,House Cleaning,Mop and Clean Floors,4,15,1,70,70,80
+P128,Cleaning,House Cleaning,Dust and Surface Cleaning,4,10,1,55,55,70
+P128,Cleaning,House Cleaning,Full Home Cleaning,4,4,1,240,240,245
+P129,Repairing,Painting & Renovation,Paint Interior Wall,13,2,3,130,130,145
+P129,Repairing,Painting & Renovation,Paint Room,13,4,3,210,210,215
+P129,Repairing,Painting & Renovation,Paint Ceiling,13,2,3,125,125,140
+P129,Repairing,Painting & Renovation,Paint Whole House,13,2,3,485,485,485
+P129,Repairing,Painting & Renovation,Repair Wall Crack,13,7,3,70,70,65
+P130,Repairing,Furniture Repair,Repair Dining Table,6,4,2,85,85,100
+P130,Repairing,Furniture Repair,Repair Window Frame,6,2,2,85,85,85
+P130,Repairing,Furniture Repair,Replace Furniture Hardware,6,6,2,25,25,25
+P130,Repairing,Furniture Repair,Assemble Furniture,6,5,2,75,75,75
+P130,Repairing,Painting & Renovation,Paint Ceiling,6,2,2,115,115,120
+P130,Repairing,Painting & Renovation,Replace Damaged Tile,6,4,2,85,85,85
+P131,Gardening,Garden Maintenance,Water Plants,19,23,1,40,40,35
+P131,Gardening,Garden Maintenance,Trim Shrubs,19,11,1,85,85,95
+P131,Gardening,Garden Maintenance,Cut Grass,19,8,1,95,95,105
+P131,Gardening,Garden Maintenance,Remove Weeds,19,10,1,85,85,85
+P131,Gardening,Garden Maintenance,General Garden Maintenance,19,7,1,160,160,165
+P132,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,7,3,1,200,200,195
+P132,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,7,5,1,295,295,285
+P132,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,7,1,1,405,405,405
+P133,Gardening,Garden Maintenance,Water Plants,3,12,1,45,45,45
+P133,Gardening,Garden Maintenance,Mow Lawn,3,5,1,85,85,85
+P133,Gardening,Garden Maintenance,Trim Tree Branches,3,2,1,105,105,110
+P133,Gardening,Garden Maintenance,General Garden Maintenance,3,5,1,170,170,160
+P133,Gardening,Garden Maintenance,Prune Plants,3,5,1,70,70,85
+P134,Gardening,Planting Services,Plant Flowers,11,3,2,55,55,45
+P134,Gardening,Planting Services,Plant Vegetables,11,4,2,90,90,90
+P134,Gardening,Planting Services,Plant Garden Plants,11,5,2,70,70,80
+P134,Gardening,Planting Services,Prepare Planting Area,11,7,2,100,100,110
+P135,Cleaning,House Cleaning,Clean Single Room,8,16,4,50,50,65
+P135,Cleaning,House Cleaning,Mop and Clean Floors,8,14,4,60,60,70
+P135,Cleaning,House Cleaning,Full Home Cleaning,8,6,4,170,170,175
+P136,Cleaning,House Cleaning,Deep Clean House,9,5,1,240,240,250
+P136,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,9,4,1,70,70,80
+P136,Cleaning,Kitchen Cleaning,Degrease Cooking Area,9,7,1,65,65,55
+P137,Repairing,Furniture Repair,Repair Dining Table,22,5,1,85,85,100
+P137,Repairing,Furniture Repair,Repair Sofa Frame,22,4,1,115,115,130
+P137,Repairing,Furniture Repair,Repair Cupboard,22,6,1,95,95,110
+P137,Repairing,Furniture Repair,Repair Cabinet,22,4,1,80,80,85
+P137,Repairing,Furniture Repair,Repair Wooden Door,22,6,1,95,95,90
+P137,Repairing,Furniture Repair,Repair Window Frame,22,3,1,100,100,90
+P137,Repairing,Furniture Repair,Replace Furniture Hardware,22,9,1,25,25,20
+P137,Repairing,Furniture Repair,Assemble Furniture,22,7,1,80,80,80
+P138,Cleaning,Bathroom Cleaning,Clean Toilet,4,8,2,25,25,15
+P138,Cleaning,Bathroom Cleaning,Clean Washroom,4,7,2,40,40,40
+P138,Cleaning,House Cleaning,Mop and Clean Floors,4,14,2,65,65,60
+P138,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,4,9,2,65,65,65
+P139,Repairing,Plumbing Repair,Repair Leaking Pipe,12,9,2,60,60,60
+P139,Repairing,Plumbing Repair,Repair Water Leak,12,8,2,70,70,70
+P139,Repairing,Plumbing Repair,Repair Tap,12,8,2,30,30,30
+P139,Repairing,Plumbing Repair,Install Water Tank,12,2,2,160,160,160
+P139,Repairing,Plumbing Repair,Clean Water Tank,12,2,2,145,145,135
+P139,Repairing,Plumbing Repair,Clear Blocked Drain,12,10,2,65,65,75
+P139,Repairing,Plumbing Repair,Install Sink Plumbing,12,3,2,80,80,70
+P140,Cleaning,Bathroom Cleaning,General Bathroom Cleaning,10,7,1,55,55,60
+P140,Cleaning,Bathroom Cleaning,Clean Toilet,10,6,1,25,25,35
+P140,Cleaning,House Cleaning,General House Cleaning,10,13,1,150,150,150
+P140,Cleaning,Kitchen Cleaning,Degrease Cooking Area,10,4,1,75,75,80
+P141,Repairing,Plumbing Repair,Repair Leaking Pipe,3,3,1,70,70,85
+P141,Repairing,Plumbing Repair,Replace Tap,3,5,1,35,35,35
+P141,Repairing,Plumbing Repair,Repair Tap,3,6,1,35,35,25
+P141,Repairing,Plumbing Repair,Clear Blocked Drain,3,8,1,65,65,75
+P141,Repairing,Plumbing Repair,Repair Sink Plumbing,3,4,1,60,60,60
+P141,Repairing,Plumbing Repair,Install Sink Plumbing,3,2,1,100,100,90
+P142,Gardening,Garden Maintenance,Water Plants,11,15,1,40,40,45
+P142,Gardening,Garden Maintenance,Mow Lawn,11,15,1,80,80,95
+P142,Gardening,Garden Maintenance,General Garden Maintenance,11,8,1,150,150,150
+P143,Gardening,Garden Maintenance,Water Plants,6,15,2,40,40,50
+P143,Gardening,Garden Maintenance,Trim Tree Branches,6,2,2,115,115,120
+P143,Gardening,Garden Maintenance,General Garden Maintenance,6,8,2,160,160,165
+P143,Gardening,Garden Maintenance,Prune Plants,6,4,2,70,70,80
+P143,Gardening,Landscaping & Design,Design Small Garden,6,2,2,235,235,230
+P143,Gardening,Planting Services,Plant Flowers,6,3,2,65,65,75
+P144,Gardening,Garden Maintenance,Water Plants,6,8,2,40,40,55
+P144,Gardening,Garden Maintenance,Trim Shrubs,6,7,2,80,80,75
+P144,Gardening,Garden Maintenance,Cut Grass,6,6,2,95,95,95
+P144,Gardening,Garden Maintenance,Mow Lawn,6,9,2,80,80,75
+P144,Gardening,Garden Maintenance,General Garden Maintenance,6,4,2,170,170,180
+P144,Gardening,Garden Maintenance,Prune Plants,6,7,2,65,65,80
+P144,Gardening,Landscaping & Design,Set Up New Garden,6,3,2,315,315,305
+P144,Gardening,Landscaping & Design,Landscape Existing Garden,6,2,2,420,420,435
+P145,Cleaning,House Cleaning,Dust and Surface Cleaning,11,12,2,55,55,50
+P145,Cleaning,House Cleaning,Full Home Cleaning,11,8,2,210,210,210
+P145,Cleaning,Office Cleaning,Clean Retail Shop,11,8,2,130,130,125
+P145,Cleaning,Office Cleaning,Clean Office Floors,11,11,2,80,80,70
+P145,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,11,3,2,320,320,315
+P147,Care Support,Elderly Care,Medication Assistance,9,17,4,20,20,20
+P149,Care Support,Elderly Care,Medication Assistance,8,18,1,25,25,20
+P150,Repairing,Painting & Renovation,Paint Ceiling,5,2,3,105,105,105
+P150,Repairing,Painting & Renovation,Paint Whole House,5,2,3,435,435,430
+P150,Repairing,Painting & Renovation,Repair Wall Crack,5,4,3,75,75,75
+P150,Repairing,Painting & Renovation,Replace Damaged Tile,5,2,3,75,75,75
+P150,Repairing,Painting & Renovation,Minor Renovation Work,5,1,3,240,240,245
+P150,Repairing,Roofing Repair,Inspect Roof Damage,5,4,3,60,60,70
+P150,Repairing,Roofing Repair,Replace Roof Tile,5,3,3,135,135,130
+P150,Repairing,Roofing Repair,Repair Roof Structure,5,2,3,290,290,290
+P151,Cleaning,House Cleaning,Full Home Cleaning,8,4,2,200,200,200
+P151,Cleaning,Office Cleaning,Clean Retail Shop,8,3,2,130,130,140
+P151,Cleaning,Office Cleaning,Deep Clean Office,8,2,2,315,315,305
+P151,Cleaning,Office Cleaning,Clean Office Floors,8,6,2,85,85,95
+P152,Repairing,Roofing Repair,Replace Roof Sheet,12,3,2,150,150,160
+P152,Repairing,Roofing Repair,Replace Roof Tile,12,3,2,150,150,145
+P152,Repairing,Roofing Repair,Seal Roof Leakage,12,2,2,85,85,75
+P152,Repairing,Roofing Repair,Repair Roof Structure,12,2,2,285,285,275
+P152,Repairing,Roofing Repair,Minor Roof Maintenance,12,2,2,95,95,100
+P153,Gardening,Garden Maintenance,Trim Shrubs,10,7,2,75,75,90
+P153,Gardening,Garden Maintenance,Cut Grass,10,12,2,90,90,100
+P153,Gardening,Garden Maintenance,Mow Lawn,10,12,2,80,80,80
+P153,Gardening,Garden Maintenance,Remove Weeds,10,7,2,80,80,80
+P153,Gardening,Landscaping & Design,Design Small Garden,10,1,2,230,230,225
+P153,Gardening,Landscaping & Design,Basic Landscaping,10,2,2,255,255,260
+P154,Cleaning,Move In/Out Cleaning,Move-In Cleaning,9,5,4,190,190,205
+P154,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,9,7,4,180,180,180
+P154,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,9,1,4,275,275,270
+P155,Repairing,Electrical Repair,Install Ceiling Fan,24,4,2,70,70,65
+P155,Repairing,Electrical Repair,Repair Electrical Wiring,24,3,2,95,95,85
+P155,Repairing,Electrical Repair,Replace Distribution Board Component,24,1,2,65,65,60
+P155,Repairing,Electrical Repair,Repair Television,24,2,2,85,85,90
+P155,Repairing,Electrical Repair,Repair Refrigerator,24,3,2,90,90,100
+P155,Repairing,Electrical Repair,Repair Microwave Oven,24,4,2,50,50,50
+P156,Gardening,Garden Maintenance,Trim Shrubs,7,3,1,80,80,75
+P156,Gardening,Garden Maintenance,Remove Weeds,7,7,1,80,80,85
+P156,Gardening,Garden Maintenance,Trim Tree Branches,7,3,1,135,135,125
+P156,Gardening,Garden Maintenance,General Garden Maintenance,7,8,1,160,160,160
+P156,Gardening,Garden Maintenance,Prune Plants,7,11,1,60,60,60
+P157,Care Support,Personal Assistance,Daily Household Assistance,13,8,1,155,155,160
+P157,Care Support,Personal Assistance,Errand Assistance,13,8,1,100,100,95
+P158,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,15,6,1,70,70,65
+P158,Cleaning,Move In/Out Cleaning,Move-In Cleaning,15,4,1,230,230,225
+P158,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,15,2,1,305,305,315
+P159,Repairing,Plumbing Repair,Replace Water Pipe,2,2,1,135,135,125
+P159,Repairing,Plumbing Repair,Repair Tap,2,8,1,30,30,35
+P159,Repairing,Plumbing Repair,Repair Toilet Plumbing,2,4,1,65,65,65
+P160,Cleaning,House Cleaning,General House Cleaning,5,5,1,150,150,155
+P160,Cleaning,House Cleaning,Mop and Clean Floors,5,10,1,60,60,60
+P160,Cleaning,House Cleaning,Dust and Surface Cleaning,5,7,1,50,50,50
+P160,Cleaning,Office Cleaning,Clean Medium Office,5,3,1,190,190,190
+P160,Cleaning,Office Cleaning,Clean Retail Shop,5,5,1,145,145,155
+P160,Cleaning,Office Cleaning,Clean Office Floors,5,5,1,90,90,105
+P161,Repairing,Roofing Repair,Inspect Roof Damage,7,4,2,60,60,70
+P161,Repairing,Roofing Repair,Replace Roof Sheet,7,3,2,115,115,105
+P161,Repairing,Roofing Repair,Replace Roof Tile,7,2,2,145,145,145
+P161,Repairing,Roofing Repair,Minor Roof Maintenance,7,3,2,95,95,95
+P162,Gardening,Landscaping & Design,Design Small Garden,10,1,4,220,220,220
+P162,Gardening,Landscaping & Design,Design Medium Garden,10,2,4,280,280,270
+P162,Gardening,Landscaping & Design,Set Up New Garden,10,3,4,265,265,265
+P162,Gardening,Landscaping & Design,Basic Landscaping,10,4,4,275,275,275
+P162,Gardening,Landscaping & Design,Landscape Existing Garden,10,3,4,360,360,350
+P163,Cleaning,House Cleaning,General House Cleaning,7,14,2,120,120,115
+P163,Cleaning,House Cleaning,Clean Single Room,7,10,2,50,50,40
+P163,Cleaning,House Cleaning,Dust and Surface Cleaning,7,19,2,55,55,45
+P163,Cleaning,House Cleaning,Full Home Cleaning,7,5,2,200,200,190
+P163,Cleaning,Post-Construction Cleaning,Remove Construction Dust,7,2,2,155,155,155
+P164,Care Support,Personal Assistance,Daily Household Assistance,10,6,1,165,165,165
+P164,Care Support,Personal Assistance,Errand Assistance,10,6,1,95,95,100
+P165,Gardening,Garden Maintenance,Trim Shrubs,3,6,4,70,70,80
+P165,Gardening,Garden Maintenance,Cut Grass,3,6,4,90,90,85
+P165,Gardening,Garden Maintenance,Prune Plants,3,9,4,50,50,50
+P165,Gardening,Landscaping & Design,Basic Landscaping,3,1,4,255,255,255
+P165,Gardening,Planting Services,Plant Flowers,3,7,4,55,55,55
+P165,Gardening,Planting Services,Plant Vegetables,3,5,4,75,75,80
+P165,Gardening,Planting Services,Plant Garden Plants,3,2,4,70,70,65
+P166,Repairing,Plumbing Repair,Replace Water Pipe,3,3,3,105,105,120
+P166,Repairing,Plumbing Repair,Repair Leaking Pipe,3,5,3,50,50,65
+P166,Repairing,Plumbing Repair,Install Tap,3,4,3,35,35,45
+P166,Repairing,Plumbing Repair,Install Sink Plumbing,3,2,3,75,75,90
+P166,Repairing,Plumbing Repair,Repair Toilet Plumbing,3,7,3,70,70,60
+P166,Repairing,Plumbing Repair,Replace Toilet Pipe,3,1,3,80,80,90
+P166,Repairing,Plumbing Repair,Install Bathroom Pipe,3,3,3,120,120,110
+P167,Care Support,Pet Care,Feed Pet,9,17,1,25,25,15
+P167,Care Support,Pet Care,Pet Grooming,9,6,1,80,80,75
+P167,Care Support,Pet Care,Bathe Pet,9,9,1,40,40,45
+P168,Cleaning,Bathroom Cleaning,Clean Washroom,6,6,3,45,45,60
+P168,Cleaning,House Cleaning,Clean Single Room,6,13,3,50,50,65
+P168,Cleaning,House Cleaning,Mop and Clean Floors,6,17,3,55,55,60
+P168,Cleaning,Kitchen Cleaning,Clean Kitchen Cabinets,6,2,3,75,75,70
+P169,Gardening,Landscaping & Design,Design Medium Garden,2,2,3,300,300,315
+P169,Gardening,Landscaping & Design,Set Up New Garden,2,3,3,280,280,295
+P169,Gardening,Landscaping & Design,Basic Landscaping,2,2,3,265,265,265
+P169,Gardening,Planting Services,Plant Vegetables,2,6,3,100,100,100
+P169,Gardening,Planting Services,Prepare Planting Area,2,4,3,80,80,75
+P170,Gardening,Garden Maintenance,Water Plants,14,15,2,35,35,35
+P170,Gardening,Garden Maintenance,Trim Shrubs,14,9,2,65,65,60
+P170,Gardening,Garden Maintenance,Remove Weeds,14,9,2,90,90,85
+P170,Gardening,Garden Maintenance,Trim Tree Branches,14,5,2,110,110,120
+P170,Gardening,Garden Maintenance,General Garden Maintenance,14,4,2,130,130,130
+P170,Gardening,Garden Maintenance,Prune Plants,14,12,2,60,60,65
+P171,Gardening,Garden Maintenance,Water Plants,17,10,1,40,40,40
+P171,Gardening,Garden Maintenance,Trim Shrubs,17,8,1,75,75,75
+P171,Gardening,Garden Maintenance,Mow Lawn,17,15,1,80,80,95
+P171,Gardening,Garden Maintenance,Remove Weeds,17,7,1,95,95,110
+P171,Gardening,Garden Maintenance,General Garden Maintenance,17,7,1,150,150,150
+P172,Repairing,Electrical Repair,Repair Ceiling Fan,10,3,1,55,55,65
+P172,Repairing,Electrical Repair,Repair Light Circuit,10,3,1,60,60,65
+P172,Repairing,Electrical Repair,Repair Switch,10,5,1,30,30,20
+P172,Repairing,Electrical Repair,Repair Power Socket,10,4,1,35,35,30
+P172,Repairing,Electrical Repair,Replace Damaged Wiring,10,3,1,125,125,135
+P172,Repairing,Electrical Repair,Repair Distribution Board,10,3,1,110,110,125
+P172,Repairing,Electrical Repair,Repair Refrigerator,10,2,1,105,105,100
+P172,Repairing,Electrical Repair,Repair Rice Cooker,10,3,1,45,45,55
+P173,Cleaning,Bathroom Cleaning,General Bathroom Cleaning,8,6,2,50,50,65
+P173,Cleaning,Bathroom Cleaning,Deep Clean Bathroom,8,3,2,80,80,85
+P173,Cleaning,Bathroom Cleaning,Clean Toilet,8,7,2,25,25,25
+P173,Cleaning,Bathroom Cleaning,Clean Washroom,8,6,2,40,40,55
+P174,Cleaning,Office Cleaning,Deep Clean Office,7,1,1,325,325,325
+P174,Cleaning,Office Cleaning,Clean Office Floors,7,7,1,100,100,110
+P174,Cleaning,Post-Construction Cleaning,Remove Construction Dust,7,2,1,185,185,190
+P175,Cleaning,Bathroom Cleaning,Deep Clean Bathroom,5,2,1,80,80,85
+P175,Cleaning,Bathroom Cleaning,Clean Washroom,5,12,1,40,40,30
+P175,Cleaning,Kitchen Cleaning,Deep Clean Kitchen,5,3,1,145,145,160
+P175,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,5,9,1,30,30,25
+P176,Care Support,Personal Assistance,Daily Household Assistance,24,9,1,130,130,140
+P176,Care Support,Personal Assistance,Errand Assistance,24,13,1,75,75,75
+P176,Care Support,Pet Care,Pet Grooming,24,8,1,70,70,65
+P177,Care Support,Pet Care,Pet Grooming,2,4,1,90,90,80
+P177,Care Support,Pet Care,Pet Cleaning,2,5,1,65,65,75
+P178,Cleaning,House Cleaning,Deep Clean House,4,3,3,230,230,245
+P178,Cleaning,Office Cleaning,Deep Clean Office,4,3,3,300,300,290
+P178,Cleaning,Office Cleaning,Clean Office Floors,4,12,3,85,85,85
+P179,Repairing,Furniture Repair,Repair Wooden Chair,4,5,2,50,50,45
+P179,Repairing,Furniture Repair,Repair Cupboard,4,3,2,85,85,90
+P179,Repairing,Painting & Renovation,Paint Exterior Wall,4,2,2,245,245,245
+P179,Repairing,Painting & Renovation,Repair Wall Crack,4,6,2,65,65,75
+P179,Repairing,Painting & Renovation,Repair Ceiling,4,3,2,120,120,120
+P179,Repairing,Roofing Repair,Repair Roof Leak,4,1,2,135,135,140
+P180,Repairing,Electrical Repair,Install Switch,9,10,1,25,25,15
+P180,Repairing,Electrical Repair,Replace Switch,9,6,1,25,25,25
+P180,Repairing,Electrical Repair,Repair Power Socket,9,10,1,40,40,40
+P181,Cleaning,House Cleaning,Clean Single Room,6,16,1,50,50,65
+P181,Cleaning,House Cleaning,Mop and Clean Floors,6,10,1,65,65,70
+P181,Cleaning,House Cleaning,Dust and Surface Cleaning,6,20,1,50,50,55
+P181,Cleaning,House Cleaning,Full Home Cleaning,6,6,1,180,180,175
+P181,Cleaning,Kitchen Cleaning,Degrease Cooking Area,6,2,1,65,65,60
+P181,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,6,5,1,30,30,25
+P182,Gardening,Garden Cleaning,General Garden Cleaning,4,2,1,125,125,115
+P182,Gardening,Garden Cleaning,Clear Overgrown Garden,4,2,1,225,225,225
+P182,Gardening,Garden Maintenance,Water Plants,4,13,1,40,40,45
+P182,Gardening,Garden Maintenance,Remove Weeds,4,7,1,85,85,95
+P182,Gardening,Garden Maintenance,Trim Tree Branches,4,3,1,120,120,110
+P182,Gardening,Garden Maintenance,General Garden Maintenance,4,4,1,140,140,140
+P182,Gardening,Garden Maintenance,Prune Plants,4,6,1,60,60,50
+P184,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,4,6,2,80,80,80
+P184,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,4,3,2,100,100,105
+P184,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,4,5,2,75,75,90
+P184,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,4,2,2,120,120,110
+P184,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,4,4,2,50,50,60
+P185,Repairing,Furniture Repair,Repair Bed Frame,6,2,1,95,95,90
+P185,Repairing,Furniture Repair,Repair Cupboard,6,5,1,100,100,90
+P185,Repairing,Furniture Repair,Repair Cabinet,6,5,1,95,95,95
+P185,Repairing,Furniture Repair,Replace Door Hinges,6,8,1,30,30,35
+P185,Repairing,Painting & Renovation,Paint Interior Wall,6,2,1,125,125,125
+P187,Repairing,Furniture Repair,Repair Cupboard,11,4,1,90,90,95
+P187,Repairing,Furniture Repair,Replace Door Hinges,11,6,1,30,30,30
+P187,Repairing,Painting & Renovation,Paint Interior Wall,11,3,1,140,140,140
+P188,Repairing,Electrical Repair,Repair Power Socket,10,3,2,40,40,40
+P188,Repairing,Electrical Repair,Diagnose Television Fault,10,2,2,40,40,35
+P188,Repairing,Electrical Repair,Diagnose Refrigerator Fault,10,3,2,45,45,55
+P188,Repairing,Electrical Repair,Repair Washing Machine,10,2,2,95,95,95
+P188,Repairing,Electrical Repair,Repair Rice Cooker,10,2,2,40,40,40
+P188,Repairing,Electrical Repair,Service Air Conditioner,10,7,2,60,60,65
+P189,Gardening,Garden Cleaning,Remove Garden Waste,8,5,1,100,100,95
+P189,Gardening,Garden Cleaning,Clear Overgrown Garden,8,2,1,250,250,260
+P189,Gardening,Garden Maintenance,Water Plants,8,10,1,40,40,40
+P189,Gardening,Garden Maintenance,Cut Grass,8,6,1,95,95,95
+P189,Gardening,Garden Maintenance,Remove Weeds,8,6,1,85,85,85
+P189,Gardening,Garden Maintenance,Prune Plants,8,5,1,70,70,75
+P189,Gardening,Planting Services,Plant Small Tree,8,4,1,45,45,55
+P189,Gardening,Planting Services,Plant Garden Plants,8,10,1,75,75,75
+P190,Care Support,Pet Care,Feed Pet,16,22,1,25,25,25
+P190,Care Support,Pet Care,Bathe Pet,16,6,1,50,50,40
+P190,Care Support,Pet Care,Pet Cleaning,16,3,1,55,55,55
+P191,Repairing,Plumbing Repair,Install Water Pipe,12,3,2,120,120,110
+P191,Repairing,Plumbing Repair,Replace Water Pipe,12,1,2,130,130,125
+P191,Repairing,Plumbing Repair,Repair Water Leak,12,6,2,70,70,85
+P191,Repairing,Plumbing Repair,Install Tap,12,6,2,35,35,45
+P191,Repairing,Plumbing Repair,Replace Tap,12,8,2,30,30,45
+P191,Repairing,Plumbing Repair,Repair Tap,12,9,2,30,30,30
+P192,Cleaning,Bathroom Cleaning,Clean Toilet,12,5,2,25,25,20
+P192,Cleaning,Bathroom Cleaning,Clean Washroom,12,6,2,45,45,45
+P192,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,12,5,2,75,75,70
+P192,Cleaning,Kitchen Cleaning,Clean Kitchen Cabinets,12,4,2,80,80,85
+P192,Cleaning,Kitchen Cleaning,Degrease Cooking Area,12,6,2,65,65,80
+P192,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,12,7,2,30,30,30
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,12,7,2,80,80,95
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,12,7,2,105,105,105
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,12,7,2,65,65,65
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Carpet,12,4,2,125,125,125
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,12,5,2,65,65,80
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,12,6,2,50,50,40
+P195,Repairing,Electrical Repair,Install Light Fitting,6,5,2,40,40,55
+P195,Repairing,Electrical Repair,Repair Switch,6,6,2,30,30,30
+P195,Repairing,Electrical Repair,Replace Power Socket,6,9,2,30,30,35
+P195,Repairing,Electrical Repair,Repair Electrical Wiring,6,2,2,110,110,120
+P195,Repairing,Electrical Repair,Install New Wiring,6,3,2,180,180,180
+P195,Repairing,Electrical Repair,Repair Air Conditioner,6,5,2,95,95,90
+P196,Gardening,Garden Maintenance,Water Plants,16,25,2,35,35,35
+P196,Gardening,Garden Maintenance,Cut Grass,16,6,2,95,95,95
+P196,Gardening,Landscaping & Design,Design Medium Garden,16,3,2,275,275,265
+P196,Gardening,Landscaping & Design,Basic Landscaping,16,2,2,250,250,260
+P196,Gardening,Landscaping & Design,Landscape Existing Garden,16,3,2,410,410,420
+P197,Repairing,Plumbing Repair,Install Water Pipe,5,4,1,125,125,125
+P197,Repairing,Plumbing Repair,Replace Water Pipe,5,2,1,125,125,120
+P197,Repairing,Plumbing Repair,Replace Tap,5,4,1,30,30,45
+P197,Repairing,Plumbing Repair,Repair Tap,5,8,1,35,35,35
+P197,Repairing,Plumbing Repair,Install Water Tank,5,2,1,205,205,205
+P197,Repairing,Plumbing Repair,Repair Sink Plumbing,5,4,1,70,70,70
+P197,Repairing,Plumbing Repair,Install Bathroom Pipe,5,2,1,155,155,155
+P198,Repairing,Furniture Repair,Repair Dining Table,2,6,1,90,90,90
+P198,Repairing,Furniture Repair,Repair Bed Frame,2,2,1,115,115,125
+P198,Repairing,Furniture Repair,Repair Cupboard,2,3,1,100,100,100
+P198,Repairing,Furniture Repair,Repair Cabinet,2,3,1,75,75,90
+P198,Repairing,Furniture Repair,Repair Wooden Door,2,3,1,90,90,85
+P199,Repairing,Painting & Renovation,Minor Renovation Work,3,2,3,280,280,275
+P199,Repairing,Roofing Repair,Inspect Roof Damage,3,3,3,60,60,60
+P199,Repairing,Roofing Repair,Seal Roof Leakage,3,2,3,100,100,100
+P200,Repairing,Roofing Repair,Replace Roof Sheet,5,2,3,140,140,130
+P200,Repairing,Roofing Repair,Seal Roof Leakage,5,2,3,100,100,105
+P200,Repairing,Roofing Repair,Minor Roof Maintenance,5,2,3,90,90,90
+P201,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,3,2,1,95,95,110
+P201,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,3,2,1,125,125,125
+P201,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,3,4,1,70,70,70
+P201,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,3,4,1,55,55,55
+P201,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Mattress,3,5,1,95,95,105
+P202,Gardening,Garden Maintenance,Water Plants,10,15,2,35,35,35
+P202,Gardening,Garden Maintenance,Cut Grass,10,7,2,100,100,105
+P202,Gardening,Garden Maintenance,Mow Lawn,10,7,2,70,70,70
+P202,Gardening,Garden Maintenance,Remove Weeds,10,4,2,70,70,80
+P202,Gardening,Garden Maintenance,Prune Plants,10,9,2,70,70,60
+P203,Cleaning,House Cleaning,Mop and Clean Floors,1,7,5,55,55,55
+P203,Cleaning,House Cleaning,Full Home Cleaning,1,6,5,205,205,195
+P203,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,1,5,5,65,65,65
+P203,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,1,4,5,100,100,115
+P203,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Mattress,1,4,5,85,85,90
+P204,Repairing,Furniture Repair,Repair Bed Frame,10,4,1,100,100,90
+P204,Repairing,Furniture Repair,Repair Cupboard,10,4,1,105,105,105
+P204,Repairing,Furniture Repair,Repair Cabinet,10,5,1,70,70,85
+P204,Repairing,Furniture Repair,Repair Wooden Door,10,4,1,90,90,90
+P204,Repairing,Furniture Repair,Replace Furniture Hardware,10,7,1,25,25,35
+P205,Cleaning,House Cleaning,General House Cleaning,13,11,2,125,125,115
+P205,Cleaning,House Cleaning,Deep Clean House,13,8,2,245,245,250
+P205,Cleaning,House Cleaning,Clean Single Room,13,7,2,55,55,65
+P205,Cleaning,House Cleaning,Mop and Clean Floors,13,12,2,60,60,60
+P205,Cleaning,House Cleaning,Dust and Surface Cleaning,13,12,2,50,50,55
+P205,Cleaning,House Cleaning,Full Home Cleaning,13,6,2,220,220,225
+P206,Care Support,Personal Assistance,Daily Household Assistance,8,6,1,175,175,190
+P206,Care Support,Personal Assistance,Errand Assistance,8,11,1,75,75,85
+P208,Repairing,Electrical Repair,Repair Ceiling Fan,19,9,3,45,45,35
+P208,Repairing,Electrical Repair,Install Light Fitting,19,12,3,30,30,45
+P208,Repairing,Electrical Repair,Install Switch,19,6,3,30,30,40
+P208,Repairing,Electrical Repair,Repair Refrigerator,19,4,3,95,95,100
+P209,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,9,4,3,80,80,80
+P209,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,9,5,3,100,100,90
+P209,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,9,5,3,75,75,70
+P209,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Carpet,9,4,3,120,120,115
+P209,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,9,3,3,65,65,80
+P209,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,9,4,3,95,95,95
+P209,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,9,2,3,45,45,35
+P209,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Mattress,9,4,3,90,90,90
+P210,Gardening,Garden Maintenance,Water Plants,4,14,1,40,40,30
+P210,Gardening,Garden Maintenance,Cut Grass,4,9,1,105,105,115
+P210,Gardening,Garden Maintenance,Mow Lawn,4,10,1,70,70,60
+P211,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,3,5,3,60,60,60
+P211,Cleaning,Kitchen Cleaning,Deep Clean Kitchen,3,6,3,130,130,140
+P211,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,3,6,3,30,30,40
+P212,Cleaning,House Cleaning,General House Cleaning,5,7,3,130,130,130
+P212,Cleaning,Move In/Out Cleaning,Move-In Cleaning,5,3,3,180,180,175
+P212,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,5,8,3,225,225,225
+P212,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,5,2,3,300,300,295
+P212,Cleaning,Post-Construction Cleaning,Remove Construction Dust,5,3,3,165,165,155
+P212,Cleaning,Post-Construction Cleaning,Clean Newly Built Property,5,2,3,355,355,360
+P213,Cleaning,Move In/Out Cleaning,Move-In Cleaning,11,3,1,210,210,200
+P213,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,11,2,1,240,240,240
+P213,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,11,2,1,385,385,395
+P213,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,11,1,1,355,355,365
+P213,Cleaning,Post-Construction Cleaning,Remove Construction Dust,11,2,1,170,170,180
+P213,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,11,3,1,200,200,195
+P213,Cleaning,Post-Construction Cleaning,Clean Newly Built Property,11,2,1,375,375,370
+P214,Gardening,Planting Services,Plant Flowers,12,4,4,50,50,40
+P214,Gardening,Planting Services,Plant Vegetables,12,9,4,75,75,80
+P214,Gardening,Planting Services,Plant Small Tree,12,5,4,35,35,35
+P214,Gardening,Planting Services,Plant Large Tree,12,4,4,85,85,75
+P214,Gardening,Planting Services,Plant Garden Plants,12,6,4,70,70,60
+P214,Gardening,Planting Services,Prepare Planting Area,12,3,4,80,80,75
+P215,Gardening,Garden Maintenance,Water Plants,9,15,5,35,35,30
+P215,Gardening,Garden Maintenance,Trim Shrubs,9,11,5,70,70,80
+P215,Gardening,Garden Maintenance,Mow Lawn,9,9,5,75,75,85
+P215,Gardening,Garden Maintenance,General Garden Maintenance,9,7,5,150,150,165
+P216,Cleaning,House Cleaning,Clean Single Room,1,17,2,50,50,50
+P216,Cleaning,House Cleaning,Mop and Clean Floors,1,8,2,70,70,80
+P216,Cleaning,House Cleaning,Dust and Surface Cleaning,1,10,2,60,60,70
+P216,Cleaning,House Cleaning,Full Home Cleaning,1,5,2,205,205,220
+P216,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,1,3,2,75,75,90
+P216,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,1,3,2,110,110,110
+P216,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,1,4,2,55,55,65
+P217,Care Support,Personal Assistance,Daily Household Assistance,14,10,1,180,180,175
+P217,Care Support,Personal Assistance,Errand Assistance,14,13,1,85,85,100
+P218,Cleaning,Bathroom Cleaning,Clean Washroom,16,10,1,40,40,45
+P218,Cleaning,House Cleaning,Clean Single Room,16,14,1,55,55,70
+P218,Cleaning,House Cleaning,Dust and Surface Cleaning,16,14,1,50,50,50
+P218,Cleaning,House Cleaning,Full Home Cleaning,16,11,1,190,190,200
+P219,Repairing,Painting & Renovation,Paint Exterior Wall,10,1,2,285,285,285
+P219,Repairing,Painting & Renovation,Paint Room,10,2,2,190,190,195
+P219,Repairing,Painting & Renovation,Paint Ceiling,10,2,2,140,140,140
+P219,Repairing,Painting & Renovation,Prepare Wall Surface,10,2,2,120,120,120
+P219,Repairing,Painting & Renovation,Repair Ceiling,10,2,2,140,140,140
+P219,Repairing,Painting & Renovation,Replace Damaged Tile,10,5,2,100,100,105
+P219,Repairing,Painting & Renovation,Minor Renovation Work,10,2,2,270,270,280
+P220,Care Support,Personal Assistance,Errand Assistance,6,9,1,80,80,95
+P220,Care Support,Pet Care,Pet Grooming,6,7,1,90,90,95
+P220,Care Support,Pet Care,Bathe Pet,6,7,1,55,55,60
+P220,Care Support,Pet Care,Pet Cleaning,6,7,1,55,55,60
+P221,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,10,7,4,50,50,60
+P221,Cleaning,Move In/Out Cleaning,Move-In Cleaning,10,4,4,175,175,175
+P221,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,10,6,4,185,185,175
+P221,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,10,3,4,230,230,220
+P221,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,10,3,4,150,150,145
+P222,Repairing,Furniture Repair,Repair Wooden Chair,14,8,1,45,45,40
+P222,Repairing,Furniture Repair,Repair Dining Table,14,4,1,75,75,70
+P222,Repairing,Furniture Repair,Repair Sofa Frame,14,3,1,100,100,100
+P222,Repairing,Furniture Repair,Repair Bed Frame,14,3,1,80,80,95
+P222,Repairing,Furniture Repair,Repair Wooden Door,14,4,1,80,80,80
+P222,Repairing,Furniture Repair,Replace Door Hinges,14,6,1,30,30,25
+P222,Repairing,Furniture Repair,Repair Window Frame,14,3,1,80,80,85
+P222,Repairing,Furniture Repair,Replace Furniture Hardware,14,9,1,25,25,25
+P223,Care Support,Pet Care,Feed Pet,12,18,1,25,25,20
+P223,Care Support,Pet Care,Pet Grooming,12,9,1,90,90,90
+P223,Care Support,Pet Care,Bathe Pet,12,3,1,55,55,55
+P224,Gardening,Garden Cleaning,General Garden Cleaning,15,7,2,110,110,110
+P224,Gardening,Garden Cleaning,Remove Garden Waste,15,6,2,100,100,110
+P224,Gardening,Garden Cleaning,Clear Overgrown Garden,15,4,2,220,220,235
+P225,Cleaning,Office Cleaning,Clean Small Office,10,13,1,110,110,115
+P225,Cleaning,Office Cleaning,Clean Medium Office,10,5,1,205,205,210
+P225,Cleaning,Office Cleaning,Clean Retail Shop,10,6,1,150,150,160
+P225,Cleaning,Office Cleaning,Deep Clean Office,10,2,1,360,360,360
+P225,Cleaning,Office Cleaning,Clean Office Floors,10,9,1,80,80,95
+P225,Cleaning,Post-Construction Cleaning,Remove Construction Dust,10,4,1,200,200,215
+P226,Gardening,Landscaping & Design,Design Small Garden,2,4,5,190,190,190
+P226,Gardening,Landscaping & Design,Design Medium Garden,2,2,5,300,300,315
+P226,Gardening,Landscaping & Design,Set Up New Garden,2,2,5,275,275,265
+P226,Gardening,Landscaping & Design,Basic Landscaping,2,2,5,235,235,225
+P226,Gardening,Landscaping & Design,Landscape Existing Garden,2,1,5,430,430,430
+P227,Repairing,Plumbing Repair,Install Water Pipe,13,5,2,130,130,130
+P227,Repairing,Plumbing Repair,Replace Tap,13,14,2,25,25,30
+P227,Repairing,Plumbing Repair,Repair Tap,13,5,2,30,30,30
+P227,Repairing,Plumbing Repair,Install Water Tank,13,2,2,160,160,165
+P227,Repairing,Plumbing Repair,Repair Water Tank Connection,13,1,2,60,60,55
+P227,Repairing,Plumbing Repair,Repair Sink Plumbing,13,3,2,50,50,60
+P227,Repairing,Plumbing Repair,Repair Bathroom Pipe,13,5,2,65,65,60
+P228,Gardening,Garden Maintenance,Water Plants,6,20,1,35,35,30
+P228,Gardening,Garden Maintenance,Trim Shrubs,6,5,1,70,70,80
+P228,Gardening,Garden Maintenance,Cut Grass,6,7,1,100,100,90
+P228,Gardening,Garden Maintenance,Mow Lawn,6,11,1,85,85,85
+P228,Gardening,Garden Maintenance,General Garden Maintenance,6,4,1,130,130,130
+P228,Gardening,Garden Maintenance,Prune Plants,6,5,1,70,70,60
+P229,Care Support,Personal Assistance,Errand Assistance,5,7,1,95,95,100
+P229,Care Support,Pet Care,Pet Cleaning,5,8,1,60,60,50
+P230,Repairing,Plumbing Repair,Repair Water Leak,15,6,2,70,70,70
+P230,Repairing,Plumbing Repair,Install Tap,15,11,2,40,40,55
+P230,Repairing,Plumbing Repair,Repair Tap,15,7,2,30,30,30
+P230,Repairing,Plumbing Repair,Clean Water Tank,15,4,2,165,165,170
+P230,Repairing,Plumbing Repair,Replace Toilet Pipe,15,3,2,90,90,85
+P232,Repairing,Roofing Repair,Inspect Roof Damage,12,3,3,55,55,65
+P232,Repairing,Roofing Repair,Replace Roof Sheet,12,2,3,125,125,130
+P232,Repairing,Roofing Repair,Replace Roof Tile,12,3,3,135,135,140
+P232,Repairing,Roofing Repair,Seal Roof Leakage,12,3,3,110,110,100
+P232,Repairing,Roofing Repair,Minor Roof Maintenance,12,2,3,90,90,100
+P233,Repairing,Electrical Repair,Repair Ceiling Fan,7,4,2,60,60,55
+P233,Repairing,Electrical Repair,Replace Ceiling Fan,7,2,2,70,70,75
+P233,Repairing,Electrical Repair,Install Power Socket,7,3,2,40,40,40
+P233,Repairing,Electrical Repair,Replace Distribution Board Component,7,2,2,75,75,85
+P233,Repairing,Electrical Repair,Repair Rice Cooker,7,2,2,50,50,40
+P234,Repairing,Electrical Repair,Install Power Socket,6,7,1,40,40,45
+P234,Repairing,Electrical Repair,Repair Electrical Wiring,6,2,1,120,120,135
+P234,Repairing,Electrical Repair,Repair Television,6,3,1,110,110,105
+P235,Cleaning,House Cleaning,Clean Single Room,9,14,4,45,45,55
+P235,Cleaning,House Cleaning,Dust and Surface Cleaning,9,11,4,55,55,70
+P235,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,9,4,4,90,90,95
+P235,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,9,5,4,70,70,65
+P235,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Carpet,9,6,4,120,120,120
+P236,Repairing,Painting & Renovation,Paint Interior Wall,11,4,2,145,145,150
+P236,Repairing,Painting & Renovation,Paint Room,11,3,2,165,165,180
+P236,Repairing,Painting & Renovation,Paint Whole House,11,1,2,485,485,495
+P236,Repairing,Painting & Renovation,Repair Wall Crack,11,4,2,75,75,90
+P236,Repairing,Painting & Renovation,Repair Ceiling,11,3,2,135,135,150
+P236,Repairing,Painting & Renovation,Replace Damaged Tile,11,2,2,80,80,70
+P238,Cleaning,House Cleaning,General House Cleaning,8,8,2,135,135,130
+P238,Cleaning,House Cleaning,Deep Clean House,8,8,2,255,255,255
+P238,Cleaning,House Cleaning,Clean Single Room,8,14,2,50,50,40
+P238,Cleaning,House Cleaning,Mop and Clean Floors,8,9,2,55,55,55
+P238,Cleaning,House Cleaning,Full Home Cleaning,8,5,2,195,195,185
+P238,Cleaning,Kitchen Cleaning,Clean Kitchen Cabinets,8,5,2,75,75,90
+P239,Cleaning,House Cleaning,General House Cleaning,5,6,2,155,155,160
+P239,Cleaning,House Cleaning,Deep Clean House,5,3,2,230,230,220
+P239,Cleaning,House Cleaning,Dust and Surface Cleaning,5,20,2,50,50,60
+P239,Cleaning,House Cleaning,Full Home Cleaning,5,5,2,180,180,175
+P240,Care Support,Personal Assistance,Errand Assistance,2,4,1,90,90,100
+P240,Care Support,Pet Care,Feed Pet,2,14,1,25,25,15
+P240,Care Support,Pet Care,Pet Grooming,2,9,1,90,90,95
+P241,Repairing,Electrical Repair,Install Ceiling Fan,10,4,1,85,85,85
+P241,Repairing,Electrical Repair,Repair Light Circuit,10,4,1,50,50,45
+P241,Repairing,Electrical Repair,Repair Rice Cooker,10,2,1,45,45,55
+P241,Repairing,Electrical Repair,Repair Microwave Oven,10,1,1,60,60,60
+P242,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,4,4,5,90,90,90
+P242,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,4,5,5,60,60,55
+P242,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,4,4,5,45,45,50
+P243,Cleaning,House Cleaning,Clean Single Room,6,9,2,60,60,75
+P243,Cleaning,House Cleaning,Mop and Clean Floors,6,15,2,60,60,65
+P243,Cleaning,House Cleaning,Dust and Surface Cleaning,6,7,2,55,55,45
+P243,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,6,2,2,205,205,215
+P243,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,6,4,2,115,115,120
+P243,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,6,6,2,105,105,105
+P243,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,6,5,2,60,60,75
+P243,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Mattress,6,3,2,100,100,100
+P244,Care Support,Elderly Care,Medication Assistance,6,8,1,30,30,20
+P244,Care Support,Personal Assistance,Daily Household Assistance,6,5,1,170,170,170
+P244,Care Support,Personal Assistance,Errand Assistance,6,8,1,105,105,100
+P246,Repairing,Painting & Renovation,Paint Exterior Wall,16,4,3,215,215,220
+P246,Repairing,Painting & Renovation,Repair Floor Tile,16,6,3,85,85,80
+P246,Repairing,Painting & Renovation,Minor Renovation Work,16,3,3,265,265,265
+P246,Repairing,Roofing Repair,Inspect Roof Damage,16,5,3,50,50,55
+P246,Repairing,Roofing Repair,Repair Roof Leak,16,3,3,100,100,90
+P246,Repairing,Roofing Repair,Replace Roof Sheet,16,4,3,125,125,130
+P246,Repairing,Roofing Repair,Replace Roof Tile,16,2,3,125,125,130
+P247,Gardening,Garden Maintenance,Water Plants,6,11,1,40,40,40
+P247,Gardening,Garden Maintenance,Trim Shrubs,6,12,1,80,80,95
+P247,Gardening,Garden Maintenance,Cut Grass,6,5,1,110,110,120
+P247,Gardening,Garden Maintenance,Mow Lawn,6,6,1,85,85,85
+P247,Gardening,Garden Maintenance,Remove Weeds,6,6,1,90,90,90
+P247,Gardening,Garden Maintenance,Trim Tree Branches,6,4,1,135,135,140
+P247,Gardening,Garden Maintenance,Prune Plants,6,8,1,75,75,90
+P248,Care Support,Personal Assistance,Errand Assistance,2,4,1,95,95,95
+P248,Care Support,Pet Care,Pet Cleaning,2,7,1,55,55,60
+P249,Cleaning,Office Cleaning,Clean Small Office,5,11,3,110,110,105
+P249,Cleaning,Office Cleaning,Clean Retail Shop,5,7,3,145,145,150
+P249,Cleaning,Office Cleaning,Clean Office Floors,5,9,3,80,80,85
+P250,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,8,5,1,95,95,105
+P250,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,8,4,1,125,125,130
+P250,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,8,9,1,80,80,80
+P250,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,8,3,1,120,120,120
+P250,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,8,6,1,60,60,55
+P251,Gardening,Garden Maintenance,Water Plants,3,10,1,40,40,30
+P251,Gardening,Garden Maintenance,Trim Shrubs,3,9,1,90,90,90
+P251,Gardening,Garden Maintenance,Remove Weeds,3,6,1,85,85,75
+P251,Gardening,Garden Maintenance,Trim Tree Branches,3,3,1,115,115,115
+P251,Gardening,Garden Maintenance,General Garden Maintenance,3,7,1,150,150,145
+P251,Gardening,Planting Services,Plant Flowers,3,4,1,70,70,85
+P251,Gardening,Planting Services,Plant Vegetables,3,5,1,90,90,85
+P251,Gardening,Planting Services,Plant Garden Plants,3,5,1,65,65,60
+P252,Repairing,Plumbing Repair,Repair Sink Plumbing,6,8,3,60,60,60
+P252,Repairing,Plumbing Repair,Install Sink Plumbing,6,3,3,75,75,85
+P252,Repairing,Plumbing Repair,Replace Toilet Pipe,6,3,3,80,80,70
+P252,Repairing,Plumbing Repair,Repair Bathroom Pipe,6,3,3,70,70,75
+P253,Repairing,Roofing Repair,Inspect Roof Damage,12,4,2,55,55,70
+P253,Repairing,Roofing Repair,Repair Roof Leak,12,2,2,125,125,130
+P253,Repairing,Roofing Repair,Replace Roof Sheet,12,2,2,125,125,135
+P253,Repairing,Roofing Repair,Replace Roof Tile,12,4,2,140,140,150
+P253,Repairing,Roofing Repair,Seal Roof Leakage,12,2,2,90,90,80
+P253,Repairing,Roofing Repair,Repair Roof Structure,12,2,2,280,280,270
+P253,Repairing,Roofing Repair,Minor Roof Maintenance,12,3,2,75,75,70
+P254,Cleaning,Office Cleaning,Clean Small Office,10,7,3,110,110,115
+P254,Cleaning,Office Cleaning,Clean Retail Shop,10,6,3,120,120,110
+P254,Cleaning,Office Cleaning,Clean Office Floors,10,11,3,75,75,75
+P254,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,10,2,3,365,365,365
+P254,Cleaning,Post-Construction Cleaning,Remove Construction Dust,10,3,3,165,165,165
+P254,Cleaning,Post-Construction Cleaning,Clean Newly Built Property,10,2,3,320,320,320
+P255,Cleaning,Office Cleaning,Clean Small Office,4,6,2,115,115,105
+P255,Cleaning,Office Cleaning,Clean Retail Shop,4,10,2,150,150,150
+P255,Cleaning,Office Cleaning,Clean Office Floors,4,4,2,85,85,80
+P255,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,4,2,2,385,385,400
+P255,Cleaning,Post-Construction Cleaning,Remove Construction Dust,4,1,2,195,195,200
+P256,Cleaning,House Cleaning,Mop and Clean Floors,9,11,2,65,65,65
+P256,Cleaning,House Cleaning,Dust and Surface Cleaning,9,11,2,50,50,45
+P256,Cleaning,Kitchen Cleaning,Clean Kitchen Cabinets,9,4,2,80,80,95
+P256,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,9,8,2,30,30,20
+P257,Repairing,Electrical Repair,Install Light Fitting,7,4,1,40,40,45
+P257,Repairing,Electrical Repair,Install Power Socket,7,7,1,40,40,40
+P257,Repairing,Electrical Repair,Repair Electrical Wiring,7,2,1,110,110,105
+P258,Cleaning,House Cleaning,General House Cleaning,15,6,3,125,125,135
+P258,Cleaning,House Cleaning,Mop and Clean Floors,15,19,3,55,55,60
+P258,Cleaning,House Cleaning,Dust and Surface Cleaning,15,19,3,50,50,60
+P258,Cleaning,Post-Construction Cleaning,Remove Construction Dust,15,4,3,160,160,155
+P259,Care Support,Pet Care,Feed Pet,6,15,2,25,25,40
+P259,Care Support,Pet Care,Pet Grooming,6,9,2,85,85,80
+P259,Care Support,Pet Care,Bathe Pet,6,4,2,45,45,50
+P259,Care Support,Pet Care,Pet Cleaning,6,5,2,50,50,40
+P260,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,2,4,1,105,105,115
+P260,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,2,4,1,75,75,75
+P260,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,2,8,1,105,105,115
+P261,Repairing,Electrical Repair,Install Ceiling Fan,11,8,4,70,70,85
+P261,Repairing,Electrical Repair,Install Light Fitting,11,10,4,35,35,45
+P261,Repairing,Electrical Repair,Repair Light Circuit,11,4,4,45,45,50
+P261,Repairing,Electrical Repair,Repair Switch,11,6,4,25,25,25
+P261,Repairing,Electrical Repair,Install Power Socket,11,8,4,35,35,25
+P261,Repairing,Electrical Repair,Repair Electrical Wiring,11,2,4,110,110,110
+P262,Repairing,Painting & Renovation,Paint Interior Wall,9,2,4,115,115,105
+P262,Repairing,Roofing Repair,Inspect Roof Damage,9,6,4,50,50,55
+P262,Repairing,Roofing Repair,Repair Roof Leak,9,2,4,120,120,120
+P262,Repairing,Roofing Repair,Replace Roof Sheet,9,2,4,140,140,140
+P262,Repairing,Roofing Repair,Repair Roof Structure,9,1,4,275,275,275
+P263,Gardening,Planting Services,Plant Flowers,8,6,2,60,60,65
+P263,Gardening,Planting Services,Plant Vegetables,8,6,2,95,95,90
+P263,Gardening,Planting Services,Plant Small Tree,8,4,2,50,50,60
+P263,Gardening,Planting Services,Plant Large Tree,8,2,2,115,115,120
+P263,Gardening,Planting Services,Plant Garden Plants,8,3,2,70,70,70
+P263,Gardening,Planting Services,Prepare Planting Area,8,5,2,80,80,90
+P264,Repairing,Furniture Repair,Repair Wooden Chair,6,7,2,45,45,60
+P264,Repairing,Furniture Repair,Repair Cupboard,6,3,2,105,105,100
+P264,Repairing,Furniture Repair,Repair Cabinet,6,3,2,90,90,80
+P264,Repairing,Furniture Repair,Repair Wooden Door,6,7,2,95,95,90
+P264,Repairing,Furniture Repair,Replace Door Hinges,6,6,2,30,30,30
+P264,Repairing,Furniture Repair,Replace Furniture Hardware,6,5,2,25,25,25
+P264,Repairing,Furniture Repair,Assemble Furniture,6,5,2,80,80,80
+P265,Repairing,Painting & Renovation,Paint Interior Wall,10,3,4,130,130,135
+P265,Repairing,Painting & Renovation,Paint Exterior Wall,10,2,4,245,245,260
+P265,Repairing,Painting & Renovation,Paint Room,10,2,4,165,165,180
+P265,Repairing,Painting & Renovation,Prepare Wall Surface,10,2,4,90,90,100
+P265,Repairing,Painting & Renovation,Replace Damaged Tile,10,4,4,75,75,65
+P266,Cleaning,Office Cleaning,Clean Small Office,4,8,4,115,115,105
+P266,Cleaning,Office Cleaning,Clean Office Floors,4,5,4,80,80,80
+P266,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,4,1,4,175,175,185
+P266,Cleaning,Post-Construction Cleaning,Clean Newly Built Property,4,2,4,350,350,365
+P267,Cleaning,House Cleaning,General House Cleaning,2,12,5,125,125,125
+P267,Cleaning,House Cleaning,Deep Clean House,2,8,5,215,215,220
+P267,Cleaning,House Cleaning,Mop and Clean Floors,2,13,5,60,60,60
+P267,Cleaning,House Cleaning,Dust and Surface Cleaning,2,8,5,50,50,40
+P267,Cleaning,House Cleaning,Full Home Cleaning,2,10,5,185,185,190
+P267,Cleaning,Office Cleaning,Clean Medium Office,2,3,5,170,170,180
+P268,Repairing,Painting & Renovation,Paint Room,3,2,1,230,230,225
+P268,Repairing,Painting & Renovation,Prepare Wall Surface,3,3,1,100,100,105
+P268,Repairing,Painting & Renovation,Repair Wall Crack,3,3,1,80,80,90
+P268,Repairing,Painting & Renovation,Replace Damaged Tile,3,1,1,85,85,80
+P268,Repairing,Painting & Renovation,Repair Floor Tile,3,1,1,135,135,145
+P269,Repairing,Painting & Renovation,Prepare Wall Surface,7,2,5,90,90,80
+P269,Repairing,Painting & Renovation,Minor Renovation Work,7,4,5,225,225,230
+P269,Repairing,Roofing Repair,Inspect Roof Damage,7,5,5,50,50,40
+P269,Repairing,Roofing Repair,Minor Roof Maintenance,7,3,5,95,95,90
+P270,Cleaning,Move In/Out Cleaning,Move-In Cleaning,9,4,4,205,205,195
+P270,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,9,3,4,170,170,160
+P270,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,9,2,4,335,335,335
+P270,Cleaning,Post-Construction Cleaning,Remove Construction Dust,9,3,4,175,175,185
+P270,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,9,2,4,215,215,215
+P271,Care Support,Personal Assistance,Daily Household Assistance,6,11,1,165,165,165
+P272,Cleaning,Bathroom Cleaning,General Bathroom Cleaning,5,11,1,60,60,60
+P272,Cleaning,Bathroom Cleaning,Deep Clean Bathroom,5,3,1,85,85,85
+P272,Cleaning,Bathroom Cleaning,Clean Toilet,5,5,1,30,30,30
+P272,Cleaning,Bathroom Cleaning,Clean Washroom,5,12,1,40,40,35
+P272,Cleaning,Move In/Out Cleaning,Move-In Cleaning,5,4,1,235,235,230
+P272,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,5,4,1,225,225,225
+P272,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,5,3,1,320,320,315
+P273,Repairing,Roofing Repair,Inspect Roof Damage,11,4,2,55,55,65
+P273,Repairing,Roofing Repair,Repair Roof Leak,11,2,2,115,115,115
+P273,Repairing,Roofing Repair,Replace Roof Sheet,11,1,2,170,170,180
+P273,Repairing,Roofing Repair,Replace Roof Tile,11,2,2,160,160,175
+P273,Repairing,Roofing Repair,Seal Roof Leakage,11,2,2,85,85,85
+P273,Repairing,Roofing Repair,Repair Roof Structure,11,2,2,300,300,300
+P274,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,5,5,3,80,80,80
+P274,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,5,3,3,115,115,125
+P274,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,5,3,3,75,75,70
+P274,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,5,3,3,105,105,95
+P274,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,5,3,3,45,45,35
+P275,Cleaning,House Cleaning,Deep Clean House,8,4,4,215,215,225
+P275,Cleaning,House Cleaning,Clean Single Room,8,20,4,45,45,45
+P275,Cleaning,House Cleaning,Mop and Clean Floors,8,17,4,55,55,45
+P275,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,8,4,4,190,190,200
+P275,Cleaning,Office Cleaning,Clean Office Floors,8,11,4,80,80,85
+P276,Repairing,Painting & Renovation,Paint Interior Wall,19,2,2,130,130,130
+P276,Repairing,Painting & Renovation,Paint Ceiling,19,4,2,110,110,100
+P276,Repairing,Painting & Renovation,Paint Whole House,19,3,2,505,505,495
+P276,Repairing,Painting & Renovation,Repair Floor Tile,19,3,2,105,105,110
+P276,Repairing,Painting & Renovation,Minor Renovation Work,19,2,2,240,240,245
+P276,Repairing,Roofing Repair,Minor Roof Maintenance,19,4,2,80,80,80
+P277,Care Support,Pet Care,Feed Pet,5,23,1,25,25,25
+P277,Care Support,Pet Care,Bathe Pet,5,5,1,45,45,45
+P277,Care Support,Pet Care,Pet Cleaning,5,5,1,60,60,65
+P278,Cleaning,House Cleaning,General House Cleaning,7,8,2,150,150,155
+P278,Cleaning,House Cleaning,Clean Single Room,7,8,2,55,55,65
+P278,Cleaning,House Cleaning,Dust and Surface Cleaning,7,6,2,60,60,60
+P278,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,7,2,2,340,340,355
+P279,Repairing,Furniture Repair,Repair Dining Table,12,5,1,75,75,80
+P279,Repairing,Furniture Repair,Repair Sofa Frame,12,2,1,100,100,95
+P279,Repairing,Furniture Repair,Repair Cabinet,12,3,1,70,70,60
+P279,Repairing,Furniture Repair,Replace Door Hinges,12,10,1,30,30,40
+P279,Repairing,Furniture Repair,Repair Window Frame,12,2,1,100,100,95
+P279,Repairing,Furniture Repair,Replace Furniture Hardware,12,9,1,20,20,35
+P279,Repairing,Furniture Repair,Assemble Furniture,12,11,1,80,80,95
+P280,Care Support,Elderly Care,Medication Assistance,4,7,2,25,25,40
+P280,Care Support,Personal Assistance,Errand Assistance,4,14,2,95,95,100
+P281,Repairing,Painting & Renovation,Paint Interior Wall,7,4,3,130,130,130
+P281,Repairing,Painting & Renovation,Paint Exterior Wall,7,2,3,255,255,255
+P281,Repairing,Painting & Renovation,Paint Room,7,4,3,155,155,155
+P281,Repairing,Painting & Renovation,Paint Ceiling,7,2,3,110,110,125
+P281,Repairing,Painting & Renovation,Prepare Wall Surface,7,3,3,90,90,105
+P281,Repairing,Painting & Renovation,Repair Floor Tile,7,3,3,105,105,105
+P281,Repairing,Painting & Renovation,Minor Renovation Work,7,2,3,250,250,255
+P282,Repairing,Furniture Repair,Repair Dining Table,6,3,1,85,85,100
+P282,Repairing,Furniture Repair,Repair Bed Frame,6,4,1,115,115,115
+P282,Repairing,Furniture Repair,Repair Cabinet,6,5,1,90,90,100
+P282,Repairing,Furniture Repair,Repair Wooden Door,6,3,1,95,95,100
+P283,Care Support,Personal Assistance,Daily Household Assistance,9,7,3,145,145,155
+P283,Care Support,Personal Assistance,Errand Assistance,9,12,3,85,85,90
+P284,Repairing,Furniture Repair,Repair Cupboard,5,4,2,80,80,75
+P284,Repairing,Furniture Repair,Repair Cabinet,5,4,2,85,85,100
+P284,Repairing,Furniture Repair,Repair Wooden Door,5,3,2,75,75,65
+P284,Repairing,Furniture Repair,Replace Furniture Hardware,5,5,2,25,25,30
+P285,Care Support,Pet Care,Feed Pet,13,15,1,25,25,20
+P285,Care Support,Pet Care,Pet Cleaning,13,5,1,50,50,45
+P286,Cleaning,House Cleaning,General House Cleaning,7,16,3,135,135,125
+P286,Cleaning,House Cleaning,Deep Clean House,7,5,3,215,215,205
+P286,Cleaning,House Cleaning,Clean Single Room,7,14,3,55,55,55
+P286,Cleaning,House Cleaning,Mop and Clean Floors,7,12,3,60,60,60
+P286,Cleaning,House Cleaning,Full Home Cleaning,7,5,3,240,240,235
+P286,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,7,4,3,75,75,75
+P286,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Carpet,7,8,3,115,115,115
+P287,Cleaning,Office Cleaning,Clean Small Office,6,5,2,95,95,90
+P287,Cleaning,Office Cleaning,Clean Medium Office,6,3,2,200,200,190
+P287,Cleaning,Office Cleaning,Clean Retail Shop,6,8,2,125,125,125
+P287,Cleaning,Office Cleaning,Deep Clean Office,6,3,2,310,310,320
+P287,Cleaning,Office Cleaning,Clean Office Floors,6,7,2,75,75,80
+P288,Gardening,Garden Cleaning,General Garden Cleaning,5,3,2,135,135,140
+P288,Gardening,Garden Cleaning,Remove Garden Waste,5,2,2,105,105,95
+P288,Gardening,Planting Services,Plant Flowers,5,3,2,65,65,55
+P288,Gardening,Planting Services,Plant Large Tree,5,2,2,100,100,90
+P288,Gardening,Planting Services,Plant Garden Plants,5,4,2,65,65,65
+P289,Care Support,Elderly Care,Medication Assistance,8,11,2,20,20,15
+P290,Repairing,Furniture Repair,Repair Bed Frame,11,3,2,100,100,100
+P290,Repairing,Furniture Repair,Replace Door Hinges,11,12,2,30,30,45
+P290,Repairing,Furniture Repair,Assemble Furniture,11,6,2,85,85,85
+P290,Repairing,Painting & Renovation,Paint Whole House,11,2,2,535,535,525
+P290,Repairing,Painting & Renovation,Prepare Wall Surface,11,3,2,95,95,95
+P290,Repairing,Painting & Renovation,Replace Damaged Tile,11,2,2,80,80,80
+P291,Repairing,Furniture Repair,Repair Cupboard,13,6,1,75,75,75
+P291,Repairing,Furniture Repair,Replace Door Hinges,13,6,1,30,30,45
+P291,Repairing,Furniture Repair,Repair Window Frame,13,4,1,95,95,100
+P291,Repairing,Furniture Repair,Replace Furniture Hardware,13,9,1,25,25,40
+P292,Repairing,Electrical Repair,Replace Switch,7,9,2,25,25,15
+P292,Repairing,Electrical Repair,Repair Switch,7,8,2,25,25,25
+P292,Repairing,Electrical Repair,Install Power Socket,7,5,2,40,40,30
+P292,Repairing,Electrical Repair,Repair Distribution Board,7,2,2,110,110,110
+P292,Repairing,Electrical Repair,Service Air Conditioner,7,6,2,65,65,60
+P293,Repairing,Painting & Renovation,Paint Interior Wall,6,1,2,145,145,145
+P293,Repairing,Painting & Renovation,Paint Exterior Wall,6,1,2,235,235,235
+P293,Repairing,Painting & Renovation,Paint Room,6,2,2,215,215,230
+P293,Repairing,Painting & Renovation,Paint Whole House,6,2,2,550,550,550
+P294,Cleaning,House Cleaning,General House Cleaning,9,8,2,135,135,135
+P294,Cleaning,House Cleaning,Dust and Surface Cleaning,9,14,2,60,60,65
+P294,Cleaning,Kitchen Cleaning,Deep Clean Kitchen,9,5,2,145,145,155
+P294,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,9,5,2,35,35,30
+P295,Repairing,Plumbing Repair,Repair Leaking Pipe,9,6,5,55,55,70
+P295,Repairing,Plumbing Repair,Repair Tap,9,4,5,30,30,20
+P295,Repairing,Plumbing Repair,Clean Water Tank,9,4,5,125,125,115
+P295,Repairing,Plumbing Repair,Repair Water Tank Connection,9,4,5,60,60,75
+P296,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,8,4,2,80,80,80
+P296,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,8,5,2,80,80,80
+P296,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,8,5,2,70,70,70
+P296,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,8,3,2,55,55,45
+P297,Repairing,Electrical Repair,Install Switch,12,6,4,30,30,20
+P297,Repairing,Electrical Repair,Replace Switch,12,15,4,25,25,40
+P297,Repairing,Electrical Repair,Replace Power Socket,12,7,4,30,30,45
+P297,Repairing,Electrical Repair,Repair Rice Cooker,12,2,4,45,45,40
+P298,Repairing,Plumbing Repair,Repair Water Leak,10,6,1,60,60,60
+P298,Repairing,Plumbing Repair,Clear Blocked Drain,10,7,1,75,75,75
+P298,Repairing,Plumbing Repair,Repair Sink Plumbing,10,5,1,60,60,70
+P298,Repairing,Plumbing Repair,Repair Bathroom Pipe,10,7,1,75,75,80
+P299,Cleaning,House Cleaning,General House Cleaning,4,14,1,145,145,140
+P299,Cleaning,House Cleaning,Clean Single Room,4,12,1,55,55,50
+P299,Cleaning,House Cleaning,Mop and Clean Floors,4,17,1,60,60,55
+P299,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Mattress,4,3,1,100,100,90
+P300,Repairing,Electrical Repair,Replace Switch,9,8,2,25,25,35
+P300,Repairing,Electrical Repair,Replace Power Socket,9,5,2,30,30,25
+P300,Repairing,Electrical Repair,Repair Refrigerator,9,2,2,125,125,120
+P301,Cleaning,Bathroom Cleaning,Clean Washroom,16,9,1,40,40,40
+P301,Cleaning,Bathroom Cleaning,Remove Bathroom Stains,16,4,1,55,55,55
+P301,Cleaning,House Cleaning,General House Cleaning,16,10,1,115,115,115
+P301,Cleaning,Kitchen Cleaning,Degrease Cooking Area,16,2,1,55,55,65
+P303,Repairing,Furniture Repair,Repair Sofa Frame,5,5,2,120,120,120
+P303,Repairing,Furniture Repair,Repair Cabinet,5,4,2,80,80,95
+P303,Repairing,Furniture Repair,Repair Wooden Door,5,4,2,85,85,90
+P303,Repairing,Furniture Repair,Replace Door Hinges,5,5,2,25,25,35
+P303,Repairing,Furniture Repair,Repair Window Frame,5,4,2,95,95,105
+P305,Cleaning,House Cleaning,Dust and Surface Cleaning,9,16,1,55,55,45
+P305,Cleaning,House Cleaning,Full Home Cleaning,9,6,1,220,220,220
+P305,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Carpet,9,7,1,130,130,135
+P305,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Mattress,9,4,1,100,100,95
+P306,Repairing,Electrical Repair,Replace Light Fitting,12,10,1,25,25,30
+P306,Repairing,Electrical Repair,Install Power Socket,12,4,1,40,40,40
+P306,Repairing,Electrical Repair,Repair Refrigerator,12,3,1,85,85,100
+P306,Repairing,Electrical Repair,Repair Washing Machine,12,2,1,95,95,110
+P306,Repairing,Electrical Repair,Repair Microwave Oven,12,2,1,60,60,65
+P306,Repairing,Electrical Repair,Service Air Conditioner,12,6,1,65,65,65
+P307,Cleaning,House Cleaning,General House Cleaning,5,8,4,145,145,150
+P307,Cleaning,House Cleaning,Deep Clean House,5,3,4,200,200,200
+P307,Cleaning,House Cleaning,Clean Single Room,5,20,4,50,50,50
+P307,Cleaning,House Cleaning,Mop and Clean Floors,5,17,4,55,55,65
+P307,Cleaning,House Cleaning,Full Home Cleaning,5,12,4,170,170,185
+P308,Care Support,Elderly Care,Medication Assistance,3,13,1,25,25,20
+P308,Care Support,Personal Assistance,Daily Household Assistance,3,8,1,170,170,170
+P309,Repairing,Painting & Renovation,Paint Room,2,3,3,200,200,200
+P309,Repairing,Painting & Renovation,Paint Ceiling,2,2,3,110,110,105
+P309,Repairing,Painting & Renovation,Paint Whole House,2,1,3,500,500,500
+P309,Repairing,Painting & Renovation,Prepare Wall Surface,2,3,3,105,105,100
+P309,Repairing,Painting & Renovation,Minor Renovation Work,2,3,3,230,230,240
+P311,Gardening,Landscaping & Design,Set Up New Garden,12,2,2,225,225,220
+P311,Gardening,Landscaping & Design,Landscape Existing Garden,12,1,2,370,370,365
+P311,Gardening,Planting Services,Plant Vegetables,12,5,2,90,90,90
+P311,Gardening,Planting Services,Plant Large Tree,12,2,2,100,100,110
+P311,Gardening,Planting Services,Plant Garden Plants,12,3,2,70,70,60
+P312,Cleaning,House Cleaning,General House Cleaning,5,5,1,155,155,160
+P312,Cleaning,House Cleaning,Clean Single Room,5,14,1,60,60,60
+P312,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,5,3,1,90,90,90
+P312,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,5,2,1,125,125,125
+P312,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Carpet,5,3,1,155,155,150
+P312,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,5,3,1,75,75,90
+P313,Repairing,Plumbing Repair,Replace Water Pipe,5,1,1,130,130,130
+P313,Repairing,Plumbing Repair,Repair Leaking Pipe,5,4,1,65,65,60
+P313,Repairing,Plumbing Repair,Install Tap,5,6,1,35,35,35
+P313,Repairing,Plumbing Repair,Replace Tap,5,8,1,30,30,35
+P313,Repairing,Plumbing Repair,Repair Tap,5,5,1,30,30,35
+P313,Repairing,Plumbing Repair,Repair Sink Plumbing,5,4,1,70,70,85
+P313,Repairing,Plumbing Repair,Replace Toilet Pipe,5,2,1,80,80,75
+P314,Care Support,Pet Care,Feed Pet,3,12,3,25,25,30
+P314,Care Support,Pet Care,Bathe Pet,3,7,3,45,45,50
+P315,Cleaning,Bathroom Cleaning,General Bathroom Cleaning,9,9,2,50,50,45
+P315,Cleaning,Bathroom Cleaning,Clean Toilet,9,16,2,25,25,25
+P315,Cleaning,House Cleaning,General House Cleaning,9,12,2,135,135,130
+P315,Cleaning,House Cleaning,Clean Single Room,9,10,2,50,50,45
+P316,Repairing,Plumbing Repair,Repair Water Leak,5,7,2,60,60,75
+P316,Repairing,Plumbing Repair,Repair Tap,5,5,2,30,30,30
+P316,Repairing,Plumbing Repair,Repair Water Tank Connection,5,3,2,55,55,45
+P316,Repairing,Plumbing Repair,Repair Sink Plumbing,5,3,2,60,60,60
+P317,Gardening,Planting Services,Plant Flowers,12,4,2,60,60,65
+P317,Gardening,Planting Services,Plant Vegetables,12,6,2,90,90,100
+P317,Gardening,Planting Services,Plant Small Tree,12,7,2,40,40,50
+P317,Gardening,Planting Services,Plant Large Tree,12,3,2,115,115,130
+P317,Gardening,Planting Services,Plant Garden Plants,12,3,2,70,70,70
+P318,Repairing,Electrical Repair,Replace Light Fitting,5,6,1,25,25,25
+P318,Repairing,Electrical Repair,Replace Power Socket,5,5,1,30,30,45
+P318,Repairing,Electrical Repair,Diagnose Television Fault,5,3,1,40,40,55
+P318,Repairing,Electrical Repair,Diagnose Refrigerator Fault,5,2,1,50,50,45
+P318,Repairing,Electrical Repair,Repair Microwave Oven,5,3,1,65,65,55
+P319,Gardening,Garden Maintenance,Water Plants,5,20,2,40,40,40
+P319,Gardening,Garden Maintenance,Mow Lawn,5,9,2,75,75,90
+P319,Gardening,Landscaping & Design,Basic Landscaping,5,1,2,320,320,310
+P319,Gardening,Landscaping & Design,Landscape Existing Garden,5,1,2,430,430,440
+P320,Repairing,Electrical Repair,Install Switch,7,6,2,25,25,15
+P320,Repairing,Electrical Repair,Repair Switch,7,6,2,25,25,35
+P320,Repairing,Electrical Repair,Replace Damaged Wiring,7,2,2,135,135,135
+P320,Repairing,Electrical Repair,Repair Washing Machine,7,2,2,105,105,120
+P320,Repairing,Electrical Repair,Repair Air Conditioner,7,6,2,85,85,100
+P321,Care Support,Elderly Care,Medication Assistance,7,12,1,30,30,20
+P322,Repairing,Painting & Renovation,Paint Exterior Wall,4,4,4,200,200,195
+P322,Repairing,Painting & Renovation,Paint Room,4,2,4,195,195,200
+P322,Repairing,Painting & Renovation,Paint Whole House,4,2,4,485,485,475
+P322,Repairing,Painting & Renovation,Prepare Wall Surface,4,3,4,85,85,95
+P322,Repairing,Painting & Renovation,Repair Ceiling,4,2,4,120,120,125
+P322,Repairing,Painting & Renovation,Replace Damaged Tile,4,5,4,80,80,70
+P322,Repairing,Painting & Renovation,Repair Floor Tile,4,3,4,105,105,110
+P322,Repairing,Painting & Renovation,Minor Renovation Work,4,2,4,265,265,270
+P323,Cleaning,House Cleaning,Deep Clean House,2,4,3,245,245,240
+P323,Cleaning,House Cleaning,Clean Single Room,2,8,3,60,60,70
+P323,Cleaning,House Cleaning,Mop and Clean Floors,2,11,3,65,65,65
+P323,Cleaning,House Cleaning,Dust and Surface Cleaning,2,12,3,50,50,55
+P323,Cleaning,House Cleaning,Full Home Cleaning,2,10,3,210,210,210
+P324,Cleaning,Office Cleaning,Clean Medium Office,6,7,3,165,165,170
+P324,Cleaning,Office Cleaning,Clean Retail Shop,6,6,3,120,120,125
+P324,Cleaning,Office Cleaning,Deep Clean Office,6,4,3,290,290,300
+P324,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,6,2,3,335,335,335
+P324,Cleaning,Post-Construction Cleaning,Remove Construction Dust,6,3,3,150,150,165
+P324,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,6,2,3,195,195,195
+P325,Gardening,Planting Services,Plant Flowers,4,5,1,65,65,55
+P325,Gardening,Planting Services,Plant Vegetables,4,5,1,95,95,105
+P325,Gardening,Planting Services,Plant Small Tree,4,5,1,50,50,60
+P325,Gardening,Planting Services,Plant Large Tree,4,2,1,135,135,135
+P325,Gardening,Planting Services,Plant Garden Plants,4,5,1,80,80,80
+P325,Gardening,Planting Services,Prepare Planting Area,4,2,1,105,105,120
+P326,Repairing,Electrical Repair,Replace Switch,11,5,1,25,25,15
+P326,Repairing,Electrical Repair,Repair Power Socket,11,5,1,40,40,45
+P326,Repairing,Electrical Repair,Diagnose Refrigerator Fault,11,2,1,50,50,50
+P326,Repairing,Electrical Repair,Repair Microwave Oven,11,1,1,65,65,75
+P328,Gardening,Garden Maintenance,Water Plants,9,11,1,40,40,50
+P328,Gardening,Garden Maintenance,Cut Grass,9,10,1,110,110,100
+P328,Gardening,Garden Maintenance,Remove Weeds,9,6,1,80,80,90
+P328,Gardening,Garden Maintenance,Prune Plants,9,7,1,75,75,65
+P329,Repairing,Painting & Renovation,Paint Exterior Wall,4,4,3,230,230,230
+P329,Repairing,Painting & Renovation,Paint Room,4,2,3,190,190,190
+P329,Repairing,Painting & Renovation,Paint Ceiling,4,2,3,125,125,120
+P329,Repairing,Painting & Renovation,Replace Damaged Tile,4,2,3,85,85,75
+P329,Repairing,Painting & Renovation,Repair Floor Tile,4,2,3,130,130,130
+P330,Cleaning,House Cleaning,Deep Clean House,9,2,4,240,240,230
+P330,Cleaning,House Cleaning,Mop and Clean Floors,9,15,4,50,50,65
+P330,Cleaning,House Cleaning,Dust and Surface Cleaning,9,11,4,45,45,60
+P330,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,9,2,4,255,255,255
+P330,Cleaning,Post-Construction Cleaning,Remove Construction Dust,9,2,4,145,145,160
+P330,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,9,3,4,155,155,150
+P331,Repairing,Electrical Repair,Install Light Fitting,8,4,1,40,40,40
+P331,Repairing,Electrical Repair,Replace Light Fitting,8,9,1,30,30,20
+P331,Repairing,Electrical Repair,Repair Switch,8,4,1,35,35,30
+P331,Repairing,Electrical Repair,Replace Power Socket,8,8,1,30,30,25
+P332,Gardening,Planting Services,Plant Flowers,9,4,1,65,65,65
+P332,Gardening,Planting Services,Plant Vegetables,9,3,1,115,115,120
+P332,Gardening,Planting Services,Plant Small Tree,9,7,1,50,50,50
+P332,Gardening,Planting Services,Plant Large Tree,9,2,1,115,115,105
+P332,Gardening,Planting Services,Plant Garden Plants,9,4,1,75,75,75
+P332,Gardening,Planting Services,Prepare Planting Area,9,6,1,85,85,90
+P334,Repairing,Electrical Repair,Install New Wiring,16,4,1,205,205,220
+P334,Repairing,Electrical Repair,Replace Distribution Board Component,16,3,1,75,75,65
+P334,Repairing,Electrical Repair,Diagnose Television Fault,16,2,1,35,35,40
+P334,Repairing,Electrical Repair,Repair Microwave Oven,16,4,1,55,55,55
+P334,Repairing,Electrical Repair,Repair Air Conditioner,16,4,1,95,95,95
+P335,Care Support,Pet Care,Feed Pet,9,15,1,25,25,40
+P335,Care Support,Pet Care,Pet Grooming,9,9,1,90,90,85
+P335,Care Support,Pet Care,Bathe Pet,9,5,1,50,50,60
+P336,Cleaning,Office Cleaning,Clean Small Office,3,9,3,120,120,115
+P336,Cleaning,Office Cleaning,Clean Medium Office,3,5,3,225,225,230
+P336,Cleaning,Office Cleaning,Clean Office Floors,3,7,3,100,100,110
+P336,Cleaning,Post-Construction Cleaning,Remove Construction Dust,3,2,3,190,190,185
+P337,Repairing,Plumbing Repair,Repair Water Leak,14,4,1,55,55,50
+P337,Repairing,Plumbing Repair,Install Tap,14,6,1,35,35,40
+P337,Repairing,Plumbing Repair,Replace Tap,14,12,1,30,30,30
+P337,Repairing,Plumbing Repair,Repair Toilet Plumbing,14,4,1,60,60,60
+P338,Repairing,Electrical Repair,Install Ceiling Fan,11,4,2,75,75,70
+P338,Repairing,Electrical Repair,Replace Light Fitting,11,11,2,25,25,25
+P338,Repairing,Electrical Repair,Repair Light Circuit,11,5,2,50,50,65
+P338,Repairing,Electrical Repair,Install Switch,11,8,2,25,25,25
+P338,Repairing,Electrical Repair,Replace Switch,11,7,2,25,25,40
+P338,Repairing,Electrical Repair,Repair Electrical Wiring,11,4,2,105,105,115
+P338,Repairing,Electrical Repair,Replace Distribution Board Component,11,4,2,70,70,80
+P338,Repairing,Electrical Repair,Repair Rice Cooker,11,2,2,40,40,55
+P338,Repairing,Electrical Repair,Service Air Conditioner,11,7,2,65,65,65
+P339,Repairing,Painting & Renovation,Paint Interior Wall,12,3,3,130,130,140
+P339,Repairing,Painting & Renovation,Paint Exterior Wall,12,3,3,220,220,225
+P339,Repairing,Painting & Renovation,Paint Whole House,12,2,3,475,475,470
+P339,Repairing,Painting & Renovation,Prepare Wall Surface,12,3,3,90,90,85
+P340,Cleaning,House Cleaning,General House Cleaning,10,6,2,135,135,150
+P340,Cleaning,House Cleaning,Deep Clean House,10,4,2,230,230,220
+P340,Cleaning,House Cleaning,Clean Single Room,10,9,2,55,55,55
+P340,Cleaning,House Cleaning,Full Home Cleaning,10,5,2,230,230,220
+P340,Cleaning,Office Cleaning,Clean Small Office,10,7,2,110,110,110
+P340,Cleaning,Office Cleaning,Clean Retail Shop,10,10,2,140,140,150
+P340,Cleaning,Office Cleaning,Deep Clean Office,10,4,2,290,290,305
+P340,Cleaning,Office Cleaning,Clean Office Floors,10,6,2,90,90,90
+P341,Cleaning,House Cleaning,General House Cleaning,3,8,3,150,150,150
+P341,Cleaning,House Cleaning,Deep Clean House,3,4,3,220,220,225
+P341,Cleaning,House Cleaning,Mop and Clean Floors,3,11,3,70,70,70
+P341,Cleaning,House Cleaning,Dust and Surface Cleaning,3,10,3,60,60,55
+P341,Cleaning,Kitchen Cleaning,Deep Clean Kitchen,3,6,3,130,130,130
+P341,Cleaning,Kitchen Cleaning,Degrease Cooking Area,3,3,3,70,70,70
+P342,Care Support,Personal Assistance,Daily Household Assistance,5,10,5,150,150,150
+P343,Repairing,Plumbing Repair,Install Water Pipe,8,3,1,130,130,125
+P343,Repairing,Plumbing Repair,Install Tap,8,7,1,35,35,40
+P343,Repairing,Plumbing Repair,Repair Water Tank Connection,8,3,1,60,60,60
+P343,Repairing,Plumbing Repair,Clear Blocked Drain,8,3,1,75,75,75
+P343,Repairing,Plumbing Repair,Repair Toilet Plumbing,8,7,1,70,70,60
+P343,Repairing,Plumbing Repair,Replace Toilet Pipe,8,2,1,80,80,70
+P344,Repairing,Electrical Repair,Repair Light Circuit,7,4,1,45,45,45
+P344,Repairing,Electrical Repair,Repair Switch,7,5,1,25,25,30
+P344,Repairing,Electrical Repair,Install New Wiring,7,3,1,155,155,165
+P344,Repairing,Electrical Repair,Repair Distribution Board,7,2,1,100,100,110
+P344,Repairing,Electrical Repair,Diagnose Television Fault,7,2,1,40,40,40
+P344,Repairing,Electrical Repair,Repair Washing Machine,7,2,1,80,80,80
+P344,Repairing,Electrical Repair,Repair Rice Cooker,7,2,1,45,45,55
+P345,Gardening,Planting Services,Plant Large Tree,2,2,1,100,100,115
+P345,Gardening,Planting Services,Plant Garden Plants,2,5,1,75,75,90
+P345,Gardening,Planting Services,Prepare Planting Area,2,4,1,90,90,95
+P346,Cleaning,Bathroom Cleaning,General Bathroom Cleaning,7,10,1,60,60,65
+P346,Cleaning,Bathroom Cleaning,Deep Clean Bathroom,7,7,1,80,80,80
+P346,Cleaning,Bathroom Cleaning,Clean Toilet,7,5,1,25,25,35
+P346,Cleaning,Bathroom Cleaning,Clean Washroom,7,8,1,45,45,60
+P346,Cleaning,Bathroom Cleaning,Remove Bathroom Stains,7,3,1,70,70,85
+P346,Cleaning,House Cleaning,Full Home Cleaning,7,9,1,215,215,220
+P347,Care Support,Pet Care,Feed Pet,9,8,3,30,30,30
+P347,Care Support,Pet Care,Bathe Pet,9,3,3,50,50,50
+P348,Care Support,Elderly Care,Medication Assistance,5,14,4,25,25,35
+P349,Repairing,Painting & Renovation,Paint Interior Wall,11,3,5,120,120,110
+P349,Repairing,Painting & Renovation,Paint Exterior Wall,11,3,5,185,185,180
+P349,Repairing,Painting & Renovation,Paint Room,11,4,5,165,165,165
+P349,Repairing,Painting & Renovation,Paint Whole House,11,3,5,450,450,455
+P349,Repairing,Painting & Renovation,Prepare Wall Surface,11,5,5,70,70,80
+P349,Repairing,Painting & Renovation,Repair Wall Crack,11,7,5,70,70,70
+P349,Repairing,Painting & Renovation,Replace Damaged Tile,11,5,5,70,70,80
+P350,Gardening,Garden Maintenance,Water Plants,16,21,2,35,35,40
+P350,Gardening,Garden Maintenance,Mow Lawn,16,10,2,65,65,60
+P350,Gardening,Garden Maintenance,Trim Tree Branches,16,6,2,110,110,100
+P350,Gardening,Garden Maintenance,Prune Plants,16,12,2,50,50,50
+P351,Repairing,Electrical Repair,Replace Ceiling Fan,6,3,3,65,65,60
+P351,Repairing,Electrical Repair,Install Switch,6,7,3,30,30,30
+P351,Repairing,Electrical Repair,Replace Power Socket,6,6,3,35,35,30
+P351,Repairing,Electrical Repair,Repair Electrical Wiring,6,3,3,95,95,85
+P351,Repairing,Electrical Repair,Install New Wiring,6,3,3,190,190,180
+P351,Repairing,Electrical Repair,Diagnose Television Fault,6,4,3,30,30,30
+P351,Repairing,Electrical Repair,Repair Refrigerator,6,2,3,105,105,115
+P352,Cleaning,House Cleaning,Clean Single Room,9,12,1,60,60,60
+P352,Cleaning,House Cleaning,Dust and Surface Cleaning,9,10,1,60,60,60
+P352,Cleaning,House Cleaning,Full Home Cleaning,9,7,1,205,205,200
+P353,Cleaning,House Cleaning,Deep Clean House,6,5,2,205,205,205
+P353,Cleaning,House Cleaning,Dust and Surface Cleaning,6,16,2,55,55,70
+P353,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,6,2,2,320,320,310
+P354,Repairing,Plumbing Repair,Repair Leaking Pipe,7,6,2,60,60,60
+P354,Repairing,Plumbing Repair,Replace Tap,7,8,2,30,30,45
+P354,Repairing,Plumbing Repair,Clean Water Tank,7,2,2,150,150,150
+P354,Repairing,Plumbing Repair,Repair Water Tank Connection,7,3,2,65,65,55
+P354,Repairing,Plumbing Repair,Clear Blocked Drain,7,9,2,70,70,85
+P354,Repairing,Plumbing Repair,Replace Toilet Pipe,7,3,2,80,80,80
+P354,Repairing,Plumbing Repair,Install Bathroom Pipe,7,2,2,140,140,145
+P355,Repairing,Painting & Renovation,Paint Interior Wall,22,4,3,110,110,120
+P355,Repairing,Painting & Renovation,Paint Room,22,5,3,165,165,175
+P355,Repairing,Painting & Renovation,Paint Ceiling,22,4,3,80,80,80
+P355,Repairing,Painting & Renovation,Prepare Wall Surface,22,4,3,85,85,100
+P355,Repairing,Painting & Renovation,Repair Wall Crack,22,7,3,70,70,70
+P355,Repairing,Painting & Renovation,Minor Renovation Work,22,3,3,205,205,210
+P356,Cleaning,House Cleaning,General House Cleaning,5,13,1,150,150,150
+P356,Cleaning,House Cleaning,Deep Clean House,5,6,1,240,240,250
+P356,Cleaning,House Cleaning,Clean Single Room,5,19,1,55,55,55
+P356,Cleaning,House Cleaning,Mop and Clean Floors,5,9,1,55,55,55
+P356,Cleaning,House Cleaning,Dust and Surface Cleaning,5,12,1,60,60,70
+P356,Cleaning,House Cleaning,Full Home Cleaning,5,6,1,225,225,235
+P356,Cleaning,Move In/Out Cleaning,Move-In Cleaning,5,4,1,220,220,225
+P356,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,5,2,1,235,235,235

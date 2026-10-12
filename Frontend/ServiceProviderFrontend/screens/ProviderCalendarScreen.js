@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -507,66 +508,71 @@ export default function ProviderCalendarScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: C.bg }]}>
-      <HeaderSection navigation={navigation} onInboxPress={() => navigation.navigate('InboxScreen')} />
-      <View style={[styles.header, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
-        <View style={styles.headerTextWrap}>
-          <Text style={[styles.headerTitle, { color: C.text }]}>My Jobs</Text>
-          <Text style={[styles.headerSubtitle, { color: C.muted }]}>Calendar, requests, quotes and ongoing work</Text>
-        </View>
-        <TouchableOpacity style={[styles.refreshButton, { backgroundColor: C.soft }]} onPress={onRefresh}>
-          <Ionicons name="refresh" size={20} color="#7C3AED" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={[styles.tabsWrap, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {TABS.map((tab) => {
-            const active = activeTab === tab;
-            return (
-              <TouchableOpacity key={tab} style={[styles.tabPill, { backgroundColor: C.soft }, active && styles.tabPillActive]} onPress={() => setActiveTab(tab)}>
-                <Text style={[styles.tabText, { color: C.muted }, active && styles.tabTextActive]}>{tab}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
       <ScrollView
         style={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={Platform.OS === 'web' ? undefined : (
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        )}
       >
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#667eea" />
-            <Text style={[styles.loadingText, { color: C.muted }]}>Loading provider jobs...</Text>
+        <HeaderSection navigation={navigation} onInboxPress={() => navigation.navigate('InboxScreen')} />
+        <View style={[styles.header, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
+          <View style={styles.headerTextWrap}>
+            <Text style={[styles.headerTitle, { color: C.text }]}>My Jobs</Text>
+            <Text style={[styles.headerSubtitle, { color: C.muted }]}>Calendar, requests, quotes and ongoing work</Text>
           </View>
-        ) : error ? (
-          <View style={[styles.emptyContainer, { backgroundColor: C.card, borderColor: C.border }]}>
-            <Ionicons name="cloud-offline-outline" size={46} color="#9CA3AF" />
-            <Text style={[styles.emptyTitle, { color: C.text }]}>{error}</Text>
-          </View>
-        ) : renderBody()}
+          <TouchableOpacity style={[styles.refreshButton, { backgroundColor: C.soft }]} onPress={onRefresh}>
+            <Ionicons name="refresh" size={20} color="#7C3AED" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.tabsWrap, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {TABS.map((tab) => {
+              const active = activeTab === tab;
+              return (
+                <TouchableOpacity key={tab} style={[styles.tabPill, { backgroundColor: C.soft }, active && styles.tabPillActive]} onPress={() => setActiveTab(tab)}>
+                  <Text style={[styles.tabText, { color: C.muted }, active && styles.tabTextActive]}>{tab}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <View style={styles.contentContainer}>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#667eea" />
+              <Text style={[styles.loadingText, { color: C.muted }]}>Loading provider jobs...</Text>
+            </View>
+          ) : error ? (
+            <View style={[styles.emptyContainer, { backgroundColor: C.card, borderColor: C.border }]}>
+              <Ionicons name="cloud-offline-outline" size={46} color="#9CA3AF" />
+              <Text style={[styles.emptyTitle, { color: C.text }]}>{error}</Text>
+            </View>
+          ) : renderBody()}
+        </View>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, minHeight: 0, backgroundColor: '#F8FAFC' },
   header: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 0.5 },
   headerTextWrap: { flex: 1 },
   headerTitle: { fontSize: 24, fontWeight: '600', color: '#1E293B' },
   headerSubtitle: { fontSize: 12, fontWeight: '400', color: '#64748B', marginTop: 3 },
   refreshButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  tabsWrap: { backgroundColor: '#F8FAFC', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  tabsWrap: { flexShrink: 0, backgroundColor: '#F8FAFC', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   tabPill: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: '#F3F4F6', marginLeft: 10 },
   tabPillActive: { backgroundColor: '#667eea' },
   tabText: { color: '#6B7280', fontWeight: '500', fontSize: 13 },
   tabTextActive: { color: '#fff' },
-  content: { flex: 1, padding: 16 },
+  content: { flex: 1, minHeight: 0 },
+  contentContainer: { padding: 16, paddingBottom: 120 },
   loadingContainer: { alignItems: 'center', padding: 32 },
   loadingText: { fontSize: 15, color: '#6B7280', marginTop: 8 },
-  dateStrip: { marginBottom: 14 },
+  dateStrip: { flexGrow: 0, flexShrink: 0, marginBottom: 14 },
   datePill: { width: 86, paddingVertical: 12, borderRadius: 16, backgroundColor: '#fff', marginRight: 10, alignItems: 'center', borderWidth: 1, borderColor: '#EEF2F7' },
   datePillActive: { backgroundColor: '#667eea', borderColor: '#667eea' },
   datePillLabel: { color: '#6B7280', fontSize: 12, fontWeight: '500' },

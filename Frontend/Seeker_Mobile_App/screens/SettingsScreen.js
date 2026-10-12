@@ -3,11 +3,13 @@ import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Switch, Platform, StatusBar, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/BottomNav';
 import { ThemeContext } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { confirmLogout } from '../utils/confirmLogout';
 
 export default function SettingsScreen({ navigation }) {
+  const { logout } = useAuth();
   const { isDarkMode, toggleTheme, setTheme } = useContext(ThemeContext);
   const [notifications, setNotifications] = useState(true);
   const [emailUpdates, setEmailUpdates] = useState(true);
@@ -35,27 +37,16 @@ export default function SettingsScreen({ navigation }) {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Logout', 
-          onPress: async () => {
-            try {
-              await AsyncStorage.removeItem('userToken');
-              await AsyncStorage.removeItem('userRole');
-              navigation.replace('Login');
-            } catch (err) {
-              console.log('Error clearing credentials on logout:', err);
-              navigation.replace('Login');
-            }
-          },
-          style: 'destructive' 
-        }
-      ]
-    );
+    confirmLogout(async () => {
+      try {
+        await logout();
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      } catch (error) {
+        console.log('Logout error:', error);
+        if (Platform.OS === 'web') window.alert('Unable to logout. Please try again.');
+        else Alert.alert('Error', 'Unable to logout. Please try again.');
+      }
+    });
   };
 
   const settingsOptions = [

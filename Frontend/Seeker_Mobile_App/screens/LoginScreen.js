@@ -147,17 +147,7 @@ export default function LoginScreen({ navigation }) {
       // Save to AuthContext
       await saveUser(userProfile);
 
-      // 6. Success
-      Alert.alert(
-        'Success',
-        'Logged in successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.replace('Home'),
-          },
-        ]
-      );
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
     } catch (error) {
       console.error('LOGIN ERROR:', {
         message: error.message,
@@ -244,7 +234,7 @@ export default function LoginScreen({ navigation }) {
 // ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     padding: 20,
     backgroundColor: '#f5f5f5',

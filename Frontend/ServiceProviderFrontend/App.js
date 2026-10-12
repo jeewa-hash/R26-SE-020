@@ -7,6 +7,7 @@ import {
   StyleSheet,
   AppState,
   LogBox,
+  Platform,
 } from 'react-native';
 
 LogBox.ignoreLogs([
@@ -171,7 +172,11 @@ function AppContent() {
         <NavigationContainer ref={navigationRef} theme={theme}>
           <Stack.Navigator
             initialRouteName={initialRoute}
-            screenOptions={{ headerShown: false }}
+            screenOptions={{
+              headerShown: false,
+              // Expo locks body scrolling; keep scrolling inside each screen.
+              cardStyle: Platform.OS === 'web' ? { flex: 1, minHeight: 0, height: '100%' } : undefined,
+            }}
           >
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />

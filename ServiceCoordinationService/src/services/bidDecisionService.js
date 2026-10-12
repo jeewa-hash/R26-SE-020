@@ -13,9 +13,11 @@ export const decideBidCoordination = ({ priceEvaluation, scheduleEvaluation }) =
   }
 
   if (scheduleEvaluation.delayRiskLevel === "High") {
-    finalDecision = "AVAILABLE_WITH_CAUTION";
-    recommendedAction =
-      "ML risk analysis indicates a high delay risk. Seeker should review before accepting.";
+    return {
+      finalDecision: "RESCHEDULE_REQUIRED",
+      recommendedAction:
+        "ML risk analysis indicates a high delay risk. Choose a validated alternative time.",
+    };
   }
 
   if (scheduleEvaluation.delayRiskLevel === "Medium") {

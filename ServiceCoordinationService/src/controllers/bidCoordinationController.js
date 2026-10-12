@@ -15,14 +15,13 @@ import { evaluateBidSchedule } from "../services/scheduleEvaluationService.js";
 import { decideBidCoordination } from "../services/bidDecisionService.js";
 import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
 import Booking from "../models/Booking.js";
-import { getRoadDistanceAndTime } from "../services/osrmService.js";
+import { getRoadDistanceAndTime } from "../services/routing/routingService.js";
 import { generateSuggestedSlots } from "../services/suggestedSlotService.js";
-import { predictDelayRisk } from "../clients/mlPredictionClient.js";
-import {
-  buildDelayRiskPayload,
-  normalizeDelayRiskLevel,
-} from "../services/mlPayloadBuilderService.js";
+import { predictDuration } from "../clients/mlPredictionClient.js";
+import { buildDurationPredictionPayload } from "../services/mlPayloadBuilderService.js";
+import { evaluateCoordinationFeasibility } from "../services/coordinationFeasibilityService.js";
 import { validateProviderSchedule } from "../services/scheduleValidationService.js";
+import { estimateServiceDuration } from "../services/durationEstimationService.js";
 
 const toScheduleParts = (value) => {
   const date = new Date(value);
@@ -131,25 +130,62 @@ export const checkBidCoordination = async (req, res) => {
       });
     }
 
+    // Build the six-field Duration ML v2 payload. No manual duration estimate
+    // from the seeker/provider is required in the final research flow.
+    const durationPayload = buildDurationPredictionPayload({
+      requestQuotation,
+      providerQuotation,
+    });
+
+    const durationPrediction = await predictDuration(durationPayload);
+    const modelDurationMins = Number(durationPrediction?.predictedDurationMins);
+    const hasMlDuration =
+      Number.isFinite(modelDurationMins) && modelDurationMins > 0;
+
+    // If the ML service is unavailable, use the existing task-reference logic
+    // rather than falling back to a user-entered duration.
+    const referenceDuration = hasMlDuration
+      ? null
+      : estimateServiceDuration({
+          serviceCategory: durationPayload.serviceCategory,
+          serviceSubcategory: durationPayload.serviceType,
+          taskName: durationPayload.taskName,
+          urgency: requestQuotation.urgencyLevel,
+        });
+
+    const referenceDurationMins = Math.round(
+      Number(referenceDuration?.averageDurationHours || 2) * 60
+    );
+    const predictedDurationMins = hasMlDuration
+      ? Math.round(modelDurationMins)
+      : referenceDurationMins;
+    const durationPredictionSource = hasMlDuration
+      ? durationPrediction?.source || "TRAINED_DURATION_MODEL"
+      : "REFERENCE_DURATION_FALLBACK";
+    const durationModelVersion = hasMlDuration
+      ? durationPrediction?.modelVersion || null
+      : null;
+
+    // Price evaluation can still consider job length, but that length now comes
+    // from the ML/fallback duration pipeline instead of manual provider input.
     const priceEvaluationData = evaluateBidPrice({
       detectedCategory: requestQuotation.detectedCategory,
       urgencyLevel: requestQuotation.urgencyLevel,
       providerQuotedPrice: providerQuotation.price,
       seekerBudgetAmount: requestQuotation.seekerBudgetAmount,
-      providerEstimatedDurationHours: providerQuotation.estimatedDurationHours,
-    }); // Chaw: rule-based price and budget evaluation
+      estimatedDurationHours: predictedDurationMins / 60,
+    });
 
     let scheduleEvaluationData = await evaluateBidSchedule({
       providerId: providerQuotation.providerId,
       proposedStartTime: providerQuotation.proposedStartTime,
       preferredStartTime: requestQuotation.preferredStartTime,
       preferredEndTime: requestQuotation.preferredEndTime,
-      providerEstimatedDurationHours: providerQuotation.estimatedDurationHours,
-      seekerEstimatedDurationHours: requestQuotation.seekerEstimatedDurationHours,
-      mlPredictedDurationHours: null,
-      delayRiskLevel: "NOT_CHECKED",
+      predictedDurationMins,
+      durationPredictionSource,
+      durationModelVersion,
       bufferMinutes,
-    }); // Chaw: first calculate schedule window and booking conflict
+    }); // Chaw: scheduling duration is predicted automatically; no manual duration dependency
 
     const proposedStart = new Date(providerQuotation.proposedStartTime);
     const previousBooking = !Number.isNaN(proposedStart.getTime()) ? await Booking.findOne({
@@ -168,33 +204,24 @@ export const checkBidCoordination = async (req, res) => {
         : (previousBooking.actualEndTime || previousBooking.scheduledEndTime);
       if (previousEnd) gapFromPreviousBookingMins = Math.round((proposedStart.getTime() - new Date(previousEnd).getTime()) / 60000);
     }
-    const insufficientTravelGap = gapFromPreviousBookingMins !== null && gapFromPreviousBookingMins < travelInfo.estimatedTravelTimeMins;
+    const feasibility = evaluateCoordinationFeasibility({
+      gapFromPreviousBookingMins,
+      estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
+    });
+
     scheduleEvaluationData = {
       ...scheduleEvaluationData,
       distanceFromPreviousBookingKm: travelInfo.distanceKm,
       estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
       gapFromPreviousBookingMins,
       travelInfoSource: travelInfo.source,
-      conflictDetected: scheduleEvaluationData.conflictDetected || insufficientTravelGap,
-      conflictReason: insufficientTravelGap
-        ? "Provider may not have enough travel time from the previous booking."
-        : scheduleEvaluationData.conflictReason,
-    };
-
-    const delayRiskPayload = buildDelayRiskPayload({
-      requestQuotation,
-      providerQuotation,
-      scheduleEvaluation: scheduleEvaluationData,
-    }); // Chaw: build ML request payload from coordinated bid data
-
-    const delayRiskPrediction = await predictDelayRisk(delayRiskPayload);
-
-    const mlDelayRiskLevel = normalizeDelayRiskLevel(delayRiskPrediction);
-
-    scheduleEvaluationData = {
-      ...scheduleEvaluationData,
-      delayRiskLevel: mlDelayRiskLevel,
-    }; // Chaw: attach ML risk level to schedule evaluation before saving
+      routingTrafficAware: Boolean(travelInfo.trafficAware),
+      effectiveBufferMins: feasibility.effectiveBufferMins,
+      minimumBufferMins: feasibility.minimumBufferMins,
+      travelFeasible: feasibility.travelFeasible,
+      coordinationStatus: feasibility.coordinationStatus,
+      coordinationReason: feasibility.reason,
+    }; // Chaw: deterministic delay-aware feasibility; no second ML classifier
 
     const decisionData = decideBidCoordination({
       priceEvaluation: priceEvaluationData,
@@ -277,7 +304,10 @@ export const checkBidCoordination = async (req, res) => {
           scheduleEvaluationData.finalSchedulingDurationHours,
         bufferMinutes: scheduleEvaluationData.bufferMinutes,
         maxSuggestions: 3,
-      }); // Chaw: generate alternative available time slots
+        destinationLat,
+        destinationLng,
+        minimumBufferMins: scheduleEvaluationData.minimumBufferMins,
+      }); // Chaw: generate slots that are both available and travel-feasible
 
       if (generatedSlots.length > 0) {
         suggestedSlots = await BidSuggestedSlot.insertMany(
@@ -503,11 +533,16 @@ export const selectSuggestedSlot = async (req, res) => {
         });
       }
   
-      const selectedDurationHours = Number(scheduleEvaluation.mlPredictedDurationHours) > 0
-        ? Number(scheduleEvaluation.mlPredictedDurationHours)
-        : Number(scheduleEvaluation.providerEstimatedDurationHours);
+      const selectedDurationHours = Number(
+        scheduleEvaluation.finalSchedulingDurationHours ||
+        scheduleEvaluation.predictedDurationHours ||
+        scheduleEvaluation.mlPredictedDurationHours
+      );
       if (!(selectedDurationHours > 0)) {
-        return res.status(409).json({ success: false, message: "A valid provider duration is required before selecting a slot." });
+        return res.status(409).json({
+          success: false,
+          message: "A valid predicted service duration is required before selecting a slot.",
+        });
       }
 
       const selectedStart = new Date(selectedSlot.startTime);
@@ -540,8 +575,16 @@ export const selectSuggestedSlot = async (req, res) => {
           : (previousBooking.actualEndTime || previousBooking.scheduledEndTime);
         if (previousEnd) gapFromPreviousBookingMins = Math.round((selectedStart.getTime() - new Date(previousEnd).getTime()) / 60000);
       }
-      if (gapFromPreviousBookingMins !== null && gapFromPreviousBookingMins < travelInfo.estimatedTravelTimeMins) {
-        return res.status(409).json({ success: false, message: "Selected slot does not leave enough travel time from the previous booking." });
+      const selectedFeasibility = evaluateCoordinationFeasibility({
+        gapFromPreviousBookingMins,
+        estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
+        minimumBufferMins: scheduleEvaluation.minimumBufferMins,
+      });
+      if (selectedFeasibility.coordinationStatus === "RESCHEDULE_REQUIRED") {
+        return res.status(409).json({
+          success: false,
+          message: selectedFeasibility.reason,
+        });
       }
   
       const updatedScheduleData = {
@@ -549,6 +592,7 @@ export const selectSuggestedSlot = async (req, res) => {
         requiredWindowStart: selectedStart,
         requiredWindowEnd: selectedEnd,
         finalSchedulingDurationHours: selectedDurationHours,
+        finalSchedulingDurationMins: Math.round(selectedDurationHours * 60),
         conflictDetected: false,
         conflictReason: "",
         availabilityMessage: validation.message,
@@ -556,7 +600,13 @@ export const selectSuggestedSlot = async (req, res) => {
         estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
         gapFromPreviousBookingMins,
         travelInfoSource: travelInfo.source,
-      }; // Chaw: selected suggested slot becomes the new valid schedule window
+        routingTrafficAware: Boolean(travelInfo.trafficAware),
+        effectiveBufferMins: selectedFeasibility.effectiveBufferMins,
+        minimumBufferMins: selectedFeasibility.minimumBufferMins,
+        travelFeasible: selectedFeasibility.travelFeasible,
+        coordinationStatus: selectedFeasibility.coordinationStatus,
+        coordinationReason: selectedFeasibility.reason,
+      }; // Chaw: selected slot becomes the new validated schedule window
   
       const updatedScheduleEvaluation =
         await BidScheduleEvaluation.findOneAndUpdate(
@@ -571,8 +621,11 @@ export const selectSuggestedSlot = async (req, res) => {
         );
   
       const decisionData = {
-        finalDecision: "CAN_ACCEPT",
-        recommendedAction: "The selected slot was revalidated and can be accepted.",
+        finalDecision:
+          selectedFeasibility.coordinationStatus === "CAUTION"
+            ? "AVAILABLE_WITH_CAUTION"
+            : "CAN_ACCEPT",
+        recommendedAction: selectedFeasibility.reason,
       };
   
       const updatedCoordination = await BidCoordination.findByIdAndUpdate(

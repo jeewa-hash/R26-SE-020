@@ -1,0 +1,19 @@
+{
+  "model": "Ridge",
+  "holdout": {
+    "MAE_minutes": 11.952300088551779,
+    "RMSE_minutes": 16.706955347732645,
+    "R2": 0.9655914532508696
+  },
+  "task_median_baseline": {
+    "MAE_minutes": 11.288927335640139,
+    "RMSE_minutes": 15.505468395795413,
+    "R2": 0.9703625054592251
+  },
+  "evaluation": {
+    "split": "GroupShuffleSplit(test_size=0.20, random_state=42)",
+    "train_providers": 267,
+    "test_providers": 67,
+    "provider_overlap": 0
+  }
+}
