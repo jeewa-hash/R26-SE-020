@@ -13,6 +13,7 @@ const rewardAccountSchema = new mongoose.Schema(
     lifetimeEarned: { type: Number, default: 0, min: 0 },
     lifetimeSpent: { type: Number, default: 0, min: 0 },
     pointsExpireAt: { type: Date, default: null },
+    completedJobsCount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );

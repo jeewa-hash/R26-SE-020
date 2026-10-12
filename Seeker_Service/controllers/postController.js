@@ -286,6 +286,8 @@ export const previewPost = async (req, res) => {
     const {
       title,
       description,
+      userId,
+      language,
     } = req.body;
 
     if (!req.file) {
@@ -295,6 +297,26 @@ export const previewPost = async (req, res) => {
       });
     }
 
+    let contextData = "";
+    if (userId) {
+      try {
+        const user = await getUserById(userId);
+        if (user) {
+          contextData += `User Profile: Name - ${user.name || 'Unknown'}, District - ${user.district || 'Unknown'}. Please personalize the post for this location if relevant.\n`;
+        }
+
+        const pastPosts = await Post.find({ seekerId: userId }).sort({ createdAt: -1 }).limit(3);
+        if (pastPosts && pastPosts.length > 0) {
+          contextData += "Previous Posts by User (for tone/style reference):\n";
+          pastPosts.forEach(p => {
+            contextData += `- ${p.title} (Category: ${p.category})\n`;
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch context data for user:", err.message);
+      }
+    }
+
     const imageBase64 = fs
       .readFileSync(req.file.path)
       .toString("base64");
@@ -302,7 +324,9 @@ export const previewPost = async (req, res) => {
     const aiData = await analyzeImageWithGemini(
       imageBase64,
       title,
-      description
+      description,
+      contextData,
+      language
     );
 
     res.status(200).json({
