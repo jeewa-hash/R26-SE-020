@@ -13,12 +13,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Surface } from 'react-native-paper';
 import { clearAllAuthStorage } from '../pages/IT22129376/services/providerAuthStorage';
 import { CommonActions } from '@react-navigation/native';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { ThemeContext } from '../context/ThemeContext';
 import { getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 
-const API_URL = `http://${IP_ADDRESS}:4003`;
-const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
+const API_URL = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
+const ADMIN_API_URL = ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
 const { width } = Dimensions.get('window');
 
 export default function ProfileScreen({ navigation }) {

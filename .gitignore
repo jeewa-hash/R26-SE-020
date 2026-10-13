@@ -1,4 +1,4 @@
-﻿# ==================== Node.js ====================
+# ==================== Node.js ====================
 node_modules/
 package-lock.json
 npm-debug.log*
@@ -36,12 +36,12 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # ==================== ML Models & Data ====================
-adminService/ml_service/models/*.pkl
-adminService/ml_service/models/*.joblib
-*.pkl
-*.joblib
 *.csv.bak
 data/*.csv.bak
+*.pkl
+*.joblib
+!adminService/ml_service/models/demand_model.pkl
+!adminService/ml_service/models/encoders.pkl
 
 # ==================== Environment & Secrets ====================
 .env

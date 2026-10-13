@@ -21,10 +21,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL as LIVE_AUTH_URL } from '../config';
 
-const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003/seeker`;
-const BASE_AUTH_URL = `http://${IP_ADDRESS}:4003`;
+const BASE_AUTH_URL = LIVE_AUTH_URL || `http://${IP_ADDRESS}:4003`;
+const AUTH_SERVICE_URL = `${BASE_AUTH_URL}/seeker`;
 
 // ─── Helper: build full image URL ──────────────────────────
 const getFullImageUrl = (imagePath) => {
