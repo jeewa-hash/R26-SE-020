@@ -113,6 +113,39 @@ def get_metrics():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/retrain', methods=['POST'])
+def trigger_retrain():
+    try:
+        import subprocess, sys
+        print("[INFO] Triggering model retraining process via train_auto.py...")
+        result = subprocess.run(
+            [sys.executable, 'train_auto.py'],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        if result.returncode != 0:
+            print("[ERROR] Retraining script error:", result.stderr)
+            return jsonify({
+                "error": "Failed to retrain model",
+                "details": result.stderr or result.stdout
+            }), 500
+
+        # Reload assets into global memory
+        global MODEL, LE_ENCODERS
+        MODEL = None
+        LE_ENCODERS = None
+        get_assets()
+
+        print("[SUCCESS] Retraining complete and new model reloaded into memory")
+        return jsonify({
+            "message": "Model retrained successfully!",
+            "details": result.stdout
+        }), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy", "service": "R26 Demand Forecasting ML Service"}), 200
