@@ -49,7 +49,7 @@ const postSchema = new mongoose.Schema(
 
     image: {
       type: String,
-      required: true,
+      default: null,
     },
 
     category: {
@@ -96,6 +96,13 @@ const postSchema = new mongoose.Schema(
         type: Number,
         default: null,
       },
+    },
+
+    preferredSchedule: {
+      date: { type: String, default: "" },
+      startTime: { type: String, default: "" },
+      endTime: { type: String, default: "" },
+      flexible: { type: Boolean, default: true },
     },
 
     budget: {

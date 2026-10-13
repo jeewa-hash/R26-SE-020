@@ -7,6 +7,7 @@ import {
   Dimensions,
   TextInput,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -30,7 +31,7 @@ const STATUS_FILTERS = [
 export default function AppliedJobsScreen() {
   const { isDark } = useContext(ThemeContext) || {};
   const { t } = useTranslation();
-  const { appliedJobs, getJobsByStatus, updateJobStatus, getStatusCounts } = useAppliedJobs();
+  const { appliedJobs, getJobsByStatus, updateJobStatus, cancelApplication, getStatusCounts } = useAppliedJobs();
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -261,6 +262,19 @@ export default function AppliedJobsScreen() {
                   </TouchableOpacity>
                 )}
 
+                {job.status === 'pending' && (
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => Alert.alert('Cancel application?', 'This application will be removed from your applied jobs.', [
+                      { text: 'Keep', style: 'cancel' },
+                      { text: 'Cancel application', style: 'destructive', onPress: () => cancelApplication(job.id) },
+                    ])}
+                  >
+                    <MaterialIcons name="close" size={16} color="#FFFFFF" />
+                    <Text style={styles.cancelButtonText}>Cancel Application</Text>
+                  </TouchableOpacity>
+                )}
+
                 {job.status === 'rejected' && (
                   <TouchableOpacity style={styles.similarJobsButton}>
                     <MaterialIcons name="search" size={16} color="#FFFFFF" />
@@ -277,6 +291,8 @@ export default function AppliedJobsScreen() {
 }
 
 const styles = StyleSheet.create({
+  cancelButton: { backgroundColor: '#DC2626', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 },
+  cancelButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   container: { flex: 1 },
   scrollContent: { paddingBottom: 20 },
 

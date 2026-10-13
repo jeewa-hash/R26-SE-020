@@ -1,7 +1,10 @@
+import { Platform } from 'react-native';
+
 // Set EXPO_PUBLIC_API_HOST to your computer's LAN IP when testing on a
 // physical device (for example: 192.168.1.103). Android emulators use 10.0.2.2.
 export const IP_ADDRESS =
-  process.env.EXPO_PUBLIC_API_HOST || '192.168.1.222'; //'192.168.1.38';
+  process.env.EXPO_PUBLIC_API_HOST ||
+  (Platform.OS === 'android' ? '10.0.2.2' : '10.66.146.163');
 
 export const CONFIG = {
   API_BASE_URL: `http://${IP_ADDRESS}:6000`,
@@ -20,3 +23,9 @@ export const CONFIG = {
 export const ADMIN_SERVICE_URL = CONFIG.ADMIN_SERVICE_URL;
 export const AUTH_SERVICE_URL = CONFIG.AUTH_SERVICE_URL;
 export const ML_SERVICE_URL = CONFIG.ML_SERVICE_URL;
+export const SEEKER_SERVICE_URL = CONFIG.SEEKER_SERVICE_URL;
+export const PROVIDER_SERVICE_URL = CONFIG.PROVIDER_SERVICE_URL;
+export const PROVIDER_SERVICE_API_URL = CONFIG.PROVIDER_SERVICE_API_URL;
+export const COORDINATION_SERVICE_URL = CONFIG.COORDINATION_SERVICE_URL;
+export const AUTH_SERVICE_URL = CONFIG.AUTH_SERVICE_URL;
+export const API_BASE_URL = CONFIG.API_BASE_URL;

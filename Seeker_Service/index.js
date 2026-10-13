@@ -27,6 +27,16 @@ app.use(express.urlencoded({ extended: true }));
 // static
 app.use("/uploads", express.static("uploads"));
 
+// root health check
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "online",
+    message: "🚀 Seeker Service Backend is running successfully!",
+    service: "Seeker_Service",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // routes
 app.use("/posts", postRoutes);
 app.use("/chat", chatRoutes);

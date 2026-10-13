@@ -1,15 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import {
-  View,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  Dimensions,
-  Alert,
-  Modal,
-  Pressable,
-  ActivityIndicator,
+  View, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Dimensions, Alert, Modal, Pressable, ActivityIndicator, Image
 } from 'react-native';
 import { Text, FAB, Surface } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -32,29 +23,7 @@ import {
 
 const { width } = Dimensions.get('window');
 
-const REVIEWS = [
-  {
-    id: '1',
-    name: 'Kumara P.',
-    rating: 5,
-    comment: 'Excellent work! Fixed the pipe quickly and professionally.',
-    date: 'May 8',
-  },
-  {
-    id: '2',
-    name: 'Anoma S.',
-    rating: 5,
-    comment: 'Very reliable and honest. Will hire again.',
-    date: 'May 3',
-  },
-  {
-    id: '3',
-    name: 'Samira W.',
-    rating: 4,
-    comment: 'Good service, arrived on time and completed the job well.',
-    date: 'Apr 28',
-  },
-];
+
 
 const getInitials = (name) =>
   name.split(' ').map((n) => n[0]).join('').toUpperCase();
@@ -74,6 +43,9 @@ export default function ProfileScreen({ navigation }) {
   const [showPenaltyModal, setShowPenaltyModal] = useState(false);
   const [penaltyRatio, setPenaltyRatio] = useState('3/3');
   const [checkingPenalty, setCheckingPenalty] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [updatingAvailability, setUpdatingAvailability] = useState(false);
+  const [showAddTooltip, setShowAddTooltip] = useState(false);
 
   const handleFabPress = async () => {
     try {
@@ -125,39 +97,17 @@ export default function ProfileScreen({ navigation }) {
     navigation.getParent()?.navigate('PostGeneration');
   };
 
+  // PortfolioContext already loads these items; derive skills locally instead
+  // of making a second request to the ML service.
   useEffect(() => {
-    const fetchSkills = async () => {
-      try {
-        const token = await AsyncStorage.getItem('userToken');
-        if (!token) return;
-
-        const response = await fetch(
-          `${CONFIG.ML_SERVICE_URL}/portfolio/items`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          const skills = [
-            ...new Set(
-              (data.items || []).flatMap((item) =>
-                Array.isArray(item.tags) ? item.tags : []
-              )
-            ),
-          ];
-
-          setProfileSkills(skills);
-        }
-      } catch (e) {
-        console.log('Error fetching skills from ML engine:', e);
-      }
-    };
-
-    fetchSkills();
+    const skills = [
+      ...new Set(
+        portfolioImages.flatMap((item) =>
+          Array.isArray(item.tags) ? item.tags : []
+        )
+      ),
+    ];
+    setProfileSkills(skills);
   }, [portfolioImages]);
 
   const [profile, setProfile] = useState({
@@ -178,9 +128,26 @@ export default function ProfileScreen({ navigation }) {
   });
 
   const [loading, setLoading] = useState(true);
-  const [isAvailable, setIsAvailable] = useState(true);
-  const [updatingAvailability, setUpdatingAvailability] = useState(false);
+  const [reviews, setReviews] = useState([]);
 
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const providerId = await AsyncStorage.getItem('userId');
+        if (!providerId) return;
+        const res = await fetch(`${CONFIG.SEEKER_SERVICE_URL}/feedback/provider/${providerId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setReviews(Array.isArray(data.data) ? data.data : []);
+        }
+      } catch (error) { console.log('Error fetching provider feedback:', error); }
+    };
+    fetchReviews();
+  }, []);
+
+
+
+  // Fetch profile data
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -224,12 +191,6 @@ export default function ProfileScreen({ navigation }) {
             earned: 'N/AK',
           });
 
-          try {
-            const availabilityStatus = await getProviderAvailabilityStatus();
-            setIsAvailable(availabilityStatus !== false);
-          } catch (availabilityError) {
-            console.log('Availability status error:', availabilityError?.message);
-          }
         }
       } catch (err) {
         console.log('Profile fetch error:', err);
@@ -241,33 +202,69 @@ export default function ProfileScreen({ navigation }) {
     fetchProfile();
   }, []);
 
+  // Availability is non-blocking: load it after the profile can render.
+  useEffect(() => {
+    let mounted = true;
+    getProviderAvailabilityStatus()
+      .then((status) => {
+        if (mounted) setIsAvailable(status !== false);
+      })
+      .catch((error) => {
+        console.log('Availability status error:', error?.message);
+      });
+    return () => { mounted = false; };
+  }, []);
+
   const allTags = getAllTags();
 
-  const categories = React.useMemo(() => {
+    // Helper — resolves ML Engine image URLs (mirrors PortfolioContext)
+  const resolveUrl = (raw) => {
+    if (!raw) return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('file://')) return raw;
+    if (raw.startsWith('/uploads/')) return `${CONFIG.ML_SERVICE_URL}${raw}`;
+    return raw;
+  };
+
+  // Service-based groups for portfolio cover display
+  const serviceGroups = React.useMemo(() => {
     if (portfolioCategories && portfolioCategories.length > 0) {
-      return portfolioCategories.map((c) => ({
-        name: c.label || c.category_group,
-        count: c.image_count || 1,
-        latest_image: c.latest_image,
-      }));
+      const grouped = {};
+      portfolioCategories.forEach((c) => {
+        const key = c.label || c.category_group;
+        if (!grouped[key]) {
+          grouped[key] = {
+            name: key,
+            count: c.image_count || 1,
+            coverImage: resolveUrl(c.latest_image),
+          };
+        } else {
+          grouped[key].count += (c.image_count || 1);
+          if (!grouped[key].coverImage && c.latest_image) {
+            grouped[key].coverImage = resolveUrl(c.latest_image);
+          }
+        }
+      });
+      return Object.values(grouped);
     }
-
-    const categoryMap = {};
-
+    // Fallback: group local portfolioImages by service label
+    const groupMap = {};
     portfolioImages.forEach((img) => {
-      const name = img.label || img.category || 'General';
-
-      if (!categoryMap[name]) categoryMap[name] = 0;
-      categoryMap[name] += 1;
+      const key = img.label || img.category || 'General';
+      if (!groupMap[key]) {
+        groupMap[key] = { name: key, count: 0, coverImage: resolveUrl(img.uri) };
+      }
+      groupMap[key].count += 1;
     });
-
-    return Object.keys(categoryMap).map((tag) => ({
-      name: tag,
-      count: categoryMap[tag],
-    }));
+    return Object.values(groupMap);
   }, [portfolioCategories, portfolioImages]);
 
-  const CATEGORY_COLORS = ['#2563EB', '#7C3AED', '#059669', '#F59E0B', '#DC2626', '#0891B2'];
+  const SERVICE_COLORS = ['#7C3AED', '#2563EB', '#059669', '#F59E0B', '#DC2626', '#0891B2'];
+
+  const handleAddPress = () => {
+    setShowAddTooltip(true);
+    openGallery();
+    setTimeout(() => setShowAddTooltip(false), 1600);
+  };
 
   const handleCloseTagScreen = () => {
     resetAll();
@@ -312,7 +309,10 @@ export default function ProfileScreen({ navigation }) {
 
       <HeaderSection
         navigation={navigation}
-        onInboxPress={() => navigation.navigate('InboxScreen')}
+        onInboxPress={() => navigation.navigate('Main', {
+          screen: 'HomeTab',
+          params: { screen: 'InboxScreen' },
+        })}
       />
 
       <ScrollView
@@ -376,7 +376,7 @@ export default function ProfileScreen({ navigation }) {
               { val: profile.completion, lbl: 'Completion', icon: 'check-circle', color: '#16A34A' },
               { val: profile.earned, lbl: 'Earned', icon: 'account-balance-wallet', color: '#7C3AED' },
             ].map((s, i, arr) => (
-              <React.Fragment key={i}>
+              <React.Fragment key={s.lbl}>
                 <View style={styles.statCell}>
                   <MaterialIcons name={s.icon} size={16} color={s.color} />
                   <Text style={[styles.statVal, { color: s.color }]}>{s.val}</Text>
@@ -427,7 +427,7 @@ export default function ProfileScreen({ navigation }) {
           </Text>
         </View>
 
-        <ServicesSection navigation={navigation} C={C} initialCategory={profile.category} />
+        <ServicesSection navigation={navigation} C={C} initialCategory={profile.category} onAddImagePress={openGallery} />
         <ProviderPostsSection navigation={navigation} isDark={isDark} />
 
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
@@ -474,17 +474,21 @@ export default function ProfileScreen({ navigation }) {
           )}
         </View>
 
+                {/* ── Portfolio Section ── */}
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: C.text }]}>Portfolio</Text>
             <TouchableOpacity onPress={() => navigation.getParent()?.navigate('PortfolioGallery')}>
-              <Text style={{ fontSize: 13, color: '#2563EB', fontWeight: '600' }}>View Gallery →</Text>
+              <Text style={{ fontSize: 13, color: '#7C3AED', fontWeight: '600' }}>View Gallery →</Text>
             </TouchableOpacity>
           </View>
 
-          {categories.length === 0 && portfolioImages.length === 0 ? (
-            <TouchableOpacity style={[styles.portfolioEmpty, { backgroundColor: C.subCard, borderColor: C.border }]} onPress={openGallery}>
-              <MaterialIcons name="add-photo-alternate" size={32} color="#6366F1" />
+          {serviceGroups.length === 0 && portfolioImages.length === 0 ? (
+            <TouchableOpacity
+              style={[styles.portfolioEmpty, { backgroundColor: C.subCard, borderColor: C.border }]}
+              onPress={openGallery}
+            >
+              <MaterialIcons name="add-photo-alternate" size={32} color="#7C3AED" />
               <Text style={[styles.portfolioEmptyTitle, { color: C.text }]}>Add Portfolio Images</Text>
               <Text style={[styles.portfolioEmptySub, { color: C.textSub }]}>
                 Upload work photos — AI ML Engine will classify and tag them
@@ -492,32 +496,59 @@ export default function ProfileScreen({ navigation }) {
             </TouchableOpacity>
           ) : (
             <View style={styles.portfolioContainer}>
+              {/* Corner "add more" button */}
+              <TouchableOpacity
+                style={styles.addImageCorner}
+                onPress={handleAddPress}
+                activeOpacity={0.85}
+              >
+                <MaterialIcons name="add-photo-alternate" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              {showAddTooltip && (
+                <View style={styles.addTooltip}>
+                  <Text style={styles.addTooltipText}>Add Portfolio Images</Text>
+                </View>
+              )}
+
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.categoryScrollContent}
               >
-                {categories.map((cat, index) => {
-                  const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
-
+                {serviceGroups.map((svc, index) => {
+                  const color = SERVICE_COLORS[index % SERVICE_COLORS.length];
                   return (
                     <TouchableOpacity
-                      key={cat.name}
-                      style={[styles.categoryCard, { backgroundColor: color + '25' }]}
+                      key={`${svc.name}-${index}`}
+                      style={styles.serviceFolderCard}
                       activeOpacity={0.85}
-                      onPress={() => navigation.getParent()?.navigate('PortfolioGallery', { category: cat.name })}
+                      onPress={() => navigation.getParent()?.navigate('PortfolioGallery', { category: svc.name })}
                     >
-                      <MaterialIcons name="photo-library" size={28} color={color} />
+                      {/* Cover image or color-tinted placeholder */}
+                      {svc.coverImage ? (
+                        <Image
+                          source={{ uri: svc.coverImage }}
+                          style={styles.serviceFolderImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={[styles.serviceFolderPlaceholder, { backgroundColor: color + '30' }]}>
+                          <MaterialIcons name="photo-library" size={28} color={color} />
+                        </View>
+                      )}
 
+                      {/* Count badge */}
                       <View style={styles.categoryCountBadge}>
-                        <Text style={styles.categoryCountText}>{cat.count}</Text>
+                        <Text style={styles.categoryCountText}>{svc.count}</Text>
                       </View>
 
+                      {/* Label gradient */}
                       <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.80)']}
+                        colors={['transparent', 'rgba(0,0,0,0.82)']}
                         style={styles.categoryLabelGradient}
                       >
-                        <Text style={styles.categoryLabelText} numberOfLines={1}>{cat.name}</Text>
+                        <Text style={styles.categoryLabelText} numberOfLines={1}>{svc.name}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   );
@@ -532,27 +563,29 @@ export default function ProfileScreen({ navigation }) {
             <Text style={[styles.sectionTitle, { color: C.text }]}>Reviews</Text>
             <View style={styles.ratingPill}>
               <MaterialIcons name="star" size={13} color="#F59E0B" />
-              <Text style={styles.ratingPillText}>4.9 · 124 reviews</Text>
+              <Text style={styles.ratingPillText}>{reviews.length ? (reviews.reduce((sum, r) => sum + Number(r.rating || 0), 0) / reviews.length).toFixed(1) : '0.0'} · {reviews.length} reviews</Text>
             </View>
           </View>
-
-          {REVIEWS.map((review) => (
-            <View key={review.id} style={[styles.reviewCard, { backgroundColor: C.subCard, borderColor: C.border }]}>
+          {reviews.map((review, index) => (
+            <View
+              key={review.id || review._id || `${review.createdAt || 'review'}-${index}`}
+              style={[styles.reviewCard, { backgroundColor: C.subCard, borderColor: C.border }]}
+            >
               <View style={styles.reviewHeader}>
                 <View style={[styles.reviewAvatar, { backgroundColor: Colors.primary }]}>
-                  <Text style={styles.reviewAvatarText}>{getInitials(review.name)}</Text>
+                  <Text style={styles.reviewAvatarText}>{getInitials(review.isAnonymous ? 'Anonymous User' : (review.name || 'Seeker'))}</Text>
                 </View>
                 <View style={styles.reviewMeta}>
-                  <Text style={[styles.reviewName, { color: C.text }]}>{review.name}</Text>
+                  <Text style={[styles.reviewName, { color: C.text }]}>{review.isAnonymous ? 'Anonymous User' : (review.name || 'Seeker')}</Text>
                   <View style={styles.reviewStars}>
                     {Array(review.rating).fill(0).map((_, i) => (
                       <MaterialIcons key={i} name="star" size={12} color="#F59E0B" />
                     ))}
-                    <Text style={[styles.reviewDate, { color: C.textSub }]}> · {review.date}</Text>
+                    <Text style={[styles.reviewDate, { color: C.textSub }]}> · {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : ''}</Text>
                   </View>
                 </View>
               </View>
-              <Text style={[styles.reviewComment, { color: C.textSub }]}>{review.comment}</Text>
+              <Text style={[styles.reviewComment, { color: C.textSub }]}>{review.reviewText}</Text>
             </View>
           ))}
         </View>
@@ -844,8 +877,47 @@ const styles = StyleSheet.create({
   },
   seeMoreTagsText: { fontSize: 12, fontWeight: '600', color: '#16A34A' },
 
-  portfolioEmpty: {
+    portfolioEmpty:      { alignItems: 'center', padding: 24, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed' },
+  portfolioEmptyTitle: { fontSize: 14, fontWeight: 'bold', marginTop: 8, marginBottom: 4 },
+  portfolioEmptySub:   { fontSize: 12, textAlign: 'center' },
+
+  // Wraps the service folder scroller + add button
+  portfolioContainer: { position: 'relative', paddingTop: 14, paddingRight: 6 },
+
+  // Round "add more" button pinned to top-right
+  addImageCorner: {
+    position: 'absolute',
+    top: -2,
+    right: -8,
+    zIndex: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#7C3AED',
+    justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+
+  // Tooltip bubble
+  addTooltip: {
+    position: 'absolute',
+    top: -34,
+    right: -8,
+    zIndex: 20,
+    backgroundColor: 'rgba(17,17,17,0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  addTooltipText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+
+  // Horizontal service folder scroller
+  portfolioEmpty: {
     padding: 24,
     borderRadius: 12,
     borderWidth: 2,
@@ -857,24 +929,29 @@ const styles = StyleSheet.create({
   portfolioContainer: { position: 'relative', paddingTop: 4, paddingRight: 6 },
 
   categoryScrollContent: { gap: 12, paddingVertical: 4, paddingRight: 8 },
-  categoryCard: {
-    width: 96,
-    height: 96,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-    overflow: 'hidden',
+
+  // Service folder card (square with cover image)
+  serviceFolderCard: {
+    width: 104, height: 104, borderRadius: 18,
+    overflow: 'hidden', position: 'relative',
+    backgroundColor: '#E2E8F0',
+  },
+  serviceFolderImage: {
+    width: '100%', height: '100%',
+  },
+  serviceFolderPlaceholder: {
+    width: '100%', height: '100%',
+    justifyContent: 'center', alignItems: 'center',
   },
   categoryCountBadge: {
     position: 'absolute',
     top: 6,
     right: 6,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.60)',
     borderRadius: 10,
-    minWidth: 20,
+    minWidth: 22,
     paddingHorizontal: 5,
-    paddingVertical: 1,
+    paddingVertical: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -884,12 +961,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingTop: 18,
-    paddingBottom: 8,
+    paddingTop: 20,
+    paddingBottom: 7,
     paddingHorizontal: 6,
     alignItems: 'center',
   },
-  categoryLabelText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+  categoryLabelText: { fontSize: 11, fontWeight: '600', color: '#fff' },
 
   ratingPill: {
     flexDirection: 'row',

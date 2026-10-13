@@ -103,6 +103,14 @@ export function AppliedJobsProvider({ children }) {
     });
   };
 
+  const cancelApplication = (postId) => {
+    setAppliedJobs((prev) => {
+      const updated = prev.filter((job) => job.id !== postId);
+      saveAppliedJobs(updated);
+      return updated;
+    });
+  };
+
   // Get jobs by status
   const getJobsByStatus = (status) => {
     if (status === 'all') return appliedJobs;
@@ -130,6 +138,7 @@ export function AppliedJobsProvider({ children }) {
       getJobStatus,
       isApplied,
       updateJobStatus,
+      cancelApplication,
       getJobsByStatus,
       getStatusCounts,
     }}>

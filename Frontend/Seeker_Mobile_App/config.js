@@ -1,7 +1,7 @@
 // config.js
 // Use your machine's local IP (for physical devices) or '10.0.2.2' (for Android emulator)
 
-export const IP_ADDRESS = '192.168.1.222';
+export const IP_ADDRESS = '192.168.1.22';
 
 // Chat service (port 6000)
 export const API_BASE_URL = `http://${IP_ADDRESS}:6000`;   // used by ChatContext & ChatScreen
@@ -17,8 +17,4 @@ export const PROVIDER_API_BASE = `http://${IP_ADDRESS}:5000`;
 // If you need a legacy CONFIG object (points to main backend on port 5002)
 export const CONFIG = {
     API_BASE_URL: `http://${IP_ADDRESS}:5002`,
-    AUTH_SERVICE_URL,
-    SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6000`,
-    PROVIDER_SERVICE_API_URL: `http://${IP_ADDRESS}:3002`,
-    COORDINATION_SERVICE_URL: `http://${IP_ADDRESS}:5010`,
 };
