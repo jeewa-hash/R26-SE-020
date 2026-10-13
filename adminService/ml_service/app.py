@@ -105,12 +105,17 @@ def get_metrics():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy", "service": "R26 Demand Forecasting ML Service"}), 200
+
 if __name__ == '__main__':
+    import os
+    port = int(os.environ.get('PORT', 5000))
     print("----------------------------------------------")
     print("🚀 R26-SE-020 Demand Forecasting Microservice")
-    print("🚀 Status: Running on http://localhost:5000")
+    print(f"🚀 Status: Running on port {port}")
     print("🚀 Server: Waitress Production WSGI")
     print("----------------------------------------------")
     
-    
-    serve(app, host='0.0.0.0', port=5000)
+    serve(app, host='0.0.0.0', port=port)
