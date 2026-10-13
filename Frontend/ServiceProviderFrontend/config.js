@@ -9,8 +9,8 @@ export const IP_ADDRESS =
 export const CONFIG = {
   API_BASE_URL: `http://${IP_ADDRESS}:6000`,
   SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6000`,
-  AUTH_SERVICE_URL: `http://${IP_ADDRESS}:4003`,
-  ADMIN_SERVICE_URL: `http://${IP_ADDRESS}:5001`,
+  AUTH_SERVICE_URL: `https://r26-auth-service.onrender.com`,
+  ADMIN_SERVICE_URL: `https://r26-admin-service.onrender.com`,
   PROVIDER_SERVICE_URL: `http://${IP_ADDRESS}:3002`,
   PROVIDER_SERVICE_API_URL: `http://${IP_ADDRESS}:3002`,
   ML_SERVICE_URL: `http://${IP_ADDRESS}:5000`,
