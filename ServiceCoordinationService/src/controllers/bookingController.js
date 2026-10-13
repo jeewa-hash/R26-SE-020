@@ -463,9 +463,11 @@ export const createBookingFromCoordination = async (req, res) => {
       endDate.getMinutes()
     )}`;
 
-    const finalDurationHours = Number(scheduleEvaluation.mlPredictedDurationHours) > 0
-      ? Number(scheduleEvaluation.mlPredictedDurationHours)
-      : Number(scheduleEvaluation.providerEstimatedDurationHours || scheduleEvaluation.finalSchedulingDurationHours);
+    const finalDurationHours = Number(
+      scheduleEvaluation.finalSchedulingDurationHours ||
+      scheduleEvaluation.predictedDurationHours ||
+      scheduleEvaluation.mlPredictedDurationHours
+    );
     if (!(finalDurationHours > 0)) {
       return res.status(409).json({ success: false, message: "A valid service duration is required before creating the booking" });
     }
@@ -560,21 +562,31 @@ export const createBookingFromCoordination = async (req, res) => {
 
       finalAmount: priceEvaluation.providerQuotedPrice,
       currency: "LKR",
-      mlPredictedDurationHours: scheduleEvaluation.mlPredictedDurationHours || null,
+      predictedDurationHours:
+        scheduleEvaluation.predictedDurationHours ||
+        scheduleEvaluation.finalSchedulingDurationHours || null,
+      predictedDurationMins:
+        scheduleEvaluation.predictedDurationMins ||
+        scheduleEvaluation.finalSchedulingDurationMins || null,
+      mlPredictedDurationHours: scheduleEvaluation.mlPredictedDurationHours || null, // legacy alias
+      mlPredictedDurationMins: scheduleEvaluation.mlPredictedDurationMins || null, // legacy alias
+      durationPredictionSource: scheduleEvaluation.durationPredictionSource || "ML_MODEL",
+      durationModelVersion: scheduleEvaluation.durationModelVersion || null,
       conflictDetected: Boolean(scheduleEvaluation.conflictDetected),
       distanceFromPreviousBookingKm: scheduleEvaluation.distanceFromPreviousBookingKm || 0,
       estimatedTravelTimeMins: scheduleEvaluation.estimatedTravelTimeMins || 0,
       gapFromPreviousBookingMins: scheduleEvaluation.gapFromPreviousBookingMins ?? null,
+      effectiveBufferMins: scheduleEvaluation.effectiveBufferMins ?? null,
+      routingSource: scheduleEvaluation.travelInfoSource || "NO_COORDINATES",
+      routingTrafficAware: Boolean(scheduleEvaluation.routingTrafficAware),
+      coordinationStatus: scheduleEvaluation.coordinationStatus || "UNKNOWN",
       timeline: [{ status: "CONFIRMED", message: "Booking confirmed", at: new Date() }],
 
       scheduleSource: selectedSuggestedSlot
         ? "COORDINATED_SUGGESTED_SLOT"
         : "PROVIDER_PROPOSED_TIME", // Chaw: selected slot means booking time came from coordination engine
 
-      delayRiskLevel:
-        scheduleEvaluation.delayRiskLevel === "NOT_CHECKED"
-          ? "UNKNOWN"
-          : String(scheduleEvaluation.delayRiskLevel).toUpperCase(),
+      delayRiskLevel: "UNKNOWN", // legacy compatibility; final design uses coordinationStatus/effectiveBufferMins
 
       bookingStatus: "CONFIRMED",
     });

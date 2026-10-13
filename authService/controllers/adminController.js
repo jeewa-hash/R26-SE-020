@@ -16,12 +16,12 @@ const AuditLog = require('../models/AuditLog');
 
 // Email transporter (same config as seeker)
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT, 10) || 587,
+  secure: process.env.SMTP_SECURE === 'true',
   auth: {
-    user: "assigmentgroupy@gmail.com",
-    pass: "iehl zcwp pdmy anld",
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 });
 
@@ -89,7 +89,7 @@ exports.register = async (req, res) => {
 
     // Send credentials email to the new admin
     const mailOptions = {
-      from: '"WorkWave Admin" <assigmentgroupy@gmail.com>',
+      from: process.env.EMAIL_FROM || 'WorkWave Admin <noreply@workwave.com>',
       to: email,
       subject: "Your Admin Account Credentials - WorkWave",
       text: `Hello ${fullName},\n\nYour admin account has been created successfully.\n\nHere are your login credentials:\nEmail: ${email}\nPassword: ${password}\n\nPlease login at your earliest convenience and keep your credentials safe.\n\nRegards,\nWorkWave Admin Team`,
@@ -210,7 +210,7 @@ exports.forgotPassword = async (req, res) => {
     } catch (emailErr) {
       console.error('Failed to send OTP email via primary helper, attempting fallback...', emailErr);
       const fallbackMailOptions = {
-        from: '"WorkWave Security" <assigmentgroupy@gmail.com>',
+        from: process.env.EMAIL_FROM || 'WorkWave Security <noreply@workwave.com>',
         to: admin.email,
         subject: '🔐 Admin Password Reset OTP - WorkWave',
         html: `
@@ -929,7 +929,21 @@ exports.createAuditLogInternal = async (req, res) => {
 exports.dispatchHighDemandAlerts = async (req, res) => {
   try {
     const { category, district, timeframe, avgDemand, confidence } = req.body;
-    
+
+    const CONFIDENCE_THRESHOLD = 90;
+    const HIGH_DEMAND_THRESHOLD = 10;
+
+    const confNum = parseFloat(String(confidence || '0').replace('%', ''));
+    const demandNum = Number(avgDemand || 0);
+
+    // Enforce condition: Only dispatch if confidence >= 90% and average demand >= 10
+    if (confNum < CONFIDENCE_THRESHOLD || demandNum < HIGH_DEMAND_THRESHOLD) {
+      return res.status(400).json({
+        success: false,
+        message: `High demand alert requires confidence >= ${CONFIDENCE_THRESHOLD}% and average demand >= ${HIGH_DEMAND_THRESHOLD}. Current values: confidence=${confNum}%, demand=${demandNum}. Alert skipped.`
+      });
+    }
+
     // Find active providers in the district and category (case-insensitive regex)
     const providerQuery = {
       isBlocked: false,

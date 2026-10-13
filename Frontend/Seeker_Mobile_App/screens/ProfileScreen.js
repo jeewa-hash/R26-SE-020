@@ -25,6 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
+import { confirmLogout } from '../utils/confirmLogout';
 import { IP_ADDRESS } from '../config';
 
 const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003/seeker`;
@@ -52,14 +53,6 @@ const getLocationString = (userObj) => {
 
 const menuItems = [
   {
-    id: 'bookings',
-    title: 'My Requests',
-    icon: 'calendar',
-    iconType: 'ion',
-    color: '#667eea',
-    screen: 'BookingsScreen',
-  },
-  {
     id: 'serviceSessions',
     title: 'My Service Sessions',
     icon: 'assignment',
@@ -67,14 +60,14 @@ const menuItems = [
     color: '#667eea',
     screen: 'SeekerServiceSessions',
   },
-  {
-    id: 'myjobs',
-    title: 'My Jobs',
-    icon: 'work',
-    iconType: 'material',
-    color: '#667eea',
-    screen: 'MyJobsScreen',
-  },
+  // {
+  //   id: 'myjobs',
+  //   title: 'My Jobs',
+  //   icon: 'work',
+  //   iconType: 'material',
+  //   color: '#667eea',
+  //   screen: 'MyJobsScreen',
+  // },
   {
     id: 'myposts',
     title: 'My Posts',
@@ -147,40 +140,16 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.removeItem('userToken');
-              await AsyncStorage.removeItem('userRole');
-              await AsyncStorage.removeItem('user');
-              await AsyncStorage.removeItem('userId');
-
-              if (typeof logout === 'function') {
-                await logout();
-              }
-
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
-            } catch (error) {
-              console.log('Logout error:', error);
-              Alert.alert('Error', 'Unable to logout. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+    confirmLogout(async () => {
+      try {
+        await logout();
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      } catch (error) {
+        console.log('Logout error:', error);
+        if (Platform.OS === 'web') window.alert('Unable to logout. Please try again.');
+        else Alert.alert('Error', 'Unable to logout. Please try again.');
+      }
+    });
   };
 
   const onRefresh = async () => {

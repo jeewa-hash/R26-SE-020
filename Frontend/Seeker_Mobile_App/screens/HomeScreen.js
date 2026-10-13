@@ -780,14 +780,6 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.headerActionsPill}>
-              <TouchableOpacity
-                style={styles.createMiniBtn}
-                onPress={handleCreatePress}
-                activeOpacity={0.85}
-              >
-                <MaterialIcons name="add" size={27} color="#444" />
-              </TouchableOpacity>
-
               <TouchableOpacity style={styles.headerIconBtn} onPress={handleChatPress}>
                 <Ionicons name="chatbubble-ellipses-outline" size={24} color="#444" />
 
@@ -1062,13 +1054,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 10,
     elevation: 6,
-  },
-  createMiniBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerIconBtn: {
     position: 'relative',

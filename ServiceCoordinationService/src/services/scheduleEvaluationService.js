@@ -1,80 +1,51 @@
 import { validateProviderSchedule } from "./scheduleValidationService.js";
 
-const pad = (value) => String(value).padStart(2, "0"); // Chaw: format date/time values safely
+const pad = (value) => String(value).padStart(2, "0");
 
 const formatDateToYMD = (date) => {
   const d = new Date(date);
-
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
-    d.getDate()
-  )}`;
-}; // Chaw: convert proposed Date into YYYY-MM-DD for existing schedule validator
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 const formatDateToHHMM = (date) => {
   const d = new Date(date);
-
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}; // Chaw: convert proposed Date into HH:mm for existing schedule validator
+};
 
+/**
+ * Validates the scheduling window using the duration supplied by the ML/fallback
+ * duration pipeline. Manual provider/seeker duration estimates are not required.
+ */
 export const evaluateBidSchedule = async ({
   providerId,
   proposedStartTime,
   preferredStartTime,
   preferredEndTime,
-  providerEstimatedDurationHours,
-  seekerEstimatedDurationHours,
-  mlPredictedDurationHours = null,
-  delayRiskLevel = "NOT_CHECKED",
+  predictedDurationMins,
+  durationPredictionSource = "ML_MODEL",
+  durationModelVersion = null,
   bufferMinutes = 30,
 }) => {
   const proposedStart = new Date(proposedStartTime);
-
-  if (Number.isNaN(proposedStart.getTime())) {
-    throw new Error("Invalid proposedStartTime");
-  }
+  if (Number.isNaN(proposedStart.getTime())) throw new Error("Invalid proposedStartTime");
 
   const preferredStart = preferredStartTime ? new Date(preferredStartTime) : null;
   const preferredEnd = preferredEndTime ? new Date(preferredEndTime) : null;
+  if (preferredStart && Number.isNaN(preferredStart.getTime())) throw new Error("Invalid preferredStartTime");
+  if (preferredEnd && Number.isNaN(preferredEnd.getTime())) throw new Error("Invalid preferredEndTime");
 
-  if (preferredStart && Number.isNaN(preferredStart.getTime())) {
-    throw new Error("Invalid preferredStartTime");
+  const durationMins = Number(predictedDurationMins);
+  if (!(durationMins > 0)) {
+    throw new Error("predictedDurationMins must be greater than 0");
   }
 
-  if (preferredEnd && Number.isNaN(preferredEnd.getTime())) {
-    throw new Error("Invalid preferredEndTime");
-  }
-
-  const providerDuration = Number(providerEstimatedDurationHours);
-
-  if (!providerDuration || providerDuration <= 0) {
-    throw new Error("providerEstimatedDurationHours must be greater than 0");
-  }
-
-  const seekerDuration =
-    seekerEstimatedDurationHours === null ||
-    seekerEstimatedDurationHours === undefined
-      ? null
-      : Number(seekerEstimatedDurationHours);
-
-  const mlDuration =
-    mlPredictedDurationHours === null || mlPredictedDurationHours === undefined
-      ? null
-      : Number(mlPredictedDurationHours);
-
-  const finalSchedulingDurationHours = mlDuration && mlDuration > 0
-    ? mlDuration
-    : providerDuration; // A zero/missing ML value is not a duration prediction.
-
-  const totalMinutes =
-    finalSchedulingDurationHours * 60 + Number(bufferMinutes || 0);
-
+  const finalSchedulingDurationMins = Math.round(durationMins);
+  const finalSchedulingDurationHours = Number((finalSchedulingDurationMins / 60).toFixed(2));
+  const totalMinutes = finalSchedulingDurationMins + Number(bufferMinutes || 0);
   const requiredWindowStart = proposedStart;
-  const requiredWindowEnd = new Date(
-    proposedStart.getTime() + totalMinutes * 60 * 1000
-  );
+  const requiredWindowEnd = new Date(proposedStart.getTime() + totalMinutes * 60 * 1000);
 
   let preferredTimeMatch = "NO_PREFERENCE_PROVIDED";
-
   if (preferredStart && preferredEnd) {
     preferredTimeMatch =
       proposedStart >= preferredStart && proposedStart <= preferredEnd
@@ -82,33 +53,40 @@ export const evaluateBidSchedule = async ({
         : "OUTSIDE_PREFERENCE";
   }
 
-  const requestedDate = formatDateToYMD(requiredWindowStart); // Chaw: date used by existing ProviderAvailability and Booking models
-  const requestedStartTime = formatDateToHHMM(requiredWindowStart); // Chaw: start time used by existing validator
-  const requestedEndTime = formatDateToHHMM(requiredWindowEnd); // Chaw: end time used by existing validator
-
   const validation = await validateProviderSchedule({
     providerId,
-    requestedDate,
-    requestedStartTime,
-    requestedEndTime,
-  }); // Chaw: validate against ProviderAvailability and existing Bookings
+    requestedDate: formatDateToYMD(requiredWindowStart),
+    requestedStartTime: formatDateToHHMM(requiredWindowStart),
+    requestedEndTime: formatDateToHHMM(requiredWindowEnd),
+  });
 
   return {
     proposedStartTime: proposedStart,
     preferredStartTime: preferredStart,
     preferredEndTime: preferredEnd,
     preferredTimeMatch,
-    providerEstimatedDurationHours: providerDuration,
-    seekerEstimatedDurationHours: seekerDuration,
-    mlPredictedDurationHours: mlDuration,
+
+    // Final research fields
+    predictedDurationMins: finalSchedulingDurationMins,
+    predictedDurationHours: finalSchedulingDurationHours,
+    durationPredictionSource,
+    durationModelVersion,
+
+    // Backward-compatible aliases consumed by existing booking/UI code.
+    mlPredictedDurationMins: finalSchedulingDurationMins,
+    mlPredictedDurationHours: finalSchedulingDurationHours,
+    providerEstimatedDurationHours: null,
+    providerEstimatedDurationMins: null,
+    seekerEstimatedDurationHours: null,
+
+    finalSchedulingDurationMins,
     finalSchedulingDurationHours,
     bufferMinutes: Number(bufferMinutes || 0),
     requiredWindowStart,
     requiredWindowEnd,
-    conflictDetected: !validation.isValid, // Chaw: mark conflict if schedule validator fails
-    conflictReason: validation.isValid ? "" : validation.message, // Chaw: store readable conflict reason
+    conflictDetected: !validation.isValid,
+    conflictReason: validation.isValid ? "" : validation.message,
     availabilityMessage: validation.message,
-    delayRiskLevel,
     providerBookingsToday: validation.providerBookingsToday || 0,
   };
 };
