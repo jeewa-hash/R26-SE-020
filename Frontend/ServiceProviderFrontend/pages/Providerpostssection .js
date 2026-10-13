@@ -52,6 +52,7 @@ function formatCount(n) {
 
 function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C, isBoosting }) {
   const isBoosted = (post.priority || 0) > 0;
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <View style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
@@ -92,14 +93,17 @@ function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C, isBo
       )}
 
       {/* Post content */}
-      <View style={styles.cardBody}>
-        <Text style={[styles.postTitle, { color: C.text }]} numberOfLines={2}>
+      <TouchableOpacity style={styles.cardBody} onPress={() => setExpanded((value) => !value)} activeOpacity={0.85}>
+        <Text style={[styles.postTitle, { color: C.text }]} numberOfLines={expanded ? undefined : 2}>
           {post.title}
         </Text>
-        <Text style={[styles.postDesc, { color: C.textSub }]} numberOfLines={3}>
+        <Text style={[styles.postDesc, { color: C.textSub }]} numberOfLines={expanded ? undefined : 3}>
           {post.description}
         </Text>
-      </View>
+        <Text style={{ marginTop: 8, fontSize: 12, fontWeight: '700', color: Colors.primary }}>
+          {expanded ? 'See Less' : 'See More'}
+        </Text>
+      </TouchableOpacity>
 
       {/* Liked By Names List */}
       {Array.isArray(post.likedBy) && post.likedBy.length > 0 && (
