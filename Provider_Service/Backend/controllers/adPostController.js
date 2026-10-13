@@ -3,7 +3,7 @@
  * AI-assisted service post generation (FR-03) + post management (FR-16).
  */
 import jwt from "jsonwebtoken";
-import AdPost from "../models/AdPost.js";
+import AdPost from "../models/adPost.js";
 import { generateAIContent, generateFallbackContent } from "../services/geminiServices.js";
 import {
   validateGenerateRequest,

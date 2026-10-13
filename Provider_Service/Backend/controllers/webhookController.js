@@ -1,7 +1,7 @@
 // controllers/webhookController.js
 import Stripe from "stripe";
 import Transaction from "../models/Transaction.js";
-import AdPost from "../models/AdPost.js";
+import AdPost from "../models/adPost.js";
 import { processBillPaymentSuccess } from "../services/commissionBillingService.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
