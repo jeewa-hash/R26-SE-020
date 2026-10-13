@@ -65,8 +65,14 @@ export default function LoginScreen({ navigation }) {
       
     } catch (error) {
       const data = error.response?.data;
-      const msg = data?.message || 'Something went wrong';
-      console.log('Login Error:', msg);
+      const msg = data?.message || error.message || 'Something went wrong';
+      console.log('Login Error details:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        data: error.response?.data,
+        targetUrl: `${API_URL}/login`
+      });
       if (data?.isBlocked) {
         Alert.alert(
           '⚠️ Account Suspended',

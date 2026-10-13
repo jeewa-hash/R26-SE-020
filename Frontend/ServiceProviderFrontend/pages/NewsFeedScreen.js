@@ -768,35 +768,43 @@ export default function NewsFeedScreen() {
 
         if (CONFIG.ADMIN_SERVICE_URL && userId) {
           try {
-            const res = await fetch(
-              `${CONFIG.ADMIN_SERVICE_URL}/api/inquiries/notifications/${userId}`
-            );
-
-            const data = await res.json();
-
-            if (res.ok && data.data) {
-              count = data.data.filter((item) => !item.isRead).length;
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 5000);
+            try {
+              const res = await fetch(
+                `${CONFIG.ADMIN_SERVICE_URL}/api/inquiries/notifications/${userId}`,
+                { signal: ctrl.signal }
+              );
+              const data = await res.json();
+              if (res.ok && data.data) {
+                count = data.data.filter((item) => !item.isRead).length;
+              }
+            } finally {
+              clearTimeout(tid);
             }
           } catch (error) {
-            console.log('Admin notification count error:', error?.message);
+            // silent
           }
         }
 
         if (count === 0 && token && CONFIG.AUTH_SERVICE_URL) {
           try {
-            const authRes = await fetch(`${CONFIG.AUTH_SERVICE_URL}/notifications`, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-
-            const authData = await authRes.json();
-
-            if (authRes.ok && Array.isArray(authData)) {
-              count = authData.filter((item) => !item.isRead).length;
+            const ctrl2 = new AbortController();
+            const tid2 = setTimeout(() => ctrl2.abort(), 5000);
+            try {
+              const authRes = await fetch(`${CONFIG.AUTH_SERVICE_URL}/notifications`, {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: ctrl2.signal,
+              });
+              const authData = await authRes.json();
+              if (authRes.ok && Array.isArray(authData)) {
+                count = authData.filter((item) => !item.isRead).length;
+              }
+            } finally {
+              clearTimeout(tid2);
             }
           } catch (error) {
-            console.log('Auth notification count error:', error?.message);
+            // silent
           }
         }
 
@@ -810,7 +818,7 @@ export default function NewsFeedScreen() {
 
     fetchNotificationsCount();
 
-    const interval = setInterval(fetchNotificationsCount, 3000);
+    const interval = setInterval(fetchNotificationsCount, 20000);
 
     return () => {
       isMounted = false;

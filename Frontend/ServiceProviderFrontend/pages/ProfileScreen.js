@@ -43,6 +43,9 @@ export default function ProfileScreen({ navigation }) {
   const [showPenaltyModal, setShowPenaltyModal] = useState(false);
   const [penaltyRatio, setPenaltyRatio] = useState('3/3');
   const [checkingPenalty, setCheckingPenalty] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [updatingAvailability, setUpdatingAvailability] = useState(false);
+  const [showAddTooltip, setShowAddTooltip] = useState(false);
 
   const handleFabPress = async () => {
     try {
@@ -94,39 +97,17 @@ export default function ProfileScreen({ navigation }) {
     navigation.getParent()?.navigate('PostGeneration');
   };
 
+  // PortfolioContext already loads these items; derive skills locally instead
+  // of making a second request to the ML service.
   useEffect(() => {
-    const fetchSkills = async () => {
-      try {
-        const token = await AsyncStorage.getItem('userToken');
-        if (!token) return;
-
-        const response = await fetch(
-          `${CONFIG.ML_SERVICE_URL}/portfolio/items`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          const skills = [
-            ...new Set(
-              (data.items || []).flatMap((item) =>
-                Array.isArray(item.tags) ? item.tags : []
-              )
-            ),
-          ];
-
-          setProfileSkills(skills);
-        }
-      } catch (e) {
-        console.log('Error fetching skills from ML engine:', e);
-      }
-    };
-
-    fetchSkills();
+    const skills = [
+      ...new Set(
+        portfolioImages.flatMap((item) =>
+          Array.isArray(item.tags) ? item.tags : []
+        )
+      ),
+    ];
+    setProfileSkills(skills);
   }, [portfolioImages]);
 
   const [profile, setProfile] = useState({
@@ -164,36 +145,7 @@ export default function ProfileScreen({ navigation }) {
     fetchReviews();
   }, []);
 
-  // Penalty restriction state
-  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
-  const [penaltyRatio, setPenaltyRatio] = useState('3/3');
-  const [checkingPenalty, setCheckingPenalty] = useState(false);
 
-  const handleFabPress = async () => {
-    try {
-      setCheckingPenalty(true);
-      const userId = await AsyncStorage.getItem('userId');
-      if (userId) {
-        const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
-        const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
-        if (res.ok) {
-          const statusData = await res.json();
-          const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
-          if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
-            setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
-            setShowPenaltyModal(true);
-            setCheckingPenalty(false);
-            return;
-          }
-        }
-      }
-    } catch (e) {
-      console.log('Error checking penalty status before posting (FAB):', e.message);
-    } finally {
-      setCheckingPenalty(false);
-    }
-    navigation.getParent()?.navigate('PostGeneration');
-  };
 
   // Fetch profile data
   useEffect(() => {
@@ -239,12 +191,6 @@ export default function ProfileScreen({ navigation }) {
             earned: 'N/AK',
           });
 
-          try {
-            const availabilityStatus = await getProviderAvailabilityStatus();
-            setIsAvailable(availabilityStatus !== false);
-          } catch (availabilityError) {
-            console.log('Availability status error:', availabilityError?.message);
-          }
         }
       } catch (err) {
         console.log('Profile fetch error:', err);
@@ -254,6 +200,19 @@ export default function ProfileScreen({ navigation }) {
     };
 
     fetchProfile();
+  }, []);
+
+  // Availability is non-blocking: load it after the profile can render.
+  useEffect(() => {
+    let mounted = true;
+    getProviderAvailabilityStatus()
+      .then((status) => {
+        if (mounted) setIsAvailable(status !== false);
+      })
+      .catch((error) => {
+        console.log('Availability status error:', error?.message);
+      });
+    return () => { mounted = false; };
   }, []);
 
   const allTags = getAllTags();
@@ -417,7 +376,7 @@ export default function ProfileScreen({ navigation }) {
               { val: profile.completion, lbl: 'Completion', icon: 'check-circle', color: '#16A34A' },
               { val: profile.earned, lbl: 'Earned', icon: 'account-balance-wallet', color: '#7C3AED' },
             ].map((s, i, arr) => (
-              <React.Fragment key={i}>
+              <React.Fragment key={s.lbl}>
                 <View style={styles.statCell}>
                   <MaterialIcons name={s.icon} size={16} color={s.color} />
                   <Text style={[styles.statVal, { color: s.color }]}>{s.val}</Text>
@@ -561,7 +520,7 @@ export default function ProfileScreen({ navigation }) {
                   const color = SERVICE_COLORS[index % SERVICE_COLORS.length];
                   return (
                     <TouchableOpacity
-                      key={svc.name}
+                      key={`${svc.name}-${index}`}
                       style={styles.serviceFolderCard}
                       activeOpacity={0.85}
                       onPress={() => navigation.getParent()?.navigate('PortfolioGallery', { category: svc.name })}
@@ -607,8 +566,11 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.ratingPillText}>{reviews.length ? (reviews.reduce((sum, r) => sum + Number(r.rating || 0), 0) / reviews.length).toFixed(1) : '0.0'} · {reviews.length} reviews</Text>
             </View>
           </View>
-          {reviews.map((review) => (
-            <View key={review.id} style={[styles.reviewCard, { backgroundColor: C.subCard, borderColor: C.border }]}>
+          {reviews.map((review, index) => (
+            <View
+              key={review.id || review._id || `${review.createdAt || 'review'}-${index}`}
+              style={[styles.reviewCard, { backgroundColor: C.subCard, borderColor: C.border }]}
+            >
               <View style={styles.reviewHeader}>
                 <View style={[styles.reviewAvatar, { backgroundColor: Colors.primary }]}>
                   <Text style={styles.reviewAvatarText}>{getInitials(review.isAnonymous ? 'Anonymous User' : (review.name || 'Seeker'))}</Text>
@@ -955,6 +917,7 @@ const styles = StyleSheet.create({
   addTooltipText: { color: '#fff', fontSize: 11, fontWeight: '600' },
 
   // Horizontal service folder scroller
+  portfolioEmpty: {
     padding: 24,
     borderRadius: 12,
     borderWidth: 2,
