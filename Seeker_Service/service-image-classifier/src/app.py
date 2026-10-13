@@ -21,11 +21,32 @@ from translator import (
 )
 
 # --- MobileNet ---
-from tensorflow.keras.applications.mobilenet_v2 import (
-    MobileNetV2,
-    preprocess_input,
-    decode_predictions
-)
+try:
+    from tensorflow.keras.applications.mobilenet_v2 import (
+        MobileNetV2,
+        preprocess_input,
+        decode_predictions
+    )
+except (ImportError, ModuleNotFoundError, AttributeError):
+    try:
+        from tensorflow.keras.applications import (
+            MobileNetV2,
+            mobilenet_v2
+        )
+        preprocess_input = mobilenet_v2.preprocess_input
+        decode_predictions = mobilenet_v2.decode_predictions
+    except (ImportError, ModuleNotFoundError, AttributeError):
+        try:
+            import keras
+            from keras.applications.mobilenet_v2 import (
+                MobileNetV2,
+                preprocess_input,
+                decode_predictions
+            )
+        except (ImportError, ModuleNotFoundError, AttributeError):
+            MobileNetV2 = None
+            preprocess_input = None
+            decode_predictions = None
 
 
 # FASTAPI
@@ -43,28 +64,53 @@ app.add_middleware(
 
 PROVIDER_SERVICE_URL = "http://localhost:5000/portfolio/all-providers"
 INQUIRY_SERVICE_URL = os.getenv("INQUIRY_SERVICE_URL", "http://localhost:5001")
+SEEKER_SERVICE_URL = os.getenv("SEEKER_SERVICE_URL", "http://localhost:6000")
+
+
+def get_provider_feedback_scores() -> dict:
+    """
+    Fetch aggregated feedback scores from the Seeker Node.js service.
+    Returns a dict keyed by providerId:
+        { providerId: { avgRating, totalReviews, recommendationRate } }
+    Falls back to an empty dict if the service is unavailable.
+    """
+    try:
+        response = requests.get(
+            f"{SEEKER_SERVICE_URL}/feedback/provider-scores",
+            timeout=5,
+        )
+        if response.status_code != 200:
+            print("[Feedback Service] Non-200 response:", response.status_code)
+            return {}
+        data = response.json()
+        return data.get("scores", {})
+    except (requests.RequestException, ValueError) as err:
+        print("[Feedback Service] Error fetching scores:", err)
+        return {}
 
 
 def is_provider_restricted(provider_id):
-    """Return whether a provider must not be suggested because of missed bookings."""
+    """Return whether a provider must not be suggested because of penalty score, suspension, block, or unverified status."""
     if not provider_id:
         return False
 
     try:
         response = requests.get(
-            f"{INQUIRY_SERVICE_URL}/api/inquiries/missed-bookings/{provider_id}",
+            f"{INQUIRY_SERVICE_URL}/api/inquiries/check-bookable/{provider_id}",
             timeout=5,
         )
         if response.status_code != 200:
             return False
 
         data = response.json()
+        penalty_score = data.get("penaltyScore", 0)
         return bool(
             data.get("isRestricted", False)
-            or data.get("provider", {}).get("isBlocked", False)
+            or data.get("isBlocked", False)
+            or not data.get("isBookable", True)
+            or (isinstance(penalty_score, (int, float)) and penalty_score >= 3)
         )
     except (requests.RequestException, ValueError):
-        # Keep matching available if the inquiry service is temporarily unavailable.
         return False
 
 # --- JWT Configuration (read from .env) ---
@@ -104,9 +150,13 @@ OBJECT_FLOW_MAP = {
 
 # MODEL SETUP
 
-MODEL_PATH = "../models/repair_model_v1.h5"
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "../models/repair_model_v1.h5")
 
-model = tf.keras.models.load_model(MODEL_PATH)
+try:
+    model = tf.keras.models.load_model(MODEL_PATH)
+except Exception as e:
+    print(f"Warning: Could not load repair model from {MODEL_PATH}: {e}")
+    model = None
 
 CLASSES = [
     "electrical",
@@ -115,7 +165,11 @@ CLASSES = [
     "plumbing"
 ]
 
-visual_identifier = MobileNetV2(weights="imagenet")
+try:
+    visual_identifier = MobileNetV2(weights="imagenet") if MobileNetV2 is not None else None
+except Exception as e:
+    print(f"Warning: Could not initialize MobileNetV2: {e}")
+    visual_identifier = None
 
 # IMAGE HELPER
 
@@ -169,6 +223,8 @@ def get_matching_question_group(category, detected_object):
 # OBJECT DETECTION
 
 def detect_object(base_tensor):
+    if visual_identifier is None or preprocess_input is None or decode_predictions is None:
+        return None
 
     mobile_x = preprocess_input(
         base_tensor.copy()
@@ -394,20 +450,26 @@ def category_matches(requested_category, provider, portfolio):
         return False
 
 # FILTER PROVIDERS (UPDATED)
-def filter_matching_providers(category, providers, district=None):
+def filter_matching_providers(category, providers, district=None, feedback_scores=None):
     matching = []
     requested_category = normalize_service_category(category)
     requested_district = normalize_service_category(district) if district else None
+    scores = feedback_scores or {}
 
     for item in providers:
         provider = item.get("provider", {})
         portfolio = item.get("portfolio", {})
 
-        # Skip blocked
-        if provider.get("isBlocked", False):
+        # Skip blocked, suspended, rejected, or unverified providers
+        if (
+            provider.get("isBlocked", False)
+            or provider.get("isSuspended", False)
+            or provider.get("isRejected", False)
+            or not provider.get("isVerified", False)
+        ):
             continue
 
-        # Do not suggest providers restricted for active missed bookings.
+        # Do not suggest providers restricted for penalty score >= 3 or missed bookings.
         provider_id = provider.get("_id") or provider.get("id") or provider.get("providerId")
         if is_provider_restricted(provider_id):
             continue
@@ -422,9 +484,20 @@ def filter_matching_providers(category, providers, district=None):
         if requested_district:
             district_match = (requested_district == provider_district)
 
+        # Attach feedback score (0 if no reviews yet)
+        feedback = scores.get(str(provider_id), {})
+        avg_rating = feedback.get("avgRating") or 0
+        total_reviews = feedback.get("totalReviews") or 0
+        recommendation_rate = feedback.get("recommendationRate") or 0
+
         provider_result = {
             "provider": provider,
             "portfolio": portfolio,
+            "feedback_score": {
+                "avgRating": avg_rating,
+                "totalReviews": total_reviews,
+                "recommendationRate": recommendation_rate
+            },
             "match": {
                 "category_match": True,
                 "district_match": district_match,
@@ -433,11 +506,15 @@ def filter_matching_providers(category, providers, district=None):
         }
         matching.append(provider_result)
 
-    # Sort: HIGH priority first
-    matching.sort(key=lambda x: 0 if x["match"]["priority"] == "HIGH" else 1)
+    # Sort: HIGH district match first, then by avgRating descending within each group
+    matching.sort(key=lambda x: (
+        0 if x["match"]["priority"] == "HIGH" else 1,  # district priority
+        -x["feedback_score"]["avgRating"],              # higher rating first
+        -x["feedback_score"]["totalReviews"]            # more reviews as tiebreaker
+    ))
     return matching
 
-# FIND PROVIDERS FOR REQUEST (updated to use new matching)
+# FIND PROVIDERS FOR REQUEST (updated to use new matching + feedback ranking)
 def find_matching_providers(category, answers):
     all_providers = get_all_providers()
     if not all_providers:
@@ -447,6 +524,9 @@ def find_matching_providers(category, answers):
             "providers": [],
             "message": "Unable to retrieve providers from provider service."
         }
+
+    # Fetch feedback scores from Seeker service (fails gracefully)
+    feedback_scores = get_provider_feedback_scores()
 
     # Extract address and district
     address = None
@@ -470,8 +550,8 @@ def find_matching_providers(category, answers):
                 district = d
                 break
 
-    matching = filter_matching_providers(category, all_providers, district)
-    
+    matching = filter_matching_providers(category, all_providers, district, feedback_scores)
+
     # If district was found, keep only those with district match
     if district:
         exact_district = [p for p in matching if p["match"]["district_match"]]

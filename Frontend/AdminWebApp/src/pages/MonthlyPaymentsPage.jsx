@@ -51,8 +51,9 @@ const MonthlyPaymentsPage = () => {
     totalBillsCount: 0,
     paidCount: 0,
     pendingCount: 0,
-    overdueCount: 0,
     suspendedCount: 0,
+    waivedCount: 0,
+    overdueCount: 0,
   });
   const [availableMonths, setAvailableMonths] = useState(['2026-08', '2026-07']);
   
@@ -365,7 +366,7 @@ const MonthlyPaymentsPage = () => {
             <span className="mp-code">LKR</span>
           </div>
           <div className="mp-kpi-footer">
-            <span className="mp-kpi-tag pending">{summary.pendingCount} Pending • {summary.overdueCount} Overdue</span>
+            <span className="mp-kpi-tag pending">{summary.pendingCount} Pending • {summary.suspendedCount} Suspended</span>
             <span className="mp-kpi-meta">Grace: 3 Days</span>
           </div>
         </div>
@@ -411,10 +412,16 @@ const MonthlyPaymentsPage = () => {
             <FiClock /> Pending <span className="mp-tab-count">{summary.pendingCount}</span>
           </button>
           <button
-            className={`mp-status-tab overdue ${selectedStatus === 'OVERDUE' ? 'active' : ''}`}
-            onClick={() => setSelectedStatus('OVERDUE')}
+            className={`mp-status-tab suspended ${selectedStatus === 'SUSPENDED' ? 'active' : ''}`}
+            onClick={() => setSelectedStatus('SUSPENDED')}
           >
-            <FiAlertTriangle /> Overdue <span className="mp-tab-count">{summary.overdueCount}</span>
+            <FiLock /> Suspended <span className="mp-tab-count">{summary.suspendedCount}</span>
+          </button>
+          <button
+            className={`mp-status-tab waived ${selectedStatus === 'WAIVED' ? 'active' : ''}`}
+            onClick={() => setSelectedStatus('WAIVED')}
+          >
+            <FiFileText /> Waived <span className="mp-tab-count">{summary.waivedCount || 0}</span>
           </button>
         </div>
 

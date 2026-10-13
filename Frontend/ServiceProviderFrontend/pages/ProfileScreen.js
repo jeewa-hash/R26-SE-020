@@ -5,7 +5,7 @@ import {
 import { Text, FAB, Surface } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Ensure this is installed
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeContext } from '../context/ThemeContext';
 import { usePortfolioUpload } from '../hooks/usePortfolioUpload';
 import AIProcessingModal from '../components/portfolio/AIProcessingModal';
@@ -13,9 +13,13 @@ import PortfolioTagScreen from '../components/portfolio/PortfolioTagScreen';
 import { usePortfolio } from '../context/PortfolioContext';
 import { Colors } from '../theme';
 import HeaderSection from '../components/HeaderSection';
-import { CONFIG } from '../config';
+import { CONFIG, IP_ADDRESS } from '../config';
 import ProviderPostsSection from './Providerpostssection .js';
 import ServicesSection from '../components/portfolio/ServicesSection';
+import {
+  getProviderAvailabilityStatus,
+  updateProviderAvailabilityStatus,
+} from './IT22129376/services/providerAvailabilityApi';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +39,60 @@ export default function ProfileScreen({ navigation }) {
   const [profileSkills, setProfileSkills] = useState([]);
   const [showAllSkills, setShowAllSkills] = useState(false);
   const INITIAL_SKILLS_LIMIT = 6;
+
+  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
+  const [penaltyRatio, setPenaltyRatio] = useState('3/3');
+  const [checkingPenalty, setCheckingPenalty] = useState(false);
+
+  const handleFabPress = async () => {
+    try {
+      setCheckingPenalty(true);
+      let userId = await AsyncStorage.getItem('userId');
+
+      if (!userId) {
+        const token = (await AsyncStorage.getItem('userToken')) || (await AsyncStorage.getItem('token'));
+
+        if (token) {
+          try {
+            const parts = token.split('.');
+
+            if (parts.length === 3) {
+              const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+              const decoded = JSON.parse(decodeURIComponent(escape(atob(base64))));
+              userId = decoded.id || decoded._id || decoded.userId || decoded.user?.id || decoded.user?._id;
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (!userId) {
+        userId = '69fc31f3cfe41c4d62e6f9ee';
+      }
+
+      const adminUrl = CONFIG.ADMIN_SERVICE_URL || `http://${IP_ADDRESS || '192.168.1.38'}:5001`;
+      const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
+
+      if (res.ok) {
+        const statusData = await res.json();
+        const score = typeof statusData.penaltyScore === 'number'
+          ? statusData.penaltyScore
+          : (statusData.activeMissedBookingsCount || 0);
+
+        if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
+          setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+          setShowPenaltyModal(true);
+          setCheckingPenalty(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.log('Error checking penalty status before posting (FAB):', e.message);
+    } finally {
+      setCheckingPenalty(false);
+    }
+
+    navigation.getParent()?.navigate('PostGeneration');
+  };
 
   useEffect(() => {
     const fetchSkills = async () => {
@@ -60,6 +118,7 @@ export default function ProfileScreen({ navigation }) {
               )
             ),
           ];
+
           setProfileSkills(skills);
         }
       } catch (e) {
@@ -70,7 +129,6 @@ export default function ProfileScreen({ navigation }) {
     fetchSkills();
   }, [portfolioImages]);
 
-  // Profile data state
   const [profile, setProfile] = useState({
     name: 'Loading...',
     email: '',
@@ -87,6 +145,7 @@ export default function ProfileScreen({ navigation }) {
     completion: '%',
     earned: 'K',
   });
+
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
 
@@ -141,7 +200,7 @@ export default function ProfileScreen({ navigation }) {
     const fetchProfile = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
-        
+
         if (!token) {
           Alert.alert('Error', 'No authentication token found. Please login again.');
           setLoading(false);
@@ -155,12 +214,14 @@ export default function ProfileScreen({ navigation }) {
             'Authorization': `Bearer ${token}`,
           },
         });
-        
+
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
         const data = await res.json();
-        
+
         if (data && data.provider) {
           const p = data.provider;
+
           setProfile({
             name: p.name || 'Unknown',
             email: p.email || '',
@@ -177,6 +238,13 @@ export default function ProfileScreen({ navigation }) {
             completion: 'N/A%',
             earned: 'N/AK',
           });
+
+          try {
+            const availabilityStatus = await getProviderAvailabilityStatus();
+            setIsAvailable(availabilityStatus !== false);
+          } catch (availabilityError) {
+            console.log('Availability status error:', availabilityError?.message);
+          }
         }
       } catch (err) {
         console.log('Profile fetch error:', err);
@@ -189,7 +257,6 @@ export default function ProfileScreen({ navigation }) {
   }, []);
 
   const allTags = getAllTags();
-  const [showAddTooltip, setShowAddTooltip] = React.useState(false);
 
     // Helper — resolves ML Engine image URLs (mirrors PortfolioContext)
   const resolveUrl = (raw) => {
@@ -251,6 +318,28 @@ export default function ProfileScreen({ navigation }) {
 
   const remainingSkillsCount = Math.max(0, profileSkills.length - INITIAL_SKILLS_LIMIT);
 
+  const toggleAvailability = async () => {
+    try {
+      setUpdatingAvailability(true);
+
+      const result = await updateProviderAvailabilityStatus(!isAvailable);
+
+      if (typeof result === 'boolean') {
+        setIsAvailable(result);
+      } else if (typeof result?.isAvailable === 'boolean') {
+        setIsAvailable(result.isAvailable);
+      } else if (typeof result?.isActive === 'boolean') {
+        setIsAvailable(result.isActive);
+      } else {
+        setIsAvailable((previous) => !previous);
+      }
+    } catch (error) {
+      Alert.alert('Unable to update', error.message || 'Please try again.');
+    } finally {
+      setUpdatingAvailability(false);
+    }
+  };
+
   const C = isDark
     ? { bg: '#0f0f0f', card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', subCard: '#2a2a2a' }
     : { bg: '#F8FAFC', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#E2E8F0', subCard: '#F8FAFC' };
@@ -258,8 +347,8 @@ export default function ProfileScreen({ navigation }) {
   return (
     <View style={[styles.root, { backgroundColor: C.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-        
-      <HeaderSection 
+
+      <HeaderSection
         navigation={navigation}
         onInboxPress={() => navigation.navigate('Main', {
           screen: 'HomeTab',
@@ -267,17 +356,16 @@ export default function ProfileScreen({ navigation }) {
         })}
       />
 
-      {/* ── Scrollable body ── */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-
-        {/* ── Hero card ── */}
         <View style={[styles.heroCard, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.avatarRing}>
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitials}>{profile.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}</Text>
+              <Text style={styles.avatarInitials}>
+                {profile.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)}
+              </Text>
             </View>
             <View style={[styles.onlineDot, { borderColor: C.card }]} />
           </View>
@@ -294,25 +382,40 @@ export default function ProfileScreen({ navigation }) {
             {specialization?.awarded ? (
               <View style={[styles.verifiedBadge, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
                 <MaterialIcons name="workspace-premium" size={13} color="#D97706" />
-                <Text style={[styles.verifiedBadgeText, { color: '#B45309', fontWeight: '800' }]}>
+                <Text style={[styles.verifiedBadgeText, { color: '#B45309', fontWeight: '600' }]}>
                   {specialization.badge || 'Top Specialization'}: {specialization.specific_label || specialization.label}
                 </Text>
               </View>
             ) : null}
 
-            <View style={styles.onlineBadge}>
-              <View style={styles.onlineDotSmall} />
-              <Text style={styles.onlineBadgeText}>Available</Text>
+            <View style={[styles.onlineBadge, !isAvailable && styles.offlineBadge]}>
+              <View style={[styles.onlineDotSmall, !isAvailable && styles.offlineDotSmall]} />
+              <Text style={[styles.onlineBadgeText, !isAvailable && styles.offlineBadgeText]}>
+                {isAvailable ? 'Available' : 'Unavailable'}
+              </Text>
             </View>
+
+            <TouchableOpacity
+              style={[
+                styles.availabilityToggle,
+                updatingAvailability && styles.availabilityToggleDisabled,
+              ]}
+              onPress={toggleAvailability}
+              disabled={updatingAvailability}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.availabilityToggleText}>
+                {updatingAvailability ? 'Updating...' : isAvailable ? 'Go Unavailable' : 'Go Available'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Stats strip */}
           <View style={[styles.statsStrip, { borderTopColor: C.border }]}>
             {[
-              { val: profile.jobs,       lbl: 'Jobs',       icon: 'work',                   color: '#2563EB' },
-              { val: profile.rating,     lbl: 'Rating',      icon: 'star',                   color: '#F59E0B' },
-              { val: profile.completion, lbl: 'Completion',   icon: 'check-circle',           color: '#16A34A' },
-              { val: profile.earned,     lbl: 'Earned',       icon: 'account-balance-wallet', color: '#7C3AED' },
+              { val: profile.jobs, lbl: 'Jobs', icon: 'work', color: '#2563EB' },
+              { val: profile.rating, lbl: 'Rating', icon: 'star', color: '#F59E0B' },
+              { val: profile.completion, lbl: 'Completion', icon: 'check-circle', color: '#16A34A' },
+              { val: profile.earned, lbl: 'Earned', icon: 'account-balance-wallet', color: '#7C3AED' },
             ].map((s, i, arr) => (
               <React.Fragment key={i}>
                 <View style={styles.statCell}>
@@ -326,7 +429,38 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        {/* ── Bio ── */}
+        <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
+          <Text style={[styles.sectionTitle, { color: C.text, marginBottom: 12 }]}>
+            Unlock New Feature
+          </Text>
+
+          <View style={styles.featureRow}>
+            <TouchableOpacity
+              style={[styles.featureCard, { backgroundColor: C.subCard, borderColor: C.border }]}
+              onPress={() => navigation.navigate('HomeTab')}
+              activeOpacity={0.85}
+            >
+              <MaterialIcons name="work-history" size={23} color="#2563EB" />
+              <Text style={[styles.featureTitle, { color: C.text }]}>Live Job Status</Text>
+              <Text style={[styles.featureSubtitle, { color: C.textSub }]}>
+                View current and next booking
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.featureCard, { backgroundColor: C.subCard, borderColor: C.border }]}
+              onPress={() => navigation.getParent()?.navigate('ProviderAvailability')}
+              activeOpacity={0.85}
+            >
+              <MaterialIcons name="event-available" size={23} color="#7C3AED" />
+              <Text style={[styles.featureTitle, { color: C.text }]}>Update Availability</Text>
+              <Text style={[styles.featureSubtitle, { color: C.textSub }]}>
+                Manage available service slots
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <Text style={[styles.sectionTitle, { color: C.text }]}>About Me</Text>
           <Text style={[styles.bioText, { color: C.textSub }]}>
@@ -337,7 +471,6 @@ export default function ProfileScreen({ navigation }) {
         <ServicesSection navigation={navigation} C={C} initialCategory={profile.category} onAddImagePress={openGallery} />
         <ProviderPostsSection navigation={navigation} isDark={isDark} />
 
-        {/* ── Skills & Expertise (Tags with See More toggle) ── */}
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: C.text }]}>Skills & Expertise</Text>
@@ -350,7 +483,7 @@ export default function ProfileScreen({ navigation }) {
             {displayedSkills.map((tag) => (
               <View key={tag} style={[styles.skillChipAI, {
                 backgroundColor: isDark ? '#0d2820' : '#F0FDF4',
-                borderColor:     isDark ? '#145040' : '#A7F3D0',
+                borderColor: isDark ? '#145040' : '#A7F3D0',
               }]}>
                 <MaterialIcons name="auto-awesome" size={10} color="#16A34A" />
                 <Text style={[styles.skillTextAI, { color: '#16A34A' }]}>{tag}</Text>
@@ -376,7 +509,9 @@ export default function ProfileScreen({ navigation }) {
           )}
 
           {profileSkills.length > 0 && (
-            <Text style={styles.aiTagNote}>✨ {profileSkills.length} skills & tags verified by AI ML Engine</Text>
+            <Text style={styles.aiTagNote}>
+              ✨ {profileSkills.length} skills & tags verified by AI ML Engine
+            </Text>
           )}
         </View>
 
@@ -464,7 +599,6 @@ export default function ProfileScreen({ navigation }) {
           )}
         </View>
 
-        {/* ── Reviews ── */}
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: C.text }]}>Reviews</Text>
@@ -497,38 +631,17 @@ export default function ProfileScreen({ navigation }) {
         <View style={{ height: 110 }} />
       </ScrollView>
 
-      {/* ── Floating Action Button ── */}
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={handleFabPress}
-        style={styles.fabButton}
-        disabled={checkingPenalty}
-      >
-        <LinearGradient
-          colors={['#7C3AED', '#8B5CF6', '#A78BFA']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.fabGradient}
-        >
-          {checkingPenalty ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <MaterialIcons name="add" size={28} color="#FFFFFF" />
-          )}
-        </LinearGradient>
-      </TouchableOpacity>
-
       <AIProcessingModal
         visible={processing}
         progress={progress}
         imageCount={images.length}
         onCancel={cancelProcessing}
       />
+
       {showTagScreen && images.length > 0 && (
         <PortfolioTagScreen images={images} onClose={handleCloseTagScreen} />
       )}
 
-      {/* ── Penalty Restriction Warning Modal ── */}
       <Modal
         visible={showPenaltyModal}
         transparent
@@ -546,12 +659,10 @@ export default function ProfileScreen({ navigation }) {
             ]}
             onPress={(e) => e.stopPropagation()}
           >
-            {/* Warning Icon Badge */}
             <View style={styles.penaltyWarningBadge}>
               <MaterialIcons name="warning" size={32} color="#EF4444" />
             </View>
 
-            {/* Score Pill */}
             <View style={styles.penaltyScoreCapsule}>
               <MaterialCommunityIcons name="shield-alert" size={14} color="#EF4444" />
               <Text style={styles.penaltyScoreCapsuleText}>
@@ -564,12 +675,11 @@ export default function ProfileScreen({ navigation }) {
             </Text>
 
             <Text style={[styles.penaltyModalBody, { color: isDark ? '#CBD5E1' : '#475569' }]}>
-              Your penalty score has reached <Text style={{ fontWeight: 'bold', color: '#EF4444' }}>{penaltyRatio}</Text> due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.
+              Your penalty score has reached <Text style={{ fontWeight: '600', color: '#EF4444' }}>{penaltyRatio}</Text> due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.
               {'\n\n'}
               Please submit an inquiry for your missed bookings as soon as possible to get approval from Administration and restore your account access.
             </Text>
 
-            {/* Action Buttons */}
             <TouchableOpacity
               style={styles.penaltySubmitBtn}
               onPress={() => {
@@ -599,86 +709,211 @@ export default function ProfileScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root:          { flex: 1 },
+  root: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 },
 
   heroCard: {
-    borderRadius: 24, borderWidth: 0.5,
-    alignItems: 'center', paddingTop: 24,
-    marginBottom: 14, overflow: 'hidden',
+    borderRadius: 24,
+    borderWidth: 0.5,
+    alignItems: 'center',
+    paddingTop: 24,
+    marginBottom: 14,
+    overflow: 'hidden',
   },
   avatarRing: {
-    width: 82, height: 82, borderRadius: 41,
-    borderWidth: 3, borderColor: '#7C3AED',
-    padding: 3, marginBottom: 12, position: 'relative',
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 3,
+    borderColor: '#7C3AED',
+    padding: 3,
+    marginBottom: 12,
+    position: 'relative',
   },
   avatarCircle: {
-    width: '100%', height: '100%', borderRadius: 38,
+    width: '100%',
+    height: '100%',
+    borderRadius: 38,
     backgroundColor: '#2563EB',
-    justifyContent: 'center', alignItems: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  avatarInitials: { fontSize: 28, fontWeight: 'bold', color: '#ecc5c5', fontFamily: 'sans-serif' },
+  avatarInitials: {
+    fontSize: 28,
+    fontWeight: '600',
+    color: '#ecc5c5',
+    fontFamily: 'sans-serif',
+  },
   onlineDot: {
-    position: 'absolute', bottom: 4, right: 4,
-    width: 14, height: 14, borderRadius: 7,
-    backgroundColor: '#16A34A', borderWidth: 2.5,
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#16A34A',
+    borderWidth: 2.5,
   },
-  profileName:   { fontSize: 20, fontWeight: '700', marginBottom: 3 },
+  profileName: { fontSize: 20, fontWeight: '600', marginBottom: 3 },
   profileHandle: { fontSize: 12, marginBottom: 12 },
 
-  badgeRow: { flexDirection: 'row', gap: 7, marginBottom: 18, flexWrap: 'wrap', justifyContent: 'center' },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 7,
+    marginBottom: 18,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
   goldBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A',
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   goldBadgeText: { fontSize: 11, color: '#B45309', fontWeight: '600' },
   verifiedBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE',
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   verifiedBadgeText: { fontSize: 11, color: '#1D4ED8', fontWeight: '600' },
   onlineBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#ECFDF5', borderWidth: 1, borderColor: '#A7F3D0',
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  onlineDotSmall:  { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' },
+  onlineDotSmall: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' },
   onlineBadgeText: { fontSize: 11, color: '#065F46', fontWeight: '600' },
+  offlineBadge: { backgroundColor: '#F3F4F6', borderColor: '#D1D5DB' },
+  offlineBadgeText: { color: '#6B7280' },
+  offlineDotSmall: { backgroundColor: '#9CA3AF' },
+  availabilityToggle: {
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#7C3AED',
+  },
+  availabilityToggleDisabled: {
+    opacity: 0.65,
+  },
+  availabilityToggleText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
 
-  statsStrip:  { flexDirection: 'row', width: '100%', borderTopWidth: 0.5, paddingVertical: 14 },
-  statCell:    { flex: 1, alignItems: 'center', gap: 3 },
-  statVal:     { fontSize: 15, fontWeight: '700' },
-  statLbl:     { fontSize: 10, textAlign: 'center' },
+  statsStrip: {
+    flexDirection: 'row',
+    width: '100%',
+    borderTopWidth: 0.5,
+    paddingVertical: 14,
+  },
+  statCell: { flex: 1, alignItems: 'center', gap: 3 },
+  statVal: { fontSize: 15, fontWeight: '600' },
+  statLbl: { fontSize: 10, textAlign: 'center' },
   statDivider: { width: 0.5 },
 
-  section:       { borderRadius: 18, borderWidth: 0.5, padding: 16, marginBottom: 14 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  sectionTitle:  { fontSize: 15, fontWeight: '700' },
-  seeAll:        { fontSize: 13, color: Colors.primary, fontWeight: '600' },
+  section: { borderRadius: 18, borderWidth: 0.5, padding: 16, marginBottom: 14 },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  sectionTitle: { fontSize: 15, fontWeight: '600' },
+  seeAll: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
 
-  bioText:   { fontSize: 18, lineHeight: 21, marginBottom: 8, color: '#010101', fontFamily: 'sans-serif', fontWeight: 'bold' },
-  bioTextSi: { fontSize: 12, lineHeight: 19, fontStyle: 'italic', fontWeight: 'bold' },
+  bioText: {
+    fontSize: 18,
+    lineHeight: 21,
+    marginBottom: 8,
+    color: '#010101',
+    fontFamily: 'sans-serif',
+    fontWeight: '400',
+  },
+  bioTextSi: { fontSize: 12, lineHeight: 19, fontStyle: 'italic', fontWeight: '400' },
 
-  servicesGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  serviceCard:   { width: '47%', borderRadius: 12, padding: 14, borderWidth: 0.5 },
-  serviceIconBg: { width: 42, height: 42, borderRadius: 11, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  serviceTitle:  { fontSize: 12, fontWeight: '600', marginBottom: 4, lineHeight: 17 },
-  servicePrice:  { fontSize: 12, fontWeight: '700' },
+  featureRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  featureCard: {
+    flex: 1,
+    minHeight: 112,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    padding: 13,
+    justifyContent: 'center',
+  },
+  featureTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 3,
+  },
+  featureSubtitle: {
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '400',
+  },
 
-  skillsWrap:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  skillChip:   { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
-  skillText:   { fontSize: 12, fontWeight: '500' },
-  skillChipAI: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
+  servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  serviceCard: { width: '47%', borderRadius: 12, padding: 14, borderWidth: 0.5 },
+  serviceIconBg: {
+    width: 42,
+    height: 42,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  serviceTitle: { fontSize: 12, fontWeight: '600', marginBottom: 4, lineHeight: 17 },
+  servicePrice: { fontSize: 12, fontWeight: '600' },
+
+  skillsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  skillChip: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
+  skillText: { fontSize: 12, fontWeight: '500' },
+  skillChipAI: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+  },
   skillTextAI: { fontSize: 12, fontWeight: '500' },
-  aiTagNote:   { fontSize: 11, color: '#16A34A', fontStyle: 'italic', marginTop: 4 },
+  aiTagNote: { fontSize: 11, color: '#16A34A', fontStyle: 'italic', marginTop: 4 },
   countBadgeTextSmall: { fontSize: 12, fontWeight: '600' },
   seeMoreTagsBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 4, marginTop: 10, marginBottom: 4, paddingVertical: 8, borderRadius: 12, borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 10,
+    marginBottom: 4,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  seeMoreTagsText: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
+  seeMoreTagsText: { fontSize: 12, fontWeight: '600', color: '#16A34A' },
 
     portfolioEmpty:      { alignItems: 'center', padding: 24, borderRadius: 12, borderWidth: 2, borderStyle: 'dashed' },
   portfolioEmptyTitle: { fontSize: 14, fontWeight: 'bold', marginTop: 8, marginBottom: 4 },
@@ -720,6 +955,16 @@ const styles = StyleSheet.create({
   addTooltipText: { color: '#fff', fontSize: 11, fontWeight: '600' },
 
   // Horizontal service folder scroller
+    padding: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+  },
+  portfolioEmptyTitle: { fontSize: 14, fontWeight: '600', marginTop: 8, marginBottom: 4 },
+  portfolioEmptySub: { fontSize: 12, textAlign: 'center' },
+
+  portfolioContainer: { position: 'relative', paddingTop: 4, paddingRight: 6 },
+
   categoryScrollContent: { gap: 12, paddingVertical: 4, paddingRight: 8 },
 
   // Service folder card (square with cover image)
@@ -736,54 +981,62 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   categoryCountBadge: {
-    position: 'absolute', top: 6, right: 6,
-    backgroundColor: 'rgba(0,0,0,0.60)', borderRadius: 10,
-    minWidth: 22, paddingHorizontal: 5, paddingVertical: 2,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  categoryCountText: { fontSize: 10, color: '#fff', fontWeight: '700' },
-  categoryLabelGradient: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingTop: 20, paddingBottom: 7, paddingHorizontal: 6,
-    alignItems: 'center',
-  },
-  categoryLabelText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-
-  ratingPill:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFFBEB', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
-  ratingPillText: { fontSize: 12, color: '#B45309', fontWeight: '700' },
-
-  reviewCard:       { borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 0.5 },
-  reviewHeader:     { flexDirection: 'row', gap: 10, marginBottom: 8 },
-  reviewAvatar:     { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
-  reviewAvatarText: { fontSize: 12, fontWeight: 'bold', color: '#fff' },
-  reviewMeta:       { flex: 1 },
-  reviewName:       { fontSize: 13, fontWeight: '700', marginBottom: 3 },
-  reviewStars:      { flexDirection: 'row', alignItems: 'center' },
-  reviewDate:       { fontSize: 11 },
-  reviewComment:    { fontSize: 13, lineHeight: 19 },
-
-  // ── Eye-Catching Round FAB Button Styles ──
-  fabButton: {
     position: 'absolute',
-    bottom: 80,
-    right: 20,
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  fabGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.60)',
+    borderRadius: 10,
+    minWidth: 22,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  categoryCountText: { fontSize: 10, color: '#fff', fontWeight: '600' },
+  categoryLabelGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 20,
+    paddingBottom: 7,
+    paddingHorizontal: 6,
     alignItems: 'center',
   },
-  submitInquiryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#f3f4ff', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 },
-  submitInquiryBtnText: { fontSize: 13, fontWeight: '700', color: '#6366f1' },
+  categoryLabelText: { fontSize: 11, fontWeight: '600', color: '#fff' },
 
-  // ── Penalty Restriction Modal Styles ──
+  ratingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  ratingPillText: { fontSize: 12, color: '#B45309', fontWeight: '600' },
+
+  reviewCard: { borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 0.5 },
+  reviewHeader: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  reviewAvatar: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
+  reviewAvatarText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+  reviewMeta: { flex: 1 },
+  reviewName: { fontSize: 13, fontWeight: '600', marginBottom: 3 },
+  reviewStars: { flexDirection: 'row', alignItems: 'center' },
+  reviewDate: { fontSize: 11 },
+  reviewComment: { fontSize: 13, lineHeight: 19 },
+
+  submitInquiryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#f3f4ff',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  submitInquiryBtnText: { fontSize: 13, fontWeight: '600', color: '#6366f1' },
+
   penaltyModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.72)',
@@ -829,12 +1082,12 @@ const styles = StyleSheet.create({
   },
   penaltyScoreCapsuleText: {
     fontSize: 12.5,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#EF4444',
   },
   penaltyModalTitle: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '600',
     textAlign: 'center',
     marginBottom: 10,
     letterSpacing: -0.3,
@@ -864,7 +1117,7 @@ const styles = StyleSheet.create({
   penaltySubmitBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   penaltyDismissBtn: {
     width: '100%',

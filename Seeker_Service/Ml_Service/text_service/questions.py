@@ -4,7 +4,6 @@ TEXT_QUESTION_FLOW = {
     # 1. CLEANING
     # ═══════════════════════════════════════════
     "cleaning": {
-
         1: {
             "question": "What type of cleaning service do you need?",
             "answer_key": "service_type",
@@ -18,17 +17,16 @@ TEXT_QUESTION_FLOW = {
                 "sofa/carpet/curtain cleaning"
             ],
             "next": {
-                "full house cleaning":        "full_house_q1",
-                "kitchen cleaning":           "kitchen_q1",
-                "bathroom cleaning":          "bathroom_q1",
-                "office cleaning":            "office_q1",
+                "full house cleaning": "full_house_q1",
+                "kitchen cleaning": "kitchen_q1",
+                "bathroom cleaning": "bathroom_q1",
+                "office cleaning": "office_q1",
                 "post-construction cleaning": "postconstruction_q1",
-                "move-in/move-out cleaning":  "moveinout_q1",
+                "move-in/move-out cleaning": "moveinout_q1",
                 "sofa/carpet/curtain cleaning": "sofa_q1"
             }
         },
 
-        # ─── FULL HOUSE ───────────────────────
         "full_house_q1": {
             "question": "Do you need a deep clean or a regular maintenance clean?",
             "answer_key": "clean_type",
@@ -40,33 +38,20 @@ TEXT_QUESTION_FLOW = {
             "skip_if_in_input": ["deep clean", "deep cleaning", "regular maintenance", "maintenance clean"],
             "next": "full_house_q2"
         },
-
         "full_house_q2": {
             "question": "How many bedrooms does the house have?",
             "answer_key": "house_size",
-            "options": [
-                "1 bedroom",
-                "2 bedrooms",
-                "3 bedrooms",
-                "4+ bedrooms"
-            ],
+            "options": ["1 bedroom", "2 bedrooms", "3 bedrooms", "4+ bedrooms"],
             "skip_if_in_input": ["bedroom", "bed rooms", "bedroom(s)"],
             "next": "full_house_q2b"
         },
-
         "full_house_q2b": {
             "question": "How many bathrooms need cleaning?",
             "answer_key": "bathroom_count",
-            "options": [
-                "1 bathroom",
-                "2 bathrooms",
-                "3 bathrooms",
-                "4+ bathrooms"
-            ],
+            "options": ["1 bathroom", "2 bathrooms", "3 bathrooms", "4+ bathrooms"],
             "skip_if_in_input": ["bathroom", "bath rooms", "washroom"],
             "next": "full_house_q3"
         },
-
         "full_house_q3": {
             "question": "Which areas need special attention?",
             "answer_key": "focus_areas",
@@ -81,7 +66,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_schedule"
         },
 
-        # ─── KITCHEN ──────────────────────────
         "kitchen_q1": {
             "question": "What is the main issue in your kitchen?",
             "answer_key": "main_issue",
@@ -121,7 +105,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_schedule"
         },
 
-        # ─── BATHROOM ─────────────────────────
         "bathroom_q1": {
             "question": "What is the main issue in your bathroom?",
             "answer_key": "main_issue",
@@ -139,12 +122,7 @@ TEXT_QUESTION_FLOW = {
         "bathroom_q2": {
             "question": "How many bathrooms need cleaning?",
             "answer_key": "bathroom_count",
-            "options": [
-                "1 bathroom",
-                "2 bathrooms",
-                "3 bathrooms",
-                "4+ bathrooms"
-            ],
+            "options": ["1 bathroom", "2 bathrooms", "3 bathrooms", "4+ bathrooms"],
             "skip_if_in_input": ["bathroom", "bath rooms"],
             "next": "bathroom_q3"
         },
@@ -161,7 +139,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_schedule"
         },
 
-        # ─── OFFICE ───────────────────────────
         "office_q1": {
             "question": "How large is the office space?",
             "answer_key": "office_size",
@@ -199,7 +176,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_schedule"
         },
 
-        # ─── POST-CONSTRUCTION ────────────────
         "postconstruction_q1": {
             "question": "What type of construction work was completed?",
             "answer_key": "construction_type",
@@ -238,7 +214,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_schedule"
         },
 
-        # ─── MOVE-IN / MOVE-OUT ───────────────
         "moveinout_q1": {
             "question": "Is this a move-in, move-out, or full handover clean?",
             "answer_key": "move_type",
@@ -274,7 +249,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_schedule"
         },
 
-        # ─── SOFA / CARPET / CURTAIN ──────────
         "sofa_q1": {
             "question": "What item(s) need cleaning?",
             "answer_key": "items_to_clean",
@@ -314,7 +288,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_schedule"
         },
 
-        # ─── COMMON ENDING ────────────────────
         "common_schedule": {
             "question": "When do you need the service?",
             "answer_key": "schedule",
@@ -341,7 +314,6 @@ TEXT_QUESTION_FLOW = {
     # 2. GARDENING
     # ═══════════════════════════════════════════
     "gardening": {
-
         1: {
             "question": "What type of gardening service do you need?",
             "answer_key": "service_type",
@@ -353,12 +325,11 @@ TEXT_QUESTION_FLOW = {
             "skip_if_in_input": ["maintenance", "mowing", "landscaping", "planting", "design", "garden"],
             "next": {
                 "garden maintenance (mowing, trimming, weeding)": "maintenance_q1",
-                "landscaping / garden design":                    "landscaping_q1",
-                "planting (flowers, vegetables, trees)":          "planting_q1"
+                "landscaping / garden design": "landscaping_q1",
+                "planting (flowers, vegetables, trees)": "planting_q1"
             }
         },
 
-        # ─── MAINTENANCE ──────────────────────
         "maintenance_q1": {
             "question": "What maintenance does your garden need?",
             "answer_key": "maintenance_type",
@@ -388,7 +359,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_garden_size"
         },
 
-        # ─── LANDSCAPING ──────────────────────
         "landscaping_q1": {
             "question": "What does your landscaping project involve?",
             "answer_key": "landscaping_type",
@@ -416,7 +386,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_garden_size"
         },
 
-        # ─── PLANTING ─────────────────────────
         "planting_q1": {
             "question": "What would you like to plant?",
             "answer_key": "planting_type",
@@ -445,7 +414,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_garden_size"
         },
 
-        # ─── COMMON ENDING ────────────────────
         "common_garden_size": {
             "question": "How large is your garden or outdoor area?",
             "answer_key": "garden_size",
@@ -486,7 +454,6 @@ TEXT_QUESTION_FLOW = {
     # 3. CARE & PERSONAL SUPPORT
     # ═══════════════════════════════════════════
     "care_support": {
-
         1: {
             "question": "Who needs care and support?",
             "answer_key": "care_for",
@@ -499,15 +466,14 @@ TEXT_QUESTION_FLOW = {
             ],
             "skip_if_in_input": ["elderly", "old", "aged", "child", "baby", "infant", "disability", "surgery", "illness", "pet", "dog", "cat"],
             "next": {
-                "an elderly person":                            "elderly_q1",
-                "a child or baby":                             "child_q1",
-                "a person with a disability":                  "disability_q1",
-                "someone recovering from surgery or illness":  "recovery_q1",
-                "a pet":                                       "pet_q1"
+                "an elderly person": "elderly_q1",
+                "a child or baby": "child_q1",
+                "a person with a disability": "disability_q1",
+                "someone recovering from surgery or illness": "recovery_q1",
+                "a pet": "pet_q1"
             }
         },
 
-        # ─── ELDERLY ──────────────────────────
         "elderly_q1": {
             "question": "What is the current condition of the elderly person?",
             "answer_key": "care_level",
@@ -549,7 +515,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_care_schedule"
         },
 
-        # ─── CHILD ────────────────────────────
         "child_q1": {
             "question": "What is the child's age group?",
             "answer_key": "child_age_group",
@@ -590,7 +555,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_care_schedule"
         },
 
-        # ─── DISABILITY ───────────────────────
         "disability_q1": {
             "question": "What type of disability does the person have?",
             "answer_key": "disability_type",
@@ -633,7 +597,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_care_schedule"
         },
 
-        # ─── RECOVERY ─────────────────────────
         "recovery_q1": {
             "question": "What type of recovery support is needed?",
             "answer_key": "support_type",
@@ -675,16 +638,10 @@ TEXT_QUESTION_FLOW = {
             "next": "common_care_schedule"
         },
 
-        # ─── PET ──────────────────────────────
         "pet_q1": {
             "question": "What type of pet needs care?",
             "answer_key": "pet_type",
-            "options": [
-                "dog",
-                "cat",
-                "bird",
-                "other"
-            ],
+            "options": ["dog", "cat", "bird", "other"],
             "skip_if_in_input": ["dog", "cat", "bird", "puppy", "kitten"],
             "next": "pet_q2"
         },
@@ -715,7 +672,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_care_schedule"
         },
 
-        # ─── COMMON ENDING ────────────────────
         "common_care_schedule": {
             "question": "How often do you need the caregiver?",
             "answer_key": "schedule",
@@ -771,8 +727,6 @@ TEXT_QUESTION_FLOW = {
     # 4. REPAIRING
     # ═══════════════════════════════════════════
     "repairing": {
-
-        # SMART ENTRY POINT
         1: {
             "question": "What do you want to repair?",
             "answer_key": "item",
@@ -792,7 +746,6 @@ TEXT_QUESTION_FLOW = {
             "next": "auto_route"
         },
 
-        # SMART ROUTER
         "auto_route": {
             "next": {
                 "fan": "electrical_q2",
@@ -801,18 +754,14 @@ TEXT_QUESTION_FLOW = {
                 "washing machine": "electrical_q2",
                 "light": "electrical_q2",
                 "rice cooker": "electrical_q2",
-
                 "pipe": "plumbing_q1",
                 "tap": "plumbing_q1",
-
                 "chair": "furniture_q2",
                 "sofa": "furniture_q2",
-
                 "default": "electrical_q2"
             }
         },
 
-        # ───────── ELECTRICAL ─────────
         "electrical_q2": {
             "question": "What issue are you facing with the item?",
             "answer_key": "issue",
@@ -827,20 +776,14 @@ TEXT_QUESTION_FLOW = {
             "skip_if_in_input": ["not working", "no power", "noise", "spinning", "burning smell", "fault", "broken", "damaged"],
             "next": "electrical_q3"
         },
-
         "electrical_q3": {
             "question": "How urgent is this issue?",
             "answer_key": "urgency",
-            "options": [
-                "Low",
-                "Medium",
-                "High (urgent)"
-            ],
+            "options": ["Low", "Medium", "High (urgent)"],
             "skip_if_in_input": ["low", "medium", "high", "urgent", "emergency"],
             "next": "common_repair_location"
         },
 
-        # ───────── PLUMBING ─────────
         "plumbing_q1": {
             "question": "What plumbing issue do you have?",
             "answer_key": "issue",
@@ -848,7 +791,6 @@ TEXT_QUESTION_FLOW = {
             "skip_if_in_input": ["leak", "blockage", "clogged", "low pressure", "dripping"],
             "next": "plumbing_q2"
         },
-
         "plumbing_q2": {
             "question": "How urgent is it?",
             "answer_key": "urgency",
@@ -857,7 +799,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_repair_location"
         },
 
-        # ───────── FURNITURE ─────────
         "furniture_q2": {
             "question": "What is the problem?",
             "answer_key": "issue",
@@ -865,7 +806,6 @@ TEXT_QUESTION_FLOW = {
             "skip_if_in_input": ["broken", "loose", "damage", "cracked", "wobbly"],
             "next": "furniture_q3"
         },
-
         "furniture_q3": {
             "question": "How urgent is repair?",
             "answer_key": "urgency",
@@ -874,7 +814,6 @@ TEXT_QUESTION_FLOW = {
             "next": "common_repair_location"
         },
 
-        # ───────── COMMON ─────────
         "common_repair_location": {
             "question": "Where is the service needed? Enter your address or area.",
             "answer_key": "location",
@@ -883,34 +822,63 @@ TEXT_QUESTION_FLOW = {
             "next": None
         }
     },
-
-   # ═══════════════════════════════════════════
-    # 5. CHILDCARE (NEW)
-    # ═══════════════════════════════════════════
-    "childcare": {
-        1: {
-            "question": "What type of childcare do you need?",
-            "options": ["Babysitting", "Daycare", "Nanny", "After-school care", "Other"],
-            "answer_key": "care_type"
-        },
-        2: {
-            "question": "How many children need care?",
-            "answer_key": "children_count"
-        },
-        3: {
-            "question": "What is the age range of the children?",
-            "answer_key": "age_range"
-        },
-        4: {
-            "question": "Where is the care needed?",
-            "answer_key": "location"
-        },
-        5: {
-            "question": "When do you need the service?",
-            "options": ["Immediately", "This week", "Next week", "Regular schedule"],
-            "answer_key": "schedule"
-        }
+"childcare": {
+    1: {
+        "question": "What type of childcare do you need?",
+        "options": [
+            "Babysitting",
+            "Daycare",
+            "Nanny",
+            "After-school care",
+            "Special needs care",
+            "Tutoring / homework help",
+            "Overnight care",
+            "Other"
+        ],
+        "answer_key": "care_type",
+        "skip_if_in_input": ["babysitting", "daycare", "nanny", "after-school", "special needs", "tutoring", "homework", "overnight"],
+        "next": "childcare_q2"
+    },
+    "childcare_q2": {
+        "question": "How many children need care?",
+        "answer_key": "children_count",
+        "options": ["1 child", "2 children", "3 children", "4+ children"],
+        "skip_if_in_input": ["child", "children", "kid", "kids"],
+        "next": "childcare_q3"
+    },
+    "childcare_q3": {
+        "question": "What is the age range of the children?",
+        "answer_key": "age_range",
+        "options": [
+            "Newborn (0-1 year)",
+            "Toddler (1-3 years)",
+            "Preschool (3-5 years)",
+            "School-age (6-12 years)",
+            "Teen (13+ years)",
+            "Mixed ages"
+        ],
+        "skip_if_in_input": ["newborn", "infant", "toddler", "preschool", "school-age", "teen", "years old"],
+        "next": "childcare_q4"
+    },
+    "childcare_q4": {
+        "question": "Where is the care needed? Please enter your address or area.",
+        "answer_key": "location",
+        "type": "text_input",
+        "skip_if_in_input": ["colombo", "kandy", "galle", "negombo", "address", "area", "city", "town", "road", "street", "home", "house"],
+        "next": "childcare_q5"
+    },
+    "childcare_q5": {
+        "question": "When do you need the service?",
+        "answer_key": "schedule",
+        "options": [
+            "Immediately - today or tomorrow",
+            "This week",
+            "Next week",
+            "Regular schedule (ongoing)",
+            "Flexible - still planning"
+        ],
+        "skip_if_in_input": ["today", "tomorrow", "week", "next week", "regular", "ongoing", "flexible"],
+        "next": None
     }
-
 }
-
+}

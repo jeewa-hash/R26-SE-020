@@ -1,9 +1,9 @@
 import axios from 'axios';
-import { SEEKER_SERVICE_URL } from '../config';
+import { CONFIG } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const seekerApi = axios.create({
-  baseURL: SEEKER_SERVICE_URL,
+  baseURL: CONFIG.SEEKER_SERVICE_URL,
   timeout: 15000,
 });
 

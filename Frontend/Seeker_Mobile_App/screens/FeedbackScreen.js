@@ -22,36 +22,92 @@ const API_BASE_URL = Platform.OS === 'android'
   ? 'http://10.0.2.2:6000'
   : 'http://localhost:6000';
 
+const COORDINATION_API_BASE_URL = Platform.OS === 'android'
+  ? 'http://10.0.2.2:5010'
+  : 'http://localhost:5010';
+
 export default function FeedbackScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();
-  const {
-    bookingId,
-    providerName = 'Provider',
-    serviceTitle = 'Service',
-    providerId,
-    serviceId,
-  } = route.params || {};
-
+  
   // ---- State ----
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [completedJobs, setCompletedJobs] = useState([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
-  const [recommendation, setRecommendation] = useState(null); // true / false / null
+  const [recommendation, setRecommendation] = useState(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // For existing feedback check & provider average
   const [existingFeedback, setExistingFeedback] = useState(false);
   const [providerAvgRating, setProviderAvgRating] = useState(null);
-  const [fetchingData, setFetchingData] = useState(true);
+  const [fetchingData, setFetchingData] = useState(false);
+
+  // ---- Initialize or fetch jobs ----
+  useEffect(() => {
+    if (route.params?.bookingId) {
+      setSelectedBooking({
+        bookingId: route.params.bookingId,
+        providerName: route.params.providerName || 'Provider',
+        serviceTitle: route.params.serviceTitle || 'Service',
+        providerId: route.params.providerId,
+        serviceId: route.params.serviceId,
+      });
+    } else {
+      const fetchCompletedJobs = async () => {
+        setLoadingJobs(true);
+        try {
+          const token = await AsyncStorage.getItem('userToken');
+          if (!token) return;
+          const response = await fetch(`${COORDINATION_API_BASE_URL}/bookings/seeker/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await response.json();
+          if (data.success && data.data) {
+            const completed = data.data.filter(b => b.bookingStatus === 'COMPLETED');
+
+            // Try to fetch actual names from Provider Service
+            try {
+               const providerUrl = API_BASE_URL.replace('6000', '5000') + '/portfolio/all-providers';
+               const provRes = await fetch(providerUrl);
+               const provData = await provRes.json();
+               if (provData.success) {
+                  const allProviders = provData.data || provData.providers || [];
+                  const pMap = {};
+                  allProviders.forEach(p => {
+                      const pid = p.provider?.id || p.provider?._id || p._id || p.id;
+                      if (pid) pMap[pid] = p.provider?.name || p.provider?.fullName || p.provider?.businessName || p.name || p.fullName;
+                  });
+                  completed.forEach(c => {
+                      if (pMap[c.providerId]) c.actualFetchedName = pMap[c.providerId];
+                  });
+               }
+            } catch (e) {
+               console.warn("Could not fetch real provider names", e);
+            }
+
+            setCompletedJobs(completed);
+          }
+        } catch (error) {
+          console.warn('Error fetching completed jobs:', error);
+        } finally {
+          setLoadingJobs(false);
+        }
+      };
+      fetchCompletedJobs();
+    }
+  }, [route.params]);
 
   // ---- Fetch provider average rating & check existing feedback ----
   useEffect(() => {
     const fetchData = async () => {
-      if (!bookingId || !providerId) {
+      if (!selectedBooking?.bookingId || !selectedBooking?.providerId) {
         setFetchingData(false);
         return;
       }
-
+      
+      setFetchingData(true);
       try {
         const token = await AsyncStorage.getItem('userToken');
         if (!token) {
@@ -60,18 +116,20 @@ export default function FeedbackScreen({ navigation, route }) {
         }
 
         // 1. Check if feedback already exists for this booking
-        const checkRes = await fetch(`${API_BASE_URL}/feedback/booking/${bookingId}`, {
+        const checkRes = await fetch(`${API_BASE_URL}/feedback/booking/${selectedBooking.bookingId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const checkData = await checkRes.json();
         if (checkData.success && checkData.hasReviewed) {
           setExistingFeedback(true);
           setFetchingData(false);
-          return; // No need to fetch provider rating if already reviewed
+          return;
+        } else {
+          setExistingFeedback(false);
         }
 
-        // 2. Fetch provider's average rating (optional)
-        const avgRes = await fetch(`${API_BASE_URL}/feedback/provider/${providerId}`, {
+        // 2. Fetch provider's average rating
+        const avgRes = await fetch(`${API_BASE_URL}/feedback/provider/${selectedBooking.providerId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const avgData = await avgRes.json();
@@ -87,8 +145,10 @@ export default function FeedbackScreen({ navigation, route }) {
       }
     };
 
-    fetchData();
-  }, [bookingId, providerId]);
+    if (selectedBooking) {
+      fetchData();
+    }
+  }, [selectedBooking]);
 
   // ---- Submit feedback ----
   const handleSubmit = async () => {
@@ -121,7 +181,7 @@ export default function FeedbackScreen({ navigation, route }) {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          bookingId,
+          bookingId: selectedBooking.bookingId,
           rating,
           reviewText: reviewText.trim(),
           recommendation,
@@ -165,7 +225,82 @@ export default function FeedbackScreen({ navigation, route }) {
     return stars;
   };
 
-  // ---- If still fetching, show loader ----
+  // ---- If not selected booking yet, show list of completed jobs ----
+  if (!selectedBooking) {
+    if (loadingJobs) {
+      return (
+        <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="large" color="#667eea" />
+            <Text style={[styles.loaderText, isDarkMode && styles.textDark]}>
+              Loading completed jobs...
+            </Text>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    return (
+      <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+        <StatusBar
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        />
+        <LinearGradient
+          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
+          style={styles.header}
+        >
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Select Job to Review</Text>
+          <View style={{ width: 40 }} />
+        </LinearGradient>
+
+        <ScrollView contentContainerStyle={styles.content}>
+          {completedJobs.length === 0 ? (
+            <View style={{ alignItems: 'center', marginTop: 40 }}>
+              <Ionicons name="document-text-outline" size={60} color="#D1D5DB" />
+              <Text style={{ marginTop: 10, color: '#6B7280' }}>No completed jobs to review.</Text>
+            </View>
+          ) : (
+            completedJobs.map(job => {
+              let pName = job.providerSnapshot?.name;
+              if (pName === 'Service Provider' || !pName) {
+                pName = job.providerSnapshot?.businessName || job.providerName || job.providerSnapshot?.fullName || 'Service Provider';
+              }
+              const displayProviderName = job.actualFetchedName || job.providerSnapshot?.businessName || pName;
+              
+              return (
+              <TouchableOpacity
+                key={job._id}
+                style={[styles.serviceCard, isDarkMode && styles.serviceCardDark, { marginBottom: 12 }]}
+                onPress={() => setSelectedBooking({
+                  bookingId: job._id,
+                  providerName: displayProviderName,
+                  serviceTitle: job.serviceSubcategory || job.serviceCategory || 'Service',
+                  providerId: job.providerId,
+                  serviceId: job._id,
+                })}
+              >
+                <Text style={[styles.serviceTitle, isDarkMode && styles.textDark]}>
+                  {job.serviceSubcategory || job.serviceCategory || 'Service'}
+                </Text>
+                <Text style={[styles.providerName, isDarkMode && styles.textMutedDark]}>
+                  Provider: {displayProviderName}
+                </Text>
+                <Text style={[styles.charCount, isDarkMode && styles.textMutedDark, { textAlign: 'left', marginTop: 4 }]}>
+                  {job.scheduledDate} {job.displayStartTime}
+                </Text>
+              </TouchableOpacity>
+            )})
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // ---- If still fetching feedback status, show loader ----
   if (fetchingData) {
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -237,11 +372,11 @@ export default function FeedbackScreen({ navigation, route }) {
         {/* Service & Provider Info */}
         <View style={[styles.serviceCard, isDarkMode && styles.serviceCardDark]}>
           <Text style={[styles.serviceTitle, isDarkMode && styles.textDark]}>
-            {serviceTitle}
+            {selectedBooking.serviceTitle}
           </Text>
           <View style={styles.providerRow}>
             <Text style={[styles.providerName, isDarkMode && styles.textMutedDark]}>
-              {providerName}
+              {selectedBooking.providerName}
             </Text>
             {providerAvgRating && (
               <View style={styles.ratingBadge}>

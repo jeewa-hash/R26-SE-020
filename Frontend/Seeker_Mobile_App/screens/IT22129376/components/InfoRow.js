@@ -38,12 +38,12 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     color: COLORS.muted,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   value: {
     fontSize: 13,
     color: COLORS.text,
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: 2,
   },
   textDark: { color: COLORS.darkText },

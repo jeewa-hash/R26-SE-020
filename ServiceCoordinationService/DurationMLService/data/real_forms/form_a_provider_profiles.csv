@@ -1,0 +1,357 @@
+Timestamp,Q1. Are you 18 years of age or older?,Q2. Are you currently providing local services?,Q3. Do you voluntarily agree to participate?,Q4. Research Participant Code (provider_id),Q5. Years of Experience (years_experience),Q6. Main Service Categories,Q7. Services Currently Provided (service_type),Q8. Typical Jobs per Week,Q9. Work Alone or Team,Q10. Service Range Description
+2026-09-05 08:54:27,Yes,Yes,"Yes, I agree",P001,18,Gardening,"Garden Cleaning, Garden Maintenance",8,Mostly with one or more other workers,I perform several related service types
+2026-09-05 10:43:37,Yes,Yes,"Yes, I agree",P002,18,Cleaning,"Kitchen Cleaning, Move In/Out Cleaning",8,Mostly alone,I perform several related service types
+2026-09-05 13:00:17,Yes,Yes,"Yes, I agree",P003,6,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-05 14:06:12,Yes,Yes,"Yes, I agree",P004,5,Gardening,Planting Services,8,Mostly alone,I mainly perform one specific type of service
+2026-09-05 15:49:38,Yes,Yes,"Yes, I agree",P005,7,Cleaning,"Kitchen Cleaning, Move In/Out Cleaning",8,Mostly alone,I perform several related service types
+2026-09-05 17:41:51,Yes,Yes,"Yes, I agree",P006,21,Gardening,"Garden Cleaning, Garden Maintenance",8,Mostly alone,I perform several related service types
+2026-09-05 17:48:27,Yes,Yes,"Yes, I agree",P007,13,Care Support,Child Care,8,Mostly alone,I mainly perform one specific type of service
+2026-09-05 19:45:44,Yes,Yes,"Yes, I agree",P008,9,Care Support,Elderly Care,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-05 19:55:44,Yes,Yes,"Yes, I agree",P009,6,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-05 19:58:45,Yes,Yes,"Yes, I agree",P010,8,Gardening,Planting Services,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-05 20:26:51,Yes,Yes,"Yes, I agree",P011,18,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-05 21:52:02,Yes,Yes,"Yes, I agree",P012,3,Cleaning,House Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-06 08:16:55,Yes,Yes,"Yes, I agree",P013,9,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-06 09:53:21,Yes,Yes,"Yes, I agree",P014,7,Cleaning,Sofa/Carpet/Curtain Cleaning,8,Mostly alone,I mainly perform one specific type of service
+2026-09-06 10:28:44,Yes,Yes,"Yes, I agree",P015,6,Cleaning,"House Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-06 11:03:23,Yes,Yes,"Yes, I agree",P016,2,Cleaning,House Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-06 11:11:56,Yes,Yes,"Yes, I agree",P017,4,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-06 11:32:43,Yes,Yes,"Yes, I agree",P018,8,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-06 13:01:11,Yes,Yes,"Yes, I agree",P019,7,Care Support,Elderly Care,8,Mostly alone,I mainly perform one specific type of service
+2026-09-06 15:04:30,Yes,Yes,"Yes, I agree",P020,10,Gardening,Planting Services,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-06 16:12:28,Yes,Yes,"Yes, I agree",P021,5,Gardening,Garden Maintenance,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-06 17:03:00,Yes,Yes,"Yes, I agree",P022,4,Care Support,"Personal Assistance, Pet Care",8,Mostly alone,I perform several related service types
+2026-09-06 17:47:50,Yes,Yes,"Yes, I agree",P023,3,Gardening,Garden Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-06 18:26:54,Yes,Yes,"Yes, I agree",P024,8,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-06 18:44:09,Yes,Yes,"Yes, I agree",P025,10,Cleaning,"Office Cleaning, Post-Construction Cleaning",8,Mostly alone,I perform several related service types
+2026-09-06 19:19:30,Yes,Yes,"Yes, I agree",P026,5,Cleaning,House Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-07 09:20:04,Yes,Yes,"Yes, I agree",P027,4,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-07 12:32:44,Yes,Yes,"Yes, I agree",P028,7,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-07 14:36:43,Yes,Yes,"Yes, I agree",P029,11,Cleaning,"Bathroom Cleaning, House Cleaning",8,Mostly alone,I perform several related service types
+2026-09-07 15:33:12,Yes,Yes,"Yes, I agree",P030,8,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-07 15:46:56,Yes,Yes,"Yes, I agree",P031,6,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-07 17:01:19,Yes,Yes,"Yes, I agree",P032,4,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-07 17:32:29,Yes,Yes,"Yes, I agree",P033,14,Gardening,"Landscaping & Design, Planting Services",8,Mostly with one or more other workers,I perform several related service types
+2026-09-07 18:18:18,Yes,Yes,"Yes, I agree",P034,15,Repairing,"Furniture Repair, Painting & Renovation",8,Mostly alone,I perform several related service types
+2026-09-07 18:20:20,Yes,Yes,"Yes, I agree",P035,4,Care Support,Pet Care,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-07 18:27:06,Yes,Yes,"Yes, I agree",P036,4,Care Support,"Child Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-07 19:11:02,Yes,Yes,"Yes, I agree",P037,5,Cleaning,House Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-07 19:20:21,Yes,Yes,"Yes, I agree",P038,6,Gardening,Garden Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-08 11:44:16,Yes,Yes,"Yes, I agree",P039,13,Care Support,"Child Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-08 13:18:49,Yes,Yes,"Yes, I agree",P040,8,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-08 16:06:08,Yes,Yes,"Yes, I agree",P041,13,Gardening,Landscaping & Design,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-08 18:35:55,Yes,Yes,"Yes, I agree",P042,2,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-08 18:38:24,Yes,Yes,"Yes, I agree",P043,19,Cleaning,"Office Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-08 20:21:12,Yes,Yes,"Yes, I agree",P044,8,Cleaning,"Bathroom Cleaning, Kitchen Cleaning",8,Mostly alone,I perform several related service types
+2026-09-08 21:02:39,Yes,Yes,"Yes, I agree",P045,7,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-08 21:59:03,Yes,Yes,"Yes, I agree",P046,10,Cleaning,"Bathroom Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-09 10:20:27,Yes,Yes,"Yes, I agree",P047,4,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-09 13:17:45,Yes,Yes,"Yes, I agree",P048,9,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-09 16:56:41,Yes,Yes,"Yes, I agree",P049,2,Care Support,"Disability Support, Elderly Care",8,Mostly with one or more other workers,I perform several related service types
+2026-09-09 17:18:16,Yes,Yes,"Yes, I agree",P050,4,Repairing,Furniture Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-09 18:03:28,Yes,Yes,"Yes, I agree",P051,5,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-09 18:54:58,Yes,Yes,"Yes, I agree",P052,11,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-09 20:53:47,Yes,Yes,"Yes, I agree",P053,17,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-10 08:17:42,Yes,Yes,"Yes, I agree",P054,5,Care Support,"Disability Support, Elderly Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-10 09:20:35,Yes,Yes,"Yes, I agree",P055,6,Repairing,Furniture Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-10 12:45:01,Yes,Yes,"Yes, I agree",P056,10,Care Support,Disability Support,8,Mostly alone,I mainly perform one specific type of service
+2026-09-10 12:55:49,Yes,Yes,"Yes, I agree",P057,2,Cleaning,Bathroom Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-10 14:01:17,Yes,Yes,"Yes, I agree",P058,6,Gardening,"Garden Cleaning, Planting Services",8,Mostly with one or more other workers,I perform several related service types
+2026-09-10 14:15:56,Yes,Yes,"Yes, I agree",P059,9,Cleaning,"House Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-10 14:32:04,Yes,Yes,"Yes, I agree",P060,4,Gardening,"Landscaping & Design, Planting Services",8,Mostly with one or more other workers,I perform several related service types
+2026-09-10 16:58:40,Yes,Yes,"Yes, I agree",P061,7,Care Support,"Elderly Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-10 21:23:32,Yes,Yes,"Yes, I agree",P062,11,Cleaning,"Office Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-11 08:06:57,Yes,Yes,"Yes, I agree",P063,3,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-11 09:01:49,Yes,Yes,"Yes, I agree",P064,3,Gardening,"Garden Maintenance, Landscaping & Design, Planting Services",8,Mostly with one or more other workers,I perform several related service types
+2026-09-11 09:16:51,Yes,Yes,"Yes, I agree",P065,3,Care Support,Pet Care,8,Mostly alone,I mainly perform one specific type of service
+2026-09-11 13:52:48,Yes,Yes,"Yes, I agree",P066,3,Gardening,Planting Services,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-11 14:47:46,Yes,Yes,"Yes, I agree",P067,18,Care Support,"Disability Support, Elderly Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-11 15:36:24,Yes,Yes,"Yes, I agree",P068,5,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-11 17:46:35,Yes,Yes,"Yes, I agree",P069,5,Cleaning,House Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-11 18:34:29,Yes,Yes,"Yes, I agree",P070,9,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-11 20:23:17,Yes,Yes,"Yes, I agree",P071,3,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-12 09:20:09,Yes,Yes,"Yes, I agree",P072,8,Cleaning,"Bathroom Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-12 10:52:24,Yes,Yes,"Yes, I agree",P073,5,Cleaning,"Kitchen Cleaning, Move In/Out Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-12 11:08:58,Yes,Yes,"Yes, I agree",P074,1,Cleaning,"House Cleaning, Office Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-12 11:22:41,Yes,Yes,"Yes, I agree",P075,6,Cleaning,"House Cleaning, Kitchen Cleaning, Post-Construction Cleaning",8,Mostly alone,I perform several related service types
+2026-09-12 12:46:49,Yes,Yes,"Yes, I agree",P076,9,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-12 13:09:00,Yes,Yes,"Yes, I agree",P077,6,Gardening,Garden Maintenance,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-12 15:15:44,Yes,Yes,"Yes, I agree",P078,8,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-12 16:27:25,Yes,Yes,"Yes, I agree",P079,3,Care Support,"Personal Assistance, Pet Care",8,Mostly alone,I perform several related service types
+2026-09-12 17:28:41,Yes,Yes,"Yes, I agree",P080,14,Care Support,"Elderly Care, Personal Assistance",8,Mostly with one or more other workers,I perform several related service types
+2026-09-12 18:45:56,Yes,Yes,"Yes, I agree",P081,6,Gardening,"Garden Maintenance, Planting Services",8,Mostly alone,I perform several related service types
+2026-09-12 19:45:56,Yes,Yes,"Yes, I agree",P082,5,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-12 21:41:25,Yes,Yes,"Yes, I agree",P083,3,Cleaning,"Bathroom Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-13 12:01:29,Yes,Yes,"Yes, I agree",P084,9,Cleaning,"Move In/Out Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-13 12:04:43,Yes,Yes,"Yes, I agree",P085,5,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-13 13:59:05,Yes,Yes,"Yes, I agree",P086,5,Care Support,Pet Care,8,Mostly alone,I mainly perform one specific type of service
+2026-09-13 14:18:07,Yes,Yes,"Yes, I agree",P087,4,Repairing,"Furniture Repair, Painting & Renovation, Roofing Repair",8,Mostly alone,I perform several related service types
+2026-09-13 15:20:32,Yes,Yes,"Yes, I agree",P088,6,Care Support,"Disability Support, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-13 18:44:06,Yes,Yes,"Yes, I agree",P089,13,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-13 19:32:56,Yes,Yes,"Yes, I agree",P090,10,Care Support,"Child Care, Personal Assistance",8,Mostly with one or more other workers,I perform several related service types
+2026-09-13 20:20:25,Yes,Yes,"Yes, I agree",P091,6,Care Support,"Personal Assistance, Pet Care",8,Mostly alone,I perform several related service types
+2026-09-13 20:51:58,Yes,Yes,"Yes, I agree",P092,4,Repairing,Roofing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-13 21:08:40,Yes,Yes,"Yes, I agree",P093,4,Repairing,Roofing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-14 13:46:04,Yes,Yes,"Yes, I agree",P094,9,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-15 15:51:35,Yes,Yes,"Yes, I agree",P095,8,Cleaning,"House Cleaning, Office Cleaning",8,Mostly alone,I perform several related service types
+2026-09-15 15:58:30,Yes,Yes,"Yes, I agree",P096,12,Repairing,Furniture Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-15 18:20:59,Yes,Yes,"Yes, I agree",P097,12,Care Support,"Child Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-15 18:41:53,Yes,Yes,"Yes, I agree",P098,7,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-15 18:51:21,Yes,Yes,"Yes, I agree",P099,13,Care Support,"Disability Support, Elderly Care",8,Mostly with one or more other workers,I perform several related service types
+2026-09-15 20:00:25,Yes,Yes,"Yes, I agree",P100,10,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-15 20:11:59,Yes,Yes,"Yes, I agree",P101,7,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-15 20:49:56,Yes,Yes,"Yes, I agree",P102,15,Cleaning,Sofa/Carpet/Curtain Cleaning,8,Mostly alone,I mainly perform one specific type of service
+2026-09-16 08:06:24,Yes,Yes,"Yes, I agree",P103,3,Repairing,Roofing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-16 13:14:48,Yes,Yes,"Yes, I agree",P104,18,Cleaning,"House Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-16 18:35:02,Yes,Yes,"Yes, I agree",P105,3,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-16 19:09:18,Yes,Yes,"Yes, I agree",P106,2,Repairing,Furniture Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-16 19:30:30,Yes,Yes,"Yes, I agree",P107,7,Gardening,Planting Services,8,Mostly alone,I mainly perform one specific type of service
+2026-09-16 19:53:28,Yes,Yes,"Yes, I agree",P108,14,Cleaning,House Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-16 19:55:18,Yes,Yes,"Yes, I agree",P109,6,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-16 21:43:21,Yes,Yes,"Yes, I agree",P110,8,Cleaning,"House Cleaning, Kitchen Cleaning",8,Mostly alone,I perform several related service types
+2026-09-17 08:19:27,Yes,Yes,"Yes, I agree",P111,5,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-17 09:55:38,Yes,Yes,"Yes, I agree",P112,2,Gardening,"Landscaping & Design, Planting Services",8,Mostly with one or more other workers,I perform several related service types
+2026-09-17 12:39:39,Yes,Yes,"Yes, I agree",P113,9,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-17 14:05:49,Yes,Yes,"Yes, I agree",P114,6,Gardening,Planting Services,8,Mostly alone,I mainly perform one specific type of service
+2026-09-17 20:28:32,Yes,Yes,"Yes, I agree",P115,7,Gardening,"Garden Cleaning, Garden Maintenance",8,Mostly alone,I perform several related service types
+2026-09-18 09:24:12,Yes,Yes,"Yes, I agree",P116,25,Care Support,"Disability Support, Elderly Care",8,Mostly with one or more other workers,I perform several related service types
+2026-09-18 09:34:04,Yes,Yes,"Yes, I agree",P117,5,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-18 09:43:10,Yes,Yes,"Yes, I agree",P118,8,Care Support,Personal Assistance,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-18 10:02:37,Yes,Yes,"Yes, I agree",P119,7,Cleaning,"Move In/Out Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-18 10:25:02,Yes,Yes,"Yes, I agree",P120,5,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly alone,I perform several related service types
+2026-09-18 13:41:31,Yes,Yes,"Yes, I agree",P121,11,Gardening,"Garden Cleaning, Planting Services",8,Mostly alone,I perform several related service types
+2026-09-18 15:04:31,Yes,Yes,"Yes, I agree",P122,6,Cleaning,Kitchen Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-18 16:53:16,Yes,Yes,"Yes, I agree",P123,3,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-18 20:17:18,Yes,Yes,"Yes, I agree",P124,4,Gardening,Planting Services,8,Mostly alone,I mainly perform one specific type of service
+2026-09-19 08:48:34,Yes,Yes,"Yes, I agree",P125,13,Gardening,"Garden Cleaning, Garden Maintenance",8,Mostly alone,I perform several related service types
+2026-09-19 08:56:13,Yes,Yes,"Yes, I agree",P126,9,Care Support,Disability Support,8,Mostly alone,I mainly perform one specific type of service
+2026-09-19 09:00:36,Yes,Yes,"Yes, I agree",P127,21,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-19 10:39:00,Yes,Yes,"Yes, I agree",P128,4,Cleaning,House Cleaning,8,Mostly alone,I mainly perform one specific type of service
+2026-09-19 11:41:36,Yes,Yes,"Yes, I agree",P129,13,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-19 12:15:05,Yes,Yes,"Yes, I agree",P130,6,Repairing,"Furniture Repair, Painting & Renovation",8,Mostly with one or more other workers,I perform several related service types
+2026-09-19 13:55:52,Yes,Yes,"Yes, I agree",P131,19,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-19 14:22:05,Yes,Yes,"Yes, I agree",P132,7,Cleaning,"Move In/Out Cleaning, Post-Construction Cleaning",8,Mostly alone,I perform several related service types
+2026-09-19 19:05:54,Yes,Yes,"Yes, I agree",P133,3,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-19 19:22:23,Yes,Yes,"Yes, I agree",P134,11,Gardening,Planting Services,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-20 11:50:07,Yes,Yes,"Yes, I agree",P135,8,Cleaning,House Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-20 12:45:00,Yes,Yes,"Yes, I agree",P136,9,Cleaning,"House Cleaning, Kitchen Cleaning",8,Mostly alone,I perform several related service types
+2026-09-20 13:19:58,Yes,Yes,"Yes, I agree",P137,22,Repairing,Furniture Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-20 15:10:26,Yes,Yes,"Yes, I agree",P138,4,Cleaning,"Bathroom Cleaning, House Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-20 15:35:50,Yes,Yes,"Yes, I agree",P139,12,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-20 16:25:55,Yes,Yes,"Yes, I agree",P140,10,Cleaning,"Bathroom Cleaning, House Cleaning, Kitchen Cleaning",8,Mostly alone,I perform several related service types
+2026-09-20 17:31:39,Yes,Yes,"Yes, I agree",P141,3,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-20 19:07:14,Yes,Yes,"Yes, I agree",P142,11,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-20 19:30:59,Yes,Yes,"Yes, I agree",P143,6,Gardening,"Garden Maintenance, Landscaping & Design, Planting Services",8,Mostly with one or more other workers,I perform several related service types
+2026-09-20 19:39:35,Yes,Yes,"Yes, I agree",P144,6,Gardening,"Garden Maintenance, Landscaping & Design",8,Mostly with one or more other workers,I perform several related service types
+2026-09-20 21:57:09,Yes,Yes,"Yes, I agree",P145,11,Cleaning,"House Cleaning, Office Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-21 08:55:30,Yes,Yes,"Yes, I agree",P146,7,Care Support,Elderly Care,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-21 14:46:34,Yes,Yes,"Yes, I agree",P147,9,Care Support,"Elderly Care, Personal Assistance",8,Mostly with one or more other workers,I perform several related service types
+2026-09-21 15:14:52,Yes,Yes,"Yes, I agree",P148,4,Care Support,"Disability Support, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-21 15:39:29,Yes,Yes,"Yes, I agree",P149,8,Care Support,"Disability Support, Elderly Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-21 16:52:01,Yes,Yes,"Yes, I agree",P150,5,Repairing,"Painting & Renovation, Roofing Repair",8,Mostly with one or more other workers,I perform several related service types
+2026-09-21 17:42:41,Yes,Yes,"Yes, I agree",P151,8,Cleaning,"House Cleaning, Office Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-21 17:51:46,Yes,Yes,"Yes, I agree",P152,12,Repairing,Roofing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-21 20:39:03,Yes,Yes,"Yes, I agree",P153,10,Gardening,"Garden Maintenance, Landscaping & Design",8,Mostly with one or more other workers,I perform several related service types
+2026-09-22 09:05:13,Yes,Yes,"Yes, I agree",P154,9,Cleaning,Move In/Out Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-22 15:01:29,Yes,Yes,"Yes, I agree",P155,24,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-22 15:37:52,Yes,Yes,"Yes, I agree",P156,7,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-22 15:38:29,Yes,Yes,"Yes, I agree",P157,13,Care Support,Personal Assistance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-22 15:44:20,Yes,Yes,"Yes, I agree",P158,15,Cleaning,"Kitchen Cleaning, Move In/Out Cleaning",8,Mostly alone,I perform several related service types
+2026-09-22 16:36:17,Yes,Yes,"Yes, I agree",P159,2,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-22 20:37:25,Yes,Yes,"Yes, I agree",P160,5,Cleaning,"House Cleaning, Office Cleaning",8,Mostly alone,I perform several related service types
+2026-09-23 09:57:36,Yes,Yes,"Yes, I agree",P161,7,Repairing,Roofing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-23 13:31:10,Yes,Yes,"Yes, I agree",P162,10,Gardening,Landscaping & Design,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-23 15:08:51,Yes,Yes,"Yes, I agree",P163,7,Cleaning,"House Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-23 16:05:24,Yes,Yes,"Yes, I agree",P164,10,Care Support,"Personal Assistance, Pet Care",8,Mostly alone,I perform several related service types
+2026-09-23 17:26:22,Yes,Yes,"Yes, I agree",P165,3,Gardening,"Garden Maintenance, Landscaping & Design, Planting Services",8,Mostly with one or more other workers,I perform several related service types
+2026-09-23 18:08:07,Yes,Yes,"Yes, I agree",P166,3,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-23 18:29:04,Yes,Yes,"Yes, I agree",P167,9,Care Support,Pet Care,8,Mostly alone,I mainly perform one specific type of service
+2026-09-23 19:53:03,Yes,Yes,"Yes, I agree",P168,6,Cleaning,"Bathroom Cleaning, House Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-24 09:53:53,Yes,Yes,"Yes, I agree",P169,2,Gardening,"Landscaping & Design, Planting Services",8,Mostly with one or more other workers,I perform several related service types
+2026-09-24 10:18:55,Yes,Yes,"Yes, I agree",P170,14,Gardening,Garden Maintenance,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-24 13:39:44,Yes,Yes,"Yes, I agree",P171,17,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-24 14:39:20,Yes,Yes,"Yes, I agree",P172,10,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-24 17:36:18,Yes,Yes,"Yes, I agree",P173,8,Cleaning,Bathroom Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-24 18:06:35,Yes,Yes,"Yes, I agree",P174,7,Cleaning,"Office Cleaning, Post-Construction Cleaning",8,Mostly alone,I perform several related service types
+2026-09-24 18:18:00,Yes,Yes,"Yes, I agree",P175,5,Cleaning,"Bathroom Cleaning, Kitchen Cleaning",8,Mostly alone,I perform several related service types
+2026-09-24 18:40:13,Yes,Yes,"Yes, I agree",P176,24,Care Support,"Personal Assistance, Pet Care",8,Mostly alone,I perform several related service types
+2026-09-25 11:40:45,Yes,Yes,"Yes, I agree",P177,2,Care Support,"Personal Assistance, Pet Care",8,Mostly alone,I perform several related service types
+2026-09-25 12:54:00,Yes,Yes,"Yes, I agree",P178,4,Cleaning,"House Cleaning, Office Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-25 14:55:33,Yes,Yes,"Yes, I agree",P179,4,Repairing,"Furniture Repair, Painting & Renovation, Roofing Repair",8,Mostly with one or more other workers,I perform several related service types
+2026-09-25 15:41:03,Yes,Yes,"Yes, I agree",P180,9,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-25 16:50:43,Yes,Yes,"Yes, I agree",P181,6,Cleaning,"House Cleaning, Kitchen Cleaning",8,Mostly alone,I perform several related service types
+2026-09-25 17:40:50,Yes,Yes,"Yes, I agree",P182,4,Gardening,"Garden Cleaning, Garden Maintenance",8,Mostly alone,I perform several related service types
+2026-09-25 17:52:27,Yes,Yes,"Yes, I agree",P183,9,Care Support,Child Care,8,Mostly alone,I mainly perform one specific type of service
+2026-09-26 09:58:34,Yes,Yes,"Yes, I agree",P184,4,Cleaning,Sofa/Carpet/Curtain Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-26 10:44:20,Yes,Yes,"Yes, I agree",P185,6,Repairing,"Furniture Repair, Painting & Renovation",8,Mostly alone,I perform several related service types
+2026-09-26 12:11:46,Yes,Yes,"Yes, I agree",P186,2,Care Support,Elderly Care,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-26 12:59:15,Yes,Yes,"Yes, I agree",P187,11,Repairing,"Furniture Repair, Painting & Renovation",8,Mostly alone,I perform several related service types
+2026-09-26 13:20:55,Yes,Yes,"Yes, I agree",P188,10,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-26 13:29:18,Yes,Yes,"Yes, I agree",P189,8,Gardening,"Garden Cleaning, Garden Maintenance, Planting Services",8,Mostly alone,I perform several related service types
+2026-09-26 14:28:09,Yes,Yes,"Yes, I agree",P190,16,Care Support,Pet Care,8,Mostly alone,I mainly perform one specific type of service
+2026-09-26 14:32:54,Yes,Yes,"Yes, I agree",P191,12,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-26 14:48:24,Yes,Yes,"Yes, I agree",P192,12,Cleaning,"Bathroom Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-26 15:24:06,Yes,Yes,"Yes, I agree",P193,5,Care Support,"Disability Support, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-26 15:29:22,Yes,Yes,"Yes, I agree",P194,12,Cleaning,Sofa/Carpet/Curtain Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-26 18:15:39,Yes,Yes,"Yes, I agree",P195,6,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-26 19:29:08,Yes,Yes,"Yes, I agree",P196,16,Gardening,"Garden Maintenance, Landscaping & Design",8,Mostly with one or more other workers,I perform several related service types
+2026-09-27 08:06:44,Yes,Yes,"Yes, I agree",P197,5,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-27 08:11:38,Yes,Yes,"Yes, I agree",P198,2,Repairing,Furniture Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-27 10:00:39,Yes,Yes,"Yes, I agree",P199,3,Repairing,"Painting & Renovation, Roofing Repair",8,Mostly with one or more other workers,I perform several related service types
+2026-09-27 12:48:28,Yes,Yes,"Yes, I agree",P200,5,Repairing,Roofing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-27 13:44:12,Yes,Yes,"Yes, I agree",P201,3,Cleaning,Sofa/Carpet/Curtain Cleaning,8,Mostly alone,I mainly perform one specific type of service
+2026-09-27 14:36:33,Yes,Yes,"Yes, I agree",P202,10,Gardening,Garden Maintenance,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-27 15:32:02,Yes,Yes,"Yes, I agree",P203,1,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-27 16:18:19,Yes,Yes,"Yes, I agree",P204,10,Repairing,Furniture Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-27 17:03:26,Yes,Yes,"Yes, I agree",P205,13,Cleaning,House Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-27 21:22:16,Yes,Yes,"Yes, I agree",P206,8,Care Support,Personal Assistance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-27 21:33:36,Yes,Yes,"Yes, I agree",P207,11,Care Support,"Child Care, Personal Assistance",8,Mostly with one or more other workers,I perform several related service types
+2026-09-28 09:56:10,Yes,Yes,"Yes, I agree",P208,19,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-28 10:48:56,Yes,Yes,"Yes, I agree",P209,9,Cleaning,Sofa/Carpet/Curtain Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-28 11:06:14,Yes,Yes,"Yes, I agree",P210,4,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-28 12:51:46,Yes,Yes,"Yes, I agree",P211,3,Cleaning,Kitchen Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-28 13:39:18,Yes,Yes,"Yes, I agree",P212,5,Cleaning,"House Cleaning, Move In/Out Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-28 14:24:09,Yes,Yes,"Yes, I agree",P213,11,Cleaning,"Move In/Out Cleaning, Post-Construction Cleaning",8,Mostly alone,I perform several related service types
+2026-09-28 14:28:42,Yes,Yes,"Yes, I agree",P214,12,Gardening,Planting Services,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-28 14:35:14,Yes,Yes,"Yes, I agree",P215,9,Gardening,Garden Maintenance,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-28 14:40:52,Yes,Yes,"Yes, I agree",P216,1,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-28 15:16:51,Yes,Yes,"Yes, I agree",P217,14,Care Support,"Child Care, Elderly Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-28 15:59:21,Yes,Yes,"Yes, I agree",P218,16,Cleaning,"Bathroom Cleaning, House Cleaning",8,Mostly alone,I perform several related service types
+2026-09-28 17:19:51,Yes,Yes,"Yes, I agree",P219,10,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-28 17:47:27,Yes,Yes,"Yes, I agree",P220,6,Care Support,"Personal Assistance, Pet Care",8,Mostly alone,I perform several related service types
+2026-09-28 18:29:57,Yes,Yes,"Yes, I agree",P221,10,Cleaning,"Kitchen Cleaning, Move In/Out Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-28 18:46:50,Yes,Yes,"Yes, I agree",P222,14,Repairing,Furniture Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-29 09:35:13,Yes,Yes,"Yes, I agree",P223,12,Care Support,Pet Care,8,Mostly alone,I mainly perform one specific type of service
+2026-09-29 11:07:41,Yes,Yes,"Yes, I agree",P224,15,Gardening,Garden Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-29 13:38:29,Yes,Yes,"Yes, I agree",P225,10,Cleaning,"Office Cleaning, Post-Construction Cleaning",8,Mostly alone,I perform several related service types
+2026-09-29 14:18:20,Yes,Yes,"Yes, I agree",P226,2,Gardening,Landscaping & Design,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-29 14:25:32,Yes,Yes,"Yes, I agree",P227,13,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-29 16:47:47,Yes,Yes,"Yes, I agree",P228,6,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-09-29 18:18:51,Yes,Yes,"Yes, I agree",P229,5,Care Support,"Personal Assistance, Pet Care",8,Mostly alone,I perform several related service types
+2026-09-29 18:27:58,Yes,Yes,"Yes, I agree",P230,15,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-29 18:45:57,Yes,Yes,"Yes, I agree",P231,9,Care Support,"Disability Support, Elderly Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-29 20:21:22,Yes,Yes,"Yes, I agree",P232,12,Repairing,Roofing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-29 20:24:50,Yes,Yes,"Yes, I agree",P233,7,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-29 21:38:35,Yes,Yes,"Yes, I agree",P234,6,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-30 08:14:11,Yes,Yes,"Yes, I agree",P235,9,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-30 11:38:36,Yes,Yes,"Yes, I agree",P236,11,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-30 12:50:50,Yes,Yes,"Yes, I agree",P237,7,Care Support,"Child Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-30 13:35:50,Yes,Yes,"Yes, I agree",P238,8,Cleaning,"House Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-30 14:22:08,Yes,Yes,"Yes, I agree",P239,5,Cleaning,House Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-30 14:37:13,Yes,Yes,"Yes, I agree",P240,2,Care Support,"Personal Assistance, Pet Care",8,Mostly alone,I perform several related service types
+2026-09-30 15:02:31,Yes,Yes,"Yes, I agree",P241,10,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-09-30 15:41:52,Yes,Yes,"Yes, I agree",P242,4,Cleaning,Sofa/Carpet/Curtain Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-09-30 17:58:29,Yes,Yes,"Yes, I agree",P243,6,Cleaning,"House Cleaning, Post-Construction Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-09-30 18:03:07,Yes,Yes,"Yes, I agree",P244,6,Care Support,"Elderly Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-09-30 20:17:41,Yes,Yes,"Yes, I agree",P245,12,Care Support,Child Care,8,Mostly alone,I mainly perform one specific type of service
+2026-09-30 20:52:32,Yes,Yes,"Yes, I agree",P246,16,Repairing,"Painting & Renovation, Roofing Repair",8,Mostly with one or more other workers,I perform several related service types
+2026-09-30 21:06:38,Yes,Yes,"Yes, I agree",P247,6,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-10-01 11:02:55,Yes,Yes,"Yes, I agree",P248,2,Care Support,"Personal Assistance, Pet Care",8,Mostly alone,I perform several related service types
+2026-10-01 11:03:43,Yes,Yes,"Yes, I agree",P249,5,Cleaning,Office Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-01 14:44:04,Yes,Yes,"Yes, I agree",P250,8,Cleaning,Sofa/Carpet/Curtain Cleaning,8,Mostly alone,I mainly perform one specific type of service
+2026-10-01 17:47:37,Yes,Yes,"Yes, I agree",P251,3,Gardening,"Garden Maintenance, Planting Services",8,Mostly alone,I perform several related service types
+2026-10-01 18:30:41,Yes,Yes,"Yes, I agree",P252,6,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-01 18:31:32,Yes,Yes,"Yes, I agree",P253,12,Repairing,Roofing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-01 19:13:39,Yes,Yes,"Yes, I agree",P254,10,Cleaning,"Office Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-01 20:01:26,Yes,Yes,"Yes, I agree",P255,4,Cleaning,"Office Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-02 08:20:52,Yes,Yes,"Yes, I agree",P256,9,Cleaning,"House Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-02 09:12:40,Yes,Yes,"Yes, I agree",P257,7,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-02 09:31:26,Yes,Yes,"Yes, I agree",P258,15,Cleaning,"House Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-02 09:52:11,Yes,Yes,"Yes, I agree",P259,6,Care Support,Pet Care,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-02 10:43:43,Yes,Yes,"Yes, I agree",P260,2,Cleaning,Sofa/Carpet/Curtain Cleaning,8,Mostly alone,I mainly perform one specific type of service
+2026-10-02 11:18:58,Yes,Yes,"Yes, I agree",P261,11,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-02 12:18:05,Yes,Yes,"Yes, I agree",P262,9,Repairing,"Painting & Renovation, Roofing Repair",8,Mostly with one or more other workers,I perform several related service types
+2026-10-02 14:32:28,Yes,Yes,"Yes, I agree",P263,8,Gardening,Planting Services,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-02 14:32:56,Yes,Yes,"Yes, I agree",P264,6,Repairing,Furniture Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-02 15:24:17,Yes,Yes,"Yes, I agree",P265,10,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-02 16:15:03,Yes,Yes,"Yes, I agree",P266,4,Cleaning,"Office Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-02 16:58:27,Yes,Yes,"Yes, I agree",P267,2,Cleaning,"House Cleaning, Office Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-02 17:15:07,Yes,Yes,"Yes, I agree",P268,3,Repairing,Painting & Renovation,8,Mostly alone,I mainly perform one specific type of service
+2026-10-02 21:18:46,Yes,Yes,"Yes, I agree",P269,7,Repairing,"Painting & Renovation, Roofing Repair",8,Mostly with one or more other workers,I perform several related service types
+2026-10-03 12:14:14,Yes,Yes,"Yes, I agree",P270,9,Cleaning,"Move In/Out Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-03 13:42:39,Yes,Yes,"Yes, I agree",P271,6,Care Support,"Child Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-10-03 14:44:45,Yes,Yes,"Yes, I agree",P272,5,Cleaning,"Bathroom Cleaning, Move In/Out Cleaning",8,Mostly alone,I perform several related service types
+2026-10-03 15:17:36,Yes,Yes,"Yes, I agree",P273,11,Repairing,Roofing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-03 18:28:52,Yes,Yes,"Yes, I agree",P274,5,Cleaning,Sofa/Carpet/Curtain Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-03 20:14:38,Yes,Yes,"Yes, I agree",P275,8,Cleaning,"House Cleaning, Move In/Out Cleaning, Office Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-03 20:50:47,Yes,Yes,"Yes, I agree",P276,19,Repairing,"Painting & Renovation, Roofing Repair",8,Mostly with one or more other workers,I perform several related service types
+2026-10-03 21:08:00,Yes,Yes,"Yes, I agree",P277,5,Care Support,"Personal Assistance, Pet Care",8,Mostly alone,I perform several related service types
+2026-10-03 21:08:00,Yes,Yes,"Yes, I agree",P278,7,Cleaning,"House Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-03 21:13:25,Yes,Yes,"Yes, I agree",P279,12,Repairing,Furniture Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-03 21:37:29,Yes,Yes,"Yes, I agree",P280,4,Care Support,"Disability Support, Elderly Care, Personal Assistance",8,Mostly with one or more other workers,I perform several related service types
+2026-10-04 08:12:08,Yes,Yes,"Yes, I agree",P281,7,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-04 09:15:44,Yes,Yes,"Yes, I agree",P282,6,Repairing,Furniture Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-04 11:42:03,Yes,Yes,"Yes, I agree",P283,9,Care Support,Personal Assistance,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-04 11:54:29,Yes,Yes,"Yes, I agree",P284,5,Repairing,Furniture Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-04 13:53:53,Yes,Yes,"Yes, I agree",P285,13,Care Support,Pet Care,8,Mostly alone,I mainly perform one specific type of service
+2026-10-04 13:56:04,Yes,Yes,"Yes, I agree",P286,7,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-04 14:39:19,Yes,Yes,"Yes, I agree",P287,6,Cleaning,Office Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-04 15:35:55,Yes,Yes,"Yes, I agree",P288,5,Gardening,"Garden Cleaning, Planting Services",8,Mostly with one or more other workers,I perform several related service types
+2026-10-04 17:40:16,Yes,Yes,"Yes, I agree",P289,8,Care Support,"Disability Support, Elderly Care",8,Mostly with one or more other workers,I perform several related service types
+2026-10-05 09:19:08,Yes,Yes,"Yes, I agree",P290,11,Repairing,"Furniture Repair, Painting & Renovation",8,Mostly with one or more other workers,I perform several related service types
+2026-10-05 18:41:34,Yes,Yes,"Yes, I agree",P291,13,Repairing,Furniture Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-05 19:08:00,Yes,Yes,"Yes, I agree",P292,7,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-05 21:43:27,Yes,Yes,"Yes, I agree",P293,6,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-06 08:00:09,Yes,Yes,"Yes, I agree",P294,9,Cleaning,"House Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-06 08:25:42,Yes,Yes,"Yes, I agree",P295,9,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-06 09:49:48,Yes,Yes,"Yes, I agree",P296,8,Cleaning,Sofa/Carpet/Curtain Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-06 10:03:20,Yes,Yes,"Yes, I agree",P297,12,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-06 10:35:48,Yes,Yes,"Yes, I agree",P298,10,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-06 11:59:57,Yes,Yes,"Yes, I agree",P299,4,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly alone,I perform several related service types
+2026-10-06 13:06:24,Yes,Yes,"Yes, I agree",P300,9,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-06 14:33:45,Yes,Yes,"Yes, I agree",P301,16,Cleaning,"Bathroom Cleaning, House Cleaning, Kitchen Cleaning",8,Mostly alone,I perform several related service types
+2026-10-06 16:44:31,Yes,Yes,"Yes, I agree",P302,3,Care Support,Child Care,8,Mostly alone,I mainly perform one specific type of service
+2026-10-06 16:54:09,Yes,Yes,"Yes, I agree",P303,5,Repairing,Furniture Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-06 18:24:57,Yes,Yes,"Yes, I agree",P304,10,Care Support,Child Care,8,Mostly alone,I mainly perform one specific type of service
+2026-10-06 18:46:05,Yes,Yes,"Yes, I agree",P305,9,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly alone,I perform several related service types
+2026-10-06 19:32:35,Yes,Yes,"Yes, I agree",P306,12,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-06 19:55:56,Yes,Yes,"Yes, I agree",P307,5,Cleaning,House Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-06 20:58:52,Yes,Yes,"Yes, I agree",P308,3,Care Support,"Elderly Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-10-07 08:11:07,Yes,Yes,"Yes, I agree",P309,2,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-07 08:47:29,Yes,Yes,"Yes, I agree",P310,8,Care Support,"Child Care, Personal Assistance",8,Mostly alone,I perform several related service types
+2026-10-07 10:20:15,Yes,Yes,"Yes, I agree",P311,12,Gardening,"Landscaping & Design, Planting Services",8,Mostly with one or more other workers,I perform several related service types
+2026-10-07 10:35:37,Yes,Yes,"Yes, I agree",P312,5,Cleaning,"House Cleaning, Sofa/Carpet/Curtain Cleaning",8,Mostly alone,I perform several related service types
+2026-10-07 11:01:56,Yes,Yes,"Yes, I agree",P313,5,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-07 11:05:30,Yes,Yes,"Yes, I agree",P314,3,Care Support,"Personal Assistance, Pet Care",8,Mostly with one or more other workers,I perform several related service types
+2026-10-07 11:40:16,Yes,Yes,"Yes, I agree",P315,9,Cleaning,"Bathroom Cleaning, House Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-07 11:50:43,Yes,Yes,"Yes, I agree",P316,5,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-07 12:48:32,Yes,Yes,"Yes, I agree",P317,12,Gardening,Planting Services,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-07 12:48:57,Yes,Yes,"Yes, I agree",P318,5,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-07 13:18:07,Yes,Yes,"Yes, I agree",P319,5,Gardening,"Garden Maintenance, Landscaping & Design",8,Mostly with one or more other workers,I perform several related service types
+2026-10-07 14:01:29,Yes,Yes,"Yes, I agree",P320,7,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-07 15:26:30,Yes,Yes,"Yes, I agree",P321,7,Care Support,"Disability Support, Elderly Care",8,Mostly alone,I perform several related service types
+2026-10-07 15:38:52,Yes,Yes,"Yes, I agree",P322,4,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-07 19:12:35,Yes,Yes,"Yes, I agree",P323,2,Cleaning,House Cleaning,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-07 19:45:48,Yes,Yes,"Yes, I agree",P324,6,Cleaning,"Office Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-07 21:08:15,Yes,Yes,"Yes, I agree",P325,4,Gardening,Planting Services,8,Mostly alone,I mainly perform one specific type of service
+2026-10-07 21:28:49,Yes,Yes,"Yes, I agree",P326,11,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-08 12:58:44,Yes,Yes,"Yes, I agree",P327,3,Care Support,Child Care,8,Mostly alone,I mainly perform one specific type of service
+2026-10-08 13:57:27,Yes,Yes,"Yes, I agree",P328,9,Gardening,Garden Maintenance,8,Mostly alone,I mainly perform one specific type of service
+2026-10-08 14:41:47,Yes,Yes,"Yes, I agree",P329,4,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-08 15:55:38,Yes,Yes,"Yes, I agree",P330,9,Cleaning,"House Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-08 16:06:29,Yes,Yes,"Yes, I agree",P331,8,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-08 17:55:35,Yes,Yes,"Yes, I agree",P332,9,Gardening,Planting Services,8,Mostly alone,I mainly perform one specific type of service
+2026-10-09 08:06:52,Yes,Yes,"Yes, I agree",P333,13,Care Support,"Elderly Care, Personal Assistance",8,Mostly with one or more other workers,I perform several related service types
+2026-10-09 08:08:24,Yes,Yes,"Yes, I agree",P334,16,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-09 09:06:40,Yes,Yes,"Yes, I agree",P335,9,Care Support,Pet Care,8,Mostly alone,I mainly perform one specific type of service
+2026-10-09 09:09:18,Yes,Yes,"Yes, I agree",P336,3,Cleaning,"Office Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-09 09:25:04,Yes,Yes,"Yes, I agree",P337,14,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-09 10:05:43,Yes,Yes,"Yes, I agree",P338,11,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-09 10:37:15,Yes,Yes,"Yes, I agree",P339,12,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-09 13:35:59,Yes,Yes,"Yes, I agree",P340,10,Cleaning,"House Cleaning, Office Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-09 13:41:03,Yes,Yes,"Yes, I agree",P341,3,Cleaning,"House Cleaning, Kitchen Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-09 14:02:12,Yes,Yes,"Yes, I agree",P342,5,Care Support,"Disability Support, Personal Assistance",8,Mostly with one or more other workers,I perform several related service types
+2026-10-09 14:26:30,Yes,Yes,"Yes, I agree",P343,8,Repairing,Plumbing Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-09 17:37:00,Yes,Yes,"Yes, I agree",P344,7,Repairing,Electrical Repair,8,Mostly alone,I mainly perform one specific type of service
+2026-10-09 18:34:48,Yes,Yes,"Yes, I agree",P345,2,Gardening,Planting Services,8,Mostly alone,I mainly perform one specific type of service
+2026-10-09 19:10:51,Yes,Yes,"Yes, I agree",P346,7,Cleaning,"Bathroom Cleaning, House Cleaning",8,Mostly alone,I perform several related service types
+2026-10-09 20:31:46,Yes,Yes,"Yes, I agree",P347,9,Care Support,Pet Care,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-09 20:42:20,Yes,Yes,"Yes, I agree",P348,5,Care Support,"Disability Support, Elderly Care, Personal Assistance",8,Mostly with one or more other workers,I perform several related service types
+2026-10-10 08:22:04,Yes,Yes,"Yes, I agree",P349,11,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-10 08:35:05,Yes,Yes,"Yes, I agree",P350,16,Gardening,Garden Maintenance,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-10 11:52:03,Yes,Yes,"Yes, I agree",P351,6,Repairing,Electrical Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-10 15:47:54,Yes,Yes,"Yes, I agree",P352,9,Cleaning,House Cleaning,8,Mostly alone,I mainly perform one specific type of service
+2026-10-10 16:07:02,Yes,Yes,"Yes, I agree",P353,6,Cleaning,"House Cleaning, Post-Construction Cleaning",8,Mostly with one or more other workers,I perform several related service types
+2026-10-10 16:25:54,Yes,Yes,"Yes, I agree",P354,7,Repairing,Plumbing Repair,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-10 20:03:24,Yes,Yes,"Yes, I agree",P355,22,Repairing,Painting & Renovation,8,Mostly with one or more other workers,I mainly perform one specific type of service
+2026-10-10 20:55:40,Yes,Yes,"Yes, I agree",P356,5,Cleaning,"House Cleaning, Move In/Out Cleaning, Post-Construction Cleaning",8,Mostly alone,I perform several related service types

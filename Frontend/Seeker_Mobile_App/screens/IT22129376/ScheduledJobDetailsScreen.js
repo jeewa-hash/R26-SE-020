@@ -11,11 +11,11 @@ import { useTheme } from '../../hooks/useTheme';
 
 const getBookingId = (booking) => booking?._id || booking?.id || booking?.bookingId;
 const getTitle = (booking) => booking?.title || booking?.serviceSubcategory || booking?.serviceSubCategory || booking?.subcategory || 'Scheduled Service';
-const getProvider = (booking) => booking?.providerSnapshot?.name || booking?.providerName || booking?.providerId || 'Provider';
+const getProvider = (booking) => booking?.providerSnapshot?.businessName || booking?.providerSnapshot?.name || booking?.provider?.businessName || booking?.provider?.name || booking?.providerName || 'Service Provider';
 const getStart = (booking) => booking?.scheduledStartTime || booking?.startTime || booking?.coordinatedStartTime || booking?.scheduledDateTime;
 const getEnd = (booking) => booking?.scheduledEndTime || booking?.endTime || booking?.coordinatedEndTime || booking?.estimatedEndTime;
 const getAmount = (booking) => booking?.finalAmount || booking?.amount || booking?.price || booking?.quotedPrice || 0;
-const getLocation = (booking) => booking?.location || booking?.serviceLocation || booking?.district || 'Location not available';
+const getLocation = (booking) => booking?.serviceLocation || booking?.location?.address || booking?.location?.district || (typeof booking?.location === 'string' ? booking.location : '') || booking?.district || 'Location not available';
 
 export default function ScheduledJobDetailsScreen({ route, navigation }) {
   const { isDarkMode } = useTheme();
@@ -37,7 +37,7 @@ export default function ScheduledJobDetailsScreen({ route, navigation }) {
   }
 
   return (
-    <ScreenShell title="Scheduled Job" subtitle={booking.status || booking.bookingStatus || 'CONFIRMED'} navigation={navigation}>
+    <ScreenShell title="Scheduled Job" subtitle={booking.bookingStatus || 'CONFIRMED'} navigation={navigation}>
       <View style={[styles.card, isDarkMode && styles.cardDark]}>
         <Text style={[styles.title, isDarkMode && styles.textDark]}>
           {getTitle(booking)}
@@ -75,8 +75,8 @@ export default function ScheduledJobDetailsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   card: { backgroundColor: COLORS.card, borderRadius: 22, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: '#EEF2F7' },
   cardDark: { backgroundColor: COLORS.darkCard, borderColor: COLORS.darkBorder },
-  title: { fontSize: 23, fontWeight: '900', color: COLORS.text },
-  provider: { fontSize: 14, fontWeight: '700', color: COLORS.muted, marginTop: 5 },
+  title: { fontSize: 23, fontWeight: '600', color: COLORS.text },
+  provider: { fontSize: 14, fontWeight: '600', color: COLORS.muted, marginTop: 5 },
   divider: { height: 1, backgroundColor: '#EEF2F7', marginVertical: 16 },
   actions: { gap: 10 },
   textDark: { color: COLORS.darkText },

@@ -39,11 +39,48 @@ export default function ProviderProfileScreen({ route, navigation }) {
   const [isRequested, setIsRequested] = useState(Boolean(initialIsRequested));
   const [quotationModalVisible, setQuotationModalVisible] = useState(false);
   const [seekerId, setSeekerId] = useState(user?.id || user?._id || null);
+  const [restrictionInfo, setRestrictionInfo] = useState({
+    isRestricted: false,
+    penaltyScore: 0,
+    penaltyRatio: '0/3',
+  });
 
   useEffect(() => {
     if (user?.id || user?._id) setSeekerId(user.id || user._id);
     else AsyncStorage.getItem('userId').then(setSeekerId).catch(() => {});
   }, [user]);
+
+  useEffect(() => {
+    const fetchProviderStatus = async () => {
+      if (!providerId) return;
+
+      try {
+        const response = await fetch(
+          `http://${IP_ADDRESS}:5001/api/inquiries/check-bookable/${providerId}`
+        );
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const penaltyScore =
+          typeof data.penaltyScore === 'number'
+            ? data.penaltyScore
+            : data.activeMissedBookingsCount || 0;
+
+        setRestrictionInfo({
+          isRestricted:
+            Boolean(data.isRestricted || data.isBlocked) ||
+            penaltyScore >= 3 ||
+            provider.isVerified === false,
+          penaltyScore,
+          penaltyRatio: data.penaltyRatio || `${penaltyScore}/3`,
+        });
+      } catch (error) {
+        console.log('Error checking provider restriction status:', error.message);
+      }
+    };
+
+    fetchProviderStatus();
+  }, [providerId, provider.isVerified]);
 
   // Check if this provider has already been requested for this seeker & session
   useEffect(() => {
@@ -155,6 +192,23 @@ export default function ProviderProfileScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* Penalty / Account Restriction Alert Banner */}
+        {restrictionInfo.isRestricted && (
+          <View style={styles.restrictionBanner}>
+            <View style={styles.restrictionBannerHeader}>
+              <Ionicons name="alert-circle" size={22} color="#DC2626" />
+              <Text style={styles.restrictionBannerTitle}>
+                Provider Temporarily Unavailable ({restrictionInfo.penaltyRatio})
+              </Text>
+            </View>
+            <Text style={styles.restrictionBannerText}>
+              This service provider is currently restricted from accepting new quotations and bookings due to penalty points limit reached ({restrictionInfo.penaltyRatio}) or pending account verification.
+              {'\n\n'}
+              Please select another active verified professional for your requirement.
+            </Text>
+          </View>
+        )}
+
         {/* Contact */}
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Contact Information</Text>
@@ -250,7 +304,21 @@ export default function ProviderProfileScreen({ route, navigation }) {
             <Text style={styles.chatButtonTextLarge}>Chat</Text>
           </TouchableOpacity>
 
-          {isRequested ? (
+          {restrictionInfo.isRestricted ? (
+            <TouchableOpacity
+              style={styles.quoteButtonLargeDisabled}
+              onPress={() =>
+                Alert.alert(
+                  'Provider Unavailable',
+                  `This service provider cannot accept new quotation requests at this time due to penalty score (${restrictionInfo.penaltyRatio || '3/3'}). Please choose another professional.`
+                )
+              }
+              activeOpacity={0.7}
+            >
+              <Ionicons name="ban-outline" size={20} color="#94A3B8" />
+              <Text style={styles.quoteButtonTextLargeDisabled}>Unavailable</Text>
+            </TouchableOpacity>
+          ) : isRequested ? (
             <TouchableOpacity
               style={styles.quoteButtonLargeRequested}
               onPress={() =>

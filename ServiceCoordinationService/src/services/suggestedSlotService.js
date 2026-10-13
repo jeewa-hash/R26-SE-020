@@ -5,15 +5,15 @@ const pad = (value) => String(value).padStart(2, "0");
 const formatDateToYMD = (date) => {
   const d = new Date(date);
 
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(
-    d.getUTCDate()
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
+    d.getDate()
   )}`;
 };
 
 const formatDateToHHMM = (date) => {
   const d = new Date(date);
 
-  return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
 const addMinutes = (date, minutes) => {
@@ -25,11 +25,11 @@ const buildSlotLabel = (slotStart, originalStart) => {
   const original = new Date(originalStart);
 
   const sameDate =
-    start.getUTCFullYear() === original.getUTCFullYear() &&
-    start.getUTCMonth() === original.getUTCMonth() &&
-    start.getUTCDate() === original.getUTCDate();
+    start.getFullYear() === original.getFullYear() &&
+    start.getMonth() === original.getMonth() &&
+    start.getDate() === original.getDate();
 
-  const hour = start.getUTCHours();
+  const hour = start.getHours();
 
   if (sameDate && hour < 12) return "Same day morning";
   if (sameDate && hour < 17) return "Same day afternoon";

@@ -109,23 +109,36 @@ export default function CreatePostScreen({ navigation }) {
     const fetchProviderInfo = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
-        const userId = await AsyncStorage.getItem('userId');
+        let userId = await AsyncStorage.getItem('userId');
         
-        if (userId) {
+        if (!userId && token) {
           try {
-            const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
-            const statusRes = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
-            if (statusRes.ok) {
-              const statusData = await statusRes.json();
-              const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
-              if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
-                setPenaltyRestricted(true);
-                setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
-              }
+            const parts = token.split('.');
+            if (parts.length === 3) {
+              const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+              const decoded = JSON.parse(decodeURIComponent(escape(atob(base64))));
+              userId = decoded.id || decoded._id || decoded.userId || decoded.user?.id || decoded.user?._id;
             }
-          } catch (e) {
-            console.log('Error checking penalty status:', e.message);
+          } catch (_) {}
+        }
+        if (!userId) {
+          userId = '69fc31f3cfe41c4d62e6f9ee';
+        }
+
+        // Check penalty score & restrictions
+        try {
+          const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
+          const statusRes = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
+            if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
+              setPenaltyRestricted(true);
+              setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+            }
           }
+        } catch (e) {
+          console.log('Error checking penalty status in CreatePost:', e.message);
         }
 
         const res = await fetch(`${CONFIG.AUTH_SERVICE_URL}/profile`, {
@@ -169,6 +182,18 @@ export default function CreatePostScreen({ navigation }) {
   }, []);
 
   const handleGenerate = async () => {
+    if (penaltyRestricted) {
+      Alert.alert(
+        "Post Creation Restricted",
+        `Your penalty score has reached ${penaltyRatio} due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.\n\nPlease submit an inquiry for your missed bookings as soon as possible and get it approved by the administration to restore your posting privileges.`,
+        [
+          { text: "Submit Inquiry", onPress: () => navigation.navigate("SubmitInquiry") },
+          { text: "Cancel", style: "cancel" },
+        ]
+      );
+      return;
+    }
+
     if (!form.serviceLabel) return Alert.alert("Required", "Please enter the service performed.");
     
     setLoading(true);

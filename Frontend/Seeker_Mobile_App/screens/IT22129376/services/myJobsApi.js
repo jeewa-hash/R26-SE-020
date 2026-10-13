@@ -1,17 +1,10 @@
-import {
-  IP_ADDRESS,
-  API_BASE_URL,
-} from '../../../config';
+import { CONFIG } from '../../../config';
 
 import { buildAuthHeaders } from './seekerAuthStorage';
 
-const SEEKER_SERVICE_URL = API_BASE_URL || `http://${IP_ADDRESS}:6000`;
-
-// Real Provider Service backend port
-const PROVIDER_SERVICE_BASE = `http://${IP_ADDRESS}:3002`;
-
-// Real Coordination Service backend port
-const SERVICE_COORDINATION_SERVICE_URL = `http://${IP_ADDRESS}:5010`;
+const SEEKER_SERVICE_URL = CONFIG.SEEKER_SERVICE_URL;
+const PROVIDER_SERVICE_BASE = CONFIG.PROVIDER_SERVICE_API_URL;
+const SERVICE_COORDINATION_SERVICE_URL = CONFIG.COORDINATION_SERVICE_URL;
 
 const parseResponse = async (response) => {
   const text = await response.text();
@@ -242,6 +235,38 @@ export const createBookingFromCoordination = async (coordinationId) => {
   return parseResponse(response);
 };
 
+export const createSeekerRescheduleSuggestion = async ({
+  bookingId,
+  sessionId,
+  quotationId,
+  seekerId,
+  providerId,
+  requestedStartTime,
+  note,
+}) => {
+  if (!bookingId) throw new Error('A confirmed booking is required before rescheduling.');
+  const headers = await buildAuthHeaders();
+  const response = await fetch(
+    `${SERVICE_COORDINATION_SERVICE_URL}/reschedules/bookings/${bookingId}/reschedule`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        sessionId,
+        quotationId,
+        seekerId,
+        providerId,
+        requestedStartTime,
+        note,
+        status: 'PENDING_PROVIDER_REVIEW',
+        createdBy: 'SEEKER',
+        reason: note || 'Seeker suggested a new service time',
+      }),
+    }
+  );
+  return parseResponse(response);
+};
+
 export default {
   getSeekerRequestQuotations,
   getProviderQuotationsForSeeker,
@@ -249,4 +274,5 @@ export default {
   checkBidCoordination,
   selectSuggestedSlot,
   createBookingFromCoordination,
+  createSeekerRescheduleSuggestion,
 };

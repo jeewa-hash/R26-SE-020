@@ -1,6 +1,14 @@
 import axios from "axios";
 
 const OSRM_BASE_URL = "https://router.project-osrm.org";
+const toRadians = (value) => (Number(value) * Math.PI) / 180;
+const getHaversineDistanceKm = (lat1, lng1, lat2, lng2) => {
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
 
 /**
  * Calculates road distance and estimated travel time between two locations.
@@ -46,11 +54,11 @@ export async function getRoadDistanceAndTime(prevLat, prevLng, nextLat, nextLng)
     };
   } catch (error) {
     console.error("OSRM route calculation failed:", error.message);
-
+    const distanceKm = getHaversineDistanceKm(prevLat, prevLng, nextLat, nextLng);
     return {
-      distanceKm: 0,
-      estimatedTravelTimeMins: 0,
-      source: "OSRM_FAILED",
+      distanceKm: Number(distanceKm.toFixed(2)),
+      estimatedTravelTimeMins: Math.max(1, Math.round((distanceKm / 35) * 60)),
+      source: "HAVERSINE_FALLBACK",
     };
   }
 }

@@ -8,7 +8,8 @@ import {
   updateRequestStatus,
   deleteRequestQuotation,
   getProviderRecommendations,
-  getProviderRequestsbyProvider
+  getProviderRequestsbyProvider,
+  markSessionSelection,
 } from "../controllers/requestQuotationController.js";
 
 const router = express.Router();
@@ -24,6 +25,7 @@ router.get("/provider-filtered/:providerId", getProviderRequestsbyProvider);
 router.get("/provider/:providerId", getProviderRequests);
 
 router.patch("/:id/status", updateRequestStatus);
+router.patch("/session/:sessionId/selection", markSessionSelection);
 
 router.delete("/:id", deleteRequestQuotation);
 

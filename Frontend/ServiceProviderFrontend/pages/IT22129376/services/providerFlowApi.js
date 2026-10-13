@@ -501,10 +501,8 @@ export const buildQuotationPayload = ({
   providerId,
   price,
   proposedStartTime,
-  estimatedDurationHours,
   notes,
 }) => {
-  const durationNumber = Number(estimatedDurationHours || 0);
   const reqId =
     request?._id ||
     request?.id ||
@@ -548,29 +546,11 @@ export const buildQuotationPayload = ({
 
     price: Number(price || 0),
 
+    // Only start time comes from the provider.
     proposedStartTime,
-
-    estimatedDurationHours: durationNumber,
-
-    durationText: `${durationNumber} Hours`,
 
     notes: notes || '',
 
     status: 'SENT',
   };
-};
-
-export default {
-  getProviderRequests,
-  getProviderQuotations,
-  getProviderJobs,
-  getProviderMissedInquiries,
-  createProviderQuotation,
-  getQuotationById,
-  getBookingById,
-  startProviderJob,
-  completeProviderJob,
-  reportProviderDelay,
-  cancelProviderBooking,
-  buildQuotationPayload,
 };

@@ -35,8 +35,6 @@ export const createProviderRequest = async (req, res) => {
       propertySize = "Medium",
       urgency = "medium",
       location = {},
-      expertiseMatch = 1,
-      taskCompleted = 1,
     } = req.body;
 
     // Logged-in service provider becomes the requester
@@ -107,6 +105,14 @@ export const createProviderRequest = async (req, res) => {
     const finalServiceCategory = serviceCategory || post.category || "";
     const finalTaskName = taskName || post.title || "";
     const finalUrgency = urgency || post.urgency || "medium";
+    const requestedCategory = String(post.category || "").trim().toLowerCase();
+    const offeredCategory = String(finalServiceCategory || "").trim().toLowerCase();
+    const expertiseMatch = !requestedCategory || !offeredCategory
+      ? 1
+      : Number(
+          requestedCategory.includes(offeredCategory) ||
+          offeredCategory.includes(requestedCategory)
+        );
 
     // Use request location if provided, otherwise use post location
     const finalLocation =
@@ -230,7 +236,6 @@ export const createProviderRequest = async (req, res) => {
       estimatedTravelTimeMins,
       gapBetweenBookingsMins: gapFromPreviousBookingMins ?? 999,
       providerBookingsToday: scheduleValidation.providerBookingsToday || 0,
-      taskCompleted,
     };
 
     let mlRisk = {
@@ -407,7 +412,7 @@ export const acceptProviderRequest = async (req, res) => {
     const alreadyBooked = await Booking.findOne({
       postId: providerRequest.postId,
       bookingStatus: {
-        $in: ["CONFIRMED", "IN_PROGRESS", "DELAY_REPORTED", "RESCHEDULED"],
+        $in: ["CONFIRMED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "RESCHEDULE_REQUESTED", "RESCHEDULING_REQUIRED", "RESCHEDULED"],
       },
     });
 

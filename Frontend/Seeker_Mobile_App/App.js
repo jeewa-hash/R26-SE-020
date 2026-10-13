@@ -1,7 +1,8 @@
+import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
@@ -51,7 +52,8 @@ import SuggestedSlotsScreen from './screens/IT22129376/SuggestedSlotsScreen';
 import ConfirmJobScreen from './screens/IT22129376/ConfirmJobScreen';
 import ScheduledJobDetailsScreen from './screens/IT22129376/ScheduledJobDetailsScreen';
 import JobHistoryDetailsScreen from './screens/IT22129376/JobHistoryDetailsScreen';
-
+import SeekerServiceSessionsScreen from './screens/IT22129376/SeekerServiceSessionsScreen';
+import SeekerServiceSessionDetailsScreen from './screens/IT22129376/SeekerServiceSessionDetailsScreen';
 // Chat Screens
 import { ChatProvider } from './context/ChatContext';
 import ChatListScreen from './screens/ChatListScreen';
@@ -77,7 +79,13 @@ function AppNavigator({ initialRouteName }) {
   const { t } = useTranslation();
 
   return (
-    <Stack.Navigator initialRouteName={initialRouteName}>
+    <Stack.Navigator
+      initialRouteName={initialRouteName}
+      screenOptions={{
+        // Expo locks body scrolling; keep scrolling inside each screen.
+        cardStyle: Platform.OS === 'web' ? { flex: 1, minHeight: 0, height: '100%' } : undefined,
+      }}
+    >
       {/* Authentication Screens */}
       <Stack.Screen
         name="Login"
@@ -115,7 +123,7 @@ function AppNavigator({ initialRouteName }) {
         name="Home"
         component={HomeScreen}
         options={{ headerShown: false }}
-/>
+      />
 
       <Stack.Screen
         name="FeedScreen"
@@ -138,13 +146,13 @@ function AppNavigator({ initialRouteName }) {
       <Stack.Screen
         name="FollowUpScreen"
         component={FollowUpScreen}
-        options={{ title: t('nav_follow_up') }}
+        options={{ headerShown: false }}
       />
 
       <Stack.Screen
         name="ProvidersScreen"
         component={ProvidersScreen}
-        options={{ title: t('nav_providers') }}
+        options={{ headerShown: false }}
       />
 
       <Stack.Screen
@@ -282,6 +290,12 @@ function AppNavigator({ initialRouteName }) {
         options={{ headerShown: false }}
       />
 
+      <Stack.Screen
+        name="SeekerServiceSessions"
+        component={SeekerServiceSessionsScreen}
+        options={{ headerShown: false }}
+      />
+
       {/* Profile Sub Screens */}
       <Stack.Screen
         name="MyBidsScreen"
@@ -341,6 +355,12 @@ function AppNavigator({ initialRouteName }) {
       <Stack.Screen
         name="RescheduleScreen"
         component={RescheduleScreen}
+        options={{ headerShown: false }}
+      />
+
+      <Stack.Screen
+        name="SeekerServiceSessionDetails"
+        component={SeekerServiceSessionDetailsScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

@@ -11,11 +11,11 @@ import {
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Surface } from 'react-native-paper';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { clearCredentials } from '../utils/biometricAuth';
+import { clearAllAuthStorage } from '../pages/IT22129376/services/providerAuthStorage';
 import { CommonActions } from '@react-navigation/native';
 import { IP_ADDRESS } from '../config';
 import { ThemeContext } from '../context/ThemeContext';
+import { getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 
 const API_URL = `http://${IP_ADDRESS}:4003`;
 const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
@@ -67,7 +67,7 @@ export default function ProfileScreen({ navigation }) {
 
   const fetchUnreadCount = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const { token } = await getStoredProviderAuth();
       if (!token) return;
       const response = await fetch(`${API_URL}/notifications`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -83,7 +83,7 @@ export default function ProfileScreen({ navigation }) {
 
   const fetchMissedServices = async () => {
     try {
-      const userId = await AsyncStorage.getItem('userId');
+      const { providerId: userId } = await getStoredProviderAuth();
       if (!userId) return;
       const response = await fetch(`${ADMIN_API_URL}/api/inquiries/missed-bookings/${userId}`);
       const data = await response.json();
@@ -108,27 +108,7 @@ export default function ProfileScreen({ navigation }) {
   }, [navigation]);
 
   const handleLogout = async () => {
-    try {
-      await clearCredentials();
-    } catch (e) {}
-
-    const keysToClear = [
-      'userToken',
-      'token',
-      'authToken',
-      'accessToken',
-      'userId',
-      'providerId',
-      'seekerId',
-      'userRole',
-      'role',
-      'user',
-      'currentUser',
-      'provider',
-      'seeker',
-    ];
-    await AsyncStorage.multiRemove(keysToClear);
-    console.log('LOGOUT: all auth keys cleared');
+    await clearAllAuthStorage();
     
     navigation.dispatch(
       CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })

@@ -140,7 +140,8 @@ export default function FeedScreen({ navigation }) {
 
         return {
           id: ad._id,
-          providerId: ad.providerId || ad._id,
+          postId: ad._id,
+          providerId: ad.providerId,
           providerName: ad.providerName || 'Provider',
           userName: ad.providerName || 'Provider',
           userAvatar: avatar,
@@ -507,7 +508,7 @@ export default function FeedScreen({ navigation }) {
         provider={selectedAdForQuote}
         seekerId={currentUserId}
         sessionData={{
-          sessionId: selectedAdForQuote?.sessionId || selectedAdForQuote?._id || selectedAdForQuote?.id,
+          sessionId: selectedAdForQuote?.sessionId || `AD-${selectedAdForQuote?.postId || selectedAdForQuote?.id}`,
           detectedCategory: selectedAdForQuote?.category || "General",
           detectedObject: selectedAdForQuote?.title || "Service",
           modelConfidence: null,

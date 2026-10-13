@@ -14,12 +14,23 @@ import { evaluateBidPrice } from "../services/pricingService.js";
 import { evaluateBidSchedule } from "../services/scheduleEvaluationService.js";
 import { decideBidCoordination } from "../services/bidDecisionService.js";
 import BidSuggestedSlot from "../models/BidSuggestedSlot.js";
+import Booking from "../models/Booking.js";
+import { getRoadDistanceAndTime } from "../services/routing/routingService.js";
 import { generateSuggestedSlots } from "../services/suggestedSlotService.js";
-import { predictDelayRisk } from "../clients/mlPredictionClient.js";
-import {
-  buildDelayRiskPayload,
-  normalizeDelayRiskLevel,
-} from "../services/mlPayloadBuilderService.js";
+import { predictDuration } from "../clients/mlPredictionClient.js";
+import { buildDurationPredictionPayload } from "../services/mlPayloadBuilderService.js";
+import { evaluateCoordinationFeasibility } from "../services/coordinationFeasibilityService.js";
+import { validateProviderSchedule } from "../services/scheduleValidationService.js";
+import { estimateServiceDuration } from "../services/durationEstimationService.js";
+
+const toScheduleParts = (value) => {
+  const date = new Date(value);
+  const pad = (part) => String(part).padStart(2, "0");
+  return {
+    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+  };
+};
 
 export const checkBidCoordination = async (req, res) => {
   try {
@@ -119,40 +130,98 @@ export const checkBidCoordination = async (req, res) => {
       });
     }
 
+    // Build the six-field Duration ML v2 payload. No manual duration estimate
+    // from the seeker/provider is required in the final research flow.
+    const durationPayload = buildDurationPredictionPayload({
+      requestQuotation,
+      providerQuotation,
+    });
+
+    const durationPrediction = await predictDuration(durationPayload);
+    const modelDurationMins = Number(durationPrediction?.predictedDurationMins);
+    const hasMlDuration =
+      Number.isFinite(modelDurationMins) && modelDurationMins > 0;
+
+    // If the ML service is unavailable, use the existing task-reference logic
+    // rather than falling back to a user-entered duration.
+    const referenceDuration = hasMlDuration
+      ? null
+      : estimateServiceDuration({
+          serviceCategory: durationPayload.serviceCategory,
+          serviceSubcategory: durationPayload.serviceType,
+          taskName: durationPayload.taskName,
+          urgency: requestQuotation.urgencyLevel,
+        });
+
+    const referenceDurationMins = Math.round(
+      Number(referenceDuration?.averageDurationHours || 2) * 60
+    );
+    const predictedDurationMins = hasMlDuration
+      ? Math.round(modelDurationMins)
+      : referenceDurationMins;
+    const durationPredictionSource = hasMlDuration
+      ? durationPrediction?.source || "TRAINED_DURATION_MODEL"
+      : "REFERENCE_DURATION_FALLBACK";
+    const durationModelVersion = hasMlDuration
+      ? durationPrediction?.modelVersion || null
+      : null;
+
+    // Price evaluation can still consider job length, but that length now comes
+    // from the ML/fallback duration pipeline instead of manual provider input.
     const priceEvaluationData = evaluateBidPrice({
       detectedCategory: requestQuotation.detectedCategory,
       urgencyLevel: requestQuotation.urgencyLevel,
       providerQuotedPrice: providerQuotation.price,
       seekerBudgetAmount: requestQuotation.seekerBudgetAmount,
-      providerEstimatedDurationHours: providerQuotation.estimatedDurationHours,
-    }); // Chaw: rule-based price and budget evaluation
+      estimatedDurationHours: predictedDurationMins / 60,
+    });
 
     let scheduleEvaluationData = await evaluateBidSchedule({
       providerId: providerQuotation.providerId,
       proposedStartTime: providerQuotation.proposedStartTime,
       preferredStartTime: requestQuotation.preferredStartTime,
       preferredEndTime: requestQuotation.preferredEndTime,
-      providerEstimatedDurationHours: providerQuotation.estimatedDurationHours,
-      seekerEstimatedDurationHours: requestQuotation.seekerEstimatedDurationHours,
-      mlPredictedDurationHours: null,
-      delayRiskLevel: "NOT_CHECKED",
+      predictedDurationMins,
+      durationPredictionSource,
+      durationModelVersion,
       bufferMinutes,
-    }); // Chaw: first calculate schedule window and booking conflict
+    }); // Chaw: scheduling duration is predicted automatically; no manual duration dependency
 
-    const delayRiskPayload = buildDelayRiskPayload({
-      requestQuotation,
-      providerQuotation,
-      scheduleEvaluation: scheduleEvaluationData,
-    }); // Chaw: build ML request payload from coordinated bid data
-
-    const delayRiskPrediction = await predictDelayRisk(delayRiskPayload);
-
-    const mlDelayRiskLevel = normalizeDelayRiskLevel(delayRiskPrediction);
+    const proposedStart = new Date(providerQuotation.proposedStartTime);
+    const previousBooking = !Number.isNaN(proposedStart.getTime()) ? await Booking.findOne({
+      providerId: providerQuotation.providerId,
+      bookingStatus: { $in: ["CONFIRMED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "COMPLETED", "EXPIRED"] },
+      scheduledStartTime: { $lt: proposedStart },
+    }).sort({ scheduledStartTime: -1 }) : null;
+    let travelInfo = { distanceKm: 0, estimatedTravelTimeMins: 0, source: "NO_COORDINATES" };
+    let gapFromPreviousBookingMins = null;
+    const destinationLat = requestQuotation.serviceLatitude ?? requestQuotation.location?.lat;
+    const destinationLng = requestQuotation.serviceLongitude ?? requestQuotation.location?.lng;
+    if (previousBooking?.location?.lat != null && previousBooking?.location?.lng != null && destinationLat != null && destinationLng != null) {
+      travelInfo = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, destinationLat, destinationLng);
+      const previousEnd = previousBooking.bookingStatus === "EXPIRED"
+        ? (previousBooking.expiredAt || previousBooking.scheduledStartTime)
+        : (previousBooking.actualEndTime || previousBooking.scheduledEndTime);
+      if (previousEnd) gapFromPreviousBookingMins = Math.round((proposedStart.getTime() - new Date(previousEnd).getTime()) / 60000);
+    }
+    const feasibility = evaluateCoordinationFeasibility({
+      gapFromPreviousBookingMins,
+      estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
+    });
 
     scheduleEvaluationData = {
       ...scheduleEvaluationData,
-      delayRiskLevel: mlDelayRiskLevel,
-    }; // Chaw: attach ML risk level to schedule evaluation before saving
+      distanceFromPreviousBookingKm: travelInfo.distanceKm,
+      estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
+      gapFromPreviousBookingMins,
+      travelInfoSource: travelInfo.source,
+      routingTrafficAware: Boolean(travelInfo.trafficAware),
+      effectiveBufferMins: feasibility.effectiveBufferMins,
+      minimumBufferMins: feasibility.minimumBufferMins,
+      travelFeasible: feasibility.travelFeasible,
+      coordinationStatus: feasibility.coordinationStatus,
+      coordinationReason: feasibility.reason,
+    }; // Chaw: deterministic delay-aware feasibility; no second ML classifier
 
     const decisionData = decideBidCoordination({
       priceEvaluation: priceEvaluationData,
@@ -169,6 +238,14 @@ export const checkBidCoordination = async (req, res) => {
         externalQuotationId,
         seekerId: requestQuotation.seekerId,
         providerId: requestQuotation.providerId,
+        serviceLocation: requestQuotation.serviceLocation || requestQuotation.location?.address || "",
+        serviceLatitude: requestQuotation.serviceLatitude ?? requestQuotation.location?.lat ?? null,
+        serviceLongitude: requestQuotation.serviceLongitude ?? requestQuotation.location?.lng ?? null,
+        location: {
+          address: requestQuotation.serviceLocation || requestQuotation.location?.address || "",
+          lat: requestQuotation.serviceLatitude ?? requestQuotation.location?.lat ?? null,
+          lng: requestQuotation.serviceLongitude ?? requestQuotation.location?.lng ?? null,
+        },
         finalDecision: decisionData.finalDecision,
         recommendedAction: decisionData.recommendedAction,
         status: "ready_for_seeker_review",
@@ -227,7 +304,10 @@ export const checkBidCoordination = async (req, res) => {
           scheduleEvaluationData.finalSchedulingDurationHours,
         bufferMinutes: scheduleEvaluationData.bufferMinutes,
         maxSuggestions: 3,
-      }); // Chaw: generate alternative available time slots
+        destinationLat,
+        destinationLng,
+        minimumBufferMins: scheduleEvaluationData.minimumBufferMins,
+      }); // Chaw: generate slots that are both available and travel-feasible
 
       if (generatedSlots.length > 0) {
         suggestedSlots = await BidSuggestedSlot.insertMany(
@@ -303,12 +383,18 @@ export const getBidCoordinationById = async (req, res) => {
       bidCoordinationId: coordination._id,
     });
 
+    const suggestedSlots = await BidSuggestedSlot.find({
+      bidCoordinationId: coordination._id,
+      status: "AVAILABLE",
+    }).sort({ startTime: 1 });
+
     return res.status(200).json({
       success: true,
       data: {
         coordination,
         priceEvaluation,
         scheduleEvaluation,
+        suggestedSlots,
       },
     });
   } catch (error) {
@@ -340,10 +426,16 @@ export const getBidCoordinationsBySession = async (req, res) => {
           bidCoordinationId: coordination._id,
         });
 
+        const suggestedSlots = await BidSuggestedSlot.find({
+          bidCoordinationId: coordination._id,
+          status: "AVAILABLE",
+        }).sort({ startTime: 1 });
+
         return {
           coordination,
           priceEvaluation,
           scheduleEvaluation,
+          suggestedSlots,
         };
       })
     );
@@ -390,6 +482,14 @@ export const selectSuggestedSlot = async (req, res) => {
         });
       }
 
+      const currentUserId = String(req.user?.id || "");
+      const ownsCoordination = req.user?.role === "ServiceProvider"
+        ? String(coordination.providerId) === currentUserId
+        : String(coordination.seekerId) === currentUserId;
+      if (!ownsCoordination) {
+        return res.status(403).json({ success: false, message: "Access denied for this coordination." });
+      }
+
       if (coordination.status !== "ready_for_seeker_review") {
         return res.status(400).json({
           success: false,
@@ -433,17 +533,80 @@ export const selectSuggestedSlot = async (req, res) => {
         });
       }
   
-      const selectedDurationHours =
-        scheduleEvaluation.finalSchedulingDurationHours;
+      const selectedDurationHours = Number(
+        scheduleEvaluation.finalSchedulingDurationHours ||
+        scheduleEvaluation.predictedDurationHours ||
+        scheduleEvaluation.mlPredictedDurationHours
+      );
+      if (!(selectedDurationHours > 0)) {
+        return res.status(409).json({
+          success: false,
+          message: "A valid predicted service duration is required before selecting a slot.",
+        });
+      }
+
+      const selectedStart = new Date(selectedSlot.startTime);
+      const selectedEnd = new Date(selectedStart.getTime() + (selectedDurationHours * 60 + Number(scheduleEvaluation.bufferMinutes || 0)) * 60000);
+      const startParts = toScheduleParts(selectedStart);
+      const endParts = toScheduleParts(selectedEnd);
+      const validation = await validateProviderSchedule({
+        providerId: coordination.providerId,
+        requestedDate: startParts.date,
+        requestedStartTime: startParts.time,
+        requestedEndTime: endParts.time,
+      });
+      if (!validation.isValid) {
+        selectedSlot.status = "EXPIRED";
+        await selectedSlot.save();
+        return res.status(409).json({ success: false, message: "Selected slot is no longer available.", validation });
+      }
+
+      const previousBooking = await Booking.findOne({
+        providerId: coordination.providerId,
+        bookingStatus: { $in: ["CONFIRMED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "COMPLETED", "EXPIRED"] },
+        scheduledStartTime: { $lt: selectedStart },
+      }).sort({ scheduledStartTime: -1 });
+      let travelInfo = { distanceKm: 0, estimatedTravelTimeMins: 0, source: "NO_COORDINATES" };
+      let gapFromPreviousBookingMins = null;
+      if (previousBooking?.location?.lat != null && previousBooking?.location?.lng != null && coordination.serviceLatitude != null && coordination.serviceLongitude != null) {
+        travelInfo = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, coordination.serviceLatitude, coordination.serviceLongitude);
+        const previousEnd = previousBooking.bookingStatus === "EXPIRED"
+          ? (previousBooking.expiredAt || previousBooking.scheduledStartTime)
+          : (previousBooking.actualEndTime || previousBooking.scheduledEndTime);
+        if (previousEnd) gapFromPreviousBookingMins = Math.round((selectedStart.getTime() - new Date(previousEnd).getTime()) / 60000);
+      }
+      const selectedFeasibility = evaluateCoordinationFeasibility({
+        gapFromPreviousBookingMins,
+        estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
+        minimumBufferMins: scheduleEvaluation.minimumBufferMins,
+      });
+      if (selectedFeasibility.coordinationStatus === "RESCHEDULE_REQUIRED") {
+        return res.status(409).json({
+          success: false,
+          message: selectedFeasibility.reason,
+        });
+      }
   
       const updatedScheduleData = {
-        proposedStartTime: selectedSlot.startTime,
-        requiredWindowStart: selectedSlot.startTime,
-        requiredWindowEnd: selectedSlot.endTime,
+        proposedStartTime: selectedStart,
+        requiredWindowStart: selectedStart,
+        requiredWindowEnd: selectedEnd,
         finalSchedulingDurationHours: selectedDurationHours,
+        finalSchedulingDurationMins: Math.round(selectedDurationHours * 60),
         conflictDetected: false,
         conflictReason: "",
-      }; // Chaw: selected suggested slot becomes the new valid schedule window
+        availabilityMessage: validation.message,
+        distanceFromPreviousBookingKm: travelInfo.distanceKm,
+        estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
+        gapFromPreviousBookingMins,
+        travelInfoSource: travelInfo.source,
+        routingTrafficAware: Boolean(travelInfo.trafficAware),
+        effectiveBufferMins: selectedFeasibility.effectiveBufferMins,
+        minimumBufferMins: selectedFeasibility.minimumBufferMins,
+        travelFeasible: selectedFeasibility.travelFeasible,
+        coordinationStatus: selectedFeasibility.coordinationStatus,
+        coordinationReason: selectedFeasibility.reason,
+      }; // Chaw: selected slot becomes the new validated schedule window
   
       const updatedScheduleEvaluation =
         await BidScheduleEvaluation.findOneAndUpdate(
@@ -457,10 +620,13 @@ export const selectSuggestedSlot = async (req, res) => {
           }
         );
   
-      const decisionData = decideBidCoordination({
-        priceEvaluation,
-        scheduleEvaluation: updatedScheduleEvaluation,
-      }); // Chaw: recalculate decision after seeker selects available slot
+      const decisionData = {
+        finalDecision:
+          selectedFeasibility.coordinationStatus === "CAUTION"
+            ? "AVAILABLE_WITH_CAUTION"
+            : "CAN_ACCEPT",
+        recommendedAction: selectedFeasibility.reason,
+      };
   
       const updatedCoordination = await BidCoordination.findByIdAndUpdate(
         coordination._id,

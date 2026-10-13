@@ -7,6 +7,7 @@ import {
   StyleSheet,
   AppState,
   LogBox,
+  Platform,
 } from 'react-native';
 
 LogBox.ignoreLogs([
@@ -42,9 +43,12 @@ import {
   isBiometricAvailable,
   promptBiometric,
   getAppLockEnabled,
-  clearCredentials,
+  getToken,
   hasStoredCredentials,
 } from './utils/biometricAuth';
+import { decodeJwt, getUserIdFromJwt, getRoleFromJwt } from './utils/jwtHelpers';
+import { clearAllAuthStorage } from './pages/IT22129376/services/providerAuthStorage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Screens
 import LoginScreen from './screens/LoginScreen';
@@ -62,7 +66,8 @@ import ProviderJobDetailsScreen from './pages/IT22129376/ProviderJobDetailsScree
 import ProviderRequestDetailsScreen from './pages/IT22129376/ProviderRequestDetailsScreen';
 import ProviderQuotationFormScreen from './pages/IT22129376/ProviderQuotationFormScreen';
 import ServicesListScreen from './pages/ServicesListScreen';
-import ServiceFormScreen from './pages/ServiceFormScreen';
+import ServiceFormScreen from './pages/ServiceFormScreen';import ProviderAvailabilityScreen from './pages/IT22129376/ProviderAvailabilityScreen';
+
 
 const Stack = createStackNavigator();
 
@@ -103,11 +108,30 @@ function AppContent() {
 
   const initApp = async () => {
     try {
-      const tokenExists = await hasStoredCredentials();
+      const secureToken = await getToken();
+      const decodedToken = secureToken ? decodeJwt(secureToken) : null;
+      const tokenIsCurrent = decodedToken && (!decodedToken.exp || decodedToken.exp * 1000 > Date.now());
+      const idFromToken = tokenIsCurrent ? getUserIdFromJwt(secureToken) : null;
+      const roleFromToken = secureToken ? getRoleFromJwt(secureToken) : null;
       const lockEnabled = await getAppLockEnabled();
+      const tokenExists = Boolean(secureToken && idFromToken);
 
       setHasToken(tokenExists);
       setAppLockEnabled(lockEnabled);
+
+      if (tokenExists) {
+        await AsyncStorage.multiSet([
+          ['userToken', secureToken],
+          ['token', secureToken],
+          ['accessToken', secureToken],
+          ['userId', String(idFromToken)],
+          ['providerId', String(idFromToken)],
+          ['userRole', String(roleFromToken || 'ServiceProvider')],
+          ['role', String(roleFromToken || 'ServiceProvider')],
+        ]);
+      } else {
+        await clearAllAuthStorage();
+      }
 
       if (tokenExists && lockEnabled) {
         setIsLocked(true);
@@ -122,7 +146,7 @@ function AppContent() {
   const handleUnlock = () => setIsLocked(false);
 
   const handlePasswordFallback = async () => {
-    await clearCredentials();
+    await clearAllAuthStorage();
     setHasToken(false);
     setIsLocked(false);
     if (navigationRef.isReady()) {
@@ -149,7 +173,11 @@ function AppContent() {
         <NavigationContainer ref={navigationRef} theme={theme}>
           <Stack.Navigator
             initialRouteName={initialRoute}
-            screenOptions={{ headerShown: false }}
+            screenOptions={{
+              headerShown: false,
+              // Expo locks body scrolling; keep scrolling inside each screen.
+              cardStyle: Platform.OS === 'web' ? { flex: 1, minHeight: 0, height: '100%' } : undefined,
+            }}
           >
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
@@ -190,6 +218,7 @@ function AppContent() {
                 title: route.params?.serviceId ? 'Edit Service' : 'Add New Service',
               })}
             />
+            <Stack.Screen name="ProviderAvailability" component={ProviderAvailabilityScreen} />
 
           </Stack.Navigator>
         </NavigationContainer>

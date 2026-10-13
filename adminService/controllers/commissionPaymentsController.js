@@ -147,8 +147,9 @@ exports.getMonthlyCommissionPayments = async (req, res) => {
 
     const paidCount = enrichedList.filter(b => b.status === 'PAID').length;
     const pendingCount = enrichedList.filter(b => b.status === 'PENDING').length;
-    const overdueCount = enrichedList.filter(b => b.status === 'OVERDUE').length;
     const suspendedCount = enrichedList.filter(b => b.status === 'SUSPENDED' || b.isSuspended).length;
+    const waivedCount = enrichedList.filter(b => b.status === 'WAIVED' || b.serviceChargeAmount === 0).length;
+    const overdueCount = enrichedList.filter(b => b.status === 'OVERDUE').length;
     const complianceRate = enrichedList.length > 0 ? ((paidCount / enrichedList.length) * 100).toFixed(1) : '100.0';
 
     // 5. Apply Requested Filters
@@ -198,8 +199,9 @@ exports.getMonthlyCommissionPayments = async (req, res) => {
         totalBillsCount: enrichedList.length,
         paidCount,
         pendingCount,
-        overdueCount,
         suspendedCount,
+        waivedCount,
+        overdueCount,
       },
       availableMonths,
     });
@@ -227,8 +229,8 @@ const transporter = nodemailer.createTransport({
   port: parseInt(process.env.SMTP_PORT, 10) || 587,
   secure: process.env.SMTP_SECURE === 'true',
   auth: {
-    user: process.env.SMTP_USER || 'assigmentgroupy@gmail.com',
-    pass: process.env.SMTP_PASS || 'iehl zcwp pdmy anld',
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 });
 
@@ -301,7 +303,7 @@ exports.sendPaymentReminder = async (req, res) => {
     if (providerEmail && providerEmail !== 'N/A') {
       try {
         const mailOptions = {
-          from: process.env.EMAIL_FROM || '"WorkWave Platform" <assigmentgroupy@gmail.com>',
+          from: process.env.EMAIL_FROM || 'WorkWave Platform <noreply@workwave.com>',
           to: providerEmail,
           subject: `[WorkWave] Payment Reminder: 5% Platform Commission for ${bill.billingMonth}`,
           html: `

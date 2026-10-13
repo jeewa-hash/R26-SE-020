@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#6B7280',
   },
   tabTextDark: {
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '600',
     color: '#6B7280',
   },
   countTextActive: {

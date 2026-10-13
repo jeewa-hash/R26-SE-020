@@ -14,6 +14,13 @@ export const mapJobStatus = (status) => {
       return { label: 'Scheduled', tone: 'success', icon: 'event-available' };
     case 'IN_PROGRESS':
       return { label: 'In Progress', tone: 'info', icon: 'engineering' };
+    case 'ON_THE_WAY':
+      return { label: 'On the Way', tone: 'info', icon: 'directions-car' };
+    case 'DELAY_REPORTED':
+      return { label: 'Delay Reported', tone: 'warning', icon: 'warning-amber' };
+    case 'RESCHEDULE_REQUESTED':
+    case 'RESCHEDULING_REQUIRED':
+      return { label: 'Reschedule Pending', tone: 'warning', icon: 'update' };
     case 'RESCHEDULE_REQUIRED':
       return { label: 'Reschedule Needed', tone: 'warning', icon: 'update' };
     case 'COMPLETED':

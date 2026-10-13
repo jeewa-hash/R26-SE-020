@@ -2,7 +2,6 @@ import RewardAccount from "../models/RewardAccount.js";
 import RewardTransaction from "../models/RewardTransaction.js";
 import mongoose from "mongoose";
 
-const POINTS_PER_UNIT = 10; // 10 points per currency unit (configurable)
 
 export async function awardPointsForBooking({ bookingId, seekerId, finalAmount, bookingStatus }) {
   if (!mongoose.isValidObjectId(bookingId) || !mongoose.isValidObjectId(seekerId)) {
@@ -27,17 +26,30 @@ export async function awardPointsForBooking({ bookingId, seekerId, finalAmount, 
       return { success: false, message: "Points already awarded" };
     }
 
-    const pointsEarned = Math.round(Number(finalAmount) * POINTS_PER_UNIT);
+    // Update or create reward account
+    let account = await RewardAccount.findOne({ seekerId }).session(session);
+    if (!account) {
+      account = new RewardAccount({ seekerId, balance: 0, lifetimeEarned: 0, lifetimeSpent: 0, completedJobsCount: 0 });
+    }
+
+    // Determine Reward Tier based on completed jobs count
+    let currentPercentage = 0.05; // Base 5%
+    if (account.completedJobsCount >= 100) {
+      currentPercentage = 0.15; // 15% for 100+ jobs
+    } else if (account.completedJobsCount >= 50) {
+      currentPercentage = 0.12; // 12% for 50+ jobs
+    } else if (account.completedJobsCount >= 25) {
+      currentPercentage = 0.10; // 10% for 25+ jobs
+    } else if (account.completedJobsCount >= 10) {
+      currentPercentage = 0.07; // 7% for 10+ jobs
+    }
+
+    const pointsEarned = Math.round(Number(finalAmount) * currentPercentage);
     if (!Number.isFinite(pointsEarned) || pointsEarned <= 0) {
       throw new Error("Booking amount must be greater than zero");
     }
 
-    // Update or create reward account
-    let account = await RewardAccount.findOne({ seekerId }).session(session);
-    if (!account) {
-      account = new RewardAccount({ seekerId, balance: 0, lifetimeEarned: 0, lifetimeSpent: 0 });
-    }
-
+    account.completedJobsCount += 1;
     account.balance += pointsEarned;
     account.lifetimeEarned += pointsEarned;
     await account.save({ session });

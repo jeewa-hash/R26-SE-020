@@ -57,12 +57,7 @@ const getQuotationRequestId = (quotation) => {
 };
 
 const getBookingStatus = (booking) => {
-  return String(
-    booking?.status ||
-      booking?.bookingStatus ||
-      booking?.currentStatus ||
-      ''
-  ).toUpperCase();
+  return String(booking?.bookingStatus || 'CONFIRMED').toUpperCase();
 };
 
 const isCompletedOrCancelled = (booking) => {
@@ -77,6 +72,9 @@ const isCompletedOrCancelled = (booking) => {
 };
 
 const isActiveRequest = (request, bookings) => {
+  if (!["pending", "quoted"].includes(String(request?.status || "pending").toLowerCase())) {
+    return false;
+  }
   const requestId = getRequestId(request);
 
   const hasBooking = bookings.some((booking) => {
@@ -166,6 +164,8 @@ const normalizeQuote = (quotation, requests = []) => {
       relatedRequest?.serviceSubcategory ||
       relatedRequest?.subcategory ||
       relatedRequest?.object ||
+      relatedRequest?.detectedObject ||
+      relatedRequest?.detectedCategory ||
       'Provider Quote',
     category:
       quotation?.serviceCategory ||
@@ -182,14 +182,22 @@ const normalizeQuote = (quotation, requests = []) => {
       quotation?.seekerBudget ||
       0,
     providerName:
+      quotation?.providerSnapshot?.businessName ||
       quotation?.providerSnapshot?.name ||
+      quotation?.provider?.businessName ||
+      quotation?.provider?.name ||
+      quotation?.provider?.fullName ||
       quotation?.providerName ||
-      quotation?.providerId ||
-      'Provider',
+      quotation?.businessName ||
+      'Selected Provider',
     note: quotation?.notes || quotation?.note || 'Provider quotation received.',
     status: quotation?.status || 'SENT',
     proposedStartTime: quotation?.proposedStartTime || quotation?.coordinatedStartTime,
     estimatedDurationHours: quotation?.estimatedDurationHours || quotation?.durationHours,
+    externalSessionId: quotation?.externalSessionId || relatedRequest?.sessionId,
+    serviceLocation: relatedRequest?.serviceLocation || quotation?.serviceLocation || '',
+    preferredTimeLabel: relatedRequest?.preferredTimeLabel || '',
+    coordinationDecision: quotation?.coordinationStatus || quotation?.coordinationDecision || 'NOT_CHECKED',
   };
 };
 
@@ -236,10 +244,7 @@ const normalizeScheduledBooking = (booking) => {
       booking?.price ||
       booking?.quotedPrice ||
       0,
-    status:
-      booking?.status ||
-      booking?.bookingStatus ||
-      'CONFIRMED',
+    bookingStatus: booking?.bookingStatus || 'CONFIRMED',
   };
 };
 
@@ -253,6 +258,7 @@ export default function MyJobsScreen({ navigation }) {
   const [seekerId, setSeekerId] = useState(null);
   const [activeJobs, setActiveJobs] = useState([]);
   const [quotes, setQuotes] = useState([]);
+  const [requestQuotations, setRequestQuotations] = useState([]);
   const [scheduledJobs, setScheduledJobs] = useState([]);
   const [historyJobs, setHistoryJobs] = useState([]);
   const [error, setError] = useState(null);
@@ -344,6 +350,7 @@ export default function MyJobsScreen({ navigation }) {
 
       setActiveJobs(normalizedActiveJobs);
       setQuotes(normalizedQuotes);
+      setRequestQuotations(realRequests);
       setScheduledJobs(normalizedScheduled);
       setHistoryJobs(normalizedHistory);
 
@@ -443,6 +450,7 @@ export default function MyJobsScreen({ navigation }) {
         return (
           <QuotesSection
             quotes={quotes}
+            requests={requestQuotations}
             navigation={navigation}
             isDarkMode={isDarkMode}
           />
@@ -547,7 +555,7 @@ const styles = StyleSheet.create({
   stateTitle: {
     marginTop: 14,
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: '600',
     color: '#111827',
     textAlign: 'center',
   },
@@ -585,7 +593,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   textDark: {
     color: '#F8FAFC',
