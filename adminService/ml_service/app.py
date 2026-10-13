@@ -11,15 +11,23 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 app = Flask(__name__)
 
-# Function to load saved ML assets
-def load_assets():
-    try:
-        model = joblib.load('models/demand_model.pkl')
-        le_cat = joblib.load('models/encoders.pkl')
-        return model, le_cat
-    except Exception as e:
-        print(f"Error loading models: {e}")
-        return None, None
+# Global cache for ML assets
+MODEL = None
+LE_ENCODERS = None
+
+def get_assets():
+    global MODEL, LE_ENCODERS
+    if MODEL is None or LE_ENCODERS is None:
+        try:
+            MODEL = joblib.load('models/demand_model.pkl')
+            LE_ENCODERS = joblib.load('models/encoders.pkl')
+            print("[INFO] Demand model and encoders loaded successfully into memory")
+        except Exception as e:
+            print(f"Error loading models: {e}")
+    return MODEL, LE_ENCODERS
+
+# Preload models at startup
+get_assets()
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -30,7 +38,7 @@ def predict():
             return jsonify({"error": "No data received"}), 400
             
         df_input = pd.DataFrame([data])
-        model, le_encoders = load_assets()
+        model, le_encoders = get_assets()
         
         if model is None or le_encoders is None:
             return jsonify({"error": "Model files missing in models/ folder"}), 500
