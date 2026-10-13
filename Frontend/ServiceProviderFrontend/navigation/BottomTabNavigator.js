@@ -7,12 +7,12 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemeContext } from '../context/ThemeContext';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { io } from 'socket.io-client';
 import { clearAllAuthStorage, getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 
-const API_URL = `http://${IP_ADDRESS}:4003`;
-const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
+const API_URL = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
+const ADMIN_API_URL = ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
 
 // Import Screens
 import NewsFeedScreen from '../pages/NewsFeedScreen';

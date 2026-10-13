@@ -16,12 +16,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
 import * as Notifications from 'expo-notifications';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { ThemeContext } from '../context/ThemeContext';
 import { getStoredProviderAuth } from './IT22129376/services/providerAuthStorage';
 
-const API_URL = `http://${IP_ADDRESS}:4003`;
-const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
+const API_URL = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
+const ADMIN_API_URL = ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
 
 // Configure foreground system notification behavior safely
 try {
