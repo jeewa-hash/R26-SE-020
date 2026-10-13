@@ -30,6 +30,7 @@ import {
 } from '@react-navigation/native';
 
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -274,6 +275,13 @@ export default function CreatePostScreen() {
   const [description, setDescription] =
     useState('');
 
+  const [serviceLocation, setServiceLocation] = useState('');
+  const [urgency, setUrgency] = useState('');
+  const [requiredDate, setRequiredDate] = useState('');
+  const [missingFields, setMissingFields] = useState([]);
+  const [followUpIndex, setFollowUpIndex] = useState(0);
+  const [showRequiredDatePicker, setShowRequiredDatePicker] = useState(false);
+
   const [selectedImage, setSelectedImage] =
     useState(null);
 
@@ -335,6 +343,45 @@ export default function CreatePostScreen() {
     )}`;
   };
 
+  const extractDetailsFromInput = (value) => {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+    const dateMatch = text.match(/\b(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|today|tomorrow|next\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|this\s+(?:weekend|week))\b/i);
+    const locationMatch = text.match(/\b(?:in|at|near|around)\s+([A-Z][\w'-]*(?:\s+[A-Z][\w'-]*){0,3})(?=\s*(?:,|\.|;|$|\b(?:today|tomorrow|next|this|urgent|urgently|asap|please|for|to|because|with)\b))/i);
+    const lowerText = text.toLowerCase();
+    const detectedUrgency = /\b(emergency|urgently?|asap|immediately|right away)\b/.test(lowerText)
+      ? 'high'
+      : /\b(not urgent|whenever|flexible|no rush)\b/.test(lowerText)
+        ? 'low'
+        : '';
+
+    return {
+      date: dateMatch?.[1] || '',
+      location: locationMatch?.[1]?.trim() || '',
+      urgency: detectedUrgency,
+    };
+  };
+
+  const getPickerDate = (value) => {
+    if (!value) return new Date();
+    const normalized = String(value).trim().toLowerCase();
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date;
+    if (normalized === 'today') return new Date();
+    if (normalized === 'tomorrow') {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return tomorrow;
+    }
+    return new Date();
+  };
+
+  const formatDateForPost = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
 
   // =====================================================
   // EDIT MODE INITIALIZATION
@@ -374,6 +421,9 @@ export default function CreatePostScreen() {
       setDescription(
         postData.description || ''
       );
+      setServiceLocation(postData.location?.address || '');
+      setUrgency(postData.urgency || '');
+      setRequiredDate(postData.preferredSchedule?.date || '');
 
       if (
         postData.image
@@ -528,13 +578,31 @@ export default function CreatePostScreen() {
 
   const generatePreview =
     async () => {
-
-      if (!selectedImage) {
+      if (!title.trim() && !description.trim() && !selectedImage) {
         Alert.alert(
-          'Missing Image',
-          'Please upload an image first.'
+          'Add post details',
+          'Enter a description or upload an image to continue.'
         );
 
+        return;
+      }
+
+      const extracted = extractDetailsFromInput(`${title} ${description}`);
+      const resolvedLocation = serviceLocation.trim() || extracted.location;
+      const resolvedDate = requiredDate.trim() || extracted.date;
+      const resolvedUrgency = urgency || extracted.urgency;
+
+      if (!serviceLocation.trim() && resolvedLocation) setServiceLocation(resolvedLocation);
+      if (!requiredDate.trim() && resolvedDate) setRequiredDate(resolvedDate);
+      if (!urgency && resolvedUrgency) setUrgency(resolvedUrgency);
+
+      const missing = [];
+      if (!resolvedLocation) missing.push('location');
+      if (!resolvedUrgency) missing.push('urgency');
+      if (!resolvedDate) missing.push('date');
+      if (missing.length) {
+        setMissingFields(missing);
+        setFollowUpIndex(0);
         return;
       }
 
@@ -562,14 +630,9 @@ export default function CreatePostScreen() {
         const formData =
           new FormData();
 
-        formData.append(
-          'image',
-          {
-            uri: selectedImage,
-            type: 'image/jpeg',
-            name: 'post.jpg',
-          }
-        );
+        if (selectedImage) formData.append('image', {
+          uri: selectedImage, type: 'image/jpeg', name: 'post.jpg',
+        });
 
         formData.append(
           'title',
@@ -585,6 +648,9 @@ export default function CreatePostScreen() {
           'language',
           language || 'en'
         );
+        formData.append('location', resolvedLocation);
+        formData.append('urgency', resolvedUrgency);
+        formData.append('requiredDate', resolvedDate);
 
         const loggedUser = await getLoggedUser();
         if (loggedUser && loggedUser.userId) {
@@ -635,8 +701,10 @@ export default function CreatePostScreen() {
           data.preview
         ) {
           setPreviewData(
-            data.preview
+            { ...data.preview, location: resolvedLocation, urgency: resolvedUrgency, requiredDate: resolvedDate }
           );
+
+          setMissingFields([]);
 
           setTitle(
             data.preview.title ||
@@ -687,21 +755,10 @@ export default function CreatePostScreen() {
   const savePost =
     async () => {
 
-      if (!title.trim()) {
+      if (!title.trim() && !description.trim()) {
         Alert.alert(
-          'Missing Title',
-          'Please enter a title.'
-        );
-
-        return;
-      }
-
-      if (
-        !description.trim()
-      ) {
-        Alert.alert(
-          'Missing Description',
-          'Please enter a description.'
+          'Missing post details',
+          'Add a title or description before publishing.'
         );
 
         return;
@@ -772,20 +829,16 @@ export default function CreatePostScreen() {
         }
 
       } else {
-
-        if (
-          !previewData?.image
-        ) {
+        if (!previewData) {
           Alert.alert(
             'Preview Required',
-            'Please generate AI preview first.'
+            'Please generate and review the AI post first.'
           );
 
           return;
         }
 
-        finalImagePath =
-          previewData.image;
+        finalImagePath = previewData.image || null;
       }
 
 
@@ -815,8 +868,9 @@ export default function CreatePostScreen() {
             : [],
 
         urgency:
-          previewData?.urgency ||
-          'medium',
+          previewData?.urgency || urgency,
+        location: { address: previewData?.location || serviceLocation.trim() },
+        preferredSchedule: { date: previewData?.requiredDate || requiredDate.trim(), flexible: true },
 
         // Include both seekerId and userId for backend compatibility
         seekerId:
@@ -1092,7 +1146,7 @@ export default function CreatePostScreen() {
             >
               {isEditMode
                 ? 'Modify your existing post'
-                : 'Upload an image and let AI generate the perfect post'}
+                : 'Describe your request or add a photo. We will ask only for the details that are missing.'}
             </Text>
           </Animated.View>
         </LinearGradient>
@@ -1258,6 +1312,69 @@ export default function CreatePostScreen() {
           </View>
 
 
+          {missingFields.length > 0 && missingFields[followUpIndex] && (
+            <View style={[styles.inputContainer, isDarkMode && styles.inputContainerDark]}>
+              <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
+                A few details are needed ({followUpIndex + 1}/{missingFields.length})
+              </Text>
+              {missingFields[followUpIndex] === 'location' && <TextInput
+                style={[styles.titleInput, isDarkMode && styles.textDark]}
+                placeholder="Where is the service needed?"
+                placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
+                value={serviceLocation} onChangeText={setServiceLocation}
+              />}
+              {missingFields[followUpIndex] === 'date' && <>
+                <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>When do you need the service?</Text>
+                <TouchableOpacity
+                  style={[styles.datePickerButton, isDarkMode && styles.inputContainerDark]}
+                  onPress={() => setShowRequiredDatePicker(true)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="calendar-outline" size={20} color="#667eea" />
+                  <Text style={[styles.datePickerText, isDarkMode && styles.textDark]}>
+                    {requiredDate || 'Choose a date'}
+                  </Text>
+                </TouchableOpacity>
+                {showRequiredDatePicker && <DateTimePicker
+                  value={getPickerDate(requiredDate)}
+                  mode="date"
+                  minimumDate={new Date()}
+                  onChange={(event, selectedDate) => {
+                    if (Platform.OS === 'android') setShowRequiredDatePicker(false);
+                    if (selectedDate) setRequiredDate(formatDateForPost(selectedDate));
+                  }}
+                />}
+              </>}
+              {missingFields[followUpIndex] === 'urgency' && <View>
+                <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>How urgent is it?</Text>
+                <View style={styles.modalButtons}>
+                  {['low', 'medium', 'high'].map(level => <TouchableOpacity
+                    key={level} onPress={() => setUrgency(level)}
+                    style={[styles.modalButton, urgency === level ? styles.publishGradient : styles.editButton, { padding: 12 }]}
+                  ><Text style={urgency === level ? styles.publishButtonText : styles.editButtonText}>{level}</Text></TouchableOpacity>)}
+                </View>
+              </View>}
+              <TouchableOpacity
+                style={[styles.previewButton, { marginTop: 16 }]}
+                onPress={() => {
+                  const field = missingFields[followUpIndex];
+                  const answer = field === 'location' ? serviceLocation.trim()
+                    : field === 'date' ? requiredDate.trim() : urgency;
+                  if (!answer) {
+                    Alert.alert('Answer needed', 'Please answer this question to continue.');
+                    return;
+                  }
+                  if (followUpIndex < missingFields.length - 1) setFollowUpIndex(followUpIndex + 1);
+                  else generatePreview();
+                }}
+              >
+                <LinearGradient colors={['#8B5CF6', '#6366F1']} style={styles.previewGradient}>
+                  <Text style={styles.previewButtonText}>{followUpIndex < missingFields.length - 1 ? 'Next question' : 'Generate AI Post'}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* AI PREVIEW BUTTON */}
 
           {(
@@ -1309,7 +1426,7 @@ export default function CreatePostScreen() {
                         styles.previewButtonText
                       }
                     >
-                      Generate AI Preview
+                      {missingFields.length ? 'Continue post setup' : 'Generate AI Preview'}
                     </Text>
                   </>
                 )}
@@ -1474,6 +1591,11 @@ export default function CreatePostScreen() {
                   previewData?.urgency
                 }
               </Text>
+
+              <Text style={[styles.previewHeading, isDarkMode && styles.textDark]}>Service location</Text>
+              <Text style={[styles.previewText, isDarkMode && styles.textMutedDark]}>{previewData?.location || serviceLocation}</Text>
+              <Text style={[styles.previewHeading, isDarkMode && styles.textDark]}>Required date</Text>
+              <Text style={[styles.previewText, isDarkMode && styles.textMutedDark]}>{previewData?.requiredDate || requiredDate}</Text>
 
               <Text
                 style={[styles.previewHeading, isDarkMode && styles.textDark]}
@@ -1665,6 +1787,23 @@ const styles =
     titleInput: {
       fontSize: 16,
       color: '#111827',
+    },
+
+    datePickerButton: {
+      minHeight: 48,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#D1D5DB',
+      backgroundColor: '#F9FAFB',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+
+    datePickerText: {
+      color: '#374151',
+      fontSize: 15,
     },
 
     descriptionInput: {

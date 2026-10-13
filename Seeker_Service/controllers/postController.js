@@ -288,12 +288,15 @@ export const previewPost = async (req, res) => {
       description,
       userId,
       language,
+      location,
+      urgency,
+      requiredDate,
     } = req.body;
 
-    if (!req.file) {
+    if (!req.file && !String(title || description || "").trim()) {
       return res.status(400).json({
         success: false,
-        error: "Image is required",
+        error: "Enter a description or upload an image",
       });
     }
 
@@ -305,11 +308,33 @@ export const previewPost = async (req, res) => {
           contextData += `User Profile: Name - ${user.name || 'Unknown'}, District - ${user.district || 'Unknown'}. Please personalize the post for this location if relevant.\n`;
         }
 
-        const pastPosts = await Post.find({ seekerId: userId }).sort({ createdAt: -1 }).limit(3);
-        if (pastPosts && pastPosts.length > 0) {
-          contextData += "Previous Posts by User (for tone/style reference):\n";
-          pastPosts.forEach(p => {
-            contextData += `- ${p.title} (Category: ${p.category})\n`;
+        // Retrieve the user's posts that best match this request (lightweight RAG).
+        const pastPosts = await Post.find({ seekerId: userId })
+          .sort({ createdAt: -1 })
+          .limit(50)
+          .select("title description category tags createdAt")
+          .lean();
+        const terms = new Set(
+          `${title || ""} ${description || ""}`
+            .toLowerCase()
+            .match(/[a-z0-9]{3,}/g) || []
+        );
+        const relevantPosts = pastPosts
+          .map((post) => {
+            const postTerms = `${post.title || ""} ${post.description || ""} ${post.category || ""} ${(post.tags || []).join(" ")}`
+              .toLowerCase()
+              .match(/[a-z0-9]{3,}/g) || [];
+            const overlap = postTerms.filter((term) => terms.has(term)).length;
+            return { post, score: overlap / Math.max(1, new Set(postTerms).size) };
+          })
+          .filter((item) => item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 3);
+
+        if (relevantPosts.length) {
+          contextData += "Relevant prior user posts retrieved for personalization (not facts about this new request):\n";
+          relevantPosts.forEach(({ post }) => {
+            contextData += `- Title: ${post.title || ""}; Category: ${post.category || ""}; Description: ${(post.description || "").slice(0, 240)}\n`;
           });
         }
       } catch (err) {
@@ -317,16 +342,17 @@ export const previewPost = async (req, res) => {
       }
     }
 
-    const imageBase64 = fs
-      .readFileSync(req.file.path)
-      .toString("base64");
+    const imageBase64 = req.file
+      ? fs.readFileSync(req.file.path).toString("base64")
+      : null;
 
     const aiData = await analyzeImageWithGemini(
       imageBase64,
       title,
       description,
       contextData,
-      language
+      language,
+      { location, urgency, requiredDate }
     );
 
     res.status(200).json({
@@ -340,8 +366,7 @@ export const previewPost = async (req, res) => {
         description:
           aiData.description || description,
 
-        image:
-          req.file.path,
+        image: req.file?.path || null,
 
         category:
           aiData.category || "General",
@@ -350,7 +375,9 @@ export const previewPost = async (req, res) => {
           aiData.tags || [],
 
         urgency:
-          aiData.urgency || "medium",
+          urgency || aiData.urgency || "medium",
+        location: location || "",
+        requiredDate: requiredDate || "",
       },
     });
 
@@ -426,6 +453,8 @@ export const publishPost = async (req, res) => {
       category,
       tags,
       urgency,
+      location: typeof location === "string" ? { address: location } : location,
+      preferredSchedule: preferredSchedule || {},
       userId,
     });
 
