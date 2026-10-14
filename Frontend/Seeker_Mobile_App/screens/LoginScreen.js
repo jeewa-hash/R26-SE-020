@@ -18,12 +18,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
 import { LanguageContext } from '../context/LanguageContext';
 import { setLanguage } from '../i18n';
 
-const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
+const API_URL = AUTH_SERVICE_URL
+  ? `${AUTH_SERVICE_URL}/seeker`
+  : `http://${IP_ADDRESS}:4003/seeker`;
 
 // =======================================================
 // DECODE JWT

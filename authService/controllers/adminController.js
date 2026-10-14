@@ -108,7 +108,12 @@ exports.register = async (req, res) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    // Send credentials email to the new admin (non-blocking so registration succeeds immediately without timeout)
+    transporter.sendMail(mailOptions).then(info => {
+      console.log('[Email] Admin credentials email sent successfully:', info.messageId);
+    }).catch(emailErr => {
+      console.warn('[Email] Warning: Could not send credentials email (SMTP connection note):', emailErr.message);
+    });
 
     res.status(201).json({ message: 'Admin registered successfully. Credentials sent to email.', adminId: admin._id });
   } catch (err) {

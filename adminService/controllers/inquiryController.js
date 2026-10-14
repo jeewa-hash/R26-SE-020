@@ -799,7 +799,8 @@ const dispatchPenaltyWarningNotification = async (providerId, penaltyCount, pena
 
     // 3. Dispatch real-time Socket notification via authService
     try {
-      await fetch('http://localhost:4003/admin/notify-provider-internal', {
+      const authUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:4003';
+      await fetch(`${authUrl}/admin/notify-provider-internal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1014,7 +1015,8 @@ exports.sendPenaltyWarning = async (req, res) => {
     }
 
     try {
-      await fetch('http://localhost:4003/admin/notify-provider-internal', {
+      const authUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:4003';
+      await fetch(`${authUrl}/admin/notify-provider-internal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

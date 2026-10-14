@@ -117,14 +117,14 @@ try:
     y = combined_df['Demand_Count']
 
     print(f"[TRAINING] Training Random Forest Regressor on {len(combined_df)} clean 3-year historical records...")
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model = RandomForestRegressor(n_estimators=60, max_depth=15, min_samples_leaf=2, random_state=42)
     model.fit(X, y)
 
     # 6. Model එක Save කිරීම
     if not os.path.exists('models'): 
         os.makedirs('models')
         
-    joblib.dump(model, MODEL_PATH)
+    joblib.dump(model, MODEL_PATH, compress=3)
     joblib.dump({'Category': le_cat, 'District': le_dist}, ENCODER_PATH)
 
     print("--- [SUCCESS] Model Successfully Retrained and Saved! ---")
