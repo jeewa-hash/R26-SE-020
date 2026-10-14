@@ -9,3 +9,4 @@ requests
 PyJWT
 pymongo
 python-dotenv
+deep-translator
