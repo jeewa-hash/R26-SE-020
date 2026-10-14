@@ -418,19 +418,27 @@ export default function ProviderPostsSection({ navigation, isDark }) {
       }
 
       const adminUrl = CONFIG.ADMIN_SERVICE_URL || `http://${IP_ADDRESS || '192.168.1.38'}:5001`;
-      const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
-      if (res.ok) {
-        const statusData = await res.json();
-        const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
-        if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
-          setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
-          setShowPenaltyModal(true);
-          setCheckingPenalty(false);
-          return;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      try {
+        const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`, {
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const statusData = await res.json();
+          const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
+          if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
+            setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+            setShowPenaltyModal(true);
+            setCheckingPenalty(false);
+            return;
+          }
         }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (e) {
-      console.log('Error checking penalty status before posting:', e.message);
+      // Admin service optional or offline
     } finally {
       setCheckingPenalty(false);
     }

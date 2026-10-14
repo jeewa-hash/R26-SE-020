@@ -30,7 +30,6 @@ import { ThemeContext } from '../context/ThemeContext';
 import { getStoredProviderAuth } from './IT22129376/services/providerAuthStorage';
 import {
   getProviderJobs,
-  getProviderOngoingJobs,
   getProviderQuotations,
   getProviderRequests,
 } from './IT22129376/services/providerFlowApi';
@@ -286,41 +285,29 @@ export default function NewsFeedScreen() {
         getProviderRequests(auth.providerId),
         getProviderQuotations(auth.providerId),
         getProviderJobs(auth.providerId),
-        getProviderOngoingJobs(auth.providerId),
       ]);
 
-      if (results.some((result) => result.status === 'rejected')) {
-        throw new Error('One or more provider summary APIs failed');
-      }
-
-      const requests = (results[0].value.rawList || []).filter((item) =>
+      const requests = (results[0].status === 'fulfilled' ? results[0].value?.rawList || results[0].value || [] : []).filter((item) =>
         belongsToProvider(item, auth.providerId)
       );
 
-      const quotations = (results[1].value.rawList || []).filter((item) =>
+      const quotations = (results[1].status === 'fulfilled' ? results[1].value?.rawList || results[1].value || [] : []).filter((item) =>
         belongsToProvider(item, auth.providerId)
       );
 
-      const bookings = (results[2].value.rawList || []).filter((item) =>
-        belongsToProvider(item, auth.providerId)
-      );
-
-      const ongoingBookings = (results[3].value.rawList || []).filter((item) =>
+      const bookings = (results[2].status === 'fulfilled' ? results[2].value?.rawList || results[2].value || [] : []).filter((item) =>
         belongsToProvider(item, auth.providerId)
       );
 
       setSummary({
-        pending: requests.filter((item) => String(item.status || '').toLowerCase() === 'pending')
-          .length,
-        waiting: quotations.filter((item) => String(item.status || '').toUpperCase() === 'SENT')
-          .length,
+        pending: requests.filter((item) => String(item.status || '').toLowerCase() === 'pending').length,
+        waiting: quotations.filter((item) => String(item.status || '').toUpperCase() === 'SENT').length,
         scheduled: bookings.filter((item) => item.bookingStatus === 'CONFIRMED').length,
-        ongoing: ongoingBookings.filter((item) =>
+        ongoing: bookings.filter((item) =>
           ['ON_THE_WAY', 'IN_PROGRESS', 'DELAY_REPORTED'].includes(item.bookingStatus)
         ).length,
         completed: bookings.filter((item) => item.bookingStatus === 'COMPLETED').length,
-        rejected: quotations.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED')
-          .length,
+        rejected: quotations.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED').length,
       });
     } catch (error) {
       console.log('Provider summary load error:', error?.message);

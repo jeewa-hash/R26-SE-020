@@ -221,7 +221,7 @@ export default function BottomTabNavigator() {
         console.warn('Socket connection error in TabNavigator:', sockErr.message);
       }
 
-      const fetchWithTimeout = async (url, opts = {}, ms = 5000) => {
+      const fetchWithTimeout = async (url, opts = {}, ms = 2500) => {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), ms);
         try {
