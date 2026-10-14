@@ -90,6 +90,12 @@ const DemandForecastingPage = () => {
 
       const rawPredictions = response.data.predictions || [];
 
+      if (rawPredictions.length === 0) {
+        setError("Could not generate predictions. The ML model may be warming up on Render, please try again in a few moments.");
+        setLoading(false);
+        return;
+      }
+
       // Aggregate by Category and District
       const aggregated = {};
 

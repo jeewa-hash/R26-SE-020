@@ -8,8 +8,9 @@ export const API_BASE_URL = `http://${IP_ADDRESS}:6000`;   // used by ChatContex
 export const SOCKET_URL = `http://${IP_ADDRESS}:6000`;     // same for socket
 
 
-// Other services
-export const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003`;
+// Live Cloud Render Services 🚀
+export const AUTH_SERVICE_URL = 'https://r26-auth-service.onrender.com';
+
 export const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
 export const PROVIDER_API_BASE = `http://${IP_ADDRESS}:5000`;
 

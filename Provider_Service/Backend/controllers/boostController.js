@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 
-import AdPost from "../models/AdPost.js";
+import AdPost from "../models/adPost.js";
 import Transaction from "../models/Transaction.js";
 
 // Initialize Stripe with your secret key from environment variables

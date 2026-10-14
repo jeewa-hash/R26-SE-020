@@ -7,12 +7,12 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { ThemeContext } from '../context/ThemeContext';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { io } from 'socket.io-client';
 import { clearAllAuthStorage, getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 
-const API_URL = `http://${IP_ADDRESS}:4003`;
-const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
+const API_URL = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
+const ADMIN_API_URL = ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
 
 // Import Screens
 import NewsFeedScreen from '../pages/NewsFeedScreen';
@@ -221,6 +221,16 @@ export default function BottomTabNavigator() {
         console.warn('Socket connection error in TabNavigator:', sockErr.message);
       }
 
+      const fetchWithTimeout = async (url, opts = {}, ms = 5000) => {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), ms);
+        try {
+          return await fetch(url, { ...opts, signal: ctrl.signal });
+        } finally {
+          clearTimeout(tid);
+        }
+      };
+
       const checkStatusAndNotifications = async () => {
         if (isLoggingOutRef.current) return;
 
@@ -230,7 +240,7 @@ export default function BottomTabNavigator() {
 
           if (!currentUserId) return;
 
-          const response = await fetch(`${ADMIN_API_URL}/api/inquiries/provider-status/${currentUserId}`);
+          const response = await fetchWithTimeout(`${ADMIN_API_URL}/api/inquiries/provider-status/${currentUserId}`, {}, 5000);
           const data = await response.json();
 
           if (response.ok && data.isBlocked) {
@@ -270,7 +280,7 @@ export default function BottomTabNavigator() {
           let allNotifs = [];
 
           try {
-            const notifRes = await fetch(`${ADMIN_API_URL}/api/inquiries/notifications/${currentUserId}`);
+            const notifRes = await fetchWithTimeout(`${ADMIN_API_URL}/api/inquiries/notifications/${currentUserId}`, {}, 5000);
             const notifData = await notifRes.json();
 
             if (notifRes.ok && Array.isArray(notifData.data)) {
@@ -282,9 +292,9 @@ export default function BottomTabNavigator() {
 
           if (currentToken) {
             try {
-              const authNotifRes = await fetch(`${API_URL}/notifications`, {
+              const authNotifRes = await fetchWithTimeout(`${API_URL}/notifications`, {
                 headers: { Authorization: `Bearer ${currentToken}` },
-              });
+              }, 5000);
 
               const authNotifData = await authNotifRes.json();
 
@@ -322,7 +332,7 @@ export default function BottomTabNavigator() {
       };
 
       checkStatusAndNotifications();
-      intervalId = setInterval(checkStatusAndNotifications, 2500);
+      intervalId = setInterval(checkStatusAndNotifications, 15000);
     };
 
     setupRealTimeAndWatchdog();

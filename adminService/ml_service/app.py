@@ -11,15 +11,23 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 app = Flask(__name__)
 
-# Function to load saved ML assets
-def load_assets():
-    try:
-        model = joblib.load('models/demand_model.pkl')
-        le_cat = joblib.load('models/encoders.pkl')
-        return model, le_cat
-    except Exception as e:
-        print(f"Error loading models: {e}")
-        return None, None
+# Global cache for ML assets
+MODEL = None
+LE_ENCODERS = None
+
+def get_assets():
+    global MODEL, LE_ENCODERS
+    if MODEL is None or LE_ENCODERS is None:
+        try:
+            MODEL = joblib.load('models/demand_model.pkl')
+            LE_ENCODERS = joblib.load('models/encoders.pkl')
+            print("[INFO] Demand model and encoders loaded successfully into memory")
+        except Exception as e:
+            print(f"Error loading models: {e}")
+    return MODEL, LE_ENCODERS
+
+# Preload models at startup
+get_assets()
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -30,7 +38,7 @@ def predict():
             return jsonify({"error": "No data received"}), 400
             
         df_input = pd.DataFrame([data])
-        model, le_encoders = load_assets()
+        model, le_encoders = get_assets()
         
         if model is None or le_encoders is None:
             return jsonify({"error": "Model files missing in models/ folder"}), 500
@@ -105,12 +113,50 @@ def get_metrics():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/retrain', methods=['POST'])
+def trigger_retrain():
+    try:
+        import subprocess, sys
+        print("[INFO] Triggering model retraining process via train_auto.py...")
+        result = subprocess.run(
+            [sys.executable, 'train_auto.py'],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        if result.returncode != 0:
+            print("[ERROR] Retraining script error:", result.stderr)
+            return jsonify({
+                "error": "Failed to retrain model",
+                "details": result.stderr or result.stdout
+            }), 500
+
+        # Reload assets into global memory
+        global MODEL, LE_ENCODERS
+        MODEL = None
+        LE_ENCODERS = None
+        get_assets()
+
+        print("[SUCCESS] Retraining complete and new model reloaded into memory")
+        return jsonify({
+            "message": "Model retrained successfully!",
+            "details": result.stdout
+        }), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy", "service": "R26 Demand Forecasting ML Service"}), 200
+
 if __name__ == '__main__':
+    import os
+    port = int(os.environ.get('PORT', 5000))
     print("----------------------------------------------")
     print("🚀 R26-SE-020 Demand Forecasting Microservice")
-    print("🚀 Status: Running on http://localhost:5000")
+    print(f"🚀 Status: Running on port {port}")
     print("🚀 Server: Waitress Production WSGI")
     print("----------------------------------------------")
     
-    
-    serve(app, host='0.0.0.0', port=5000)
+    serve(app, host='0.0.0.0', port=port)

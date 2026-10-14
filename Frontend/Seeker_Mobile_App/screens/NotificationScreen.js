@@ -16,11 +16,13 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL } from '../config';
 import { useTheme } from '../hooks/useTheme';
 import { useNotification } from '../context/NotificationContext';
 
-const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
+const API_URL = AUTH_SERVICE_URL
+  ? `${AUTH_SERVICE_URL}/seeker`
+  : `http://${IP_ADDRESS}:4003/seeker`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:3002`;
 const QUOTATIONS_URL = `${PROVIDER_SERVICE_URL}/api/provider/quotations/seeker/me`;
 const READ_QUOTES_KEY = 'readQuotes';

@@ -16,12 +16,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
 import * as Notifications from 'expo-notifications';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { ThemeContext } from '../context/ThemeContext';
 import { getStoredProviderAuth } from './IT22129376/services/providerAuthStorage';
 
-const API_URL = `http://${IP_ADDRESS}:4003`;
-const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
+const API_URL = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
+const ADMIN_API_URL = ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
 
 // Configure foreground system notification behavior safely
 try {
@@ -258,6 +258,17 @@ export default function NotificationScreen({ navigation }) {
     return 'admin';
   };
 
+  const fetchWithTimeout = async (url, options = {}, timeoutMs = 5000) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      return response;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+
   const fetchNotifications = async (showLoading = true) => {
     if (showLoading && !refreshing) setLoading(true);
     try {
@@ -268,7 +279,7 @@ export default function NotificationScreen({ navigation }) {
       let authNotifs = [];
 
       try {
-        const adminRes = await fetch(`${ADMIN_API_URL}/api/inquiries/notifications/${userId}`);
+        const adminRes = await fetchWithTimeout(`${ADMIN_API_URL}/api/inquiries/notifications/${userId}`);
         const adminData = await adminRes.json();
         if (adminRes.ok && adminData.data) {
           adminNotifs = adminData.data.map((item) => ({
@@ -282,7 +293,7 @@ export default function NotificationScreen({ navigation }) {
 
       if (token) {
         try {
-          const response = await fetch(`${API_URL}/notifications`, {
+          const response = await fetchWithTimeout(`${API_URL}/notifications`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const data = await response.json();
