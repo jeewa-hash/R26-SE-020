@@ -69,6 +69,17 @@ const readJson = async (response) => {
   }
 };
 
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 3500) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 const requestFirstSuccess = async ({ urls, paths, options = {}, label }) => {
   let lastError = null;
   const headers = await buildAuthHeaders();
@@ -77,8 +88,7 @@ const requestFirstSuccess = async ({ urls, paths, options = {}, label }) => {
     for (const path of paths) {
       const url = `${baseUrl}${path}`;
       try {
-        console.log(`Trying Provider Flow API: ${url}`);
-        const response = await fetch(url, {
+        const response = await fetchWithTimeout(url, {
           ...options,
           headers: {
             ...headers,
@@ -87,14 +97,11 @@ const requestFirstSuccess = async ({ urls, paths, options = {}, label }) => {
         });
         const data = await readJson(response);
         if (response.ok) {
-          console.log(`Provider Flow API success: ${url}`);
           return data;
         }
         const message = data?.message || data?.error || `HTTP ${response.status}`;
-        console.log(`Provider Flow API failed: ${url} ${message}`);
         lastError = new Error(message);
       } catch (error) {
-        console.log(`Provider Flow API failed: ${url} ${error?.message}`);
         lastError = error;
       }
     }

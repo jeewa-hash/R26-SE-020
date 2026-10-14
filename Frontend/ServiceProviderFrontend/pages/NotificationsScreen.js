@@ -113,16 +113,17 @@ export default function NotificationScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   const socketRef = useRef(null);
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     registerForPushNotificationsAsync();
     fetchNotifications();
     setupSocketConnection();
 
-    // Auto-poll every 2.5 seconds to guarantee live updates without requiring manual pull-to-refresh
+    // Periodic poll every 30 seconds as fallback to WebSocket
     const interval = setInterval(() => {
       fetchNotifications(false);
-    }, 2500);
+    }, 30000);
 
     return () => {
       clearInterval(interval);
@@ -258,7 +259,7 @@ export default function NotificationScreen({ navigation }) {
     return 'admin';
   };
 
-  const fetchWithTimeout = async (url, options = {}, timeoutMs = 5000) => {
+  const fetchWithTimeout = async (url, options = {}, timeoutMs = 2500) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -270,6 +271,9 @@ export default function NotificationScreen({ navigation }) {
   };
 
   const fetchNotifications = async (showLoading = true) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
     if (showLoading && !refreshing) setLoading(true);
     try {
       const { token, providerId: userId } = await getStoredProviderAuth();
@@ -280,15 +284,17 @@ export default function NotificationScreen({ navigation }) {
 
       try {
         const adminRes = await fetchWithTimeout(`${ADMIN_API_URL}/api/inquiries/notifications/${userId}`);
-        const adminData = await adminRes.json();
-        if (adminRes.ok && adminData.data) {
-          adminNotifs = adminData.data.map((item) => ({
-            ...item,
-            category: item.category || 'admin',
-          }));
+        if (adminRes.ok) {
+          const adminData = await adminRes.json();
+          if (adminData.data) {
+            adminNotifs = adminData.data.map((item) => ({
+              ...item,
+              category: item.category || 'admin',
+            }));
+          }
         }
       } catch (e) {
-        console.warn('Admin notifications fetch warning:', e);
+        // Admin service is optional or offline; silence AbortError
       }
 
       if (token) {
@@ -296,15 +302,17 @@ export default function NotificationScreen({ navigation }) {
           const response = await fetchWithTimeout(`${API_URL}/notifications`, {
             headers: { Authorization: `Bearer ${token}` },
           });
-          const data = await response.json();
-          if (response.ok && Array.isArray(data)) {
-            authNotifs = data.map((item) => ({
-              ...item,
-              category: item.category || resolveCategory(item.type),
-            }));
+          if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data)) {
+              authNotifs = data.map((item) => ({
+                ...item,
+                category: item.category || resolveCategory(item.type),
+              }));
+            }
           }
         } catch (e) {
-          console.warn('General notifications fetch warning:', e);
+          // General notifications offline or aborted; silence AbortError
         }
       }
 
@@ -322,8 +330,9 @@ export default function NotificationScreen({ navigation }) {
 
       setNotifications(sortedList);
     } catch (err) {
-      console.error('Failed to fetch notifications:', err);
+      // General error handling
     } finally {
+      isFetchingRef.current = false;
       if (showLoading) setLoading(false);
       setRefreshing(false);
     }

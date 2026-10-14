@@ -16,7 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { ThemeContext } from '../context/ThemeContext';
-import { CONFIG } from '../config';
+import { CONFIG, IP_ADDRESS } from '../config';
 
 const { width } = Dimensions.get('window');
 
@@ -127,23 +127,39 @@ export default function CreatePostScreen({ navigation }) {
 
         // Check penalty score & restrictions
         try {
-          const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
-          const statusRes = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
-          if (statusRes.ok) {
-            const statusData = await statusRes.json();
-            const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
-            if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
-              setPenaltyRestricted(true);
-              setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+          const adminUrl = CONFIG.ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1500);
+          try {
+            const statusRes = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`, {
+              signal: controller.signal,
+            });
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
+              if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
+                setPenaltyRestricted(true);
+                setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+              }
             }
+          } finally {
+            clearTimeout(timeoutId);
           }
         } catch (e) {
-          console.log('Error checking penalty status in CreatePost:', e.message);
+          // Admin service optional or offline
         }
 
-        const res = await fetch(`${CONFIG.AUTH_SERVICE_URL}/profile`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
+        const authController = new AbortController();
+        const authTimeoutId = setTimeout(() => authController.abort(), 4000);
+        let res;
+        try {
+          res = await fetch(`${CONFIG.AUTH_SERVICE_URL}/profile`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            signal: authController.signal,
+          });
+        } finally {
+          clearTimeout(authTimeoutId);
+        }
         const data = await res.json();
         
         if (data.provider) {
