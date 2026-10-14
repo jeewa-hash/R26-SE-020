@@ -24,11 +24,11 @@ import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { confirmLogout } from '../utils/confirmLogout';
-import { IP_ADDRESS } from '../config';
 import { LanguageContext } from '../context/LanguageContext';
+import { IP_ADDRESS, AUTH_SERVICE_URL as LIVE_AUTH_URL } from '../config';
 
-const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003/seeker`;
-const BASE_AUTH_URL = `http://${IP_ADDRESS}:4003`;
+const BASE_AUTH_URL = LIVE_AUTH_URL || `http://${IP_ADDRESS}:4003`;
+const AUTH_SERVICE_URL = `${BASE_AUTH_URL}/seeker`;
 
 const getProfileImage = (imagePath) => {
   if (!imagePath) return 'https://i.pravatar.cc/150?img=7';
