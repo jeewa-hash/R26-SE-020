@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav from '../components/BottomNav';
 import { IP_ADDRESS } from '../config';
 import { useTheme } from '../hooks/useTheme';
+import { LanguageContext } from '../context/LanguageContext';
 import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
 
 // ======================================================
@@ -36,6 +37,8 @@ const QUOTATION_API_URL = `http://${hostIp}:6000/request-quotations`;
 // ======================================================
 export default function FeedScreen({ navigation }) {
   const { isDarkMode } = useTheme();
+  const { language } = useContext(LanguageContext) || { language: 'en' };
+  const isSi = language === 'si';
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -407,8 +410,8 @@ export default function FeedScreen({ navigation }) {
               ]}
             >
               {ad.likeCount > 0
-                ? `${ad.likeCount} ${ad.likeCount === 1 ? 'Like' : 'Likes'}`
-                : 'Like'}
+                ? `${ad.likeCount} ${isSi ? 'කැමැත්ත' : (ad.likeCount === 1 ? 'Like' : 'Likes')}`
+                : (isSi ? 'කැමතියි' : 'Like')}
             </Text>
           </TouchableOpacity>
 
@@ -420,14 +423,16 @@ export default function FeedScreen({ navigation }) {
           >
             <LinearGradient
               colors={
-                isDarkMode ? ['#818cf8', '#6366f1'] : ['#6366F1', '#4F46E5']
+                isDarkMode ? ['#818cf8', '#6366f1'] : ['#4F46E5', '#6366F1']
               }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.requestQuoteGradient}
             >
               <Ionicons name="document-text-outline" size={16} color="#fff" />
-              <Text style={styles.requestQuoteText}>Request Quote</Text>
+              <Text style={styles.requestQuoteText}>
+                {isSi ? 'මිල ගණන් ඉල්ලන්න' : 'Request Quote'}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -442,9 +447,9 @@ export default function FeedScreen({ navigation }) {
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#667eea'} />
+          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#4F46E5'} />
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
-            Loading ads...
+            {isSi ? 'දැන්වීම් පූරණය වෙමින් පවතී...' : 'Loading ads...'}
           </Text>
         </View>
         <BottomNav />
@@ -459,18 +464,20 @@ export default function FeedScreen({ navigation }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#4338CA'}
       />
 
       <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
+        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#3730A3', '#4F46E5']}
         style={styles.headerGradient}
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Provider Ads</Text>
+          <Text style={styles.headerTitle}>
+            {isSi ? 'සේවා දැන්වීම්' : 'Provider Ads'}
+          </Text>
           <View style={{ width: 24 }} />
         </View>
       </LinearGradient>
@@ -481,7 +488,7 @@ export default function FeedScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[isDarkMode ? '#818cf8' : '#667eea']}
+            colors={[isDarkMode ? '#818cf8' : '#4F46E5']}
           />
         }
       >
@@ -494,7 +501,7 @@ export default function FeedScreen({ navigation }) {
                 color={isDarkMode ? '#475569' : '#D1D5DB'}
               />
               <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>
-                No ads found
+                {isSi ? 'දැනට දැන්වීම් කිසිවක් නැත' : 'No ads found'}
               </Text>
             </View>
           ) : (

@@ -1,10 +1,14 @@
 import os
+import sys
 import io
 import uuid
 import requests
 import numpy as np
 import tensorflow as tf
 import jwt
+
+# Ensure local imports (db_manager, translator, constants) work
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PIL import Image
 from fastapi import FastAPI, UploadFile, File, Body, Query, Depends, HTTPException
@@ -59,6 +63,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+def health_check():
+    return {
+        "status": "online",
+        "service": "Service Image Classifier API",
+        "docs": "/docs",
+        "version": "1.0.0"
+    }
 
 # PROVIDER SERVICE CONFIGURATION
 
@@ -1498,11 +1511,10 @@ async def get_summary(
 # ============================================================
 
 if __name__ == "__main__":
-
     import uvicorn
-
+    port = int(os.environ.get("PORT", 8000))
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000
+        port=port
     )

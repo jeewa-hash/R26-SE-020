@@ -65,9 +65,17 @@ export const analyzeImageWithGemini = async (
     const draft = await requestGeminiJson(generationPrompt, imageBase64);
     const reviewPrompt = `Review and refine this draft using only SOURCE_DATA and the attached image as evidence. Remove unsupported claims, resolve contradictions in favor of SOURCE_DATA, preserve every supplied detail, and do not add facts from retrieved history. Return only JSON with title, description, category, tags (array), and urgency (low|medium|high).\nSOURCE_DATA:\n${sourceBlock}\nDRAFT_TO_REVIEW:\n${JSON.stringify(draft)}`;
 
-    // Do not expose an unreviewed model draft if the grounding pass fails.
-    const reviewed = await requestGeminiJson(reviewPrompt, imageBase64);
-    return normalizePost(reviewed, source, draft);
+    try {
+      const reviewed = await requestGeminiJson(reviewPrompt, imageBase64);
+      return normalizePost(reviewed, source, draft);
+    } catch (reviewError) {
+      // Keep a successful draft if the optional review call hits a rate limit.
+      console.warn(
+        "Gemini review failed; using the generated draft:",
+        reviewError.response?.data || reviewError.message
+      );
+      return normalizePost(draft, source);
+    }
   } catch (err) {
     console.error("Gemini AI generation error:", err.response?.data || err.message);
     return normalizePost({}, source, { category: "General", tags: [] });

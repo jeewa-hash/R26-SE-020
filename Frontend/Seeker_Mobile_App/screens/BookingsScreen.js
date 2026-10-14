@@ -1,6 +1,6 @@
 // screens/BookingsScreen.js
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Image,
   Platform,
   StatusBar,
@@ -19,9 +20,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
-import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
+import { LanguageContext } from '../context/LanguageContext';
 
 const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
@@ -55,6 +56,8 @@ const groupBySession = (requests) => {
 export default function BookingsScreen({ navigation }) {
   const { isDarkMode } = useTheme();
   const { createOrGetChat } = useChat();
+  const { language } = useContext(LanguageContext) || { language: 'en' };
+  const isSi = language === 'si';
 
   const [groupedBookings, setGroupedBookings] = useState([]);
   const [providersMap, setProvidersMap] = useState({});
@@ -63,7 +66,9 @@ export default function BookingsScreen({ navigation }) {
   const [error, setError] = useState(null);
   const [expandedSessions, setExpandedSessions] = useState({});
 
-  const [totalSessions, setTotalSessions] = useState(0);
+  // Filter & Search states
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'pending' | 'confirmed' | 'cancelled'
+  const [searchQuery, setSearchQuery] = useState('');
 
   // ─────────────────────────────────────────────────────────────
   // Fetch all providers into a map keyed by provider id
@@ -102,7 +107,7 @@ export default function BookingsScreen({ navigation }) {
       const userId = await AsyncStorage.getItem('userId');
 
       if (!token || !userId) {
-        setError('Please log in to view your bookings.');
+        setError(isSi ? 'ඔබගේ ඇණවුම් බැලීමට කරුණාකර ලොග් වන්න.' : 'Please log in to view your bookings.');
         setLoading(false);
         return;
       }
@@ -125,22 +130,19 @@ export default function BookingsScreen({ navigation }) {
         const groups = groupBySession(sorted);
         setGroupedBookings(groups);
 
-        const total = groups.length;
-        setTotalSessions(total);
-
         const providerMap = await fetchProviders();
         setProvidersMap(providerMap);
       } else {
-        setError(data.message || 'Failed to load bookings.');
+        setError(data.message || (isSi ? 'ඇණවුම් ලබා ගැනීම අසාර්ථක විය.' : 'Failed to load bookings.'));
       }
     } catch (err) {
       console.error('BOOKINGS FETCH ERROR:', err);
-      setError('Could not connect to the server. Please try again.');
+      setError(isSi ? 'සම්බන්ධ වීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.' : 'Could not connect to the server. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [fetchProviders]);
+  }, [fetchProviders, isSi]);
 
   useEffect(() => {
     fetchBookings();
@@ -155,62 +157,91 @@ export default function BookingsScreen({ navigation }) {
   // Helpers
   // ─────────────────────────────────────────────────────────────
   const formatDate = (dateString) => {
+    if (!dateString) return '';
     const date = new Date(dateString);
     const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    if (date.toDateString() === today.toDateString()) return 'Today';
-    if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return isSi ? 'අද' : 'Today';
+    }
+    if (date.toDateString() === yesterday.toDateString()) {
+      return isSi ? 'ඊයේ' : 'Yesterday';
+    }
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: 'numeric',
     });
   };
 
-  const formatTime = (dateString) =>
-    new Date(dateString).toLocaleTimeString('en-US', {
+  const formatTime = (dateString) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
 
   const getStatusStyle = (status) => {
-    switch (status) {
+    const s = String(status || '').toLowerCase();
+    switch (s) {
       case 'confirmed':
+      case 'accepted':
         return {
-          bg: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5',
+          bg: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
+          border: isDarkMode ? '#065F46' : '#A7F3D0',
           color: '#10B981',
-          icon: 'checkmark-circle',
-          text: 'Confirmed',
+          text: isSi ? 'තහවුරුයි' : 'Confirmed',
         };
       case 'pending':
         return {
-          bg: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#FEF3C7',
-          color: '#F59E0B',
-          icon: 'time-outline',
-          text: 'Pending',
+          bg: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#FFFBEB',
+          border: isDarkMode ? '#92400E' : '#FDE68A',
+          color: '#D97706',
+          text: isSi ? 'පොරොත්තුවේ' : 'Pending',
         };
       case 'cancelled':
+      case 'canceled':
         return {
-          bg: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2',
+          bg: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+          border: isDarkMode ? '#991B1B' : '#FECACA',
           color: '#EF4444',
-          icon: 'close-circle',
-          text: 'Cancelled',
+          text: isSi ? 'අවලංගුයි' : 'Cancelled',
+        };
+      case 'rejected':
+        return {
+          bg: isDarkMode ? 'rgba(107, 114, 128, 0.15)' : '#F3F4F6',
+          border: isDarkMode ? '#374151' : '#E5E7EB',
+          color: '#6B7280',
+          text: isSi ? 'ප්‍රතික්ෂේපිත' : 'Declined',
         };
       default:
         return {
-          bg: isDarkMode ? '#242f4d' : '#F3F4F6',
-          color: isDarkMode ? '#94A3B8' : '#6B7280',
-          icon: 'help-circle-outline',
-          text: status,
+          bg: isDarkMode ? '#1E293B' : '#F8FAFC',
+          border: isDarkMode ? '#334155' : '#E2E8F0',
+          color: isDarkMode ? '#94A3B8' : '#64748B',
+          text: status || (isSi ? 'සාමාන්‍ය' : 'Normal'),
         };
     }
   };
 
   const getServiceTitle = (group) => {
-    const cat = group.detectedCategory || 'Service';
+    const cat = group.detectedCategory || (isSi ? 'සේවාව' : 'Service');
     const obj = group.detectedObject || '';
     return obj ? `${cat} – ${obj}` : cat;
+  };
+
+  const getCategoryIcon = (category = '') => {
+    const cat = category.toLowerCase();
+    if (cat.includes('plumb') || cat.includes('water') || cat.includes('pipe')) return 'water-outline';
+    if (cat.includes('clean')) return 'sparkles-outline';
+    if (cat.includes('electric') || cat.includes('wire') || cat.includes('ac')) return 'flash-outline';
+    if (cat.includes('garden') || cat.includes('grass')) return 'leaf-outline';
+    if (cat.includes('paint')) return 'color-palette-outline';
+    if (cat.includes('car') || cat.includes('vehicle')) return 'car-outline';
+    if (cat.includes('wood') || cat.includes('furniture')) return 'hammer-outline';
+    return 'construct-outline';
   };
 
   const getProvider = (providerId) => providersMap[providerId] || null;
@@ -232,28 +263,87 @@ export default function BookingsScreen({ navigation }) {
   };
 
   const getSessionOverallStatus = (group) => {
-    const statuses = group.requests.map((r) => r.status);
-    if (statuses.some((s) => s === 'confirmed')) return 'confirmed';
-    if (statuses.some((s) => s === 'cancelled') && statuses.every((s) => s === 'cancelled'))
-      return 'cancelled';
+    const statuses = group.requests.map((r) => String(r.status || '').toLowerCase());
+    if (statuses.some((s) => s === 'confirmed' || s === 'accepted')) return 'confirmed';
+    if (statuses.length > 0 && statuses.every((s) => s === 'cancelled' || s === 'canceled')) return 'cancelled';
     return 'pending';
   };
 
   const toggleExpand = (sessionId) => {
     setExpandedSessions((prev) => ({
       ...prev,
-      [sessionId]: !prev[sessionId],
+      [sessionId]: !(prev[sessionId] ?? true),
     }));
   };
 
   // ─────────────────────────────────────────────────────────────
-  //  UPDATED: handleMessage – now passes booking details to ChatScreen
+  // Counts calculation
+  // ─────────────────────────────────────────────────────────────
+  const counts = useMemo(() => {
+    let pending = 0;
+    let confirmed = 0;
+    let cancelled = 0;
+
+    groupedBookings.forEach((group) => {
+      const st = getSessionOverallStatus(group);
+      if (st === 'confirmed') confirmed++;
+      else if (st === 'cancelled') cancelled++;
+      else pending++;
+    });
+
+    return {
+      all: groupedBookings.length,
+      pending,
+      confirmed,
+      cancelled,
+    };
+  }, [groupedBookings]);
+
+  // ─────────────────────────────────────────────────────────────
+  // Filtered & Searched bookings
+  // ─────────────────────────────────────────────────────────────
+  const filteredBookings = useMemo(() => {
+    return groupedBookings.filter((group) => {
+      const overallStatus = getSessionOverallStatus(group);
+
+      if (activeFilter !== 'all' && overallStatus !== activeFilter) {
+        return false;
+      }
+
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const cat = (group.detectedCategory || '').toLowerCase();
+        const obj = (group.detectedObject || '').toLowerCase();
+        const desc = (group.briefDescription || '').toLowerCase();
+        const loc = typeof group.serviceLocation === 'string' ? group.serviceLocation.toLowerCase() : '';
+
+        const matchesProvider = group.requests.some((r) =>
+          getProviderName(r.providerId).toLowerCase().includes(query)
+        );
+
+        if (
+          !cat.includes(query) &&
+          !obj.includes(query) &&
+          !desc.includes(query) &&
+          !loc.includes(query) &&
+          !matchesProvider
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [groupedBookings, activeFilter, searchQuery, providersMap]);
+
+  // ─────────────────────────────────────────────────────────────
+  // Action Handlers
   // ─────────────────────────────────────────────────────────────
   const handleMessage = async (request, group = {}) => {
     try {
       const currentUserId = await AsyncStorage.getItem('userId');
       if (!currentUserId) {
-        Alert.alert('Error', 'Please log in to send a message.');
+        Alert.alert(isSi ? 'දැනුම්දීම' : 'Notice', isSi ? 'කරුණාකර පළමුව ලොග් වන්න.' : 'Please log in to send a message.');
         return;
       }
 
@@ -261,7 +351,7 @@ export default function BookingsScreen({ navigation }) {
       const chatId = await createOrGetChat(currentUserId, receiverId);
 
       if (!chatId) {
-        Alert.alert('Error', 'Could not start chat. Please try again.');
+        Alert.alert(isSi ? 'දෝෂයකි' : 'Error', isSi ? 'චැට් එක ආරම්භ කළ නොහැකි විය.' : 'Could not start chat. Please try again.');
         return;
       }
 
@@ -269,15 +359,15 @@ export default function BookingsScreen({ navigation }) {
       const name = provider?.name || `Provider ${String(receiverId).slice(-4)}`;
       const avatar = getProviderImage(receiverId);
 
-      // ─── Extract booking request details ──────────────────
       const postTitle = request.detectedObject || request.detectedCategory || group?.detectedObject || group?.detectedCategory || 'Service Request';
       const postDescription = request.briefDescription || group?.briefDescription || '';
       const postCategory = 'Service Request';
       const postUrgency = request.urgencyLevel || group?.urgencyLevel || 'Normal';
       const postImage = request.images?.[0] || request.photos?.[0] || request.image || group?.images?.[0] || null;
 
-      // ─── Clean initial prompt for FB/Insta post inquiry ───
-      const initialMessage = `Hi! I would like to discuss this service request with you.`;
+      const initialMessage = isSi
+        ? `ආයුබෝවන්! මට මෙම සේවා ඉල්ලීම පිළිබඳව ඔබ සමඟ කතා කිරීමට අවශ්‍යයි.`
+        : `Hi! I would like to discuss this service request with you.`;
 
       navigation.navigate('ChatScreen', {
         chatId,
@@ -285,21 +375,20 @@ export default function BookingsScreen({ navigation }) {
         userName: name,
         userAvatar: avatar,
         userRole: 'Provider',
-        // ─── Pass booking details as post context ──────────
         source: 'booking',
         isBooking: true,
         postId: request._id || request.sessionId || group?.sessionId,
         requestId: request._id || request.sessionId || group?.sessionId,
-        postTitle: postTitle,
-        postDescription: postDescription,
-        postImage: postImage,
-        postCategory: postCategory,
-        postUrgency: postUrgency,
-        initialMessage: initialMessage,
+        postTitle,
+        postDescription,
+        postImage,
+        postCategory,
+        postUrgency,
+        initialMessage,
       });
     } catch (error) {
       console.error('Error starting chat:', error);
-      Alert.alert('Error', 'Could not open chat.');
+      Alert.alert(isSi ? 'දෝෂයකි' : 'Error', isSi ? 'චැට් එක විවෘත කළ නොහැකි විය.' : 'Could not open chat.');
     }
   };
 
@@ -314,7 +403,7 @@ export default function BookingsScreen({ navigation }) {
   const handleViewProviderProfile = (providerId) => {
     const provider = getProvider(providerId);
     if (!provider) {
-      Alert.alert('Error', 'Provider information not found.');
+      Alert.alert(isSi ? 'දෝෂයකි' : 'Error', isSi ? 'සපයන්නාගේ තොරතුරු සොයාගත නොහැකි විය.' : 'Provider information not found.');
       return;
     }
     navigation.navigate('ProviderProfile', {
@@ -335,27 +424,22 @@ export default function BookingsScreen({ navigation }) {
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <StatusBar
           barStyle="light-content"
-          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+          backgroundColor={isDarkMode ? '#0F172A' : '#4338CA'}
         />
         <LinearGradient
-          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          colors={isDarkMode ? ['#0F172A', '#1E1B4B'] : ['#4338CA', '#4F46E5']}
           style={styles.header}
         >
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
-          >
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
+            <Ionicons name="arrow-back" size={22} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Bookings</Text>
-          <View style={styles.headerBtn} />
+          <Text style={styles.headerTitle}>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</Text>
+          <View style={{ width: 38 }} />
         </LinearGradient>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#667eea'} />
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#4F46E5" />
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
-            Loading your bookings…
+            {isSi ? 'ඇණවුම් ලබා ගනිමින් පවතී…' : 'Loading your bookings…'}
           </Text>
         </View>
       </SafeAreaView>
@@ -363,91 +447,197 @@ export default function BookingsScreen({ navigation }) {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // Main render
+  // Main Render
   // ─────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDarkMode ? '#0F172A' : '#4338CA'}
       />
 
+      {/* Top Header - Compact & Clean */}
       <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
+        colors={isDarkMode ? ['#0F172A', '#1E1B4B'] : ['#4338CA', '#4F46E5']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
+          style={styles.headerBtn}
+          activeOpacity={0.8}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Requests</Text>
+
+        <View style={styles.headerTitleWrap}>
+          <Text style={styles.headerTitle}>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</Text>
+        </View>
+
         <TouchableOpacity
-          style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
+          style={styles.headerBtn}
           onPress={onRefresh}
+          activeOpacity={0.8}
         >
-          <Ionicons name="refresh-outline" size={22} color="#fff" />
+          <Ionicons name="refresh-outline" size={20} color="#fff" />
         </TouchableOpacity>
       </LinearGradient>
 
-      <View style={[styles.statsContainer, isDarkMode && styles.statsContainerDark]}>
-        <View style={styles.statCard}>
-          <Text style={[styles.statNumber, isDarkMode && styles.statNumberDark]}>
-            {totalSessions}
-          </Text>
-          <Text style={[styles.statLabel, isDarkMode && styles.statLabelDark]}>
-            Total
-          </Text>
+      {/* Clean Top Controls: Filter Pills + Compact Search */}
+      <View style={[styles.topControls, isDarkMode && styles.topControlsDark]}>
+        {/* Horizontal Filter Tabs */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}
+        >
+          {[
+            { key: 'all', label: isSi ? 'සියල්ල' : 'All', count: counts.all },
+            { key: 'pending', label: isSi ? 'පොරොත්තුවේ' : 'Pending', count: counts.pending },
+            { key: 'confirmed', label: isSi ? 'තහවුරු වූ' : 'Confirmed', count: counts.confirmed },
+            { key: 'cancelled', label: isSi ? 'අවලංගු' : 'Cancelled', count: counts.cancelled },
+          ].map((tab) => {
+            const isSelected = activeFilter === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                onPress={() => setActiveFilter(tab.key)}
+                style={[
+                  styles.tabPill,
+                  isSelected && styles.tabPillActive,
+                  isDarkMode && styles.tabPillDark,
+                  isSelected && isDarkMode && styles.tabPillActiveDark,
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.tabPillText,
+                    isSelected && styles.tabPillTextActive,
+                    isDarkMode && !isSelected && styles.textMutedDark,
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+                <View
+                  style={[
+                    styles.tabCountBadge,
+                    isSelected && styles.tabCountBadgeActive,
+                    isDarkMode && !isSelected && styles.tabCountBadgeDark,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.tabCountText,
+                      isSelected && styles.tabCountTextActive,
+                      isDarkMode && !isSelected && styles.textMutedDark,
+                    ]}
+                  >
+                    {tab.count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Compact Search Bar */}
+        <View style={[styles.searchBox, isDarkMode && styles.searchBoxDark]}>
+          <Ionicons
+            name="search-outline"
+            size={16}
+            color={isDarkMode ? '#64748B' : '#94A3B8'}
+            style={{ marginRight: 8 }}
+          />
+          <TextInput
+            style={[styles.searchInput, isDarkMode && styles.textDark]}
+            placeholder={isSi ? 'සේවාව හෝ සපයන්නා සොයන්න…' : 'Search service, provider, category…'}
+            placeholderTextColor={isDarkMode ? '#64748B' : '#94A3B8'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close-circle" size={16} color={isDarkMode ? '#94A3B8' : '#9CA3AF'} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
-          Service Requests
-        </Text>
-        <Text style={[styles.sectionCount, isDarkMode && styles.textMutedDark]}>
-          {totalSessions} {totalSessions === 1 ? 'request' : 'requests'}
-        </Text>
-      </View>
-
+      {/* Main List */}
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[isDarkMode ? '#818cf8' : '#667eea']}
+            colors={['#4F46E5']}
+            tintColor={isDarkMode ? '#818CF8' : '#4F46E5'}
           />
         }
       >
         {error ? (
-          <View style={styles.centerBox}>
-            <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-            <Text style={[styles.errorText, isDarkMode && styles.textMutedDark]}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
-              <Text style={styles.retryButtonText}>Retry</Text>
+          <View style={[styles.emptyCard, isDarkMode && styles.emptyCardDark]}>
+            <Ionicons name="alert-circle-outline" size={38} color="#EF4444" />
+            <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
+              {isSi ? 'දෝෂයක් සිදු විය' : 'Connection Error'}
+            </Text>
+            <Text style={[styles.emptyDesc, isDarkMode && styles.textMutedDark]}>{error}</Text>
+            <TouchableOpacity style={styles.actionBtnPrimary} onPress={onRefresh} activeOpacity={0.8}>
+              <Ionicons name="refresh" size={15} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={styles.actionBtnPrimaryText}>{isSi ? 'නැවත උත්සාහ කරන්න' : 'Try Again'}</Text>
             </TouchableOpacity>
           </View>
-        ) : groupedBookings.length === 0 ? (
-          <View style={styles.centerBox}>
-            <Ionicons
-              name="calendar-outline"
-              size={64}
-              color={isDarkMode ? '#334155' : '#D1D5DB'}
-            />
+        ) : filteredBookings.length === 0 ? (
+          <View style={[styles.emptyCard, isDarkMode && styles.emptyCardDark]}>
+            <View style={[styles.emptyIconWrap, isDarkMode && styles.emptyIconWrapDark]}>
+              <Ionicons
+                name={searchQuery ? 'search-outline' : 'receipt-outline'}
+                size={36}
+                color={isDarkMode ? '#818CF8' : '#4F46E5'}
+              />
+            </View>
             <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
-              No bookings yet
+              {searchQuery
+                ? (isSi ? 'ප්‍රතිඵල හමු නොවීය' : 'No matching bookings')
+                : activeFilter !== 'all'
+                ? (isSi ? 'මෙම කාණ්ඩයේ ඇණවුම් නොමැත' : `No ${activeFilter} bookings`)
+                : (isSi ? 'තවමත් ඇණවුම් නොමැත' : 'No bookings yet')}
             </Text>
-            <Text style={[styles.emptyText, isDarkMode && styles.textMutedDark]}>
-              Your service requests will appear here once you request a quote from a provider.
+            <Text style={[styles.emptyDesc, isDarkMode && styles.textMutedDark]}>
+              {searchQuery
+                ? (isSi ? 'වෙනත් වචනයක් යොදා සොයා බලන්න.' : 'Try a different search query or clear filters.')
+                : (isSi
+                    ? 'සේවා සපයන්නන්ගෙන් මිල ගණන් ඉල්ලූ පසු ඔබගේ ඇණවුම් මෙහි පිළිවෙළට දැකගත හැක.'
+                    : 'Your service requests will appear here once you request a quote from providers.')}
             </Text>
+
+            {searchQuery ? (
+              <TouchableOpacity
+                style={styles.actionBtnSecondary}
+                onPress={() => {
+                  setSearchQuery('');
+                  setActiveFilter('all');
+                }}
+              >
+                <Text style={styles.actionBtnSecondaryText}>{isSi ? 'සෙවුම ඉවත් කරන්න' : 'Clear Search'}</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.actionBtnPrimary}
+                onPress={() => navigation.navigate('CreatePostScreen')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 4 }} />
+                <Text style={styles.actionBtnPrimaryText}>{isSi ? 'නව සේවාවක් සොයන්න' : 'Request a Service'}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
-          groupedBookings.map((group) => {
+          filteredBookings.map((group) => {
             const overallStatus = getSessionOverallStatus(group);
             const overallStyle = getStatusStyle(overallStatus);
             const title = getServiceTitle(group);
@@ -455,91 +645,132 @@ export default function BookingsScreen({ navigation }) {
             const time = formatTime(group.createdAt);
             const providerCount = group.requests.length;
             const isExpanded = expandedSessions[group.sessionId] ?? true;
+            const categoryIcon = getCategoryIcon(group.detectedCategory || '');
+            const isUrgent =
+              group.urgencyLevel &&
+              (group.urgencyLevel.toLowerCase().includes('high') ||
+                group.urgencyLevel.toLowerCase().includes('urgent'));
 
             return (
               <View
                 key={group.sessionId}
-                style={[styles.sessionCard, isDarkMode && styles.sessionCardDark]}
+                style={[styles.card, isDarkMode && styles.cardDark]}
               >
-                <LinearGradient
-                  colors={isDarkMode ? ['#16213e', '#1a2238'] : ['#ffffff', '#f8f9ff']}
-                  style={styles.cardGradient}
-                >
-                  <View style={styles.cardTop}>
-                    <LinearGradient
-                      colors={['#667eea', '#764ba2']}
-                      style={styles.serviceIconBubble}
-                    >
-                      <Ionicons name="construct-outline" size={20} color="#fff" />
-                    </LinearGradient>
+                {/* 1. Main Card Info Row */}
+                <View style={styles.cardMain}>
+                  <View style={[styles.catIconWrap, isDarkMode && styles.catIconWrapDark]}>
+                    <Ionicons
+                      name={categoryIcon}
+                      size={20}
+                      color={isDarkMode ? '#818CF8' : '#4F46E5'}
+                    />
+                  </View>
 
-                    <View style={styles.cardTopInfo}>
+                  <View style={styles.cardHeaderInfo}>
+                    <View style={styles.titleRow}>
                       <Text
                         style={[styles.serviceTitle, isDarkMode && styles.textDark]}
                         numberOfLines={1}
                       >
                         {title}
                       </Text>
-                      <View style={styles.metaRow}>
-                        <Ionicons
-                          name="calendar-outline"
-                          size={12}
-                          color={isDarkMode ? '#94A3B8' : '#9CA3AF'}
-                        />
-                        <Text style={[styles.metaText, isDarkMode && styles.textMutedDark]}>
-                          {date} at {time}
-                        </Text>
-                      </View>
-                      {group.urgencyLevel ? (
-                        <View style={styles.metaRow}>
-                          <Ionicons
-                            name="flash-outline"
-                            size={12}
-                            color={isDarkMode ? '#94A3B8' : '#9CA3AF'}
-                          />
-                          <Text style={[styles.metaText, isDarkMode && styles.textMutedDark]}>
-                            {group.urgencyLevel} urgency
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
 
-                    {overallStatus !== 'pending' && (
-                      <View style={[styles.statusBadge, { backgroundColor: overallStyle.bg }]}>
-                        <Ionicons name={overallStyle.icon} size={13} color={overallStyle.color} />
-                        <Text style={[styles.statusText, { color: overallStyle.color }]}>
+                      {/* Clean Status Pill with dot */}
+                      <View
+                        style={[
+                          styles.statusPill,
+                          {
+                            backgroundColor: overallStyle.bg,
+                            borderColor: overallStyle.border,
+                          },
+                        ]}
+                      >
+                        <View style={[styles.statusDot, { backgroundColor: overallStyle.color }]} />
+                        <Text style={[styles.statusPillText, { color: overallStyle.color }]}>
                           {overallStyle.text}
                         </Text>
                       </View>
-                    )}
+                    </View>
+
+                    {/* Subtitle / Metadata row */}
+                    <View style={styles.metaRow}>
+                      <Text style={[styles.metaText, isDarkMode && styles.textMutedDark]}>
+                        {date} • {time}
+                      </Text>
+
+                      {group.serviceLocation && typeof group.serviceLocation === 'string' && (
+                        <>
+                          <Text style={[styles.metaDivider, isDarkMode && styles.textMutedDark]}>•</Text>
+                          <View style={styles.inlineLocation}>
+                            <Ionicons
+                              name="location-outline"
+                              size={12}
+                              color={isDarkMode ? '#94A3B8' : '#64748B'}
+                            />
+                            <Text
+                              style={[styles.metaText, isDarkMode && styles.textMutedDark]}
+                              numberOfLines={1}
+                            >
+                              {group.serviceLocation}
+                            </Text>
+                          </View>
+                        </>
+                      )}
+
+                      {isUrgent && (
+                        <View style={styles.urgentBadge}>
+                          <Ionicons name="flash" size={10} color="#EF4444" />
+                          <Text style={styles.urgentBadgeText}>
+                            {isSi ? 'හදිසි' : 'Urgent'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </View>
+
+                {/* 2. Brief description (Clean, unobtrusive) */}
+                {group.briefDescription ? (
+                  <View style={[styles.descWrap, isDarkMode && styles.descWrapDark]}>
+                    <Text
+                      style={[styles.descText, isDarkMode && styles.textMutedDark]}
+                      numberOfLines={2}
+                    >
+                      "{group.briefDescription}"
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* 3. Providers Accordion Header */}
+                <TouchableOpacity
+                  style={[styles.accordionBar, isDarkMode && styles.accordionBarDark]}
+                  onPress={() => toggleExpand(group.sessionId)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.accordionLeft}>
+                    <Ionicons
+                      name="people-outline"
+                      size={15}
+                      color={isDarkMode ? '#818CF8' : '#4F46E5'}
+                    />
+                    <Text style={[styles.accordionTitle, isDarkMode && styles.textDark]}>
+                      {isSi
+                        ? `සපයන්නන් (${providerCount})`
+                        : `Providers Contacted (${providerCount})`}
+                    </Text>
                   </View>
 
-                  <View style={[styles.divider, isDarkMode && styles.dividerDark]} />
+                  <Ionicons
+                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={16}
+                    color={isDarkMode ? '#94A3B8' : '#64748B'}
+                  />
+                </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.providersHeader}
-                    onPress={() => toggleExpand(group.sessionId)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.providersHeaderLeft}>
-                      <Ionicons
-                        name="people-outline"
-                        size={15}
-                        color={isDarkMode ? '#818cf8' : '#667eea'}
-                      />
-                      <Text style={[styles.providersLabel, isDarkMode && styles.providersLabelDark]}>
-                        {providerCount} Provider{providerCount !== 1 ? 's' : ''} Contacted
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                      size={16}
-                      color={isDarkMode ? '#94A3B8' : '#9CA3AF'}
-                    />
-                  </TouchableOpacity>
-
-                  {isExpanded &&
-                    group.requests.map((req, idx) => {
+                {/* 4. Provider Rows */}
+                {isExpanded && (
+                  <View style={styles.providerList}>
+                    {group.requests.map((req, idx) => {
                       const pId = String(req.providerId);
                       const pName = getProviderName(pId);
                       const pImage = getProviderImage(pId);
@@ -547,8 +778,9 @@ export default function BookingsScreen({ navigation }) {
                       const isLast = idx === group.requests.length - 1;
 
                       return (
-                        <View key={req._id}>
+                        <View key={req._id || idx}>
                           <View style={styles.providerRow}>
+                            {/* Avatar */}
                             <TouchableOpacity
                               onPress={() => handleViewProviderProfile(pId)}
                               activeOpacity={0.8}
@@ -556,8 +788,12 @@ export default function BookingsScreen({ navigation }) {
                               <Image source={{ uri: pImage }} style={styles.providerAvatar} />
                             </TouchableOpacity>
 
-                            <View style={styles.providerInfo}>
-                              <TouchableOpacity onPress={() => handleViewProviderProfile(pId)}>
+                            {/* Info */}
+                            <View style={styles.providerMainInfo}>
+                              <TouchableOpacity
+                                onPress={() => handleViewProviderProfile(pId)}
+                                activeOpacity={0.7}
+                              >
                                 <Text
                                   style={[styles.providerName, isDarkMode && styles.textDark]}
                                   numberOfLines={1}
@@ -565,417 +801,534 @@ export default function BookingsScreen({ navigation }) {
                                   {pName}
                                 </Text>
                               </TouchableOpacity>
-                              {req.status !== 'pending' && req.status !== 'confirmed' && (
-                                <View style={[styles.providerStatusChip, { backgroundColor: pStatus.bg }]}>
-                                  <Ionicons name={pStatus.icon} size={11} color={pStatus.color} />
-                                  <Text style={[styles.providerStatusText, { color: pStatus.color }]}>
-                                    {pStatus.text}
-                                  </Text>
-                                </View>
-                              )}
+
+                              <View style={styles.providerStatusRow}>
+                                <View style={[styles.miniDot, { backgroundColor: pStatus.color }]} />
+                                <Text style={[styles.providerStatusText, { color: pStatus.color }]}>
+                                  {pStatus.text}
+                                </Text>
+                              </View>
                             </View>
 
+                            {/* Clean action buttons */}
                             <View style={styles.providerActions}>
                               <TouchableOpacity
-                                style={[styles.iconBtn, isDarkMode && styles.iconBtnDark]}
+                                style={[styles.chatBtnOutline, isDarkMode && styles.chatBtnOutlineDark]}
                                 onPress={() => handleMessage(req, group)}
+                                activeOpacity={0.75}
                               >
                                 <Ionicons
-                                  name="chatbubble-outline"
-                                  size={16}
-                                  color={isDarkMode ? '#818cf8' : '#667eea'}
+                                  name="chatbubble-ellipses-outline"
+                                  size={15}
+                                  color={isDarkMode ? '#818CF8' : '#4F46E5'}
                                 />
+                                <Text style={[styles.chatBtnText, isDarkMode && styles.chatBtnTextDark]}>
+                                  {isSi ? 'චැට්' : 'Chat'}
+                                </Text>
                               </TouchableOpacity>
+
                               <TouchableOpacity
-                                style={[styles.viewQuoteBtn, isDarkMode && styles.viewQuoteBtnDark]}
+                                style={[styles.viewBtnSolid, isDarkMode && styles.viewBtnSolidDark]}
                                 onPress={() => handleViewQuote(req)}
+                                activeOpacity={0.8}
                               >
-                                <Ionicons
-                                  name="document-text-outline"
-                                  size={14}
-                                  color={isDarkMode ? '#a78bfa' : '#8B5CF6'}
-                                />
-                                <Text
-                                  style={[
-                                    styles.viewQuoteBtnText,
-                                    isDarkMode && styles.viewQuoteBtnTextDark,
-                                  ]}
-                                >
-                                  View
+                                <Ionicons name="document-text-outline" size={13} color="#fff" />
+                                <Text style={styles.viewBtnSolidText}>
+                                  {isSi ? 'විස්තර' : 'Details'}
                                 </Text>
                               </TouchableOpacity>
                             </View>
                           </View>
 
                           {!isLast && (
-                            <View style={[styles.rowSeparator, isDarkMode && styles.rowSeparatorDark]} />
+                            <View style={[styles.rowDivider, isDarkMode && styles.rowDividerDark]} />
                           )}
                         </View>
                       );
                     })}
-                </LinearGradient>
+                  </View>
+                )}
               </View>
             );
           })
         )}
       </ScrollView>
-
-      <BottomNav />
     </SafeAreaView>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// Styles (unchanged – keep your existing styles)
+// Clean, Balanced, Uncluttered Styles
 // ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F0F4FF',
+    backgroundColor: '#F8FAFC',
   },
   containerDark: {
-    backgroundColor: '#0f1121',
+    backgroundColor: '#0B0F19',
   },
+
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: Platform.OS === 'ios' ? 10 : 12,
   },
   headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerBtnDark: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+  headerTitleWrap: {
+    alignItems: 'center',
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.3,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 20,
-    borderRadius: 20,
-    padding: 18,
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  statsContainerDark: {
-    backgroundColor: '#16213e',
-    borderColor: '#2d3561',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#667eea',
-    marginBottom: 2,
-  },
-  statNumberDark: {
-    color: '#818cf8',
-  },
-  statLabel: {
-    fontSize: 11,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  statLabelDark: {
-    color: '#94A3B8',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 4,
-  },
-  statDividerDark: {
-    backgroundColor: '#2d3561',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginTop: 24,
-    marginBottom: 12,
-  },
-  sectionTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
-  sectionCount: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '500',
+
+  // Top Controls Bar (Clean Segment + Compact Search)
+  topControls: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingTop: 10,
+    paddingBottom: 10,
   },
-  content: {
+  topControlsDark: {
+    backgroundColor: '#111827',
+    borderColor: '#1F2937',
+  },
+  filterScroll: {
     paddingHorizontal: 16,
-    paddingBottom: 100,
+    gap: 8,
+    paddingBottom: 8,
   },
-  sessionCard: {
-    marginBottom: 16,
-    borderRadius: 22,
-    overflow: 'hidden',
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 5,
-  },
-  sessionCardDark: {
-    borderColor: '#2d3561',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-  },
-  cardGradient: {
-    padding: 16,
-    borderRadius: 22,
-  },
-  cardTop: {
+  tabPill: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 14,
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    gap: 6,
   },
-  serviceIconBubble: {
-    width: 44,
-    height: 44,
+  tabPillDark: {
+    backgroundColor: '#1F2937',
+  },
+  tabPillActive: {
+    backgroundColor: '#4F46E5',
+  },
+  tabPillActiveDark: {
+    backgroundColor: '#4F46E5',
+  },
+  tabPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  tabPillTextActive: {
+    color: '#FFFFFF',
+  },
+  tabCountBadge: {
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  tabCountBadgeDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  tabCountBadgeActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  tabCountText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  tabCountTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Compact Search Box
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    marginHorizontal: 16,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 36,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  searchBoxDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#1E293B',
+    paddingVertical: 0,
+  },
+
+  // Content List
+  listContent: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+
+  // Booking Card
+  card: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#64748B',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 1.5,
+      },
+    }),
+  },
+  cardDark: {
+    backgroundColor: '#111827',
+    borderColor: '#1F2937',
+  },
+
+  // Card Main Row
+  cardMain: {
+    flexDirection: 'row',
+    padding: 14,
+    alignItems: 'flex-start',
+  },
+  catIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-    flexShrink: 0,
+    marginRight: 10,
+    marginTop: 2,
   },
-  cardTopInfo: {
+  catIconWrapDark: {
+    backgroundColor: '#1E1B4B',
+  },
+  cardHeaderInfo: {
     flex: 1,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   serviceTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
+    color: '#0F172A',
+    flex: 1,
+    letterSpacing: -0.2,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusPillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
   },
   metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 4,
+    gap: 5,
+  },
+  metaText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  metaDivider: {
+    fontSize: 10,
+    color: '#CBD5E1',
+  },
+  inlineLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    maxWidth: 120,
+  },
+  urgentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    gap: 2,
+    marginLeft: 4,
+  },
+  urgentBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+
+  // Description
+  descWrap: {
+    backgroundColor: '#F8FAFC',
+    marginHorizontal: 14,
+    marginBottom: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#818CF8',
+  },
+  descWrapDark: {
+    backgroundColor: '#0F172A',
+    borderLeftColor: '#4F46E5',
+  },
+  descText: {
+    fontSize: 11.5,
+    color: '#64748B',
+    lineHeight: 16,
+    fontStyle: 'italic',
+  },
+
+  // Accordion Header
+  accordionBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: '#F8FAFC',
+    borderTopWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  accordionBarDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  accordionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  accordionTitle: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+
+  // Provider List
+  providerList: {
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+  },
+  providerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  providerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginRight: 10,
+  },
+  providerMainInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  providerName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  providerStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     marginTop: 2,
   },
-  metaText: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-    alignSelf: 'flex-start',
-    flexShrink: 0,
-    marginLeft: 8,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginBottom: 12,
-  },
-  dividerDark: {
-    backgroundColor: '#2d3561',
-  },
-  providersHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  providersHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  providersLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#667eea',
-  },
-  providersLabelDark: {
-    color: '#818cf8',
-  },
-  providerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  providerAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 2,
-    borderColor: '#667eea',
-    marginRight: 10,
-  },
-  providerInfo: {
-    flex: 1,
-  },
-  providerName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  providerStatusChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
+  miniDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   providerStatusText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
   },
+
+  // Action Buttons
   providerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginLeft: 8,
+    gap: 6,
   },
-  iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+  chatBtnOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    backgroundColor: '#EEF2FF',
+    gap: 3,
+  },
+  chatBtnOutlineDark: {
+    backgroundColor: '#1E1B4B',
+    borderColor: '#3730A3',
+  },
+  chatBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4F46E5',
+  },
+  chatBtnTextDark: {
+    color: '#818CF8',
+  },
+  viewBtnSolid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 3,
+  },
+  viewBtnSolidDark: {
+    backgroundColor: '#4338CA',
+  },
+  viewBtnSolidText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  rowDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginLeft: 46,
+  },
+  rowDividerDark: {
+    backgroundColor: '#1E293B',
+  },
+
+  // Empty & Status Cards
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 24,
+    alignItems: 'center',
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  emptyCardDark: {
+    backgroundColor: '#111827',
+    borderColor: '#1F2937',
+  },
+  emptyIconWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#EEF2FF',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  iconBtnDark: {
-    backgroundColor: '#242f4d',
+  emptyIconWrapDark: {
+    backgroundColor: '#1E1B4B',
   },
-  viewQuoteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 10,
-    backgroundColor: '#F5F3FF',
-    borderWidth: 1,
-    borderColor: '#8B5CF6',
-  },
-  viewQuoteBtnDark: {
-    backgroundColor: '#1e1b4b',
-    borderColor: '#7c3aed',
-  },
-  viewQuoteBtnText: {
-    fontSize: 12,
+  emptyTitle: {
+    fontSize: 15,
     fontWeight: '700',
-    color: '#8B5CF6',
+    color: '#0F172A',
+    marginBottom: 4,
   },
-  viewQuoteBtnTextDark: {
-    color: '#a78bfa',
-  },
-  rowSeparator: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginLeft: 52,
-  },
-  rowSeparatorDark: {
-    backgroundColor: '#1e2a45',
-  },
-  descriptionBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    marginTop: 12,
-    backgroundColor: '#F8F9FF',
-    borderRadius: 10,
-    padding: 10,
-  },
-  descriptionBoxDark: {
-    backgroundColor: '#0f172a',
-  },
-  descriptionText: {
+  emptyDesc: {
     fontSize: 12,
-    color: '#6B7280',
-    flex: 1,
+    color: '#64748B',
+    textAlign: 'center',
     lineHeight: 18,
+    marginBottom: 16,
+    paddingHorizontal: 16,
   },
-  centerBox: {
-    justifyContent: 'center',
+  actionBtnPrimary: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 60,
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 10,
   },
-  loadingContainer: {
+  actionBtnPrimaryText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12.5,
+  },
+  actionBtnSecondary: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+  },
+  actionBtnSecondaryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+
+  // Centered Loading
+  centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 14,
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#EF4444',
-    textAlign: 'center',
     marginTop: 12,
-    marginBottom: 16,
-    paddingHorizontal: 20,
+    fontSize: 13,
+    color: '#64748B',
   },
-  retryButton: {
-    backgroundColor: '#667eea',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginTop: 8,
-    paddingHorizontal: 30,
-    lineHeight: 20,
-  },
+
   textDark: {
     color: '#F8FAFC',
   },
