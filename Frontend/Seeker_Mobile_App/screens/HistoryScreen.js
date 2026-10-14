@@ -17,13 +17,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { IP_ADDRESS } from '../config';
 
 // -------------------- API Base URLs --------------------
-const API_BASE_URL =
-  Platform.OS === 'android' ? 'http://10.0.2.2:6000' : 'http://localhost:6000';
+const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 
-const COORDINATION_API_BASE_URL =
-  Platform.OS === 'android' ? 'http://10.0.2.2:5010' : 'http://localhost:5010';
+const COORDINATION_API_BASE_URL = `http://${IP_ADDRESS}:5010`;
 
 export default function HistoryScreen({ navigation }) {
   const { isDarkMode } = useTheme();

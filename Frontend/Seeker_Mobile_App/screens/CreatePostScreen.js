@@ -1,10 +1,11 @@
+// screens/CreatePostScreen.js
+
 import React, {
   useState,
   useRef,
   useContext,
   useEffect,
 } from 'react';
-
 import {
   View,
   Text,
@@ -20,190 +21,58 @@ import {
   ActivityIndicator,
   Animated,
   Modal,
+  KeyboardAvoidingView,
 } from 'react-native';
-
 import { Ionicons } from '@expo/vector-icons';
-
-import {
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
-
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-
-import { LinearGradient } from 'expo-linear-gradient';
-
-import { useTranslation } from 'react-i18next';
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import * as Location from 'expo-location';
+import MapView, { Marker } from '../components/SafeMapView';
 import { LanguageContext } from '../context/LanguageContext';
 import { useTheme } from '../hooks/useTheme';
+import { IP_ADDRESS } from '../config';
 
+const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 
-// =======================================================
-// API BASE URL
-// =======================================================
-
-const API_BASE_URL =
-  Platform.OS === 'android'
-    ? 'http://10.0.2.2:6000'
-    : 'http://localhost:6000';
-
+const SRI_LANKA_DISTRICTS = [
+  'Colombo', 'Gampaha', 'Kalutara', 'Kandy', 'Matale', 'Nuwara Eliya',
+  'Galle', 'Matara', 'Hambantota', 'Jaffna', 'Kilinochchi', 'Mannar',
+  'Vavuniya', 'Mullaitivu', 'Batticaloa', 'Ampara', 'Trincomalee',
+  'Kurunegala', 'Puttalam', 'Anuradhapura', 'Polonnaruwa', 'Badulla',
+  'Moneragala', 'Ratnapura', 'Kegalle',
+];
 
 // =======================================================
 // VALIDATE MONGODB OBJECT ID
 // =======================================================
-
 const isValidObjectId = (value) => {
-  if (!value) {
-    return false;
-  }
-
-  return /^[0-9a-fA-F]{24}$/.test(
-    String(value)
-  );
+  if (!value) return false;
+  return /^[0-9a-fA-F]{24}$/.test(String(value));
 };
-
 
 // =======================================================
 // GET LOGGED USER
 // =======================================================
-
 const getLoggedUser = async () => {
   try {
-    const storedUser =
-      await AsyncStorage.getItem('user');
-
-    console.log(
-      '======================================'
-    );
-
-    console.log(
-      'AUTH STORAGE RAW USER:',
-      storedUser
-    );
-
-    console.log(
-      '======================================'
-    );
-
-    if (!storedUser) {
-      console.error(
-        'NO USER FOUND IN ASYNC STORAGE'
-      );
-
-      return null;
-    }
+    const storedUser = await AsyncStorage.getItem('user');
+    if (!storedUser) return null;
 
     let user;
-
     try {
-      user = JSON.parse(
-        storedUser
-      );
-    } catch (error) {
-      console.error(
-        'FAILED TO PARSE USER:',
-        error
-      );
-
+      user = JSON.parse(storedUser);
+    } catch {
       return null;
     }
 
-    console.log(
-      'PARSED AUTH USER:',
-      JSON.stringify(
-        user,
-        null,
-        2
-      )
-    );
+    const userId = user?.id || user?._id || user?.userId || user?.seekerId;
+    if (!userId || !isValidObjectId(userId)) return null;
 
-    // =====================================================
-    // GET MONGODB ID
-    // =====================================================
-
-    const userId =
-      user?.id ||
-      user?._id ||
-      user?.userId ||
-      user?.seekerId;
-
-    console.log(
-      'EXTRACTED USER ID:',
-      userId
-    );
-
-    // =====================================================
-    // ID REQUIRED
-    // =====================================================
-
-    if (!userId) {
-      console.error(
-        'USER ID NOT FOUND IN ASYNC STORAGE'
-      );
-
-      return null;
-    }
-
-    // =====================================================
-    // VALIDATE ID
-    // =====================================================
-
-    if (
-      !isValidObjectId(userId)
-    ) {
-      console.error(
-        'INVALID MONGODB OBJECT ID:',
-        userId
-      );
-
-      return null;
-    }
-
-    // =====================================================
-    // GET NAME
-    // =====================================================
-
-    const userName =
-      user?.name ||
-      user?.fullName ||
-      user?.username ||
-      'Customer';
-
-    // =====================================================
-    // GET PROFILE IMAGE
-    // =====================================================
-
-    const profileImage =
-      user?.profileImage ||
-      user?.avatar ||
-      null;
-
-    console.log(
-      '--------------------------------------'
-    );
-
-    console.log(
-      'FINAL USER ID:',
-      String(userId)
-    );
-
-    console.log(
-      'FINAL USER NAME:',
-      userName
-    );
-
-    console.log(
-      'FINAL PROFILE IMAGE:',
-      profileImage
-    );
-
-    console.log(
-      '--------------------------------------'
-    );
+    const userName = user?.name || user?.fullName || user?.username || 'Customer';
+    const profileImage = user?.profileImage || user?.avatar || null;
 
     return {
       userId: String(userId),
@@ -211,148 +80,79 @@ const getLoggedUser = async () => {
       profileImage,
       rawUser: user,
     };
-
   } catch (error) {
-    console.error(
-      'GET LOGGED USER ERROR:',
-      error
-    );
-
+    console.error('GET LOGGED USER ERROR:', error);
     return null;
   }
 };
 
-
-// =======================================================
-// CREATE POST SCREEN
-// =======================================================
-
 export default function CreatePostScreen() {
-  const navigation =
-    useNavigation();
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { language } = useContext(LanguageContext) || { language: 'en' };
+  const isSi = language === 'si';
+  const { isDarkMode } = useTheme();
 
-  const route =
-    useRoute();
+  // Mode states
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editPostId, setEditPostId] = useState(null);
+  const [originalImagePath, setOriginalImagePath] = useState(null);
 
-  const { t } =
-    useTranslation();
-
-  const { language } =
-    useContext(
-      LanguageContext
-    );
-
-  const { isDarkMode } = useTheme(); // ✅ Dark mode
-
-
-  // =====================================================
-  // EDIT MODE
-  // =====================================================
-
-  const [isEditMode, setIsEditMode] =
-    useState(false);
-
-  const [editPostId, setEditPostId] =
-    useState(null);
-
-  const [originalImagePath, setOriginalImagePath] =
-    useState(null);
-
-
-  // =====================================================
-  // FORM STATE
-  // =====================================================
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [previewLoading, setPreviewLoading] =
-    useState(false);
-
-  const [title, setTitle] =
-    useState('');
-
-  const [description, setDescription] =
-    useState('');
-
+  // Form states
+  const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [serviceLocation, setServiceLocation] = useState('');
   const [urgency, setUrgency] = useState('');
   const [requiredDate, setRequiredDate] = useState('');
-  const [missingFields, setMissingFields] = useState([]);
-  const [followUpIndex, setFollowUpIndex] = useState(0);
+  const [selectedImage, setSelectedImage] = useState(null);
   const [showRequiredDatePicker, setShowRequiredDatePicker] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
 
-  const [selectedImage, setSelectedImage] =
-    useState(null);
+  // Location Picker Modal states
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locatingGPS, setLocatingGPS] = useState(false);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 6.9271,
+    longitude: 79.8612,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  });
+  const [mapMarker, setMapMarker] = useState({
+    latitude: 6.9271,
+    longitude: 79.8612,
+  });
+  const [tempLocationAddress, setTempLocationAddress] = useState('');
+  const mapRef = useRef(null);
 
-  const [previewData, setPreviewData] =
-    useState(null);
+  // AI Preview
+  const [previewData, setPreviewData] = useState(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [activeField, setActiveField] = useState(null);
 
-  const [previewVisible, setPreviewVisible] =
-    useState(false);
-
-  const [activeField, setActiveField] =
-    useState(null);
-
-
-  // =====================================================
-  // ANIMATION
-  // =====================================================
-
-  const scrollY =
-    useRef(
-      new Animated.Value(0)
-    ).current;
-
-  const titleScale =
-    scrollY.interpolate({
-      inputRange: [0, 100],
-      outputRange: [1, 0.95],
-      extrapolate: 'clamp',
-    });
-
-
-  // =====================================================
-  // GET IMAGE URL
-  // =====================================================
-
-  const getImageUrl = (
-    imagePath
-  ) => {
-    if (!imagePath) {
-      return null;
-    }
-
-    const image =
-      String(imagePath);
-
-    if (
-      image.startsWith(
-        'http://'
-      ) ||
-      image.startsWith(
-        'https://'
-      )
-    ) {
-      return image;
-    }
-
-    return `${API_BASE_URL}/${image.replace(
-      /\\/g,
-      '/'
-    )}`;
+  // Image URL helper
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    const image = String(imagePath);
+    if (image.startsWith('http://') || image.startsWith('https://')) return image;
+    return `${API_BASE_URL}/${image.replace(/\\/g, '/')}`;
   };
 
   const extractDetailsFromInput = (value) => {
     const text = String(value || '').replace(/\s+/g, ' ').trim();
-    const dateMatch = text.match(/\b(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|today|tomorrow|next\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|this\s+(?:weekend|week))\b/i);
-    const locationMatch = text.match(/\b(?:in|at|near|around)\s+([A-Z][\w'-]*(?:\s+[A-Z][\w'-]*){0,3})(?=\s*(?:,|\.|;|$|\b(?:today|tomorrow|next|this|urgent|urgently|asap|please|for|to|because|with)\b))/i);
+    const dateMatch = text.match(
+      /\b(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|today|tomorrow|next\s+(?:week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|this\s+(?:weekend|week))\b/i
+    );
+    const locationMatch = text.match(
+      /\b(?:in|at|near|around)\s+([A-Z][\w'-]*(?:\s+[A-Z][\w'-]*){0,3})(?=\s*(?:,|\.|;|$|\b(?:today|tomorrow|next|this|urgent|urgently|asap|please|for|to|because|with)\b))/i
+    );
     const lowerText = text.toLowerCase();
     const detectedUrgency = /\b(emergency|urgently?|asap|immediately|right away)\b/.test(lowerText)
       ? 'high'
       : /\b(not urgent|whenever|flexible|no rush)\b/.test(lowerText)
-        ? 'low'
-        : '';
+      ? 'low'
+      : '';
 
     return {
       date: dateMatch?.[1] || '',
@@ -382,1311 +182,1190 @@ export default function CreatePostScreen() {
     return `${year}-${month}-${day}`;
   };
 
-
-  // =====================================================
-  // EDIT MODE INITIALIZATION
-  // =====================================================
-
+  // Edit Mode Initialization
   useEffect(() => {
-    const {
-      editMode,
-      postData,
-    } =
-      route.params || {};
-
-    if (
-      editMode &&
-      postData
-    ) {
-      console.log(
-        'EDIT POST DATA:',
-        JSON.stringify(
-          postData,
-          null,
-          2
-        )
-      );
-
+    const { editMode, postData } = route.params || {};
+    if (editMode && postData) {
       setIsEditMode(true);
-
-      setEditPostId(
-        postData._id ||
-        postData.id
-      );
-
-      setTitle(
-        postData.title || ''
-      );
-
-      setDescription(
-        postData.description || ''
-      );
+      setEditPostId(postData._id || postData.id);
+      setTitle(postData.title || '');
+      setDescription(postData.description || '');
       setServiceLocation(postData.location?.address || '');
-      setUrgency(postData.urgency || '');
+      setUrgency(postData.urgency || 'medium');
       setRequiredDate(postData.preferredSchedule?.date || '');
 
-      if (
-        postData.image
-      ) {
-        const imageUrl =
-          getImageUrl(
-            postData.image
-          );
-
-        setSelectedImage(
-          imageUrl
-        );
-
-        setOriginalImagePath(
-          postData.image
-        );
+      if (postData.image) {
+        const imageUrl = getImageUrl(postData.image);
+        setSelectedImage(imageUrl);
+        setOriginalImagePath(postData.image);
       }
 
       setPreviewData({
-        image:
-          postData.image ||
-          null,
-
-        title:
-          postData.title ||
-          '',
-
-        description:
-          postData.description ||
-          '',
-
-        category:
-          postData.category ||
-          'General',
-
-        urgency:
-          postData.urgency ||
-          'medium',
-
-        tags:
-          Array.isArray(
-            postData.tags
-          )
-            ? postData.tags
-            : [],
+        image: postData.image || null,
+        title: postData.title || '',
+        description: postData.description || '',
+        category: postData.category || 'General',
+        urgency: postData.urgency || 'medium',
+        tags: Array.isArray(postData.tags) ? postData.tags : [],
+        location: postData.location?.address || '',
+        requiredDate: postData.preferredSchedule?.date || '',
       });
     }
-  }, [
-    route.params,
-  ]);
+  }, [route.params]);
 
-
-  // =====================================================
-  // PICK IMAGE
-  // =====================================================
-
-  const pickImage =
-    async () => {
-      try {
-        const {
-          status,
-        } =
-          await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-        if (
-          status !==
-          'granted'
-        ) {
-          Alert.alert(
-            'Permission Required',
-            'Gallery access is required.'
-          );
-
-          return;
-        }
-
-        const result =
-          await ImagePicker.launchImageLibraryAsync(
-            {
-              mediaTypes:
-                ImagePicker
-                  .MediaTypeOptions
-                  .Images,
-
-              allowsEditing:
-                true,
-
-              aspect: [4, 3],
-
-              quality: 0.8,
-            }
-          );
-
-        if (
-          !result.canceled &&
-          result.assets?.length
-        ) {
-          const imageUri =
-            result.assets[0].uri;
-
-          console.log(
-            'SELECTED IMAGE:',
-            imageUri
-          );
-
-          setSelectedImage(
-            imageUri
-          );
-
-          setPreviewData(
-            null
-          );
-        }
-
-      } catch (error) {
-        console.error(
-          'IMAGE PICKER ERROR:',
-          error
-        );
-
+  // Pick Image
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
         Alert.alert(
-          'Error',
-          'Could not select image.'
+          isSi ? 'අවසර අවශ්‍යයි' : 'Permission Required',
+          isSi ? 'ඡායාරූප තේරීමට ගැලරිය වෙත අවසර ලබා දෙන්න.' : 'Gallery access is required.'
         );
-      }
-    };
-
-
-  // =====================================================
-  // REMOVE IMAGE
-  // =====================================================
-
-  const removeImage =
-    () => {
-      setSelectedImage(
-        null
-      );
-
-      setOriginalImagePath(
-        null
-      );
-
-      setPreviewData(
-        null
-      );
-    };
-
-
-  // =====================================================
-  // GENERATE AI PREVIEW
-  // =====================================================
-
-  const generatePreview =
-    async () => {
-      if (!title.trim() && !description.trim() && !selectedImage) {
-        Alert.alert(
-          'Add post details',
-          'Enter a description or upload an image to continue.'
-        );
-
         return;
       }
 
-      const extracted = extractDetailsFromInput(`${title} ${description}`);
-      const resolvedLocation = serviceLocation.trim() || extracted.location;
-      const resolvedDate = requiredDate.trim() || extracted.date;
-      const resolvedUrgency = urgency || extracted.urgency;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-      if (!serviceLocation.trim() && resolvedLocation) setServiceLocation(resolvedLocation);
-      if (!requiredDate.trim() && resolvedDate) setRequiredDate(resolvedDate);
-      if (!urgency && resolvedUrgency) setUrgency(resolvedUrgency);
+      if (!result.canceled && result.assets?.length) {
+        setSelectedImage(result.assets[0].uri);
+        setPreviewData(null);
+      }
+    } catch (error) {
+      console.error('IMAGE PICKER ERROR:', error);
+      Alert.alert(isSi ? 'දෝෂයකි' : 'Error', isSi ? 'ඡායාරූපය තෝරා ගැනීමට නොහැකි විය.' : 'Could not select image.');
+    }
+  };
 
-      const missing = [];
-      if (!resolvedLocation) missing.push('location');
-      if (!resolvedUrgency) missing.push('urgency');
-      if (!resolvedDate) missing.push('date');
-      if (missing.length) {
-        setMissingFields(missing);
-        setFollowUpIndex(0);
+  const removeImage = () => {
+    setSelectedImage(null);
+    setOriginalImagePath(null);
+    setPreviewData(null);
+  };
+
+  // Location Picker Handlers
+  const handleUseCurrentLocation = async (updateDirectly = true) => {
+    try {
+      setLocatingGPS(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          isSi ? 'අවසර අවශ්‍යයි' : 'Permission Required',
+          isSi
+            ? 'වත්මන් ස්ථානය ලබා ගැනීමට Location අවසරය ලබා දෙන්න.'
+            : 'Please grant location permission to detect your current position.'
+        );
         return;
       }
 
-      if (
-        isEditMode &&
-        originalImagePath &&
-        selectedImage ===
-          getImageUrl(
-            originalImagePath
-          )
-      ) {
-        Alert.alert(
-          'Info',
-          'Image unchanged. Select a new image to generate a new AI preview.'
-        );
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
 
-        return;
-      }
-
-      setPreviewLoading(
-        true
-      );
-
-      try {
-        const formData =
-          new FormData();
-
-        if (selectedImage) formData.append('image', {
-          uri: selectedImage, type: 'image/jpeg', name: 'post.jpg',
-        });
-
-        formData.append(
-          'title',
-          title || ''
-        );
-
-        formData.append(
-          'description',
-          description || ''
-        );
-
-        formData.append(
-          'language',
-          language || 'en'
-        );
-        formData.append('location', resolvedLocation);
-        formData.append('urgency', resolvedUrgency);
-        formData.append('requiredDate', resolvedDate);
-
-        const loggedUser = await getLoggedUser();
-        if (loggedUser && loggedUser.userId) {
-          formData.append('userId', loggedUser.userId);
-        }
-
-        console.log(
-          'GENERATING AI PREVIEW...'
-        );
-
-        const response =
-          await fetch(
-            `${API_BASE_URL}/posts/preview`,
-            {
-              method: 'POST',
-
-              body: formData,
-            }
-          );
-
-        const rawText =
-          await response.text();
-
-        console.log(
-          'PREVIEW RESPONSE:',
-          rawText
-        );
-
-        let data;
-
-        try {
-          data =
-            JSON.parse(
-              rawText
-            );
-        } catch (error) {
-          Alert.alert(
-            'Server Error',
-            'Backend returned invalid JSON.'
-          );
-
-          return;
-        }
-
-        if (
-          response.ok &&
-          data.success &&
-          data.preview
-        ) {
-          setPreviewData(
-            { ...data.preview, location: resolvedLocation, urgency: resolvedUrgency, requiredDate: resolvedDate }
-          );
-
-          setMissingFields([]);
-
-          setTitle(
-            data.preview.title ||
-              title
-          );
-
-          setDescription(
-            data.preview.description ||
-              description
-          );
-
-          setPreviewVisible(
-            true
-          );
-
-        } else {
-          Alert.alert(
-            'Preview Failed',
-            data.error ||
-              data.message ||
-              'Could not generate preview.'
-          );
-        }
-
-      } catch (error) {
-        console.error(
-          'PREVIEW ERROR:',
-          error
-        );
-
-        Alert.alert(
-          'Network Error',
-          error.message
-        );
-
-      } finally {
-        setPreviewLoading(
-          false
-        );
-      }
-    };
-
-
-  // =====================================================
-  // SAVE / UPDATE POST
-  // =====================================================
-
-  const savePost =
-    async () => {
-
-      if (!title.trim() && !description.trim()) {
-        Alert.alert(
-          'Missing post details',
-          'Add a title or description before publishing.'
-        );
-
-        return;
-      }
-
-      // ===================================================
-      // GET LOGGED USER
-      // ===================================================
-
-      const loggedUser =
-        await getLoggedUser();
-
-      console.log(
-        'LOGGED USER:',
-        loggedUser
-      );
-
-      if (
-        !loggedUser ||
-        !loggedUser.userId
-      ) {
-        Alert.alert(
-          'Login Required',
-          'Could not find your user ID. Please logout and login again.'
-        );
-
-        return;
-      }
-
-      // We'll use this as seekerId
-      const seekerId =
-        loggedUser.userId;
-
-      // ===================================================
-      // FINAL IMAGE
-      // ===================================================
-
-      let finalImagePath =
-        null;
-
-      if (isEditMode) {
-
-        if (
-          previewData?.image &&
-          selectedImage !==
-            getImageUrl(
-              originalImagePath
-            )
-        ) {
-          finalImagePath =
-            previewData.image;
-        }
-
-        else if (
-          originalImagePath
-        ) {
-          finalImagePath =
-            originalImagePath;
-        }
-
-        else {
-          Alert.alert(
-            'Missing Image',
-            'No image associated with this post.'
-          );
-
-          return;
-        }
-
-      } else {
-        if (!previewData) {
-          Alert.alert(
-            'Preview Required',
-            'Please generate and review the AI post first.'
-          );
-
-          return;
-        }
-
-        finalImagePath = previewData.image || null;
-      }
-
-
-      // ===================================================
-      // FINAL PAYLOAD
-      // ===================================================
-
-      const payload = {
-        title:
-          title.trim(),
-
-        description:
-          description.trim(),
-
-        image:
-          finalImagePath,
-
-        category:
-          previewData?.category ||
-          'General',
-
-        tags:
-          Array.isArray(
-            previewData?.tags
-          )
-            ? previewData.tags
-            : [],
-
-        urgency:
-          previewData?.urgency || urgency,
-        location: { address: previewData?.location || serviceLocation.trim() },
-        preferredSchedule: { date: previewData?.requiredDate || requiredDate.trim(), flexible: true },
-
-        // Include both seekerId and userId for backend compatibility
-        seekerId:
-          seekerId,
-
-        userId:
-          seekerId,
+      const coords = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
       };
 
+      const newRegion = {
+        ...coords,
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.015,
+      };
 
-      console.log(
-        '======================================'
-      );
-
-      console.log(
-        'FINAL SEEKER ID:',
-        seekerId
-      );
-
-      console.log(
-        'FINAL POST PAYLOAD:',
-        JSON.stringify(
-          payload,
-          null,
-          2
-        )
-      );
-
-      console.log(
-        '======================================'
-      );
-
-
-      // ===================================================
-      // URL
-      // ===================================================
-
-      let url =
-        `${API_BASE_URL}/posts/publish`;
-
-      let method =
-        'POST';
-
-      if (isEditMode) {
-
-        if (!editPostId) {
-          Alert.alert(
-            'Error',
-            'Post ID is missing.'
-          );
-
-          return;
-        }
-
-        url =
-          `${API_BASE_URL}/posts/update/${editPostId}`;
-
-        method =
-          'PUT';
+      setMapRegion(newRegion);
+      setMapMarker(coords);
+      if (mapRef.current?.animateToRegion) {
+        mapRef.current.animateToRegion(newRegion, 800);
       }
 
+      const [address] = await Location.reverseGeocodeAsync(coords);
+      let formattedAddress = '';
+      if (address) {
+        const parts = [
+          address.name || address.street,
+          address.city || address.subregion,
+          address.region || address.district,
+        ].filter(Boolean);
+        formattedAddress = parts.join(', ');
+      }
+      if (!formattedAddress) {
+        formattedAddress = `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`;
+      }
 
-      // ===================================================
-      // SEND REQUEST
-      // ===================================================
+      setTempLocationAddress(formattedAddress);
+      if (updateDirectly) {
+        setServiceLocation(formattedAddress);
+        if (formErrors.location) {
+          setFormErrors((prev) => ({ ...prev, location: null }));
+        }
+      }
+    } catch (error) {
+      console.error('LOCATION ERROR:', error);
+      Alert.alert(
+        isSi ? 'දෝෂයකි' : 'Error',
+        isSi ? 'වත්මන් ස්ථානය ලබා ගැනීමට නොහැකි විය.' : 'Could not detect current location.'
+      );
+    } finally {
+      setLocatingGPS(false);
+    }
+  };
 
-      setLoading(true);
+  const handleMapPress = async (event) => {
+    const { coordinate } = event.nativeEvent;
+    if (!coordinate) return;
+    setMapMarker(coordinate);
 
+    try {
+      const [address] = await Location.reverseGeocodeAsync({
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+      });
+      if (address) {
+        const parts = [
+          address.name || address.street,
+          address.city || address.subregion,
+          address.region || address.district,
+        ].filter(Boolean);
+        const formatted = parts.join(', ') || `${coordinate.latitude.toFixed(4)}, ${coordinate.longitude.toFixed(4)}`;
+        setTempLocationAddress(formatted);
+      } else {
+        setTempLocationAddress(`${coordinate.latitude.toFixed(4)}, ${coordinate.longitude.toFixed(4)}`);
+      }
+    } catch (err) {
+      console.error('REVERSE GEOCODE ERROR:', err);
+      setTempLocationAddress(`${coordinate.latitude.toFixed(4)}, ${coordinate.longitude.toFixed(4)}`);
+    }
+  };
+
+  const handleSelectDistrict = (dist) => {
+    setServiceLocation(dist);
+    setTempLocationAddress(dist);
+    if (formErrors.location) {
+      setFormErrors((prev) => ({ ...prev, location: null }));
+    }
+    setShowLocationModal(false);
+  };
+
+  const handleConfirmLocation = () => {
+    if (tempLocationAddress.trim()) {
+      setServiceLocation(tempLocationAddress.trim());
+      if (formErrors.location) {
+        setFormErrors((prev) => ({ ...prev, location: null }));
+      }
+    }
+    setShowLocationModal(false);
+  };
+
+  // Auto detect fields when description changes
+  const handleDescriptionBlur = () => {
+    setActiveField(null);
+    if (!description.trim()) return;
+    const extracted = extractDetailsFromInput(`${title} ${description}`);
+    if (!serviceLocation.trim() && extracted.location) setServiceLocation(extracted.location);
+    if (!requiredDate.trim() && extracted.date) setRequiredDate(extracted.date);
+    if ((!urgency || urgency === 'medium') && extracted.urgency) setUrgency(extracted.urgency);
+  };
+
+  // Generate AI Preview
+  const generatePreview = async () => {
+    if (!title.trim() && !description.trim() && !selectedImage) {
+      Alert.alert(
+        isSi ? 'විස්තර ඇතුළත් කරන්න' : 'Add Details',
+        isSi ? 'ඉදිරියට යාමට මාතෘකාවක්, විස්තරයක් හෝ ඡායාරූපයක් එක් කරන්න.' : 'Enter a title, description or upload an image to continue.'
+      );
+      return;
+    }
+
+    const extracted = extractDetailsFromInput(`${title} ${description}`);
+    const resolvedLocation = serviceLocation.trim() || extracted.location || '';
+    const resolvedDate = requiredDate.trim() || extracted.date || '';
+    const resolvedUrgency = urgency || extracted.urgency || '';
+
+    if (!serviceLocation.trim() && resolvedLocation) setServiceLocation(resolvedLocation);
+    if (!requiredDate.trim() && resolvedDate) setRequiredDate(resolvedDate);
+    if (!urgency && resolvedUrgency) setUrgency(resolvedUrgency);
+
+    const errors = {};
+    if (!resolvedLocation.trim()) {
+      errors.location = isSi ? 'සේවා ස්ථානය ඇතුළත් කිරීම අනිවාර්යයි.' : 'Service location is mandatory.';
+    }
+    if (!resolvedDate.trim()) {
+      errors.date = isSi ? 'අවශ්‍ය දිනය තෝරා ගැනීම අනිවාර්යයි.' : 'Preferred date is mandatory.';
+    }
+    if (!resolvedUrgency) {
+      errors.urgency = isSi ? 'හදිසිභාවය තෝරා ගැනීම අනිවාර්යයි.' : 'Urgency level is mandatory.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      Alert.alert(
+        isSi ? 'අනිවාර්ය තොරතුරු අවශ්‍යයි' : 'Mandatory Fields Required',
+        isSi
+          ? 'AI මඟින් සටහන සකස් කිරීමට ස්ථානය (Location), දිනය (Date) සහ හදිසිභාවය (Urgency) ඇතුළත් කිරීම අනිවාර්ය වේ.'
+          : 'Service Location, Preferred Date, and Urgency Level are mandatory to generate the post.'
+      );
+      return;
+    }
+
+    setFormErrors({});
+    setPreviewLoading(true);
+
+    try {
+      const formData = new FormData();
+      if (selectedImage) {
+        formData.append('image', {
+          uri: selectedImage,
+          type: 'image/jpeg',
+          name: 'post.jpg',
+        });
+      }
+
+      formData.append('title', title || '');
+      formData.append('description', description || '');
+      formData.append('language', language || 'en');
+      formData.append('location', resolvedLocation);
+      formData.append('urgency', resolvedUrgency);
+      formData.append('requiredDate', resolvedDate);
+
+      const loggedUser = await getLoggedUser();
+      if (loggedUser && loggedUser.userId) {
+        formData.append('userId', loggedUser.userId);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/posts/preview`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const rawText = await response.text();
+      let data;
       try {
-
-        console.log(
-          'REQUEST URL:',
-          url
-        );
-
-        console.log(
-          'REQUEST METHOD:',
-          method
-        );
-
-        const response =
-          await fetch(
-            url,
-            {
-              method,
-
-              headers: {
-                'Content-Type':
-                  'application/json',
-              },
-
-              body:
-                JSON.stringify(
-                  payload
-                ),
-            }
-          );
-
-        const rawText =
-          await response.text();
-
-        console.log(
-          'SAVE RESPONSE:',
-          rawText
-        );
-
-        let data;
-
-        try {
-          data =
-            JSON.parse(
-              rawText
-            );
-        } catch (error) {
-          Alert.alert(
-            'Server Error',
-            'Backend did not return valid JSON.'
-          );
-
-          return;
-        }
-
-        if (
-          response.ok &&
-          data.success
-        ) {
-
-          Alert.alert(
-            'Success',
-
-            isEditMode
-              ? 'Post updated successfully!'
-              : 'Post published successfully!',
-
-            [
-              {
-                text: 'OK',
-
-                onPress:
-                  () =>
-                    navigation.goBack(),
-              },
-            ]
-          );
-
-        } else {
-
-          console.error(
-            'SAVE FAILED:',
-            data
-          );
-
-          Alert.alert(
-            'Save Failed',
-            data.error ||
-              data.message ||
-              'Something went wrong.'
-          );
-        }
-
-      } catch (error) {
-
-        console.error(
-          'SAVE ERROR:',
-          error
-        );
-
-        Alert.alert(
-          'Network Error',
-          error.message
-        );
-
-      } finally {
-        setLoading(false);
+        data = JSON.parse(rawText);
+      } catch {
+        Alert.alert(isSi ? 'දෝෂයකි' : 'Server Error', 'Backend returned invalid JSON.');
+        return;
       }
+
+      if (response.ok && data.success && data.preview) {
+        const enhancedPreview = {
+          ...data.preview,
+          location: resolvedLocation,
+          urgency: resolvedUrgency,
+          requiredDate: resolvedDate,
+        };
+        setPreviewData(enhancedPreview);
+        if (data.preview.title) setTitle(data.preview.title);
+        if (data.preview.description) setDescription(data.preview.description);
+        setPreviewVisible(true);
+      } else {
+        Alert.alert(
+          isSi ? 'අසාර්ථකයි' : 'Preview Failed',
+          data.error || data.message || (isSi ? 'පෙරදසුනක් සකස් කළ නොහැකි විය.' : 'Could not generate preview.')
+        );
+      }
+    } catch (error) {
+      console.error('PREVIEW ERROR:', error);
+      Alert.alert(isSi ? 'සම්බන්ධතා දෝෂයකි' : 'Network Error', error.message);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Save / Publish Post
+  const savePost = async () => {
+    if (!title.trim() && !description.trim()) {
+      Alert.alert(
+        isSi ? 'විස්තර ඇතුළත් කරන්න' : 'Missing Details',
+        isSi ? 'පළ කිරීමට පෙර මාතෘකාවක් හෝ විස්තරයක් එක් කරන්න.' : 'Add a title or description before publishing.'
+      );
+      return;
+    }
+
+    if (!serviceLocation.trim() || !requiredDate.trim() || !urgency) {
+      const errors = {};
+      if (!serviceLocation.trim()) errors.location = isSi ? 'සේවා ස්ථානය අනිවාර්යයි.' : 'Service location is mandatory.';
+      if (!requiredDate.trim()) errors.date = isSi ? 'අවශ්‍ය දිනය අනිවාර්යයි.' : 'Preferred date is mandatory.';
+      if (!urgency) errors.urgency = isSi ? 'හදිසිභාවය අනිවාර්යයි.' : 'Urgency level is mandatory.';
+      setFormErrors(errors);
+      Alert.alert(
+        isSi ? 'අනිවාර්ය තොරතුරු සම්පූර්ණ කරන්න' : 'Mandatory Fields Required',
+        isSi
+          ? 'පළ කිරීමට පෙර කරුණාකර ස්ථානය, දිනය සහ හදිසිභාවය ඇතුළත් කරන්න.'
+          : 'Please provide Location, Date, and Urgency before publishing.'
+      );
+      return;
+    }
+
+    const loggedUser = await getLoggedUser();
+    if (!loggedUser || !loggedUser.userId) {
+      Alert.alert(
+        isSi ? 'ලොග් වීම අවශ්‍යයි' : 'Login Required',
+        isSi ? 'කරුණාකර නැවත ලොග් වන්න.' : 'Could not find your user ID. Please logout and login again.'
+      );
+      return;
+    }
+
+    const seekerId = loggedUser.userId;
+    let finalImagePath = null;
+
+    if (isEditMode) {
+      if (previewData?.image && selectedImage !== getImageUrl(originalImagePath)) {
+        finalImagePath = previewData.image;
+      } else if (originalImagePath) {
+        finalImagePath = originalImagePath;
+      }
+    } else {
+      finalImagePath = previewData?.image || null;
+    }
+
+    const payload = {
+      title: title.trim(),
+      description: description.trim(),
+      image: finalImagePath,
+      category: previewData?.category || 'General',
+      tags: Array.isArray(previewData?.tags) ? previewData.tags : [],
+      urgency: previewData?.urgency || urgency || 'medium',
+      location: { address: previewData?.location || serviceLocation.trim() },
+      preferredSchedule: {
+        date: previewData?.requiredDate || requiredDate.trim(),
+        flexible: true,
+      },
+      seekerId,
+      userId: seekerId,
     };
 
+    let url = `${API_BASE_URL}/posts/publish`;
+    let method = 'POST';
 
-  // =====================================================
-  // RENDER
-  // =====================================================
+    if (isEditMode) {
+      if (!editPostId) {
+        Alert.alert(isSi ? 'දෝෂයකි' : 'Error', 'Post ID is missing.');
+        return;
+      }
+      url = `${API_BASE_URL}/posts/update/${editPostId}`;
+      method = 'PUT';
+    }
 
-  return (
-    <SafeAreaView
-      style={[styles.container, isDarkMode && styles.containerDark]}
-    >
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor="#1a1a2e"
-      />
+    setLoading(true);
 
-      <Animated.ScrollView
-        style={
-          styles.scrollView
-        }
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
 
-        showsVerticalScrollIndicator={
-          false
-        }
+      const rawText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        Alert.alert(isSi ? 'දෝෂයකි' : 'Server Error', 'Backend did not return valid JSON.');
+        return;
+      }
 
-        onScroll={Animated.event(
+      if (response.ok && data.success) {
+        Alert.alert(
+          isSi ? 'සාර්ථකයි!' : 'Success',
+          isEditMode
+            ? (isSi ? 'පළකිරීම සාර්ථකව යාවත්කාලීන විය!' : 'Post updated successfully!')
+            : (isSi ? 'ඔබගේ ඉල්ලීම සාර්ථකව පළ කරන ලදී!' : 'Post published successfully!'),
           [
             {
-              nativeEvent: {
-                contentOffset: {
-                  y: scrollY,
-                },
-              },
+              text: isSi ? 'හරි' : 'OK',
+              onPress: () => navigation.goBack(),
             },
-          ],
-          {
-            useNativeDriver:
-              false,
-          }
-        )}
+          ]
+        );
+      } else {
+        Alert.alert(
+          isSi ? 'අසාර්ථකයි' : 'Save Failed',
+          data.error || data.message || 'Something went wrong.'
+        );
+      }
+    } catch (error) {
+      console.error('SAVE ERROR:', error);
+      Alert.alert(isSi ? 'සම්බන්ධතා දෝෂයකි' : 'Network Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        scrollEventThrottle={
-          16
-        }
+  const urgencyOptions = [
+    { key: 'low', label: isSi ? 'නම්‍යශීලී' : 'Flexible', icon: 'leaf-outline', color: '#10B981' },
+    { key: 'medium', label: isSi ? 'සාමාන්‍ය' : 'Standard', icon: 'time-outline', color: '#6366F1' },
+    { key: 'high', label: isSi ? 'හදිසි' : 'Urgent', icon: 'flash-outline', color: '#F59E0B' },
+    { key: 'emergency', label: isSi ? 'ඉතා හදිසි' : 'Emergency', icon: 'flame-outline', color: '#EF4444' },
+  ];
+
+  return (
+    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={isDarkMode ? '#0F172A' : '#4338CA'}
+      />
+
+      {/* Modern App Bar */}
+      <LinearGradient
+        colors={isDarkMode ? ['#0F172A', '#1E1B4B'] : ['#4338CA', '#4F46E5']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
       >
-
-        {/* HERO */}
-
-        <LinearGradient
-          colors={[
-            '#667eea',
-            '#764ba2',
-            '#f093fb',
-          ]}
-          style={
-            styles.heroSection
-          }
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.headerBackBtn}
+          activeOpacity={0.8}
         >
-          <Animated.View
-            style={[
-              styles.heroContent,
-              {
-                transform: [
-                  {
-                    scale:
-                      titleScale,
-                  },
-                ],
-              },
-            ]}
-          >
-            <View
-              style={
-                styles.heroIconBg
-              }
-            >
-              <Ionicons
-                name="sparkles-outline"
-                size={32}
-                color="#667eea"
-              />
+          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>
+            {isEditMode
+              ? (isSi ? 'පළකිරීම සංස්කරණය' : 'Edit Service Request')
+              : (isSi ? 'නව සේවා ඉල්ලුම' : 'Create Service Request')}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {isSi ? 'AI තාක්ෂණයෙන් පහසුවෙන් පළ කරන්න' : 'Powered by Smart AI Assistant'}
+          </Text>
+        </View>
+
+        <View style={styles.headerRightBadge}>
+          <Ionicons name="sparkles" size={14} color="#FDE047" />
+          <Text style={styles.aiBadgeText}>AI</Text>
+        </View>
+      </LinearGradient>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Card 1: Service Information */}
+          <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBubble, { backgroundColor: isDarkMode ? '#1E1B4B' : '#EEF2FF' }]}>
+                <Ionicons name="create-outline" size={18} color="#4F46E5" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>
+                  {isSi ? 'සේවාවේ විස්තර' : 'Job Information'}
+                </Text>
+                <Text style={[styles.cardSubtitle, isDarkMode && styles.textMutedDark]}>
+                  {isSi ? 'ඔබට අවශ්‍ය දේ කෙටියෙන් සඳහන් කරන්න' : 'What do you need help with?'}
+                </Text>
+              </View>
             </View>
 
-            <Text
-              style={
-                styles.heroTitle
-              }
-            >
-              {isEditMode
-                ? 'Edit Your Post'
-                : 'AI Smart Post Creator'}
-            </Text>
-
-            <Text
-              style={
-                styles.heroSubtitle
-              }
-            >
-              {isEditMode
-                ? 'Modify your existing post'
-                : 'Describe your request or add a photo. We will ask only for the details that are missing.'}
-            </Text>
-          </Animated.View>
-        </LinearGradient>
-
-
-        {/* FORM */}
-
-        <View
-          style={[styles.formContainer, isDarkMode && styles.formContainerDark]}
-        >
-
-          {/* TITLE */}
-
-          <View
-            style={[
-              styles.inputContainer,
-              isDarkMode && styles.inputContainerDark,
-              activeField ===
-                'title' &&
-                styles.inputContainerActive,
-            ]}
-          >
-            <Text
-              style={[styles.inputLabel, isDarkMode && styles.textDark]}
-            >
-              Post Title
-            </Text>
-
-            <TextInput
-              style={[styles.titleInput, isDarkMode && styles.textDark]}
-              placeholder="What's your post about?"
-              placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
-              value={title}
-              onChangeText={
-                setTitle
-              }
-              onFocus={() =>
-                setActiveField(
-                  'title'
-                )
-              }
-              onBlur={() =>
-                setActiveField(
-                  null
-                )
-              }
-            />
-          </View>
-
-
-          {/* DESCRIPTION */}
-
-          <View
-            style={[
-              styles.inputContainer,
-              isDarkMode && styles.inputContainerDark,
-              activeField ===
-                'desc' &&
-                styles.inputContainerActive,
-            ]}
-          >
-            <Text
-              style={[styles.inputLabel, isDarkMode && styles.textDark]}
-            >
-              Description
-            </Text>
-
-            <TextInput
-              style={[styles.descriptionInput, isDarkMode && styles.textDark]}
-              multiline
-              numberOfLines={5}
-              placeholder="Describe the issue, request, or service needed..."
-              placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
-              value={
-                description
-              }
-              onChangeText={
-                setDescription
-              }
-              onFocus={() =>
-                setActiveField(
-                  'desc'
-                )
-              }
-              onBlur={() =>
-                setActiveField(
-                  null
-                )
-              }
-            />
-          </View>
-
-
-          {/* IMAGE */}
-
-          <View
-            style={
-              styles.uploadSection
-            }
-          >
-            <Text
-              style={[styles.sectionTitle, isDarkMode && styles.textDark]}
-            >
-              Upload Image
-            </Text>
-
-            {selectedImage ? (
-              <View
-                style={
-                  styles.imagePreviewWrapper
-                }
-              >
-                <Image
-                  source={{
-                    uri: selectedImage,
-                  }}
-                  style={
-                    styles.previewImage
-                  }
-                />
-
-                <TouchableOpacity
-                  style={
-                    styles.removeImageBtn
-                  }
-                  onPress={
-                    removeImage
-                  }
-                >
-                  <Ionicons
-                    name="close"
-                    size={20}
-                    color="#fff"
-                  />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={[styles.uploadButton, isDarkMode && styles.uploadButtonDark]}
-                onPress={
-                  pickImage
-                }
-              >
-                <Ionicons
-                  name="camera-outline"
-                  size={40}
-                  color="#667eea"
-                />
-
-                <Text
-                  style={[styles.uploadText, isDarkMode && styles.textDark]}
-                >
-                  Tap to Upload Image
-                </Text>
-
-                <Text
-                  style={[styles.uploadSubtext, isDarkMode && styles.textMutedDark]}
-                >
-                  JPG, PNG up to 5MB
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-
-          {missingFields.length > 0 && missingFields[followUpIndex] && (
-            <View style={[styles.inputContainer, isDarkMode && styles.inputContainerDark]}>
-              <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
-                A few details are needed ({followUpIndex + 1}/{missingFields.length})
+            {/* Title Input */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                {isSi ? 'මාතෘකාව' : 'Post Title'} <Text style={styles.requiredAsterisk}>*</Text>
               </Text>
-              {missingFields[followUpIndex] === 'location' && <TextInput
-                style={[styles.titleInput, isDarkMode && styles.textDark]}
-                placeholder="Where is the service needed?"
-                placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
-                value={serviceLocation} onChangeText={setServiceLocation}
-              />}
-              {missingFields[followUpIndex] === 'date' && <>
-                <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>When do you need the service?</Text>
+              <View
+                style={[
+                  styles.textInputBox,
+                  isDarkMode && styles.textInputBoxDark,
+                  activeField === 'title' && (isDarkMode ? styles.textInputBoxActiveDark : styles.textInputBoxActive),
+                ]}
+              >
+                <TextInput
+                  style={[
+                    styles.inputControl,
+                    { color: isDarkMode ? '#F8FAFC' : '#0F172A' },
+                  ]}
+                  placeholder={isSi ? 'උදා: කාන්දුවන නළයක් අලුත්වැඩියාව…' : 'e.g., Fix leaking pipe under sink…'}
+                  placeholderTextColor={isDarkMode ? '#64748B' : '#94A3B8'}
+                  value={title}
+                  onChangeText={setTitle}
+                  onFocus={() => setActiveField('title')}
+                  onBlur={() => setActiveField(null)}
+                />
+              </View>
+            </View>
+
+            {/* Description Input */}
+            <View style={styles.fieldGroup}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                  {isSi ? 'සවිස්තරාත්මක විස්තරය' : 'Detailed Description'}
+                </Text>
+                <Text style={[styles.charHint, isDarkMode && styles.textMutedDark]}>
+                  {description.length} {isSi ? 'අකුරු' : 'chars'}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.textAreaBox,
+                  isDarkMode && styles.textInputBoxDark,
+                  activeField === 'desc' && (isDarkMode ? styles.textInputBoxActiveDark : styles.textInputBoxActive),
+                ]}
+              >
+                <TextInput
+                  style={[
+                    styles.textAreaControl,
+                    { color: isDarkMode ? '#F8FAFC' : '#0F172A' },
+                  ]}
+                  multiline
+                  numberOfLines={4}
+                  placeholder={
+                    isSi
+                      ? 'ගැටලුව පිළිබඳ විස්තරයක්, ස්ථානය සහ දිනය සඳහන් කරන්න. අපගේ AI මඟින් අවශ්‍ය තොරතුරු ස්වයංක්‍රීයව හඳුනාගනී…'
+                      : 'Describe the issue or service needed. Mention location and urgency; our AI will extract them automatically…'
+                  }
+                  placeholderTextColor={isDarkMode ? '#64748B' : '#94A3B8'}
+                  value={description}
+                  onChangeText={setDescription}
+                  onFocus={() => setActiveField('desc')}
+                  onBlur={handleDescriptionBlur}
+                />
+              </View>
+            </View>
+          </View>
+
+          {/* Card 2: Requirements (Location, Date & Urgency) */}
+          <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBubble, { backgroundColor: isDarkMode ? '#064E3B' : '#ECFDF5' }]}>
+                <Ionicons name="options-outline" size={18} color="#10B981" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>
+                  {isSi ? 'අවශ්‍යතා සහ මනාපයන්' : 'Requirements & Schedule'}
+                </Text>
+                <Text style={[styles.cardSubtitle, { color: '#EF4444', fontWeight: '700' }]}>
+                  {isSi ? '⚠️ ස්ථානය, දිනය සහ හදිසිභාවය අනිවාර්ය වේ' : '⚠️ Location, Date, and Urgency are mandatory'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Location Input with Location Picker Actions */}
+            <View style={styles.fieldGroup}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                  {isSi ? 'සේවාව අවශ්‍ය ස්ථානය' : 'Service Location'} <Text style={styles.requiredAsterisk}>*</Text>
+                </Text>
+                <View style={styles.mandatoryBadge}>
+                  <Text style={styles.mandatoryBadgeText}>{isSi ? 'අනිවාර්යයි' : 'Mandatory'}</Text>
+                </View>
+              </View>
+
+              <View
+                style={[
+                  styles.textInputBox,
+                  styles.locationInputBox,
+                  isDarkMode && styles.textInputBoxDark,
+                  formErrors.location && styles.inputBoxError,
+                  activeField === 'loc' && (isDarkMode ? styles.textInputBoxActiveDark : styles.textInputBoxActive),
+                ]}
+              >
+                <Ionicons name="location-outline" size={18} color="#4F46E5" style={{ marginRight: 6 }} />
+                <TextInput
+                  style={[
+                    styles.inputControl,
+                    { color: isDarkMode ? '#F8FAFC' : '#0F172A' },
+                  ]}
+                  placeholder={isSi ? 'උදා: කොළඹ 03, නාවල, මහනුවර…' : 'e.g., Colombo 03, Kandy, Rajagiriya…'}
+                  placeholderTextColor={isDarkMode ? '#64748B' : '#94A3B8'}
+                  value={serviceLocation}
+                  onChangeText={(text) => {
+                    setServiceLocation(text);
+                    if (formErrors.location) setFormErrors((prev) => ({ ...prev, location: null }));
+                  }}
+                  onFocus={() => setActiveField('loc')}
+                  onBlur={() => setActiveField(null)}
+                />
+
+                {/* Quick GPS Auto-detect Button */}
                 <TouchableOpacity
-                  style={[styles.datePickerButton, isDarkMode && styles.inputContainerDark]}
-                  onPress={() => setShowRequiredDatePicker(true)}
+                  style={[styles.quickGpsBtn, isDarkMode && styles.quickGpsBtnDark]}
+                  onPress={() => handleUseCurrentLocation(true)}
+                  disabled={locatingGPS}
                   activeOpacity={0.75}
+                  accessibilityLabel="Auto-detect current location"
                 >
-                  <Ionicons name="calendar-outline" size={20} color="#667eea" />
-                  <Text style={[styles.datePickerText, isDarkMode && styles.textDark]}>
-                    {requiredDate || 'Choose a date'}
+                  {locatingGPS ? (
+                    <ActivityIndicator size="small" color="#4F46E5" />
+                  ) : (
+                    <Ionicons name="locate" size={17} color="#4F46E5" />
+                  )}
+                </TouchableOpacity>
+
+                {/* Open Location Picker Modal Button */}
+                <TouchableOpacity
+                  style={styles.openPickerBtn}
+                  onPress={() => {
+                    setTempLocationAddress(serviceLocation || '');
+                    setShowLocationModal(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="map" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.openPickerBtnText}>
+                    {isSi ? 'සිතියම' : 'Map'}
                   </Text>
                 </TouchableOpacity>
-                {showRequiredDatePicker && <DateTimePicker
+              </View>
+              {formErrors.location && (
+                <Text style={styles.fieldErrorText}>{formErrors.location}</Text>
+              )}
+            </View>
+
+            {/* Date Picker Button */}
+            <View style={styles.fieldGroup}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                  {isSi ? 'අවශ්‍ය දිනය' : 'Preferred Date'} <Text style={styles.requiredAsterisk}>*</Text>
+                </Text>
+                <View style={styles.mandatoryBadge}>
+                  <Text style={styles.mandatoryBadgeText}>{isSi ? 'අනිවාර්යයි' : 'Mandatory'}</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.dateButton,
+                  isDarkMode && styles.textInputBoxDark,
+                  formErrors.date && styles.inputBoxError,
+                ]}
+                onPress={() => setShowRequiredDatePicker(true)}
+                activeOpacity={0.75}
+              >
+                <View style={styles.dateBtnLeft}>
+                  <Ionicons name="calendar-outline" size={18} color="#4F46E5" />
+                  <Text style={[styles.dateButtonText, !requiredDate && styles.placeholderText, isDarkMode && requiredDate && styles.textDark]}>
+                    {requiredDate || (isSi ? 'දිනයක් තෝරන්න (අනිවාර්යයි)' : 'Select a date (Mandatory)')}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={isDarkMode ? '#94A3B8' : '#94A3AF'} />
+              </TouchableOpacity>
+              {formErrors.date && (
+                <Text style={styles.fieldErrorText}>{formErrors.date}</Text>
+              )}
+
+              {showRequiredDatePicker && (
+                <DateTimePicker
                   value={getPickerDate(requiredDate)}
                   mode="date"
                   minimumDate={new Date()}
                   onChange={(event, selectedDate) => {
                     if (Platform.OS === 'android') setShowRequiredDatePicker(false);
-                    if (selectedDate) setRequiredDate(formatDateForPost(selectedDate));
+                    if (selectedDate) {
+                      setRequiredDate(formatDateForPost(selectedDate));
+                      if (formErrors.date) setFormErrors((prev) => ({ ...prev, date: null }));
+                    }
                   }}
-                />}
-              </>}
-              {missingFields[followUpIndex] === 'urgency' && <View>
-                <Text style={[styles.inputLabel, isDarkMode && styles.textDark]}>How urgent is it?</Text>
-                <View style={styles.modalButtons}>
-                  {['low', 'medium', 'high'].map(level => <TouchableOpacity
-                    key={level} onPress={() => setUrgency(level)}
-                    style={[styles.modalButton, urgency === level ? styles.publishGradient : styles.editButton, { padding: 12 }]}
-                  ><Text style={urgency === level ? styles.publishButtonText : styles.editButtonText}>{level}</Text></TouchableOpacity>)}
+                />
+              )}
+            </View>
+
+            {/* Urgency Selector */}
+            <View style={styles.fieldGroup}>
+              <View style={styles.labelRow}>
+                <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                  {isSi ? 'හදිසිභාවය' : 'Urgency Level'} <Text style={styles.requiredAsterisk}>*</Text>
+                </Text>
+                <View style={styles.mandatoryBadge}>
+                  <Text style={styles.mandatoryBadgeText}>{isSi ? 'අනිවාර්යයි' : 'Mandatory'}</Text>
                 </View>
-              </View>}
+              </View>
+
+              <View style={styles.urgencyGrid}>
+                {urgencyOptions.map((opt) => {
+                  const isSelected = (urgency || '').toLowerCase() === opt.key;
+                  return (
+                    <TouchableOpacity
+                      key={opt.key}
+                      onPress={() => {
+                        setUrgency(opt.key);
+                        if (formErrors.urgency) setFormErrors((prev) => ({ ...prev, urgency: null }));
+                      }}
+                      style={[
+                        styles.urgencyPill,
+                        isDarkMode && styles.urgencyPillDark,
+                        formErrors.urgency && styles.inputBoxError,
+                        isSelected && {
+                          backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.18)' : '#EEF2FF',
+                          borderColor: opt.color,
+                          borderWidth: 1.5,
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={opt.icon}
+                        size={15}
+                        color={isSelected ? opt.color : isDarkMode ? '#94A3B8' : '#64748B'}
+                      />
+                      <Text
+                        style={[
+                          styles.urgencyPillText,
+                          isDarkMode && styles.textDark,
+                          isSelected && { color: opt.color, fontWeight: '700' },
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {formErrors.urgency && (
+                <Text style={styles.fieldErrorText}>{formErrors.urgency}</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Card 3: Photo Attachment */}
+          <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
+            <View style={styles.cardHeaderRow}>
+              <View style={[styles.cardIconBubble, { backgroundColor: isDarkMode ? '#451A03' : '#FFFBEB' }]}>
+                <Ionicons name="camera-outline" size={18} color="#D97706" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>
+                  {isSi ? 'ඡායාරූපය (වෛකල්පික)' : 'Photo Attachment'}
+                </Text>
+                <Text style={[styles.cardSubtitle, isDarkMode && styles.textMutedDark]}>
+                  {isSi ? 'ගැටලුව පැහැදිලි කිරීමට පින්තූරයක් එක් කරන්න' : 'Help providers understand the job with a picture'}
+                </Text>
+              </View>
+            </View>
+
+            {selectedImage ? (
+              <View style={styles.imageCard}>
+                <Image source={{ uri: selectedImage }} style={styles.attachedImage} />
+                <View style={styles.imageOverlayControls}>
+                  <TouchableOpacity
+                    style={styles.imageOverlayBtn}
+                    onPress={pickImage}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="refresh" size={16} color="#FFFFFF" />
+                    <Text style={styles.imageOverlayBtnText}>{isSi ? 'වෙනස් කරන්න' : 'Change'}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.imageOverlayBtn, styles.imageDeleteBtn]}
+                    onPress={removeImage}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.imageOverlayBtnText}>{isSi ? 'ඉවත් කරන්න' : 'Remove'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
               <TouchableOpacity
-                style={[styles.previewButton, { marginTop: 16 }]}
-                onPress={() => {
-                  const field = missingFields[followUpIndex];
-                  const answer = field === 'location' ? serviceLocation.trim()
-                    : field === 'date' ? requiredDate.trim() : urgency;
-                  if (!answer) {
-                    Alert.alert('Answer needed', 'Please answer this question to continue.');
-                    return;
-                  }
-                  if (followUpIndex < missingFields.length - 1) setFollowUpIndex(followUpIndex + 1);
-                  else generatePreview();
-                }}
+                style={[styles.uploadBox, isDarkMode && styles.uploadBoxDark]}
+                onPress={pickImage}
+                activeOpacity={0.7}
               >
-                <LinearGradient colors={['#8B5CF6', '#6366F1']} style={styles.previewGradient}>
-                  <Text style={styles.previewButtonText}>{followUpIndex < missingFields.length - 1 ? 'Next question' : 'Generate AI Post'}</Text>
-                </LinearGradient>
+                <View style={styles.uploadIconCircle}>
+                  <Ionicons name="cloud-upload-outline" size={24} color="#4F46E5" />
+                </View>
+                <Text style={[styles.uploadPrimaryText, isDarkMode && styles.textDark]}>
+                  {isSi ? 'ඡායාරූපයක් එක් කරන්න' : 'Upload or Take a Photo'}
+                </Text>
+                <Text style={[styles.uploadSecondaryText, isDarkMode && styles.textMutedDark]}>
+                  {isSi ? 'JPG, PNG ගොනු සහාය දක්වයි' : 'Supports JPG, PNG up to 5MB'}
+                </Text>
               </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Card 4: AI Smart Assist Summary (If Generated) */}
+          {previewData && (
+            <View style={[styles.previewReadyCard, isDarkMode && styles.previewReadyCardDark]}>
+              <View style={styles.previewReadyHeader}>
+                <View style={styles.previewSparkleWrap}>
+                  <Ionicons name="sparkles" size={16} color="#4F46E5" />
+                </View>
+                <Text style={[styles.previewReadyTitle, isDarkMode && styles.textDark]}>
+                  {isSi ? 'AI මඟින් හඳුනාගත් තොරතුරු' : 'AI Generated Enhancements'}
+                </Text>
+                <TouchableOpacity onPress={() => setPreviewVisible(true)}>
+                  <Text style={styles.previewViewLink}>{isSi ? 'සම්පූර්ණ පෙරදසුන' : 'View Full'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.previewQuickChips}>
+                {previewData.category && (
+                  <View style={styles.quickChip}>
+                    <Ionicons name="construct-outline" size={12} color="#4F46E5" />
+                    <Text style={styles.quickChipText}>{previewData.category}</Text>
+                  </View>
+                )}
+                {previewData.urgency && (
+                  <View style={styles.quickChip}>
+                    <Ionicons name="flash-outline" size={12} color="#D97706" />
+                    <Text style={styles.quickChipText}>{previewData.urgency}</Text>
+                  </View>
+                )}
+              </View>
+
+              {previewData.tags && previewData.tags.length > 0 && (
+                <View style={styles.tagsRow}>
+                  {previewData.tags.slice(0, 4).map((tag, i) => (
+                    <Text key={i} style={[styles.tagPill, isDarkMode && styles.tagPillDark]}>
+                      #{tag}
+                    </Text>
+                  ))}
+                </View>
+              )}
             </View>
           )}
 
-          {/* AI PREVIEW BUTTON */}
-
-          {(
-            !isEditMode ||
-            (
-              isEditMode &&
-              selectedImage !==
-                getImageUrl(
-                  originalImagePath
-                )
-            )
-          ) && (
+          {/* Action Buttons Section */}
+          <View style={styles.actionButtonsSection}>
+            {/* 1. Generate AI Preview Button */}
             <TouchableOpacity
-              style={
-                styles.previewButton
-              }
-
-              onPress={
-                generatePreview
-              }
-
-              disabled={
-                previewLoading
-              }
+              style={styles.previewActionBtn}
+              onPress={generatePreview}
+              disabled={previewLoading || loading}
+              activeOpacity={0.85}
             >
               <LinearGradient
-                colors={[
-                  '#8B5CF6',
-                  '#6366F1',
-                ]}
-                style={
-                  styles.previewGradient
-                }
+                colors={['#8B5CF6', '#6366F1']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.actionBtnGradient}
               >
                 {previewLoading ? (
-                  <ActivityIndicator
-                    color="#fff"
-                  />
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Ionicons
-                      name="sparkles"
-                      size={20}
-                      color="#fff"
-                    />
-
-                    <Text
-                      style={
-                        styles.previewButtonText
-                      }
-                    >
-                      {missingFields.length ? 'Continue post setup' : 'Generate AI Preview'}
+                    <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+                    <Text style={styles.actionBtnText}>
+                      {isSi ? 'AI පෙරදසුන සකසන්න' : 'Generate AI Preview'}
                     </Text>
                   </>
                 )}
               </LinearGradient>
             </TouchableOpacity>
-          )}
 
-        </View>
-      </Animated.ScrollView>
-
-
-      {/* SAVE BUTTON */}
-
-      <TouchableOpacity
-        style={
-          styles.floatingButton
-        }
-
-        onPress={
-          savePost
-        }
-
-        disabled={
-          loading
-        }
-      >
-        <LinearGradient
-          colors={[
-            '#667eea',
-            '#764ba2',
-          ]}
-          style={
-            styles.floatingGradient
-          }
-        >
-          {loading ? (
-            <ActivityIndicator
-              color="#fff"
-            />
-          ) : (
-            <>
-              <Ionicons
-                name={
-                  isEditMode
-                    ? 'save'
-                    : 'send'
-                }
-                size={20}
-                color="#fff"
-              />
-
-              <Text
-                style={
-                  styles.floatingButtonText
-                }
+            {/* 2. Publish / Update Post Button */}
+            <TouchableOpacity
+              style={styles.publishActionBtn}
+              onPress={savePost}
+              disabled={loading || previewLoading}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#4338CA', '#4F46E5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.actionBtnGradient}
               >
-                {isEditMode
-                  ? 'Update Post'
-                  : 'Publish Post'}
-              </Text>
-            </>
-          )}
-        </LinearGradient>
-      </TouchableOpacity>
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name={isEditMode ? 'checkmark-circle-outline' : 'paper-plane-outline'}
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.actionBtnText}>
+                      {isEditMode
+                        ? (isSi ? 'පළකිරීම යාවත්කාලීන කරන්න' : 'Update Post')
+                        : (isSi ? 'පළකිරීම ප්‍රසිද්ධ කරන්න' : 'Publish Post')}
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
 
+          {/* Bottom spacing so content easily scrolls above BottomNav */}
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-      {/* PREVIEW MODAL */}
-
+      {/* AI Preview Bottom Sheet / Modal */}
       <Modal
-        visible={
-          previewVisible
-        }
+        visible={previewVisible}
         animationType="slide"
         transparent
+        onRequestClose={() => setPreviewVisible(false)}
       >
-        <View
-          style={
-            styles.modalOverlay
-          }
-        >
-          <View
-            style={[styles.previewModal, isDarkMode && styles.previewModalDark]}
-          >
-            <ScrollView
-              showsVerticalScrollIndicator={
-                false
-              }
-            >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
+            {/* Modal Drag Bar */}
+            <View style={styles.modalDragHandle} />
 
-              <Text
-                style={[styles.previewTitle, isDarkMode && styles.textDark]}
-              >
-                ✨ AI Generated Preview
-              </Text>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="sparkles" size={18} color="#4F46E5" />
+                <Text style={[styles.modalHeading, isDarkMode && styles.textDark]}>
+                  {isSi ? 'AI පෙරදසුන' : 'AI Generated Post Review'}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setPreviewVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={24} color={isDarkMode ? '#94A3B8' : '#94A3AF'} />
+              </TouchableOpacity>
+            </View>
 
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
               {previewData?.image && (
                 <Image
-                  source={{
-                    uri:
-                      getImageUrl(
-                        previewData.image
-                      ),
-                  }}
-                  style={
-                    styles.modalImage
-                  }
+                  source={{ uri: getImageUrl(previewData.image) }}
+                  style={styles.modalPreviewImage}
                 />
               )}
 
-              <Text
-                style={[styles.previewHeading, isDarkMode && styles.textDark]}
-              >
-                Title
-              </Text>
+              <View style={styles.modalDetailBlock}>
+                <Text style={[styles.modalLabel, isDarkMode && styles.textMutedDark]}>
+                  {isSi ? 'මාතෘකාව' : 'Title'}
+                </Text>
+                <Text style={[styles.modalValueTitle, isDarkMode && styles.textDark]}>
+                  {previewData?.title || title}
+                </Text>
+              </View>
 
-              <Text
-                style={[styles.previewText, isDarkMode && styles.textMutedDark]}
-              >
-                {
-                  previewData?.title
-                }
-              </Text>
+              <View style={styles.modalDetailBlock}>
+                <Text style={[styles.modalLabel, isDarkMode && styles.textMutedDark]}>
+                  {isSi ? 'විස්තරය' : 'Description'}
+                </Text>
+                <Text style={[styles.modalValueDesc, isDarkMode && styles.textDark]}>
+                  {previewData?.description || description}
+                </Text>
+              </View>
 
-              <Text
-                style={[styles.previewHeading, isDarkMode && styles.textDark]}
-              >
-                Description
-              </Text>
+              <View style={styles.modalGridRow}>
+                <View style={styles.modalGridCol}>
+                  <Text style={[styles.modalLabel, isDarkMode && styles.textMutedDark]}>
+                    {isSi ? 'කාණ්ඩය' : 'Category'}
+                  </Text>
+                  <Text style={[styles.modalBadgeText, { color: '#4F46E5' }]}>
+                    {previewData?.category || 'General'}
+                  </Text>
+                </View>
 
-              <Text
-                style={[styles.previewText, isDarkMode && styles.textMutedDark]}
-              >
-                {
-                  previewData?.description
-                }
-              </Text>
+                <View style={styles.modalGridCol}>
+                  <Text style={[styles.modalLabel, isDarkMode && styles.textMutedDark]}>
+                    {isSi ? 'හදිසිභාවය' : 'Urgency'}
+                  </Text>
+                  <Text style={[styles.modalBadgeText, { color: '#D97706' }]}>
+                    {previewData?.urgency || urgency}
+                  </Text>
+                </View>
+              </View>
 
-              <Text
-                style={[styles.previewHeading, isDarkMode && styles.textDark]}
-              >
-                Category
-              </Text>
+              {(previewData?.location || serviceLocation) ? (
+                <View style={styles.modalDetailBlock}>
+                  <Text style={[styles.modalLabel, isDarkMode && styles.textMutedDark]}>
+                    {isSi ? 'ස්ථානය' : 'Location'}
+                  </Text>
+                  <Text style={[styles.modalValueDesc, isDarkMode && styles.textDark]}>
+                    {previewData?.location || serviceLocation}
+                  </Text>
+                </View>
+              ) : null}
 
-              <Text
-                style={[styles.previewText, isDarkMode && styles.textMutedDark]}
-              >
-                {
-                  previewData?.category
-                }
-              </Text>
+              {(previewData?.requiredDate || requiredDate) ? (
+                <View style={styles.modalDetailBlock}>
+                  <Text style={[styles.modalLabel, isDarkMode && styles.textMutedDark]}>
+                    {isSi ? 'අවශ්‍ය දිනය' : 'Preferred Date'}
+                  </Text>
+                  <Text style={[styles.modalValueDesc, isDarkMode && styles.textDark]}>
+                    {previewData?.requiredDate || requiredDate}
+                  </Text>
+                </View>
+              ) : null}
 
-              <Text
-                style={[styles.previewHeading, isDarkMode && styles.textDark]}
-              >
-                Urgency
-              </Text>
+              {previewData?.tags && previewData.tags.length > 0 && (
+                <View style={styles.modalDetailBlock}>
+                  <Text style={[styles.modalLabel, isDarkMode && styles.textMutedDark]}>
+                    {isSi ? 'ටැග් (Tags)' : 'Generated Tags'}
+                  </Text>
+                  <View style={styles.modalTagsWrap}>
+                    {previewData.tags.map((tag, idx) => (
+                      <View key={idx} style={[styles.tagBadge, isDarkMode && styles.tagBadgeDark]}>
+                        <Text style={styles.tagBadgeText}>#{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
 
-              <Text
-                style={[styles.previewText, isDarkMode && styles.textMutedDark]}
+            {/* Modal Buttons */}
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                style={[styles.modalEditBtn, isDarkMode && styles.modalEditBtnDark]}
+                onPress={() => setPreviewVisible(false)}
               >
-                {
-                  previewData?.urgency
-                }
-              </Text>
+                <Text style={[styles.modalEditBtnText, isDarkMode && styles.textDark]}>
+                  {isSi ? 'සංස්කරණය' : 'Edit Details'}
+                </Text>
+              </TouchableOpacity>
 
-              <Text style={[styles.previewHeading, isDarkMode && styles.textDark]}>Service location</Text>
-              <Text style={[styles.previewText, isDarkMode && styles.textMutedDark]}>{previewData?.location || serviceLocation}</Text>
-              <Text style={[styles.previewHeading, isDarkMode && styles.textDark]}>Required date</Text>
-              <Text style={[styles.previewText, isDarkMode && styles.textMutedDark]}>{previewData?.requiredDate || requiredDate}</Text>
-
-              <Text
-                style={[styles.previewHeading, isDarkMode && styles.textDark]}
+              <TouchableOpacity
+                style={styles.modalPublishBtn}
+                onPress={() => {
+                  setPreviewVisible(false);
+                  savePost();
+                }}
               >
-                Suggested Tags
-              </Text>
+                <LinearGradient
+                  colors={['#4338CA', '#4F46E5']}
+                  style={styles.modalPublishGradient}
+                >
+                  <Text style={styles.modalPublishText}>
+                    {isSi ? 'තහවුරු කර පළ කරන්න' : 'Confirm & Publish'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
-              <View
-                style={
-                  styles.tagsContainer
-                }
-              >
-                {previewData?.tags?.map(
-                  (
-                    tag,
-                    idx
-                  ) => (
-                    <View
-                      key={idx}
-                      style={[styles.tag, isDarkMode && styles.tagDark]}
-                    >
-                      <Text
-                        style={[styles.tagText, isDarkMode && styles.tagTextDark]}
-                      >
-                        #{tag}
-                      </Text>
-                    </View>
-                  )
+      {/* Location Picker Modal */}
+      <Modal
+        visible={showLocationModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowLocationModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.locationModalContent, isDarkMode && styles.modalContentDark]}>
+            <View style={styles.modalDragHandle} />
+
+            {/* Modal Header */}
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="map" size={18} color="#4F46E5" />
+                <Text style={[styles.modalHeading, isDarkMode && styles.textDark]}>
+                  {isSi ? 'සේවා ස්ථානය තෝරන්න' : 'Choose Service Location'}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowLocationModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={24} color={isDarkMode ? '#94A3B8' : '#94A3AF'} />
+              </TouchableOpacity>
+            </View>
+
+            {/* GPS Detect Banner */}
+            <TouchableOpacity
+              style={[styles.detectGpsBanner, isDarkMode && styles.detectGpsBannerDark]}
+              onPress={() => handleUseCurrentLocation(false)}
+              disabled={locatingGPS}
+              activeOpacity={0.8}
+            >
+              <View style={styles.detectGpsIcon}>
+                {locatingGPS ? (
+                  <ActivityIndicator size="small" color="#4F46E5" />
+                ) : (
+                  <Ionicons name="navigate" size={18} color="#4F46E5" />
                 )}
               </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.detectGpsTitle, isDarkMode && styles.textDark]}>
+                  {isSi ? 'වත්මන් GPS ස්ථානය ලබා ගන්න' : 'Use Current GPS Location'}
+                </Text>
+                <Text style={[styles.detectGpsSubtitle, isDarkMode && styles.textMutedDark]}>
+                  {isSi ? 'ඔබ සිටින තැන ස්වයංක්‍රීයව සලකුණු කරයි' : 'Tap to automatically pin where you are'}
+                </Text>
+              </View>
+            </TouchableOpacity>
 
-              <View
-                style={
-                  styles.modalButtons
-                }
+            {/* Interactive Map */}
+            <View style={styles.mapContainer}>
+              <MapView
+                ref={mapRef}
+                style={styles.mapView}
+                region={mapRegion}
+                onPress={handleMapPress}
               >
+                {mapMarker && (
+                  <Marker
+                    coordinate={mapMarker}
+                    title={isSi ? 'තෝරාගත් ස්ථානය' : 'Selected Location'}
+                    description={tempLocationAddress}
+                  />
+                )}
+              </MapView>
+              <View style={styles.mapHintBadge}>
+                <Text style={styles.mapHintText}>
+                  {isSi ? '📍 සිතියම මත අවශ්‍ය තැන tap කරන්න' : '📍 Tap anywhere on map to move pin'}
+                </Text>
+              </View>
+            </View>
 
+            {/* Selected Address Card */}
+            <View style={[styles.selectedAddressCard, isDarkMode && styles.selectedAddressCardDark]}>
+              <Ionicons name="location" size={18} color="#4F46E5" style={{ marginTop: 1 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.selectedAddressLabel, isDarkMode && styles.textMutedDark]}>
+                  {isSi ? 'තෝරාගත් ස්ථානය:' : 'Selected Address:'}
+                </Text>
+                <Text style={[styles.selectedAddressText, isDarkMode && styles.textDark]} numberOfLines={2}>
+                  {tempLocationAddress || (isSi ? 'ස්ථානයක් තෝරා නැත (සිතියම tap කරන්න)' : 'Tap map or use GPS above')}
+                </Text>
+              </View>
+            </View>
+
+            {/* Quick District Selector */}
+            <Text style={[styles.quickDistrictsHeader, isDarkMode && styles.textMutedDark]}>
+              {isSi ? 'දිස්ත්‍රික්කයෙන් ඉක්මනින් තෝරන්න:' : 'Or Quick Select District:'}
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.districtChipsScroll}>
+              {SRI_LANKA_DISTRICTS.map((dist) => (
                 <TouchableOpacity
+                  key={dist}
                   style={[
-                    styles.modalButton,
-                    styles.editButton,
-                    isDarkMode && styles.editButtonDark,
+                    styles.districtChip,
+                    isDarkMode && styles.districtChipDark,
+                    tempLocationAddress.toLowerCase().includes(dist.toLowerCase()) && styles.districtChipActive,
                   ]}
-                  onPress={() =>
-                    setPreviewVisible(
-                      false
-                    )
-                  }
+                  onPress={() => handleSelectDistrict(dist)}
+                  activeOpacity={0.7}
                 >
                   <Text
-                    style={[styles.editButtonText, isDarkMode && styles.textMutedDark]}
+                    style={[
+                      styles.districtChipText,
+                      isDarkMode && styles.textDark,
+                      tempLocationAddress.toLowerCase().includes(dist.toLowerCase()) && styles.districtChipTextActive,
+                    ]}
                   >
-                    Edit
+                    {dist}
                   </Text>
                 </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.modalButton,
-                    styles.publishButton,
-                  ]}
-                  onPress={() => {
-                    setPreviewVisible(
-                      false
-                    );
-
-                    savePost();
-                  }}
-                >
-                  <LinearGradient
-                    colors={[
-                      '#667eea',
-                      '#764ba2',
-                    ]}
-                    style={
-                      styles.publishGradient
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.publishButtonText
-                      }
-                    >
-                      Publish Now
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-              </View>
-
+              ))}
             </ScrollView>
+
+            {/* Confirm Button */}
+            <TouchableOpacity
+              style={styles.confirmLocationBtn}
+              onPress={handleConfirmLocation}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#4338CA', '#4F46E5']}
+                style={styles.confirmLocationGradient}
+              >
+                <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.confirmLocationText}>
+                  {isSi ? 'මෙම ස්ථානය තහවුරු කරන්න' : 'Confirm Location'}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1694,350 +1373,779 @@ export default function CreatePostScreen() {
   );
 }
 
-
 // =======================================================
-// STYLES
+// PROFESSIONAL DESIGN STYLES
 // =======================================================
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  containerDark: {
+    backgroundColor: '#090D16',
+  },
 
-const styles =
-  StyleSheet.create({
+  // App Bar
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: Platform.OS === 'ios' ? 10 : 12,
+  },
+  headerBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  headerSubtitle: {
+    fontSize: 10.5,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
+  },
+  headerRightBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 3,
+  },
+  aiBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
 
-    container: {
-      flex: 1,
-      backgroundColor: '#F8F9FA',
-    },
+  // Scroll Content
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+  },
 
-    containerDark: {
-      backgroundColor: '#0f1121',
-    },
+  // Section Cards
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#4338CA',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 1.5,
+      },
+    }),
+  },
+  sectionCardDark: {
+    backgroundColor: '#111827',
+    borderColor: '#1F2937',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    gap: 10,
+  },
+  cardIconBubble: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  cardSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
 
-    scrollView: {
-      flex: 1,
-    },
+  // Field Groups & Inputs
+  fieldGroup: {
+    marginBottom: 14,
+  },
+  fieldLabel: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  requiredAsterisk: {
+    color: '#EF4444',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  charHint: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
+  textInputBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    minHeight: 46,
+    justifyContent: 'center',
+  },
+  textInputBoxDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  textInputBoxActive: {
+    borderColor: '#4F46E5',
+    backgroundColor: '#FFFFFF',
+  },
+  textInputBoxActiveDark: {
+    borderColor: '#818CF8',
+    backgroundColor: '#1E293B',
+  },
+  inputBoxError: {
+    borderColor: '#EF4444',
+    borderWidth: 1.5,
+  },
+  fieldErrorText: {
+    color: '#EF4444',
+    fontSize: 11.5,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  mandatoryBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  mandatoryBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#EF4444',
+    textTransform: 'uppercase',
+  },
+  inputWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputControl: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    paddingVertical: 8,
+  },
+  textAreaBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 96,
+  },
+  textAreaControl: {
+    fontSize: 14,
+    color: '#0F172A',
+    textAlignVertical: 'top',
+    minHeight: 80,
+  },
 
-    heroSection: {
-      paddingTop: 60,
-      paddingBottom: 40,
-      borderBottomLeftRadius: 30,
-      borderBottomRightRadius: 30,
-    },
+  // Date Button
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    minHeight: 44,
+  },
+  dateBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateButtonText: {
+    fontSize: 13,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+  placeholderText: {
+    color: '#94A3B8',
+    fontWeight: '400',
+  },
 
-    heroContent: {
-      alignItems: 'center',
-      paddingHorizontal: 20,
-    },
+  // Urgency Pills Grid
+  urgencyGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  urgencyPill: {
+    flex: 1,
+    minWidth: '46%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    gap: 6,
+  },
+  urgencyPillDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  urgencyPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
 
-    heroIconBg: {
-      width: 70,
-      height: 70,
-      borderRadius: 35,
-      backgroundColor: '#fff',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 16,
-    },
+  // Image Upload Box
+  uploadBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderStyle: 'dashed',
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  uploadBoxDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  uploadIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  uploadPrimaryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4F46E5',
+    marginBottom: 2,
+  },
+  uploadSecondaryText: {
+    fontSize: 11,
+    color: '#94A3B8',
+  },
 
-    heroTitle: {
-      fontSize: 28,
-      fontWeight: '700',
-      color: '#fff',
-      marginBottom: 8,
-    },
+  // Image Preview
+  imageCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  attachedImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+  },
+  imageOverlayControls: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  imageOverlayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  imageDeleteBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.85)',
+  },
+  imageOverlayBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
 
-    heroSubtitle: {
-      fontSize: 14,
-      color: '#ffffffcc',
-      textAlign: 'center',
-    },
+  // AI Ready Card
+  previewReadyCard: {
+    backgroundColor: '#F5F3FF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    marginBottom: 14,
+  },
+  previewReadyCardDark: {
+    backgroundColor: '#1E1B4B',
+    borderColor: '#3730A3',
+  },
+  previewReadyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  previewSparkleWrap: {
+    marginRight: 6,
+  },
+  previewReadyTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4F46E5',
+    flex: 1,
+  },
+  previewViewLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4F46E5',
+    textDecorationLine: 'underline',
+  },
+  previewQuickChips: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 6,
+  },
+  quickChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+  },
+  quickChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  tagPill: {
+    fontSize: 11,
+    color: '#6366F1',
+    fontWeight: '600',
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  tagPillDark: {
+    color: '#A5B4FC',
+  },
 
-    formContainer: {
-      padding: 20,
-      paddingBottom: 120,
-    },
+  // Action Buttons Section
+  actionButtonsSection: {
+    marginTop: 10,
+    gap: 12,
+  },
+  previewActionBtn: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#8B5CF6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  publishActionBtn: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#4F46E5',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  actionBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  actionBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
 
-    formContainerDark: {
-      backgroundColor: '#0f1121',
-    },
+  // Modal Sheet Styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+  },
+  modalContentDark: {
+    backgroundColor: '#111827',
+  },
+  modalDragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalHeading: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalPreviewImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  modalDetailBlock: {
+    marginBottom: 12,
+  },
+  modalLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  modalValueTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  modalValueDesc: {
+    fontSize: 13,
+    color: '#334155',
+    lineHeight: 18,
+  },
+  modalGridRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    gap: 16,
+  },
+  modalGridCol: {
+    flex: 1,
+  },
+  modalBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  modalTagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  tagBadge: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  tagBadgeDark: {
+    backgroundColor: '#1E1B4B',
+  },
+  tagBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4F46E5',
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+  },
+  modalEditBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalEditBtnDark: {
+    backgroundColor: '#1F2937',
+    borderColor: '#374151',
+  },
+  modalEditBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  modalPublishBtn: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  modalPublishGradient: {
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalPublishText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 
-    inputContainer: {
-      backgroundColor: '#fff',
-      borderRadius: 20,
-      padding: 16,
-      marginBottom: 16,
-      borderWidth: 1,
-      borderColor: '#eee',
-    },
+  // Location Input Box with Actions
+  locationInputBox: {
+    paddingRight: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quickGpsBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  quickGpsBtnDark: {
+    backgroundColor: '#1E1B4B',
+  },
+  openPickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  openPickerBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 
-    inputContainerDark: {
-      backgroundColor: '#16213e',
-      borderColor: '#2d3561',
-    },
+  // Location Modal Styles
+  locationModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 18,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '90%',
+  },
+  detectGpsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    padding: 10,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 10,
+  },
+  detectGpsBannerDark: {
+    backgroundColor: '#1E1B4B',
+  },
+  detectGpsIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detectGpsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  detectGpsSubtitle: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  mapContainer: {
+    height: 180,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  mapView: {
+    width: '100%',
+    height: '100%',
+  },
+  mapHintBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  mapHintText: {
+    color: '#FFFFFF',
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  selectedAddressCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  selectedAddressCardDark: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+  },
+  selectedAddressLabel: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  selectedAddressText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 1,
+  },
+  quickDistrictsHeader: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 6,
+  },
+  districtChipsScroll: {
+    gap: 6,
+    paddingBottom: 10,
+  },
+  districtChip: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  districtChipDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  districtChipActive: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#4F46E5',
+  },
+  districtChipText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  districtChipTextActive: {
+    color: '#4F46E5',
+    fontWeight: '700',
+  },
+  confirmLocationBtn: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 6,
+  },
+  confirmLocationGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  confirmLocationText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
 
-    inputContainerActive: {
-      borderColor: '#667eea',
-    },
-
-    inputLabel: {
-      fontSize: 14,
-      fontWeight: '600',
-      marginBottom: 10,
-      color: '#1F2937',
-    },
-
-    titleInput: {
-      fontSize: 16,
-      color: '#111827',
-    },
-
-    datePickerButton: {
-      minHeight: 48,
-      paddingHorizontal: 12,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: '#D1D5DB',
-      backgroundColor: '#F9FAFB',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-
-    datePickerText: {
-      color: '#374151',
-      fontSize: 15,
-    },
-
-    descriptionInput: {
-      minHeight: 100,
-      textAlignVertical: 'top',
-      fontSize: 15,
-      color: '#111827',
-    },
-
-    uploadSection: {
-      marginTop: 10,
-    },
-
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      marginBottom: 14,
-      color: '#1F2937',
-    },
-
-    uploadButton: {
-      backgroundColor: '#fff',
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: '#ddd',
-      borderStyle: 'dashed',
-      padding: 30,
-      alignItems: 'center',
-    },
-
-    uploadButtonDark: {
-      backgroundColor: '#16213e',
-      borderColor: '#2d3561',
-    },
-
-    uploadText: {
-      marginTop: 10,
-      color: '#667eea',
-      fontWeight: '600',
-    },
-
-    uploadSubtext: {
-      fontSize: 11,
-      color: '#9CA3AF',
-      marginTop: 4,
-    },
-
-    imagePreviewWrapper: {
-      position: 'relative',
-    },
-
-    previewImage: {
-      width: '100%',
-      height: 220,
-      borderRadius: 20,
-    },
-
-    removeImageBtn: {
-      position: 'absolute',
-      top: 10,
-      right: 10,
-      width: 35,
-      height: 35,
-      borderRadius: 18,
-      backgroundColor: '#EF4444',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-
-    previewButton: {
-      marginTop: 24,
-      borderRadius: 16,
-      overflow: 'hidden',
-    },
-
-    previewGradient: {
-      paddingVertical: 16,
-      justifyContent: 'center',
-      alignItems: 'center',
-      flexDirection: 'row',
-      gap: 10,
-    },
-
-    previewButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '700',
-    },
-
-    floatingButton: {
-      position: 'absolute',
-      bottom: 30,
-      left: 20,
-      right: 20,
-      borderRadius: 18,
-      overflow: 'hidden',
-    },
-
-    floatingGradient: {
-      paddingVertical: 18,
-      justifyContent: 'center',
-      alignItems: 'center',
-      flexDirection: 'row',
-      gap: 10,
-    },
-
-    floatingButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '700',
-    },
-
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'center',
-      padding: 20,
-    },
-
-    previewModal: {
-      backgroundColor: '#fff',
-      borderRadius: 20,
-      padding: 20,
-      maxHeight: '90%',
-    },
-
-    previewModalDark: {
-      backgroundColor: '#16213e',
-    },
-
-    previewTitle: {
-      fontSize: 22,
-      fontWeight: '700',
-      marginBottom: 20,
-      textAlign: 'center',
-    },
-
-    modalImage: {
-      width: '100%',
-      height: 200,
-      borderRadius: 16,
-      marginBottom: 20,
-    },
-
-    previewHeading: {
-      fontSize: 16,
-      fontWeight: '700',
-      marginTop: 12,
-      marginBottom: 6,
-      color: '#1F2937',
-    },
-
-    previewText: {
-      fontSize: 14,
-      color: '#374151',
-      lineHeight: 22,
-    },
-
-    tagsContainer: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginTop: 10,
-    },
-
-    tag: {
-      backgroundColor: '#EEF2FF',
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 20,
-      marginRight: 8,
-      marginBottom: 8,
-    },
-
-    tagDark: {
-      backgroundColor: '#242f4d',
-    },
-
-    tagText: {
-      color: '#4F46E5',
-      fontWeight: '600',
-    },
-
-    tagTextDark: {
-      color: '#818cf8',
-    },
-
-    modalButtons: {
-      flexDirection: 'row',
-      gap: 12,
-      marginTop: 24,
-    },
-
-    modalButton: {
-      flex: 1,
-      borderRadius: 12,
-      overflow: 'hidden',
-    },
-
-    editButton: {
-      backgroundColor: '#F3F4F6',
-      paddingVertical: 14,
-      alignItems: 'center',
-    },
-
-    editButtonDark: {
-      backgroundColor: '#242f4d',
-    },
-
-    editButtonText: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: '#6B7280',
-    },
-
-    publishButton: {
-      overflow: 'hidden',
-    },
-
-    publishGradient: {
-      paddingVertical: 14,
-      alignItems: 'center',
-    },
-
-    publishButtonText: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: '#fff',
-    },
-
-    textDark: {
-      color: '#F8FAFC',
-    },
-
-    textMutedDark: {
-      color: '#94A3B8',
-    },
-  });
+  // Generic Dark Mode Helpers
+  textDark: {
+    color: '#F8FAFC',
+  },
+  textMutedDark: {
+    color: '#94A3B8',
+  },
+});

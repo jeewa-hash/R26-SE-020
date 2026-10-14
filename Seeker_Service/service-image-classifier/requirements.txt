@@ -1,4 +1,11 @@
-tensorflow>=2.10.0
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+python-multipart
+tensorflow-cpu>=2.10.0
 numpy
 matplotlib
 pillow
+requests
+PyJWT
+pymongo
+python-dotenv

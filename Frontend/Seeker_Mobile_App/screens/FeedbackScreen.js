@@ -16,15 +16,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { IP_ADDRESS } from '../config';
 
-// Replace with your actual machine IP if testing on a real device
-const API_BASE_URL = Platform.OS === 'android'
-  ? 'http://10.0.2.2:6000'
-  : 'http://localhost:6000';
+// Uses LAN IP from config.js for real device support
+const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 
-const COORDINATION_API_BASE_URL = Platform.OS === 'android'
-  ? 'http://10.0.2.2:5010'
-  : 'http://localhost:5010';
+const COORDINATION_API_BASE_URL = `http://${IP_ADDRESS}:5010`;
 
 export default function FeedbackScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();

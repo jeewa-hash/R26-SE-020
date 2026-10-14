@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -10,21 +10,24 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
 } from 'react-native';
 
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { IP_ADDRESS } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { LanguageContext } from '../context/LanguageContext';
+import { setLanguage } from '../i18n';
 
 const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
 
 // =======================================================
 // DECODE JWT
 // =======================================================
-
 const decodeJWT = (token) => {
   try {
     const payload = token.split('.')[1];
@@ -47,22 +50,31 @@ const decodeJWT = (token) => {
 // =======================================================
 // LOGIN SCREEN
 // =======================================================
-
 export default function LoginScreen({ navigation }) {
   const { saveUser } = useAuth();
+  const { language, changeLanguage } = useContext(LanguageContext) || { language: 'en' };
+  const isSi = language === 'si';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const toggleLanguage = async () => {
+    const nextLang = isSi ? 'en' : 'si';
+    await setLanguage(nextLang);
+    if (changeLanguage) changeLanguage(nextLang);
+  };
+
   // =====================================================
   // LOGIN
   // =====================================================
-
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert(
+        isSi ? 'දෝෂයකි' : 'Required Fields',
+        isSi ? 'කරුණාකර ඊමේල් ලිපිනය සහ මුරපදය ඇතුළත් කරන්න' : 'Please enter your email and password'
+      );
       return;
     }
 
@@ -85,13 +97,14 @@ export default function LoginScreen({ navigation }) {
         }
       );
 
-      console.log('LOGIN RESPONSE:', JSON.stringify(response.data, null, 2));
-
       const token = response.data?.token;
       const role = response.data?.role || 'Seeker';
 
       if (!token) {
-        Alert.alert('Login Error', 'Authentication token was not received.');
+        Alert.alert(
+          isSi ? 'පිවිසුම් දෝෂයකි' : 'Login Error',
+          isSi ? 'සත්‍යාපන ටෝකනයක් නොලැබුණි.' : 'Authentication token was not received.'
+        );
         return;
       }
 
@@ -100,131 +113,205 @@ export default function LoginScreen({ navigation }) {
       const userId = decodedToken?.user?.id;
 
       if (!userId) {
-        Alert.alert('Login Error', 'Could not extract user ID from token.');
+        Alert.alert(
+          isSi ? 'දෝෂයකි' : 'Token Error',
+          isSi ? 'පරිශීලක හැඳුනුම් අංකය ලබාගත නොහැක.' : 'Could not retrieve user ID from token.'
+        );
         return;
       }
 
-      // 3. Fetch the full user profile from the Auth Service
-      const profileResponse = await axios.get(
-        `${API_URL}/user/${userId}`,
-        {
+      // 3. Save to AsyncStorage
+      await AsyncStorage.setItem('userToken', token);
+      await AsyncStorage.setItem('userRole', role);
+      await AsyncStorage.setItem('userId', userId);
+
+      // 4. Fetch full seeker profile
+      try {
+        const profileRes = await axios.get(`${API_URL}/profile`, {
           headers: {
             Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
           },
+        });
+
+        const userData = profileRes.data?.user || profileRes.data;
+        if (userData) {
+          await AsyncStorage.setItem('user', JSON.stringify(userData));
+          saveUser(userData);
+        } else {
+          saveUser({ id: userId, email: email.trim(), role });
         }
+      } catch (profileErr) {
+        console.warn('Could not fetch seeker profile:', profileErr.message);
+        saveUser({ id: userId, email: email.trim(), role });
+      }
+
+      Alert.alert(
+        isSi ? 'සාර්ථකයි!' : 'Welcome Back!',
+        isSi ? 'ඔබ සාර්ථකව පිවිසුණි' : 'You have logged in successfully',
+        [{ text: isSi ? 'හරි' : 'OK', onPress: () => navigation.replace('Home') }]
       );
-
-      const userData = profileResponse.data;
-
-      console.log('FULL USER PROFILE:', JSON.stringify(userData, null, 2));
-
-      // 4. Build the complete user object
-      const userProfile = {
-        _id: userData._id,
-        id: userData._id,
-        name: userData.name || email.split('@')[0],
-        email: userData.email || email.trim(),
-        telephone: userData.telephone || '',
-        district: userData.district || 'Colombo',
-        location: userData.location || null,
-        profilePicture: userData.profilePicture || 'https://i.pravatar.cc/150?img=7',
-        avatar: userData.profilePicture || 'https://i.pravatar.cc/150?img=7',
-        role: role,
-        isEmailVerified: userData.isEmailVerified,
-        isBlocked: userData.isBlocked,
-      };
-
-      console.log('FINAL USER PROFILE:', JSON.stringify(userProfile, null, 2));
-
-      // 5. Save all data to AsyncStorage
-      await AsyncStorage.multiSet([
-        ['userToken', token],
-        ['userRole', role],
-        ['userId', String(userId)],
-        ['user', JSON.stringify(userProfile)],
-      ]);
-
-      // Save to AuthContext
-      await saveUser(userProfile);
-
-      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
     } catch (error) {
-      console.error('LOGIN ERROR:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
+      console.error('LOGIN ERROR:', error.response?.data || error.message);
 
-      const requiresOTP = error.response?.data?.requiresOTP;
-
-      if (requiresOTP) {
+      if (error.response?.data?.notVerified) {
         Alert.alert(
-          'Email Not Verified',
-          'Please verify your email with the OTP sent to you.',
+          isSi ? 'ඊමේල් තහවුරු කර නැත' : 'Email Not Verified',
+          isSi
+            ? 'ඔබේ ඊමේල් ලිපිනය තවම තහවුරු කර නැත. කරුණාකර OTP කේතය භාවිතයෙන් තහවුරු කරන්න.'
+            : 'Your email is not verified yet. Please verify using the OTP sent to your email.',
           [
+            { text: isSi ? 'පසුවට' : 'Cancel', style: 'cancel' },
             {
-              text: 'Verify Now',
-              onPress: () => navigation.navigate('VerifyOTP', { email }),
+              text: isSi ? 'දැන් තහවුරු කරන්න' : 'Verify Now',
+              onPress: () =>
+                navigation.navigate('VerifyOTP', {
+                  email: error.response?.data?.email || email.trim(),
+                }),
             },
-            { text: 'Cancel', style: 'cancel' },
           ]
         );
         return;
       }
 
       Alert.alert(
-        'Login Failed',
-        error.response?.data?.message || 'Network error or server is down.'
+        isSi ? 'පිවිසුම අසාර්ථකයි' : 'Login Failed',
+        error.response?.data?.message || (isSi ? 'ජාල දෝෂයක් හෝ සේවාදායකයේ දෝෂයකි.' : 'Network error or server is down.')
       );
     } finally {
       setLoading(false);
     }
   };
 
-  // =====================================================
-  // UI
-  // =====================================================
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
+      style={styles.keyboardView}
     >
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Welcome Back</Text>
+      <StatusBar barStyle="light-content" backgroundColor="#4338CA" />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          value={email}
-          onChangeText={setEmail}
-        />
+      {/* Top Hero Card */}
+      <LinearGradient
+        colors={['#3730A3', '#4338CA', '#4F46E5']}
+        style={styles.heroSection}
+      >
+        <View style={styles.topBar}>
+          <View style={styles.appBadge}>
+            <MaterialIcons name="handyman" size={20} color="#fff" />
+            <Text style={styles.appBadgeText}>WorkWave</Text>
+          </View>
 
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={styles.passwordInput}
-            placeholder="Password"
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
-          />
-          <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
-            <MaterialIcons name={showPassword ? 'visibility' : 'visibility-off'} size={24} color="#777" />
+          {/* Language Toggle Button */}
+          <TouchableOpacity
+            style={styles.languageToggleBtn}
+            onPress={toggleLanguage}
+            activeOpacity={0.8}
+            accessibilityLabel="Toggle Language"
+          >
+            <Text style={styles.languageToggleText}>
+              {isSi ? '🇱🇰 සිංහල' : '🇬🇧 English'}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Login</Text>}
-        </TouchableOpacity>
+        <Text style={styles.heroTitle}>
+          {isSi ? 'නැවත සාදරයෙන් පිළිගනිමු!' : 'Welcome Back!'}
+        </Text>
+        <Text style={styles.heroSubtitle}>
+          {isSi
+            ? 'ඔබේ ගිණුමට ඇතුල් වී සේවාවන් ලබාගන්න'
+            : 'Sign in to find trusted experts & track bookings'}
+        </Text>
+      </LinearGradient>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.link}>Register Here</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.formCard}>
+          {/* Email Input */}
+          <Text style={styles.inputLabel}>
+            {isSi ? 'ඊමේල් ලිපිනය' : 'Email Address'}
+          </Text>
+          <View style={styles.inputContainer}>
+            <MaterialIcons name="email" size={22} color="#6366F1" style={styles.fieldIcon} />
+            <TextInput
+              style={styles.textInput}
+              placeholder={isSi ? 'ඔබේ ඊමේල් ලිපිනය' : 'name@example.com'}
+              placeholderTextColor="#94A3B8"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={email}
+              onChangeText={setEmail}
+            />
+          </View>
+
+          {/* Password Input */}
+          <Text style={styles.inputLabel}>
+            {isSi ? 'මුරපදය' : 'Password'}
+          </Text>
+          <View style={styles.inputContainer}>
+            <MaterialIcons name="lock" size={22} color="#6366F1" style={styles.fieldIcon} />
+            <TextInput
+              style={styles.textInput}
+              placeholder={isSi ? 'ඔබේ මුරපදය ඇතුළත් කරන්න' : 'Enter your password'}
+              placeholderTextColor="#94A3B8"
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+            />
+            <TouchableOpacity
+              style={styles.eyeBtn}
+              onPress={() => setShowPassword(!showPassword)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialIcons
+                name={showPassword ? 'visibility' : 'visibility-off'}
+                size={22}
+                color="#64748B"
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            style={styles.loginBtnWrapper}
+            onPress={handleLogin}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#4F46E5', '#6366F1']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.loginBtn}
+            >
+              {loading ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <View style={styles.btnContent}>
+                  <Text style={styles.loginBtnText}>
+                    {isSi ? 'ඇතුල් වන්න' : 'Sign In'}
+                  </Text>
+                  <MaterialIcons name="arrow-forward" size={20} color="#fff" />
+                </View>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
+
+          {/* Register Prompt */}
+          <View style={styles.footerRow}>
+            <Text style={styles.footerText}>
+              {isSi ? 'ගිණුමක් නැද්ද? ' : "Don't have an account? "}
+            </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <Text style={styles.linkText}>
+                {isSi ? 'ලියාපදිංචි වන්න' : 'Create Account'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -233,65 +320,151 @@ export default function LoginScreen({ navigation }) {
 
 // ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
-    backgroundColor: '#f5f5f5',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  input: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    marginBottom: 15,
-  },
-  passwordInput: {
+  keyboardView: {
     flex: 1,
-    padding: 15,
+    backgroundColor: '#F8FAFC',
   },
-  eyeIcon: {
-    padding: 15,
+  heroSection: {
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) + 16 : 48,
+    paddingBottom: 40,
+    paddingHorizontal: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
-  button: {
-    backgroundColor: '#007bff',
-    padding: 15,
-    borderRadius: 8,
+  topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
-  buttonText: {
-    color: '#fff',
+  appBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  appBadgeText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  languageToggleBtn: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  languageToggleText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#4338CA',
+  },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: -0.5,
+    marginBottom: 6,
+  },
+  heroSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: 20,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  formCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  inputLabel: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    marginBottom: 20,
+    height: 52,
+  },
+  fieldIcon: {
+    marginRight: 10,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+  eyeBtn: {
+    padding: 6,
+  },
+  loginBtnWrapper: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginTop: 8,
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  loginBtn: {
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loginBtnText: {
+    color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
-  footer: {
+  footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 20,
+    alignItems: 'center',
+    marginTop: 24,
   },
   footerText: {
-    color: '#666',
+    color: '#64748B',
+    fontSize: 14,
   },
-  link: {
-    color: '#007bff',
-    fontWeight: 'bold',
+  linkText: {
+    color: '#4F46E5',
+    fontWeight: '800',
+    fontSize: 14,
   },
 });

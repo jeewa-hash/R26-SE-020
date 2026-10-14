@@ -13,7 +13,10 @@ export const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003`;
 export const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
 export const PROVIDER_API_BASE = `http://${IP_ADDRESS}:5000`;
 
-// If you need a legacy CONFIG object (points to main backend on port 5002)
+// Shared CONFIG object used across screens and services
 export const CONFIG = {
     API_BASE_URL: `http://${IP_ADDRESS}:5002`,
+    SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6000`,
+    COORDINATION_SERVICE_URL: `http://${IP_ADDRESS}:5010`,
+    PROVIDER_SERVICE_API_URL: `http://${IP_ADDRESS}:5000`,
 };
