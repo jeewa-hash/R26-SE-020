@@ -6,20 +6,11 @@ import { estimateServiceDuration } from "../services/durationEstimationService.j
 import { validateProviderSchedule } from "../services/scheduleValidationService.js";
 import { getRoadDistanceAndTime } from "../services/osrmService.js";
 import { findPreviousProviderBooking } from "../services/bookingContextService.js";
-import { predictCoordinationRisk } from "../services/mlRiskService.js";
 
 import {
   addHoursToTime,
   calculateGapMinutes,
 } from "../utils/timeUtils.js";
-
-const mapUrgencyToPriority = (urgency = "medium") => {
-  const normalizedUrgency = urgency.toLowerCase();
-
-  if (normalizedUrgency === "high") return 3;
-  if (normalizedUrgency === "medium") return 2;
-  return 1;
-};
 
 export const createProviderRequest = async (req, res) => {
   try {
@@ -105,15 +96,6 @@ export const createProviderRequest = async (req, res) => {
     const finalServiceCategory = serviceCategory || post.category || "";
     const finalTaskName = taskName || post.title || "";
     const finalUrgency = urgency || post.urgency || "medium";
-    const requestedCategory = String(post.category || "").trim().toLowerCase();
-    const offeredCategory = String(finalServiceCategory || "").trim().toLowerCase();
-    const expertiseMatch = !requestedCategory || !offeredCategory
-      ? 1
-      : Number(
-          requestedCategory.includes(offeredCategory) ||
-          offeredCategory.includes(requestedCategory)
-        );
-
     // Use request location if provided, otherwise use post location
     const finalLocation =
       location && location.lat != null && location.lng != null
@@ -203,7 +185,7 @@ export const createProviderRequest = async (req, res) => {
       );
     }
 
-    // Rule-based fallback risk calculation if ML service fails
+    // Deterministic coordination risk based on schedule and travel time
     let riskLevel = "LOW";
     let riskScore = 10;
     let riskMessage = scheduleValidation.message;
@@ -228,28 +210,7 @@ export const createProviderRequest = async (req, res) => {
       }
     }
 
-    const mlInput = {
-      expertiseMatch,
-      taskPriority: mapUrgencyToPriority(finalUrgency),
-      taskDuration: finalEstimatedDurationHours,
-      distanceBetweenBookingsKm: distanceFromPreviousBookingKm,
-      estimatedTravelTimeMins,
-      gapBetweenBookingsMins: gapFromPreviousBookingMins ?? 999,
-      providerBookingsToday: scheduleValidation.providerBookingsToday || 0,
-    };
-
-    let mlRisk = {
-      source: "ML_FAILED",
-    };
-
-    // Use trained ML model when available
-    mlRisk = await predictCoordinationRisk(mlInput);
-
-    if (mlRisk.source !== "ML_FAILED") {
-      riskLevel = mlRisk.riskLevel;
-      riskScore = mlRisk.riskScore;
-      riskMessage = mlRisk.recommendation;
-    }
+    const coordinationSource = "DETERMINISTIC_RULES";
 
     const finalValidationStatus =
       riskLevel === "HIGH"
@@ -293,8 +254,7 @@ export const createProviderRequest = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Provider request created successfully",
-      mlSource: mlRisk.source,
-      mlInput,
+      mlSource: coordinationSource,
       data: providerRequest,
     });
   } catch (error) {
