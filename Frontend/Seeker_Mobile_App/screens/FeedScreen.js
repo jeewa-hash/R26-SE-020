@@ -1,5 +1,3 @@
-import { sortNearby } from '../utils/locationSorting';
-import { AUTH_SERVICE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -118,7 +116,7 @@ export default function FeedScreen({ navigation }) {
         return;
       }
 
-      const adsArray = await sortNearby(data.data || [], AUTH_SERVICE_URL, 'seeker', 'provider');
+      const adsArray = data.data || [];
       const initialLikesMap = {};
 
       const formattedAds = adsArray.map(ad => {
@@ -141,7 +139,6 @@ export default function FeedScreen({ navigation }) {
         }
 
         return {
-          distanceKm: ad.distanceKm,
           id: ad._id,
           postId: ad._id,
           providerId: ad.providerId,

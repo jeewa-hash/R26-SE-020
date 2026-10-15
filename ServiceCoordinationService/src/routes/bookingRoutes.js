@@ -1,4 +1,3 @@
-import Booking from "../models/Booking.js";
 import express from "express";
 import {
   getBookingById,
@@ -24,22 +23,6 @@ import {
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
-
-// Only public ad-link identifiers are exposed; no booking or user details.
-router.get("/completed/ad-references", async (req, res) => {
-  try {
-    const bookings = await Booking.find({ bookingStatus: "COMPLETED" })
-      .select("postId externalRequestQuotationId externalQuotationId -_id").lean();
-    res.json({
-      postIds: [...new Set(bookings.map((item) => String(item.postId || '')).filter(Boolean))],
-      requestIds: [...new Set(bookings.map((item) => String(item.externalRequestQuotationId || '')).filter(Boolean))],
-      quotationIds: [...new Set(bookings.map((item) => String(item.externalQuotationId || '')).filter(Boolean))],
-    });
-  } catch (error) {
-    res.status(503).json({ message: "Unable to check completed ads" });
-  }
-});
-
 
 router.get("/provider/me/live-summary", protect(["ServiceProvider"]), getProviderLiveSummary);
 router.get("/provider/:providerId/live-summary", getProviderLiveSummaryByProviderId);

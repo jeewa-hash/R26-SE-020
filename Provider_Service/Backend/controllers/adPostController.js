@@ -1,4 +1,3 @@
-import axios from "axios";
 /**
  * controllers/adPostController.js
  * AI-assisted service post generation (FR-03) + post management (FR-16).
@@ -187,14 +186,9 @@ export const listPostsByProvider = async (req, res) => {
 // Used by seekers/feed views so boosted posts and newly created ones appear first.
 export const listAllPublicPosts = async (req, res) => {
   try {
-    const { data: completed } = await axios.get(
-      `${process.env.SEEKER_SERVICE_URL || 'http://127.0.0.1:6000'}/posts/completed-ad-references`,
-      { timeout: 5000 }
-    );
-    const completedPostIds = completed.postIds || [];
-    const posts = await AdPost.find({ status: "draft", _id: { $nin: completedPostIds }, createdAt: { $gt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) } }).sort({
-      priority: -1,
+    const posts = await AdPost.find({ status: "draft" }).sort({
       createdAt: -1,
+      _id: -1,
     });
     res.json({ success: true, count: posts.length, data: posts });
   } catch (err) {

@@ -1,4 +1,3 @@
-import { sortNearby } from '../utils/locationSorting';
 import React, { useState, useMemo, useEffect, useContext, useCallback } from 'react';
 import {
   View,
@@ -852,9 +851,7 @@ export default function NewsFeedScreen() {
         if (!mounted) return;
 
         if (data && data.posts) {
-          const nearbyPosts = await sortNearby(data.posts, CONFIG.AUTH_SERVICE_URL, 'provider', 'seeker');
-          if (!mounted) return;
-          const mapped = nearbyPosts.map((post) => {
+          const mapped = data.posts.map((post) => {
             const userObj = post.user || post.poster || post.seeker || post.author || {};
 
             const customerName =
@@ -871,7 +868,6 @@ export default function NewsFeedScreen() {
             return {
               id: post._id,
               _id: post._id,
-              distanceKm: post.distanceKm,
               seekerId: post.seekerId || post.userId,
               userId: post.userId || post.seekerId,
               title: post.title || '',
