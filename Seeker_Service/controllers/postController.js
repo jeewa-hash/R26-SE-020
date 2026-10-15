@@ -1,3 +1,4 @@
+import RequestQuotation from "../models/RequestQuotation.js";
 import Post from "../models/Post.js";
 import { analyzeImageWithGemini } from "../utils/gemini.js";
 import fs from "fs";
@@ -106,10 +107,30 @@ const getViewerId = (req) => {
 // appliedBy is ALWAYS stripped here (anyone can see the count only)
 // =======================================================
 
+const getCompletedPostIds = async () => {
+    const { data: completed } = await axios.get(
+      `${process.env.COORDINATION_SERVICE_URL || 'http://127.0.0.1:5010'}/bookings/completed/ad-references`,
+      { timeout: 5000 }
+    );
+    const linkedRequests = await RequestQuotation.find({ _id: { $in: completed.requestIds || [] } }).select('postId sessionId').lean();
+    const completedPostIds = [...(completed.postIds || []), ...linkedRequests.map((item) => item.postId).filter(Boolean),
+      ...linkedRequests.filter((item) => /^POST-[a-f0-9]{24}$/i.test(item.sessionId || '')).map((item) => item.sessionId.slice(5))];
+    return [...new Set(completedPostIds.map(String))];
+};
+
+export const getCompletedAdReferences = async (req, res) => {
+  try {
+    res.json({ postIds: await getCompletedPostIds() });
+  } catch (error) {
+    res.status(503).json({ message: 'Unable to check completed ads' });
+  }
+};
+
 export const getPosts = async (req, res) => {
   try {
 
-    const posts = await Post.find()
+    const completedPostIds = await getCompletedPostIds();
+    const posts = await Post.find({ _id: { $nin: completedPostIds }, createdAt: { $gt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) } })
       .sort({ createdAt: -1 })
       .lean();
 

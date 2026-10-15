@@ -6,16 +6,6 @@ import { useTheme } from '../hooks/useTheme';
 
 const HIDDEN_ROUTES = new Set([
   'Login', 'Register', 'VerifyOTP', 'Language', 'Onboarding',
-  'FollowUpScreen', 'ProvidersScreen', 'ProviderProfile',
-  'RequestQuotationDetails', 'PostResponsesScreen', 'BidResponsesScreen',
-  'UserQuotesScreen', 'FeedbackScreen', 'NotificationScreen', 'ChatScreen',
-  'EditProfileScreen', 'SeasonalDemandsScreen', 'RescheduleScreen',
-  'IT22129376JobDetails', 'IT22129376QuoteDetails',
-  'IT22129376CoordinationReview', 'IT22129376SuggestedSlots',
-  'IT22129376ConfirmJob', 'IT22129376ScheduledJobDetails',
-  'IT22129376JobHistoryDetails', 'MyBidsScreen', 'MyPostsScreen',
-  'HistoryScreen', 'StarPointsScreen', 'PaymentScreen', 'SettingsScreen',
-  'HelpScreen', 'SpendAnalyticsScreen',
 ]);
 
 const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
@@ -64,6 +54,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
   const activeColor = isDarkMode ? '#818cf8' : '#667eea';
 
   return (
+    <View style={[styles.navContainer, isDarkMode && styles.navContainerDark]}>
     <View style={[styles.bottomNav, isDarkMode && styles.bottomNavDark]}>
       {navItems.map((item) => {
         const active = isActive(item.id);
@@ -96,12 +87,15 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
         );
       })}
     </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  navContainer: { paddingTop: 16, flexShrink: 0, backgroundColor: '#fff' },
+  navContainerDark: { backgroundColor: '#1a1a2e' },
   bottomNav: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row',
+    flexDirection: 'row', flexShrink: 0,
     backgroundColor: '#fff', paddingVertical: 8, paddingHorizontal: 8,
     borderTopWidth: 1, borderTopColor: '#E8ECF0', shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05,

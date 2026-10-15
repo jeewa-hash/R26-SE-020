@@ -21,7 +21,7 @@ import { IP_ADDRESS } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 
-const API_BASE_URL = `http://${IP_ADDRESS}:6001`;
+const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 
 export default function FeedScreen({ navigation }) {
   const { isDarkMode } = useTheme();
@@ -271,7 +271,17 @@ export default function FeedScreen({ navigation }) {
           }
           style={styles.header}
         >
-          <Text style={styles.headerTitle}>My Posts</Text>
+          <View style={styles.headerTitleRow}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ProfileScreen')}
+              accessibilityRole="button"
+              accessibilityLabel="Back to my profile"
+              style={styles.backButton}
+            >
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>My Posts</Text>
+          </View>
           <TouchableOpacity
             onPress={() => navigation.navigate('CreatePostScreen')}
           >
@@ -312,7 +322,17 @@ export default function FeedScreen({ navigation }) {
           }
           style={styles.header}
         >
-          <Text style={styles.headerTitle}>My Posts</Text>
+          <View style={styles.headerTitleRow}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ProfileScreen')}
+              accessibilityRole="button"
+              accessibilityLabel="Back to my profile"
+              style={styles.backButton}
+            >
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>My Posts</Text>
+          </View>
           <TouchableOpacity
             onPress={() => navigation.navigate('CreatePostScreen')}
           >
@@ -357,7 +377,17 @@ export default function FeedScreen({ navigation }) {
         }
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>My Posts</Text>
+        <View style={styles.headerTitleRow}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ProfileScreen')}
+              accessibilityRole="button"
+              accessibilityLabel="Back to my profile"
+              style={styles.backButton}
+            >
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>My Posts</Text>
+          </View>
 
         <TouchableOpacity
           onPress={() => navigation.navigate('CreatePostScreen')}
@@ -637,6 +667,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     paddingTop: Platform.OS === 'ios' ? 12 : 16,
+  },
+
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   headerTitle: {

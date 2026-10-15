@@ -20,7 +20,7 @@ import { useAuth } from '../context/AuthContext';
 import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
 
 const { width } = Dimensions.get('window');
-const QUOTATION_API_URL = `http://${IP_ADDRESS}:6001/request-quotations`;
+const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
 
 export default function ProviderProfileScreen({ route, navigation }) {
   const {

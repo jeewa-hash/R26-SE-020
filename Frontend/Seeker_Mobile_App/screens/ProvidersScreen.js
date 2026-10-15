@@ -1,3 +1,4 @@
+import { sortNearby } from '../utils/locationSorting';
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -20,7 +21,7 @@ import RequestQuotationModal from "./IT22129376/components/RequestQuotationModal
 // --------------------------------------------------------------
 // 🔥 Build URL with IP from config
 // --------------------------------------------------------------
-const QUOTATION_API_URL = `http://${IP_ADDRESS}:6001/request-quotations`;
+const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
 
 export default function ProvidersScreen({ route, navigation }) {
   const {
@@ -90,7 +91,16 @@ export default function ProvidersScreen({ route, navigation }) {
    */
   const providerMatching = finalDecision?.summary?.provider_matching || {};
   const rawProviders = providerMatching.providers || [];
-  const providers = rawProviders.filter((item) => {
+  const [nearbyProviders, setNearbyProviders] = useState(null);
+  useEffect(() => {
+    let active = true;
+    setNearbyProviders(null);
+    sortNearby(rawProviders, CONFIG.AUTH_SERVICE_URL, 'seeker', 'provider').then((items) => {
+      if (active) setNearbyProviders(items);
+    });
+    return () => { active = false; };
+  }, [providerMatching.providers, user]);
+  const providers = (nearbyProviders || rawProviders).filter((item) => {
     const p = item?.provider || item || {};
     if (p.isBlocked || p.isSuspended || p.isRejected) return false;
     if (p.isVerified === false) return false;

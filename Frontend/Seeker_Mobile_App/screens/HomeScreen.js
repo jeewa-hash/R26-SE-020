@@ -130,7 +130,7 @@ const Slideshow = ({ isDarkMode }) => {
         // Fallback to Seeker_Service endpoint if needed
         if (!response || !response.success) {
           try {
-            const fallbackUrl = `http://${IP_ADDRESS}:6001/request-quotations/recommendations/seeker/${userId || 'guest'}`;
+            const fallbackUrl = `http://${IP_ADDRESS}:6000/request-quotations/recommendations/seeker/${userId || 'guest'}`;
             const res2 = await fetch(fallbackUrl, {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -635,7 +635,7 @@ export default function HomeScreen() {
       }
 
       const appLanguage = language === 'si' ? 'si' : 'en';
-      const url = `http://10.0.2.2:5002/text-predict`;
+      const url = `192.168.1.4/text-predict`;
 
       const response = await fetch(url, {
         method: 'POST',

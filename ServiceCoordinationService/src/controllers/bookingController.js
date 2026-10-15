@@ -940,7 +940,7 @@ export const completeBooking = async (req, res) => {
     const finalAmount = Number(booking.finalAmount) || 0;
     if (finalAmount > 0) {
       try {
-        const seekerServiceUrl = (process.env.SEEKER_SERVICE_URL || "http://127.0.0.1:6001").replace(/\/$/, "");
+        const seekerServiceUrl = (process.env.SEEKER_SERVICE_URL || "http://127.0.0.1:6000").replace(/\/$/, "");
         const rewardResponse = await axios.post(
           `${seekerServiceUrl}/api/rewards/internal/bookings/award`,
           {

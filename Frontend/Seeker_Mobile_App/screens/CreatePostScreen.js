@@ -39,16 +39,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { LanguageContext } from '../context/LanguageContext';
 import { useTheme } from '../hooks/useTheme';
+import { API_BASE_URL } from '../config';
 
 
 // =======================================================
-// API BASE URL
+// PLATFORM ALERTS
 // =======================================================
 
-const API_BASE_URL =
-  Platform.OS === 'android'
-    ? 'http://10.0.2.2:6001'
-    : 'http://localhost:6001';
+const showAlert = (title, message, buttons) => {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n\n${message}`);
+    buttons?.[0]?.onPress?.();
+    return;
+  }
+
+  Alert.alert(title, message, buttons);
+};
 
 
 // =======================================================
@@ -442,7 +448,7 @@ export default function CreatePostScreen() {
           status !==
           'granted'
         ) {
-          Alert.alert(
+          showAlert(
             'Permission Required',
             'Gallery access is required.'
           );
@@ -494,7 +500,7 @@ export default function CreatePostScreen() {
           error
         );
 
-        Alert.alert(
+        showAlert(
           'Error',
           'Could not select image.'
         );
@@ -530,7 +536,7 @@ export default function CreatePostScreen() {
     async () => {
 
       if (!selectedImage) {
-        Alert.alert(
+        showAlert(
           'Missing Image',
           'Please upload an image first.'
         );
@@ -546,7 +552,7 @@ export default function CreatePostScreen() {
             originalImagePath
           )
       ) {
-        Alert.alert(
+        showAlert(
           'Info',
           'Image unchanged. Select a new image to generate a new AI preview.'
         );
@@ -562,14 +568,22 @@ export default function CreatePostScreen() {
         const formData =
           new FormData();
 
-        formData.append(
-          'image',
-          {
+        if (Platform.OS === 'web') {
+          const imageResponse = await fetch(selectedImage);
+          if (!imageResponse.ok) {
+            throw new Error('Could not read the selected image. Please select it again.');
+          }
+          const imageBlob = await imageResponse.blob();
+          const extension = imageBlob.type === 'image/png' ? 'png'
+            : imageBlob.type === 'image/webp' ? 'webp' : 'jpg';
+          formData.append('image', imageBlob, `post.${extension}`);
+        } else {
+          formData.append('image', {
             uri: selectedImage,
             type: 'image/jpeg',
             name: 'post.jpg',
-          }
-        );
+          });
+        }
 
         formData.append(
           'title',
@@ -611,7 +625,7 @@ export default function CreatePostScreen() {
               rawText
             );
         } catch (error) {
-          Alert.alert(
+          showAlert(
             'Server Error',
             'Backend returned invalid JSON.'
           );
@@ -643,7 +657,7 @@ export default function CreatePostScreen() {
           );
 
         } else {
-          Alert.alert(
+          showAlert(
             'Preview Failed',
             data.error ||
               data.message ||
@@ -657,7 +671,7 @@ export default function CreatePostScreen() {
           error
         );
 
-        Alert.alert(
+        showAlert(
           'Network Error',
           error.message
         );
@@ -678,7 +692,7 @@ export default function CreatePostScreen() {
     async () => {
 
       if (!title.trim()) {
-        Alert.alert(
+        showAlert(
           'Missing Title',
           'Please enter a title.'
         );
@@ -689,7 +703,7 @@ export default function CreatePostScreen() {
       if (
         !description.trim()
       ) {
-        Alert.alert(
+        showAlert(
           'Missing Description',
           'Please enter a description.'
         );
@@ -713,7 +727,7 @@ export default function CreatePostScreen() {
         !loggedUser ||
         !loggedUser.userId
       ) {
-        Alert.alert(
+        showAlert(
           'Login Required',
           'Could not find your user ID. Please logout and login again.'
         );
@@ -753,7 +767,7 @@ export default function CreatePostScreen() {
         }
 
         else {
-          Alert.alert(
+          showAlert(
             'Missing Image',
             'No image associated with this post.'
           );
@@ -766,7 +780,7 @@ export default function CreatePostScreen() {
         if (
           !previewData?.image
         ) {
-          Alert.alert(
+          showAlert(
             'Preview Required',
             'Please generate AI preview first.'
           );
@@ -853,7 +867,7 @@ export default function CreatePostScreen() {
       if (isEditMode) {
 
         if (!editPostId) {
-          Alert.alert(
+          showAlert(
             'Error',
             'Post ID is missing.'
           );
@@ -921,7 +935,7 @@ export default function CreatePostScreen() {
               rawText
             );
         } catch (error) {
-          Alert.alert(
+          showAlert(
             'Server Error',
             'Backend did not return valid JSON.'
           );
@@ -934,7 +948,7 @@ export default function CreatePostScreen() {
           data.success
         ) {
 
-          Alert.alert(
+          showAlert(
             'Success',
 
             isEditMode
@@ -959,7 +973,7 @@ export default function CreatePostScreen() {
             data
           );
 
-          Alert.alert(
+          showAlert(
             'Save Failed',
             data.error ||
               data.message ||
@@ -974,7 +988,7 @@ export default function CreatePostScreen() {
           error
         );
 
-        Alert.alert(
+        showAlert(
           'Network Error',
           error.message
         );

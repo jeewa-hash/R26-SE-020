@@ -37,7 +37,7 @@ TEXT_SESSION_LANGUAGE = {}
 
 PROVIDER_SERVICE_URL = "http://localhost:5000/portfolio/all-providers"
 INQUIRY_SERVICE_URL = os.getenv("INQUIRY_SERVICE_URL", "http://localhost:5001")
-SEEKER_SERVICE_URL = os.getenv("SEEKER_SERVICE_URL", "http://localhost:6001")
+SEEKER_SERVICE_URL = os.getenv("SEEKER_SERVICE_URL", "http://localhost:6000")
 
 
 def get_provider_feedback_scores() -> dict:

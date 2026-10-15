@@ -1,10 +1,15 @@
 import React, { useCallback, useContext, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect } from '@react-navigation/native';
 import ProviderPageHeader from '../../components/ProviderPageHeader';
 import { ThemeContext } from '../../context/ThemeContext';
 import { getMyAvailability, saveWeeklyAvailability, updateProviderAvailabilityStatus } from './services/providerAvailabilityApi';
+
+const showAlert = (title, message) => {
+  if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
+  else Alert.alert(title, message);
+};
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const initialWeek = () => DAYS.map((day) => ({ day, isAvailable: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(day), slots: [{ startTime: '08:00', endTime: '17:00' }] }));
@@ -30,7 +35,7 @@ export default function ProviderAvailabilityScreen({ navigation }) {
         setWeek(DAYS.map((day) => ({ day, isAvailable: (data.availableDays || []).includes(day), slots: [{ startTime: data.workingHours?.start || '08:00', endTime: data.workingHours?.end || '17:00' }] })));
       }
     } catch (error) {
-      if (error?.status !== 404) Alert.alert('Unable to load', error?.message || 'Availability could not be loaded.');
+      if (error?.status !== 404) showAlert('Unable to load', error?.message || 'Availability could not be loaded.');
     } finally { setLoading(false); }
   }, []);
   useFocusEffect(useCallback(() => { setLoading(true); load(); }, [load]));
@@ -38,10 +43,32 @@ export default function ProviderAvailabilityScreen({ navigation }) {
   const updateDay = (day, transform) => setWeek((current) => current.map((item) => item.day === day ? transform(item) : item));
   const selectTime = (day, field) => setPicker({ day, field, value: timeDate(week.find((item) => item.day === day)?.slots?.[0]?.[field]) });
 
+  const renderTime = (item, slot, field, label) => Platform.OS === 'web' ? (
+    <View style={[styles.timeButton, { borderColor: C.border }]}>
+      <Text style={[styles.timeLabel, { color: C.muted }]}>{label}</Text>
+      {React.createElement('input', {
+        type: 'time',
+        'aria-label': `${item.day} ${label.toLowerCase()} time`,
+        value: slot[field],
+        required: true,
+        onChange: (event) => {
+          const value = event.target.value;
+          updateDay(item.day, (current) => ({ ...current, slots: [{ ...(current.slots?.[0] || slot), [field]: value }] }));
+        },
+        style: { width: '100%', boxSizing: 'border-box', marginTop: 4, border: 0, backgroundColor: C.card, color: C.text, colorScheme: isDark ? 'dark' : 'light', fontSize: 14 },
+      })}
+    </View>
+  ) : (
+    <TouchableOpacity style={[styles.timeButton, { borderColor: C.border }]} onPress={() => selectTime(item.day, field)}>
+      <Text style={[styles.timeLabel, { color: C.muted }]}>{label}</Text>
+      <Text style={[styles.timeValue, { color: C.text }]}>{slot[field]}</Text>
+    </TouchableOpacity>
+  );
+
   const save = async () => {
     for (const day of week.filter((item) => item.isAvailable)) {
       const slot = day.slots?.[0];
-      if (!slot || timeDate(slot.endTime) <= timeDate(slot.startTime)) return Alert.alert('Invalid hours', `${day}'s end time must be after its start time.`);
+      if (!slot || !/^([01]\d|2[0-3]):[0-5]\d$/.test(slot.startTime) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(slot.endTime) || timeDate(slot.endTime) <= timeDate(slot.startTime)) return showAlert('Invalid hours', `${day}'s end time must be after its start time.`);
     }
     try {
       setSaving(true);
@@ -55,15 +82,15 @@ export default function ProviderAvailabilityScreen({ navigation }) {
         unavailableSlots: [],
         maxBookingsPerDay: 3,
       });
-      Alert.alert('Saved', 'Your weekly availability has been updated.');
-    } catch (error) { Alert.alert('Unable to save', error?.message || 'Please try again.'); }
+      showAlert('Saved', 'Your weekly availability has been updated.');
+    } catch (error) { showAlert('Unable to save', error?.message || 'Please try again.'); }
     finally { setSaving(false); }
   };
 
   const toggleGlobal = async (next) => {
     setIsAvailable(next);
     try { await updateProviderAvailabilityStatus(next); }
-    catch (error) { setIsAvailable(!next); Alert.alert('Unable to update', error?.message || 'Please try again.'); }
+    catch (error) { setIsAvailable(!next); showAlert('Unable to update', error?.message || 'Please try again.'); }
   };
 
   return <View style={[styles.container, { backgroundColor: C.bg }]}>
@@ -76,12 +103,12 @@ export default function ProviderAvailabilityScreen({ navigation }) {
         return <View key={item.day} style={[styles.dayCard, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.dayHeader}><Text style={[styles.day, { color: C.text }]}>{item.day}</Text><Switch value={item.isAvailable} onValueChange={(value) => updateDay(item.day, (current) => ({ ...current, isAvailable: value }))} trackColor={{ false: '#CBD5E1', true: '#A5B4FC' }} thumbColor={item.isAvailable ? '#667EEA' : '#F8FAFC'} /></View>
           <Text style={[styles.stateText, { color: item.isAvailable ? '#18794E' : C.muted }]}>{item.isAvailable ? 'Enabled' : 'Disabled'}</Text>
-          {item.isAvailable ? <View style={styles.timeRow}><TouchableOpacity style={[styles.timeButton, { borderColor: C.border }]} onPress={() => selectTime(item.day, 'startTime')}><Text style={[styles.timeLabel, { color: C.muted }]}>Start</Text><Text style={[styles.timeValue, { color: C.text }]}>{slot.startTime}</Text></TouchableOpacity><Text style={{ color: C.muted }}>–</Text><TouchableOpacity style={[styles.timeButton, { borderColor: C.border }]} onPress={() => selectTime(item.day, 'endTime')}><Text style={[styles.timeLabel, { color: C.muted }]}>End</Text><Text style={[styles.timeValue, { color: C.text }]}>{slot.endTime}</Text></TouchableOpacity></View> : null}
+          {item.isAvailable ? <View style={styles.timeRow}>{renderTime(item, slot, 'startTime', 'Start')}<Text style={{ color: C.muted }}>–</Text>{renderTime(item, slot, 'endTime', 'End')}</View> : null}
         </View>;
       })}
-      <TouchableOpacity style={styles.saveButton} onPress={save} disabled={saving}>{saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveText}>Save Availability</Text>}</TouchableOpacity>
+      <TouchableOpacity style={styles.saveButton} onPress={save} disabled={saving || loading}>{saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveText}>Save Availability</Text>}</TouchableOpacity>
     </ScrollView>
-    {picker ? <DateTimePicker value={picker.value} mode="time" onChange={(event, date) => { if (date) updateDay(picker.day, (item) => ({ ...item, slots: [{ ...(item.slots?.[0] || {}), [picker.field]: timeText(date) }] })); setPicker(null); }} /> : null}
+    {Platform.OS !== 'web' && picker ? <DateTimePicker value={picker.value} mode="time" onChange={(event, date) => { if (date) updateDay(picker.day, (item) => ({ ...item, slots: [{ ...(item.slots?.[0] || {}), [picker.field]: timeText(date) }] })); setPicker(null); }} /> : null}
   </View>;
 }
 

@@ -540,7 +540,7 @@ const getSessionStatusMeta = (session) => {
   };
 };
 
-function ServiceSessionsHeader({ isDarkMode, activeCount, scheduledCount, ongoingCount }) {
+function ServiceSessionsHeader({ isDarkMode, activeCount, scheduledCount, ongoingCount, onBack }) {
   return (
     <LinearGradient
       colors={isDarkMode ? ['#1a1a2e', '#16213e'] : [COLORS.primary, COLORS.primaryDark]}
@@ -549,7 +549,15 @@ function ServiceSessionsHeader({ isDarkMode, activeCount, scheduledCount, ongoin
       style={styles.header}
     >
       <View style={styles.titleRow}>
-        <View>
+        <TouchableOpacity
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Back to my profile"
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>My Service Sessions</Text>
           <Text style={styles.headerSubtitle}>
             Grouped service sessions with requests, quotes and bookings
@@ -960,6 +968,7 @@ export default function SeekerServiceSessionsScreen({ navigation }) {
       />
 
       <ServiceSessionsHeader
+        onBack={() => navigation.navigate('ProfileScreen')}
         isDarkMode={isDarkMode}
         activeCount={counts.Active}
         scheduledCount={counts.Scheduled}
@@ -1001,6 +1010,12 @@ const styles = StyleSheet.create({
     paddingBottom: 22,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titleRow: {
     flexDirection: 'row',

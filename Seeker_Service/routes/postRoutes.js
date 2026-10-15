@@ -4,6 +4,7 @@ import { upload } from "../middleware/upload.js";
 
 import {
   getPosts,
+  getCompletedAdReferences,
   getPostById,
   getPostsByUserId,
   previewPost,
@@ -16,6 +17,7 @@ import {
 
 
 const router = express.Router();
+router.get("/completed-ad-references", getCompletedAdReferences);
 
 
 // =======================================================

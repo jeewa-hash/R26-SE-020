@@ -212,6 +212,8 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   const initialSession = route?.params?.session || {};
   const sessionId = route?.params?.sessionId || initialSession?.sessionId;
   const [session, setSession] = useState(initialSession);
+  const [selectedQuoteId, setSelectedQuoteId] = useState(null);
+  const [comparisonVisible, setComparisonVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [rescheduleVisible, setRescheduleVisible] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState(new Date(Date.now() + 24 * 60 * 60 * 1000));
@@ -260,6 +262,8 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   }, [quotations]);
 
   const bestQuote = sortedQuotes[0] || null;
+  const quoteId = (quote) => String(quote?._id || quote?.id || quote?.externalQuotationId || '');
+  const selectedQuote = sortedQuotes.find((quote) => quoteId(quote) === selectedQuoteId);
 
   const canCompare = sortedQuotes.length > 1;
 
@@ -272,13 +276,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
       return;
     }
 
-    navigation.navigate('IT22129376CoordinationReview', {
-      session,
-      quotations: sortedQuotes,
-      sessionId: session.sessionId,
-      quote: sortedQuotes[0],
-      quotationId: sortedQuotes[0]?._id || sortedQuotes[0]?.id || sortedQuotes[0]?.externalQuotationId,
-    });
+    setComparisonVisible((visible) => !visible);
   };
 
   const handleSmartReviewQuote = (quote) => navigation.navigate('IT22129376CoordinationReview', {
@@ -497,7 +495,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                     {isBest ? (
                       <View style={styles.bestPill}>
                         <Ionicons name="sparkles-outline" size={13} color="#fff" />
-                        <Text style={styles.bestPillText}>Best</Text>
+                        <Text style={styles.bestPillText}>Lowest price</Text>
                       </View>
                     ) : null}
                   </View>
@@ -530,6 +528,16 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                     <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
                   </View>
 
+                  <TouchableOpacity
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selectedQuoteId === quoteId(quote) }}
+                    accessibilityLabel={`Select quotation from ${getProviderNameFromQuote(quote)}`}
+                    style={styles.selectionButton}
+                    onPress={() => setSelectedQuoteId(quoteId(quote))}
+                  >
+                    <Ionicons name={selectedQuoteId === quoteId(quote) ? 'radio-button-on' : 'radio-button-off'} size={22} color={COLORS.primary} />
+                    <Text style={[styles.quoteMetaText, isDarkMode && styles.textDark]}>{selectedQuoteId === quoteId(quote) ? 'Selected for review' : 'Select this quotation'}</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity style={styles.reviewQuoteButton} onPress={() => handleSmartReviewQuote(quote)}>
                     <Text style={styles.reviewQuoteButtonText}>Check Availability / Smart Review</Text>
                   </TouchableOpacity>
@@ -548,9 +556,29 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           >
             <MaterialIcons name="compare-arrows" size={20} color="#fff" />
             <Text style={styles.compareButtonText}>
-              Compare Quotes / Smart Review
+              Compare Quotations
             </Text>
           </TouchableOpacity>
+
+          {comparisonVisible && canCompare ? (
+            <ScrollView horizontal style={{ marginTop: 16 }}>
+              {sortedQuotes.map((quote) => (
+                <TouchableOpacity key={quoteId(quote)} style={[styles.comparisonColumn, isDarkMode && styles.quoteCardDark, selectedQuoteId === quoteId(quote) && styles.selectedColumn]} onPress={() => setSelectedQuoteId(quoteId(quote))} accessibilityRole="radio" accessibilityState={{ checked: selectedQuoteId === quoteId(quote) }}>
+                  <Text style={[styles.quoteProvider, isDarkMode && styles.textDark]}>{getProviderNameFromQuote(quote)}</Text>
+                  <Text style={[styles.quoteMetaText, isDarkMode && styles.textDark]}>{formatMoney(getQuotePrice(quote))}</Text>
+                  <Text style={[styles.quoteNote, isDarkMode && styles.textMutedDark]}>Proposed start: {formatDateTime(quote.proposedStartTime)}</Text>
+                  <Text style={[styles.quoteNote, isDarkMode && styles.textMutedDark]}>Duration: {quote.estimatedDurationHours ? `${quote.estimatedDurationHours} hrs` : quote.durationText || 'Pending Smart Review'}</Text>
+                  <Text style={[styles.quoteNote, isDarkMode && styles.textMutedDark]}>Availability: {quote.coordinationDecision || quote.coordinationStatus || 'NOT_CHECKED'}</Text>
+                  <Ionicons name={selectedQuoteId === quoteId(quote) ? 'radio-button-on' : 'radio-button-off'} size={24} color={COLORS.primary} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : null}
+          {selectedQuote ? (
+            <TouchableOpacity style={styles.compareButton} onPress={() => handleSmartReviewQuote(selectedQuote)}>
+              <Text style={styles.compareButtonText}>Review Selected Quotation</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {!canCompare ? (
             <Text style={[styles.compareHelpText, isDarkMode && styles.textMutedDark]}>
@@ -612,6 +640,9 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
 }
 
 const styles = StyleSheet.create({
+  selectionButton: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, paddingVertical: 8 },
+  comparisonColumn: { width: 230, padding: 16, gap: 12, marginRight: 12, borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#fff' },
+  selectedColumn: { borderColor: COLORS.primary, borderWidth: 2 },
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,

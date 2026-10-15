@@ -1,3 +1,5 @@
+import { sortNearby } from '../utils/locationSorting';
+import { AUTH_SERVICE_URL } from '../config';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -29,7 +31,7 @@ import RequestQuotationModal from './IT22129376/components/RequestQuotationModal
 // ======================================================
 const hostIp = IP_ADDRESS || '10.0.2.2';
 const API_BASE_URL = `http://${hostIp}:3002`;
-const QUOTATION_API_URL = `http://${hostIp}:6001/request-quotations`;
+const QUOTATION_API_URL = `http://${hostIp}:6000/request-quotations`;
 
 // ======================================================
 // FEED SCREEN – SHOWS PROVIDER ADS WITH LIKE & REQUEST QUOTE
@@ -116,7 +118,7 @@ export default function FeedScreen({ navigation }) {
         return;
       }
 
-      const adsArray = data.data || [];
+      const adsArray = await sortNearby(data.data || [], AUTH_SERVICE_URL, 'seeker', 'provider');
       const initialLikesMap = {};
 
       const formattedAds = adsArray.map(ad => {
@@ -139,6 +141,7 @@ export default function FeedScreen({ navigation }) {
         }
 
         return {
+          distanceKm: ad.distanceKm,
           id: ad._id,
           postId: ad._id,
           providerId: ad.providerId,
