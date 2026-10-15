@@ -21,7 +21,7 @@ import { IP_ADDRESS } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
+const API_BASE_URL = `http://${IP_ADDRESS}:6001`;
 
 export default function FeedScreen({ navigation }) {
   const { isDarkMode } = useTheme();

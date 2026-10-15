@@ -3,7 +3,7 @@ import Notification from "../models/Notification.js";
 import { sendRealtimeNotification } from "../sockets/notificationSocket.js";
 import axios from "axios";
 
-const SEEKER_SERVICE_URL = (process.env.SEEKER_SERVICE_URL || "http://localhost:6000").replace(/\/$/, "");
+const SEEKER_SERVICE_URL = (process.env.SEEKER_SERVICE_URL || "http://localhost:6001").replace(/\/$/, "");
 
 export const createQuotation = async (req, res) => {
   try {

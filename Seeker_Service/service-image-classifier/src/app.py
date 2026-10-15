@@ -64,7 +64,7 @@ app.add_middleware(
 
 PROVIDER_SERVICE_URL = "http://localhost:5000/portfolio/all-providers"
 INQUIRY_SERVICE_URL = os.getenv("INQUIRY_SERVICE_URL", "http://localhost:5001")
-SEEKER_SERVICE_URL = os.getenv("SEEKER_SERVICE_URL", "http://localhost:6000")
+SEEKER_SERVICE_URL = os.getenv("SEEKER_SERVICE_URL", "http://localhost:6001")
 
 
 def get_provider_feedback_scores() -> dict:

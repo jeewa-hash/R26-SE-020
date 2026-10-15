@@ -19,8 +19,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Replace with your actual machine IP if testing on a real device
 const API_BASE_URL = Platform.OS === 'android'
-  ? 'http://10.0.2.2:6000'
-  : 'http://localhost:6000';
+  ? 'http://10.0.2.2:6001'
+  : 'http://localhost:6001';
 
 export default function FeedbackScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();

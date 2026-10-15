@@ -20,7 +20,7 @@ import RequestQuotationModal from "./IT22129376/components/RequestQuotationModal
 // --------------------------------------------------------------
 // 🔥 Build URL with IP from config
 // --------------------------------------------------------------
-const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
+const QUOTATION_API_URL = `http://${IP_ADDRESS}:6001/request-quotations`;
 
 export default function ProvidersScreen({ route, navigation }) {
   const {
