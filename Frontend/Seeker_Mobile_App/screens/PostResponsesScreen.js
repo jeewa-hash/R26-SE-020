@@ -312,12 +312,7 @@ export default function PostResponsesScreen({ navigation, route }) {
           </View>
         </View>
 
-        {item.bidAmount ? (
-          <View style={styles.bidContainer}>
-            <Ionicons name="cash-outline" size={16} color="#10B981" />
-            <Text style={styles.bidAmount}>LKR {item.bidAmount.toLocaleString()}</Text>
-          </View>
-        ) : null}
+
 
         {item.note ? (
           <Text style={[styles.responseMessage, isDarkMode && styles.textMutedDark]}>
@@ -534,7 +529,7 @@ export default function PostResponsesScreen({ navigation, route }) {
               No Responses Yet
             </Text>
             <Text style={[styles.emptySubtext, isDarkMode && styles.textMutedDark]}>
-              Providers will review your post soon. You will receive bids and messages here.
+              Providers will review your post soon. Interested providers will appear here. Request their quotation with your preferred date and time.
             </Text>
           </View>
         ) : (

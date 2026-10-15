@@ -121,6 +121,8 @@ const requestQuotationSchema = new mongoose.Schema(
       min: 0,
     },
 
+    rescheduleReason: { type: String, default: "" },
+    rescheduleRequestedAt: { type: Date, default: null },
     status: {
       type: String,
       enum: ["pending", "quoted", "accepted", "rejected", "cancelled", "expired"],

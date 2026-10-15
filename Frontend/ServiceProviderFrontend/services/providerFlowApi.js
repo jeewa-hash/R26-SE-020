@@ -263,7 +263,7 @@ export const submitProviderQuotation = async (payload) => {
     },
     label: 'submit quotation',
   });
-  return responsePayload?.data || responsePayload;
+  return { ...(responsePayload?.data || responsePayload), message: responsePayload?.message, validationPending: responsePayload?.validationPending };
 };
 
 export const getBookingId = (booking) => String(booking?._id || booking?.id || booking?.bookingId || '');

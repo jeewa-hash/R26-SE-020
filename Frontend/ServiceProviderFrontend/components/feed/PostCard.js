@@ -426,7 +426,7 @@ export default function PostCard({ post, onApply, applying }) {
               ? 'Applying...'
               : applied
               ? (isSi ? status?.labelSi : status?.label) || 'Applied'
-              : t('applyNow')}
+              : "I'm Available"}
           </Text>
         </TouchableOpacity>
       </View>

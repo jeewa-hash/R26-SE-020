@@ -1,8 +1,10 @@
+import RequestedTimeModal from './components/RequestedTimeModal';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -167,7 +169,7 @@ function DetailsHeader({ isDarkMode, title, subtitle }) {
 function InfoRow({ icon, label, value, isDarkMode }) {
   return (
     <View style={styles.infoRow}>
-      <View style={styles.infoIcon}>
+      <View style={[styles.infoIcon, isDarkMode && styles.providerIconDark]}>
         <Ionicons name={icon} size={18} color={COLORS.primary} />
       </View>
 
@@ -196,8 +198,8 @@ function SectionCard({ title, icon, count, children, isDarkMode }) {
         </View>
 
         {typeof count === 'number' ? (
-          <View style={styles.sectionCount}>
-            <Text style={styles.sectionCountText}>{count}</Text>
+          <View style={[styles.sectionCount, isDarkMode && styles.sectionCountDark]}>
+            <Text style={[styles.sectionCountText, isDarkMode && styles.accentTextDark]}>{count}</Text>
           </View>
         ) : null}
       </View>
@@ -211,7 +213,10 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   const { isDarkMode } = useTheme();
   const initialSession = route?.params?.session || {};
   const sessionId = route?.params?.sessionId || initialSession?.sessionId;
+  const [timeRequest, setTimeRequest] = useState(null);
   const [session, setSession] = useState(initialSession);
+  const [selectedQuoteId, setSelectedQuoteId] = useState(null);
+  const [comparisonVisible, setComparisonVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [rescheduleVisible, setRescheduleVisible] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState(new Date(Date.now() + 24 * 60 * 60 * 1000));
@@ -260,6 +265,8 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   }, [quotations]);
 
   const bestQuote = sortedQuotes[0] || null;
+  const quoteId = (quote) => String(quote?._id || quote?.id || quote?.externalQuotationId || '');
+  const selectedQuote = sortedQuotes.find((quote) => quoteId(quote) === selectedQuoteId);
 
   const canCompare = sortedQuotes.length > 1;
 
@@ -272,22 +279,17 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
       return;
     }
 
-    navigation.navigate('IT22129376CoordinationReview', {
-      session,
-      quotations: sortedQuotes,
-      sessionId: session.sessionId,
-      quote: sortedQuotes[0],
-      quotationId: sortedQuotes[0]?._id || sortedQuotes[0]?.id || sortedQuotes[0]?.externalQuotationId,
-    });
+    setComparisonVisible((visible) => !visible);
   };
 
-  const handleSmartReviewQuote = (quote) => navigation.navigate('IT22129376CoordinationReview', {
-    session,
-    sessionId: session.sessionId,
-    quote,
-    quotations: sortedQuotes,
-    quotationId: quote?._id || quote?.id || quote?.externalQuotationId,
-  });
+  const handleSmartReviewQuote = (quote) => {
+    if (!quote.coordinationId || !['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus)) {
+      const message = 'This offer is not ready for confirmation. The provider must finish validation or ask you to choose a new time.';
+      if (Platform.OS === 'web') window.alert(message); else Alert.alert('Offer pending', message);
+      return;
+    }
+    navigation.navigate('IT22129376ConfirmJob', { quote });
+  };
 
   const submitReschedule = async () => {
     const quote = sortedQuotes.find((item) => String(item?.status || '').toUpperCase() === 'ACCEPTED') || sortedQuotes[0];
@@ -430,7 +432,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                 key={request?._id || request?.id || index}
                 style={[styles.providerRow, isDarkMode && styles.providerRowDark]}
               >
-                <View style={styles.providerIcon}>
+                <View style={[styles.providerIcon, isDarkMode && styles.providerIconDark]}>
                   <Ionicons name="person-outline" size={19} color={COLORS.primary} />
                 </View>
 
@@ -443,8 +445,12 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                     {String(request?.status || 'pending').toLowerCase() === 'pending' ? 'Request Sent' : `Status: ${request?.status}`}
                   </Text>
                   <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>
-                    Requested {formatDateTime(request?.createdAt || request?.requestedAt)}
+                    Requested start: {formatDateTime(request.preferredStartTime)}
                   </Text>
+                  {request.rescheduleRequestedAt ? <>
+                    <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Provider requested a new time: {request.rescheduleReason}</Text>
+                    <TouchableOpacity onPress={() => setTimeRequest(request)} style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark]}><Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>Choose New Date & Time</Text></TouchableOpacity>
+                  </> : null}
                 </View>
 
                 <Ionicons name="send-outline" size={18} color={COLORS.warning} />
@@ -470,7 +476,15 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                 (bestQuote._id || bestQuote.id || bestQuote.externalQuotationId) ===
                   (quote._id || quote.id || quote.externalQuotationId);
 
-              const tone = getQuoteStatusTone(quote);
+              const baseTone = getQuoteStatusTone(quote);
+              const darkTones = {
+                [toneColors.success.bg]: { bg: '#123D35', text: '#6EE7B7' },
+                [toneColors.warning.bg]: { bg: '#42331D', text: '#FCD34D' },
+                [toneColors.danger.bg]: { bg: '#472436', text: '#FDA4AF' },
+                [toneColors.info.bg]: { bg: '#23355B', text: '#93C5FD' },
+                [toneColors.neutral.bg]: { bg: '#303850', text: '#CBD5E1' },
+              };
+              const tone = isDarkMode ? darkTones[baseTone.bg] || baseTone : baseTone;
 
               return (
                 <TouchableOpacity
@@ -479,6 +493,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                     styles.quoteCard,
                     isDarkMode && styles.quoteCardDark,
                     isBest && styles.bestQuoteCard,
+                    isBest && isDarkMode && styles.bestQuoteCardDark,
                   ]}
                   onPress={() => handleOpenQuote(quote)}
                   activeOpacity={0.88}
@@ -497,7 +512,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                     {isBest ? (
                       <View style={styles.bestPill}>
                         <Ionicons name="sparkles-outline" size={13} color="#fff" />
-                        <Text style={styles.bestPillText}>Best</Text>
+                        <Text style={styles.bestPillText}>Lowest price</Text>
                       </View>
                     ) : null}
                   </View>
@@ -520,7 +535,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                     </View>
                   </View>
 
-                  <View style={styles.quoteFooter}>
+                  <View style={[styles.quoteFooter, isDarkMode && styles.quoteFooterDark]}>
                     <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
                       <Text style={[styles.statusText, { color: tone.text }]}>
                         {quote?.coordinationDecision || quote?.coordinationStatus || quote?.status || 'SENT'}
@@ -530,8 +545,18 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                     <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
                   </View>
 
-                  <TouchableOpacity style={styles.reviewQuoteButton} onPress={() => handleSmartReviewQuote(quote)}>
-                    <Text style={styles.reviewQuoteButtonText}>Check Availability / Smart Review</Text>
+                  <TouchableOpacity
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selectedQuoteId === quoteId(quote) }}
+                    accessibilityLabel={`Select quotation from ${getProviderNameFromQuote(quote)}`}
+                    style={styles.selectionButton}
+                    onPress={() => setSelectedQuoteId(quoteId(quote))}
+                  >
+                    <Ionicons name={selectedQuoteId === quoteId(quote) ? 'radio-button-on' : 'radio-button-off'} size={22} color={COLORS.primary} />
+                    <Text style={[styles.quoteMetaText, isDarkMode && styles.textDark]}>{selectedQuoteId === quoteId(quote) ? 'Selected for review' : 'Select this quotation'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark]} onPress={() => handleSmartReviewQuote(quote)}>
+                    <Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>Select & Continue to Confirmation</Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
               );
@@ -548,9 +573,29 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           >
             <MaterialIcons name="compare-arrows" size={20} color="#fff" />
             <Text style={styles.compareButtonText}>
-              Compare Quotes / Smart Review
+              Compare Quotations
             </Text>
           </TouchableOpacity>
+
+          {comparisonVisible && canCompare ? (
+            <ScrollView horizontal style={{ marginTop: 16 }}>
+              {sortedQuotes.map((quote) => (
+                <TouchableOpacity key={quoteId(quote)} style={[styles.comparisonColumn, isDarkMode && styles.quoteCardDark, selectedQuoteId === quoteId(quote) && styles.selectedColumn]} onPress={() => setSelectedQuoteId(quoteId(quote))} accessibilityRole="radio" accessibilityState={{ checked: selectedQuoteId === quoteId(quote) }}>
+                  <Text style={[styles.quoteProvider, isDarkMode && styles.textDark]}>{getProviderNameFromQuote(quote)}</Text>
+                  <Text style={[styles.quoteMetaText, isDarkMode && styles.textDark]}>{formatMoney(getQuotePrice(quote))}</Text>
+                  <Text style={[styles.quoteNote, isDarkMode && styles.textMutedDark]}>Proposed start: {formatDateTime(quote.proposedStartTime)}</Text>
+                  <Text style={[styles.quoteNote, isDarkMode && styles.textMutedDark]}>Duration: {quote.estimatedDurationHours ? `${quote.estimatedDurationHours} hrs` : quote.durationText || 'Calculated automatically'}</Text>
+                  <Text style={[styles.quoteNote, isDarkMode && styles.textMutedDark]}>Offer: {['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus) ? 'Ready to select' : 'Awaiting provider validation'}</Text>
+                  <Ionicons name={selectedQuoteId === quoteId(quote) ? 'radio-button-on' : 'radio-button-off'} size={24} color={COLORS.primary} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : null}
+          {selectedQuote ? (
+            <TouchableOpacity style={styles.compareButton} onPress={() => handleSmartReviewQuote(selectedQuote)}>
+              <Text style={styles.compareButtonText}>Continue with Selected Quotation</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {!canCompare ? (
             <Text style={[styles.compareHelpText, isDarkMode && styles.textMutedDark]}>
@@ -566,7 +611,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
             isDarkMode={isDarkMode}
           >
             <View style={[styles.bookingBox, isDarkMode && styles.providerRowDark]}>
-              <View style={styles.providerIcon}>
+              <View style={[styles.providerIcon, isDarkMode && styles.providerIconDark]}>
                 <Ionicons name="checkmark-circle-outline" size={20} color={COLORS.success} />
               </View>
 
@@ -591,6 +636,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
         <View style={{ height: 110 }} />
       </ScrollView>
 
+      {timeRequest ? <RequestedTimeModal request={timeRequest} onClose={() => setTimeRequest(null)} onSaved={loadRelatedData} /> : null}
       <Modal visible={rescheduleVisible} transparent animationType="fade" onRequestClose={() => setRescheduleVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, isDarkMode && styles.sectionCardDark]}>
@@ -603,7 +649,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
             {pickerMode ? <DateTimePicker value={rescheduleDate} mode={pickerMode} minimumDate={pickerMode === 'date' ? new Date() : undefined} onChange={(event, value) => { setPickerMode(null); if (value) setRescheduleDate((current) => { const next = new Date(current); if (pickerMode === 'date') next.setFullYear(value.getFullYear(), value.getMonth(), value.getDate()); else next.setHours(value.getHours(), value.getMinutes(), 0, 0); return next; }); }} /> : null}
             <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Note (optional)</Text>
             <TextInput style={[styles.noteInput, isDarkMode && styles.providerRowDark, isDarkMode && styles.textDark]} value={rescheduleNote} onChangeText={setRescheduleNote} placeholder="Why would you like a different time?" placeholderTextColor={isDarkMode ? COLORS.darkMuted : COLORS.muted} multiline />
-            <View style={styles.modalActions}><TouchableOpacity style={styles.modalCancel} onPress={() => setRescheduleVisible(false)}><Text style={styles.modalCancelText}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.modalSubmit} onPress={submitReschedule} disabled={submittingReschedule}>{submittingReschedule ? <ActivityIndicator color="#fff" /> : <Text style={styles.compareButtonText}>Send Suggestion</Text>}</TouchableOpacity></View>
+            <View style={styles.modalActions}><TouchableOpacity style={styles.modalCancel} onPress={() => setRescheduleVisible(false)}><Text style={[styles.modalCancelText, isDarkMode && styles.textMutedDark]}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.modalSubmit} onPress={submitReschedule} disabled={submittingReschedule}>{submittingReschedule ? <ActivityIndicator color="#fff" /> : <Text style={styles.compareButtonText}>Send Suggestion</Text>}</TouchableOpacity></View>
           </View>
         </View>
       </Modal>
@@ -612,6 +658,15 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
 }
 
 const styles = StyleSheet.create({
+  bestQuoteCardDark: { backgroundColor: '#252E50', borderColor: '#818CF8' },
+  quoteFooterDark: { borderTopColor: COLORS.darkBorder },
+  sectionCountDark: { backgroundColor: '#2A3354' },
+  providerIconDark: { backgroundColor: '#2A3354' },
+  reviewQuoteButtonDark: { backgroundColor: '#252E50', borderColor: '#818CF8' },
+  accentTextDark: { color: '#B4BEFF' },
+  selectionButton: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, paddingVertical: 8 },
+  comparisonColumn: { width: 230, padding: 16, gap: 12, marginRight: 12, borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#fff' },
+  selectedColumn: { borderColor: COLORS.primary, borderWidth: 2 },
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,
@@ -767,11 +822,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionTitleRow: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
   },
   sectionTitle: {
+    flexShrink: 1,
     fontSize: 17,
     fontWeight: '600',
     color: COLORS.text,
@@ -846,6 +904,7 @@ const styles = StyleSheet.create({
   },
   quoteTopRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     alignItems: 'flex-start',
   },
@@ -942,6 +1001,9 @@ const styles = StyleSheet.create({
     borderColor: '#EEF2F7',
   },
   reviewQuoteButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
     marginTop: 10,
     borderRadius: 12,
     borderWidth: 1,
@@ -950,6 +1012,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reviewQuoteButtonText: {
+    textAlign: 'center',
     color: COLORS.primary,
     fontSize: 12,
     fontWeight: '500',
@@ -971,6 +1034,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalCard: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
     backgroundColor: COLORS.card,
     borderRadius: 22,
     padding: 18,
@@ -1008,6 +1074,7 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'flex-end',
     gap: 10,
     marginTop: 16,

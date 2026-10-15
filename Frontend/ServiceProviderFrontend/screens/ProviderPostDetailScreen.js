@@ -91,7 +91,6 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
   const [isOwner, setIsOwner] = useState(false);
 
   const [applyVisible, setApplyVisible] = useState(false);
-  const [bidAmount, setBidAmount] = useState('');
   const [note, setNote] = useState('');
 
   const C = isDark
@@ -194,9 +193,13 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
   const urgency = urgencyStyles[post.urgency] || urgencyStyles.medium;
 
   // ─── Apply via API ─────────────────────────────────────────
+  const notifyInterest = (title, message, buttons) => {
+    if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
+    else Alert.alert(title, message, buttons);
+  };
   const submitApply = async () => {
     if (!viewerId) {
-      Alert.alert('Error', 'Provider ID not found, please login again.');
+      notifyInterest('Error', 'Provider ID not found, please login again.');
       return;
     }
     setApplying(true);
@@ -206,7 +209,6 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
         providerId: viewerId,
         applicantId: viewerId,
         applicantName: viewerName || undefined,
-        bidAmount: bidAmount ? Number(bidAmount) : undefined,
         note: note || undefined,
       };
 
@@ -238,13 +240,10 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
       if (markApplied) markApplied(postId || post.id);
 
       setApplyVisible(false);
-      setBidAmount('');
       setNote('');
-      Alert.alert(
+      notifyInterest(
         '✅ Application Submitted!',
-        `Your offer has been sent to ${posterName}. ${
-          bidAmount ? `\nBid: LKR ${Number(bidAmount).toLocaleString()}` : ''
-        }`,
+        `Your interest has been sent to ${posterName}. They can request your quotation with a preferred date and time.`,
         [{
           text: 'View Applied Jobs',
           onPress: () => navigation.navigate('AppliedJobs'),
@@ -252,7 +251,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
       );
     } catch (err) {
       console.warn(err);
-      Alert.alert('Error', `Failed to apply: ${err.message}`);
+      notifyInterest('Error', `Failed to apply: ${err.message}`);
     } finally {
       setApplying(false);
     }
@@ -522,7 +521,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
               <Ionicons name={alreadyApplied ? 'checkmark-circle' : 'paper-plane'} size={22} color="#fff" />
             )}
             <Text style={styles.applyNowText}>
-              {alreadyApplied ? '✓ You Applied' : applying ? 'Submitting...' : 'Apply / Send Offer'}
+              {alreadyApplied ? '✓ You Applied' : applying ? 'Submitting...' : "I'm Available"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -552,34 +551,19 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
             onPress={() => !applying && setApplyVisible(false)}
             disabled={applying}
           >
-            <TouchableOpacity activeOpacity={1} style={styles.sheet} onPress={() => {}}>
-              <View style={styles.sheetHandle} />
-              <Text style={styles.sheetTitle}>Submit Your Offer</Text>
+            <TouchableOpacity activeOpacity={1} style={[styles.sheet, { backgroundColor: C.card, borderColor: C.border }]} onPress={() => {}}>
+              <View style={[styles.sheetHandle, { backgroundColor: isDark ? '#52525B' : C.border }]} />
+              <Text style={[styles.sheetTitle, { color: C.text }]}>Express Interest</Text>
               <Text style={[styles.sheetSubtitle, { color: C.textSub }]}>
-                Send a quote and cover note to {posterName}
+                Let {posterName} know you are interested. Quote once they send the job details and preferred time.
               </Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: C.text }]}>
-                  Bid Amount (LKR)
-                  <Text style={{ color: C.textSub, fontWeight: '400' }}>  {post.budget ? `(Budget: ${post.budget})` : '(optional)'}</Text>
-                </Text>
-                <TextInput
-                  style={[styles.amountInput, { backgroundColor: C.bg, color: C.text, borderColor: C.border }]}
-                  placeholder="e.g. 15000"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  value={bidAmount}
-                  onChangeText={setBidAmount}
-                />
-              </View>
 
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: C.text }]}>Cover Note (optional)</Text>
                 <TextInput
                   style={[styles.noteInput, { backgroundColor: C.bg, color: C.text, borderColor: C.border, textAlignVertical: 'top' }]}
                   placeholder={`Hi ${posterName.split(' ')[0]}, I'd love to help with this because...`}
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={isDark ? '#A1A1AA' : C.textSub}
                   multiline
                   numberOfLines={4}
                   value={note}
@@ -606,7 +590,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
                     <Ionicons name="paper-plane" size={18} color="#fff" />
                   )}
                   <Text style={styles.submitBtnText}>
-                    {applying ? 'Sending...' : 'Send Offer'}
+                    {applying ? 'Sending...' : 'Send Interest'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -773,6 +757,10 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: '#fff',
+    borderWidth: 1,
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 20,
@@ -784,7 +772,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center', marginBottom: 16,
   },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  sheetSubtitle: { fontSize: 13, marginTop: 4, marginBottom: 18 },
+  sheetSubtitle: { lineHeight: 19, fontSize: 13, marginTop: 4, marginBottom: 18 },
   inputGroup: { marginBottom: 16 },
   inputLabel: { fontSize: 13, fontWeight: '700', marginBottom: 8 },
   amountInput: {
@@ -799,18 +787,22 @@ const styles = StyleSheet.create({
     height: 110,
   },
   sheetActions: {
-    flexDirection: 'row', gap: 10, marginTop: 8,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8,
   },
   cancelBtn: {
     flex: 1,
+    minWidth: 100,
+    minHeight: 48,
     borderWidth: 1, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
     paddingVertical: 14,
   },
   submitBtn: {
     flex: 1.4,
+    minWidth: 150,
+    minHeight: 48,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#10B981',
+    backgroundColor: '#047857',
     borderRadius: 14,
     paddingVertical: 14, gap: 8,
     shadowColor: '#10B981',

@@ -141,6 +141,8 @@ export default function UserQuotesScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  textDark: { color: '#FFFFFF' },
+  textMutedDark: { color: '#B8C1D9' },
   container: { flex: 1, backgroundColor: '#F8F9FA' },
   containerDark: { backgroundColor: '#1a1a2e' },
   header: {

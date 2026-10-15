@@ -674,8 +674,8 @@ export const applyPost = async (req, res) => {
       role: applicantRole,
       name: applicantInfo.name || "Service Provider",
       profilePicture: applicantInfo.profilePicture,
-      bidAmount: typeof bidAmount === "number" ? bidAmount : null,
-      note: note || "",
+      bidAmount: null,
+      note: note || "I am available to work. Please send the job details and preferred time.",
     };
 
     // Remove if this applicant already exists (prevent duplicates)

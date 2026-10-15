@@ -1,3 +1,4 @@
+import { COLORS } from './theme';
 import React, { useCallback, useContext, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +19,7 @@ const formatDateTime = (value) => value && !Number.isNaN(value.getTime())
 
 export default function ProviderJobDetailsScreen({ route, navigation }) {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
-  const C = { bg: isDark ? '#0F172A' : '#F8FAFC', card: isDark ? '#1E293B' : '#FFFFFF', text: isDark ? '#F8FAFC' : '#1E293B', muted: isDark ? '#94A3B8' : '#4B5563', border: isDark ? '#334155' : '#E2E8F0' };
+  const C = { bg: isDark ? COLORS.darkBg : COLORS.bg, card: isDark ? COLORS.darkCard : COLORS.card, text: isDark ? COLORS.darkText : COLORS.text, muted: isDark ? '#94A3B8' : '#4B5563', border: isDark ? COLORS.darkBorder : COLORS.border };
   const initialBooking = route?.params?.booking || {};
   const [booking, setBooking] = useState(initialBooking);
   const [loading, setLoading] = useState(false);
@@ -159,7 +160,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
             </View>
           ) : null}
           {booking?.delayInfo?.delayImpactStatus === 'NEXT_BOOKING_AT_RISK' ? <Text style={styles.riskWarning}>This delay may affect your next scheduled job.</Text> : null}
-          {['IN_PROGRESS', 'DELAY_REPORTED'].includes(status) ? <><TextInput style={styles.input} value={delayReason} onChangeText={setDelayReason} placeholder="Delay reason" /><TextInput style={styles.input} value={extraMinutes} onChangeText={setExtraMinutes} keyboardType="numeric" placeholder="Extra minutes" /></> : null}
+          {['IN_PROGRESS', 'DELAY_REPORTED'].includes(status) ? <><TextInput style={[styles.input, { color: C.text, borderColor: C.border, backgroundColor: C.card }]} placeholderTextColor={C.muted} value={delayReason} onChangeText={setDelayReason} placeholder="Delay reason" /><TextInput style={[styles.input, { color: C.text, borderColor: C.border, backgroundColor: C.card }]} placeholderTextColor={C.muted} value={extraMinutes} onChangeText={setExtraMinutes} keyboardType="numeric" placeholder="Extra minutes" /></> : null}
           <View style={styles.actions}>
             {['CONFIRMED', 'RESCHEDULED'].includes(status) ? <TouchableOpacity disabled={updating} style={styles.button} onPress={() => confirmAction('Start', 'Start this job now?', 'start')}><Text style={styles.buttonText}>Start</Text></TouchableOpacity> : null}
             {['CONFIRMED', 'RESCHEDULED'].includes(status) && !pendingReschedule ? <TouchableOpacity disabled={updating} style={styles.warningButton} onPress={requestReschedule}><Text style={styles.warningButtonText}>Reschedule</Text></TouchableOpacity> : null}

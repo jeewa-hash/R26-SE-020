@@ -540,7 +540,7 @@ const getSessionStatusMeta = (session) => {
   };
 };
 
-function ServiceSessionsHeader({ isDarkMode, activeCount, scheduledCount, ongoingCount }) {
+function ServiceSessionsHeader({ isDarkMode, activeCount, scheduledCount, ongoingCount, onBack }) {
   return (
     <LinearGradient
       colors={isDarkMode ? ['#1a1a2e', '#16213e'] : [COLORS.primary, COLORS.primaryDark]}
@@ -549,7 +549,15 @@ function ServiceSessionsHeader({ isDarkMode, activeCount, scheduledCount, ongoin
       style={styles.header}
     >
       <View style={styles.titleRow}>
-        <View>
+        <TouchableOpacity
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Back to my profile"
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>My Service Sessions</Text>
           <Text style={styles.headerSubtitle}>
             Grouped service sessions with requests, quotes and bookings
@@ -597,8 +605,9 @@ function SessionTabBar({ activeTab, onTabChange, counts, isDarkMode }) {
               key={tab}
               style={[
                 styles.tab,
-                active && styles.tabActive,
                 isDarkMode && styles.tabDark,
+                active && styles.tabActive,
+                active && isDarkMode && styles.tabActiveDark,
               ]}
               onPress={() => onTabChange(tab)}
               activeOpacity={0.85}
@@ -613,8 +622,8 @@ function SessionTabBar({ activeTab, onTabChange, counts, isDarkMode }) {
                 {tab}
               </Text>
 
-              <View style={[styles.countPill, active && styles.countPillActive]}>
-                <Text style={[styles.countText, active && styles.countTextActive]}>
+              <View style={[styles.countPill, isDarkMode && styles.countPillDark, active && styles.countPillActive]}>
+                <Text style={[styles.countText, isDarkMode && styles.textMutedDark, active && styles.countTextActive]}>
                   {counts[tab] || 0}
                 </Text>
               </View>
@@ -960,6 +969,7 @@ export default function SeekerServiceSessionsScreen({ navigation }) {
       />
 
       <ServiceSessionsHeader
+        onBack={() => navigation.navigate('ProfileScreen')}
         isDarkMode={isDarkMode}
         activeCount={counts.Active}
         scheduledCount={counts.Scheduled}
@@ -1001,6 +1011,12 @@ const styles = StyleSheet.create({
     paddingBottom: 22,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titleRow: {
     flexDirection: 'row',
@@ -1076,6 +1092,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.darkCard,
     borderColor: COLORS.darkBorder,
   },
+  tabActiveDark: { backgroundColor: '#252e58', borderColor: COLORS.primary },
+  countPillDark: { backgroundColor: COLORS.darkBorder },
   tabActive: {
     backgroundColor: '#EEF2FF',
     borderColor: '#C7D2FE',
