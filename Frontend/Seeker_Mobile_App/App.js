@@ -29,6 +29,7 @@ import BidResponsesScreen from './screens/BidResponsesScreen';
 import UserQuotesScreen from './screens/UserQuotesScreen';
 
 // Profile Sub Screens
+import SeekerCalendarScreen from './screens/SeekerCalendarScreen';
 import BookingsScreen from './screens/BookingsScreen';
 import MyBidsScreen from './screens/MyBidsScreen';
 import MyPostsScreen from './screens/MyPostsScreen';
@@ -233,7 +234,13 @@ function AppNavigator({ initialRouteName }) {
         options={{ headerShown: false }}
       />
 
-      {/* Existing Bookings screen - keep unchanged */}
+      {/* Calendar views for booked services */}
+      <Stack.Screen
+        name="SeekerCalendar"
+        component={SeekerCalendarScreen}
+        options={{ headerShown: false }}
+      />
+
       <Stack.Screen
         name="BookingsScreen"
         component={BookingsScreen}
