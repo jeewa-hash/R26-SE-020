@@ -2,7 +2,6 @@ export const buildQuotationPayload = ({
   request,
   providerId,
   price,
-  proposedStartTime,
   notes,
 }) => {
   const reqId =
@@ -48,8 +47,8 @@ export const buildQuotationPayload = ({
 
     price: Number(price || 0),
 
-    // Only start time comes from the provider.
-    proposedStartTime,
+    // Start time belongs to the seeker request.
+    proposedStartTime: request?.preferredStartTime,
 
     notes: notes || '',
 

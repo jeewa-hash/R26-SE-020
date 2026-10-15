@@ -32,6 +32,31 @@ const toScheduleParts = (value) => {
   };
 };
 
+export const validateQuotationSchedule = async (req, res) => {
+  try {
+    const request = await getRequestQuotationById(req.body.providerRequestId);
+    if (String(request.providerId) !== String(req.user.id)) return res.status(403).json({ message: 'This request is assigned to another provider.' });
+    if (request.status !== 'pending') return res.status(409).json({ message: 'This request is not awaiting a quotation.' });
+    if (request.rescheduleRequestedAt) return res.status(409).json({ message: 'Waiting for the seeker to choose a new time.' });
+    const start = new Date(request.preferredStartTime);
+    if (!request.preferredStartTime || !Number.isFinite(start.getTime()) || start <= new Date()) return res.status(400).json({ message: 'The seeker must choose a future start time before you can quote.' });
+    const payload = buildDurationPredictionPayload({ requestQuotation: request, providerQuotation: { providerId: req.user.id } });
+    const prediction = await predictDuration(payload);
+    const predicted = Number(prediction?.predictedDurationMins);
+    const duration = Number.isFinite(predicted) && predicted > 0 ? predicted : estimateServiceDuration({ serviceCategory: payload.serviceCategory, serviceSubcategory: payload.serviceType, taskName: payload.taskName, urgency: request.urgencyLevel }).averageDurationHours * 60;
+    const schedule = await evaluateBidSchedule({ providerId: req.user.id, proposedStartTime: start, preferredStartTime: start, preferredEndTime: request.preferredEndTime, predictedDurationMins: duration, bufferMinutes: 30 });
+    // A daily slot cannot represent work crossing midnight.
+    if (schedule.requiredWindowStart.toDateString() !== schedule.requiredWindowEnd.toDateString()) {
+      schedule.conflictDetected = true;
+      schedule.conflictReason = 'The requested work extends beyond this working day. Ask the seeker for an earlier start.';
+    }
+    if (schedule.conflictDetected) return res.status(409).json({ code: 'RESCHEDULE_REQUIRED', message: schedule.conflictReason, schedule });
+    return res.json({ success: true, schedule });
+  } catch (error) {
+    return res.status(503).json({ message: 'Availability could not be verified. Please try again.', error: error.message });
+  }
+};
+
 export const checkBidCoordination = async (req, res) => {
   try {
     const {
@@ -61,6 +86,8 @@ export const checkBidCoordination = async (req, res) => {
     const requestQuotation = await getRequestQuotationById(
       externalRequestQuotationId
     ); // Chaw: fetch seeker request context from Seeker Service
+
+    if (requestQuotation.rescheduleRequestedAt) return res.status(409).json({ message: 'The seeker must choose a new time before this quotation can be validated.' });
 
     const providerQuotation = await getProviderQuotationById(
       externalQuotationId
@@ -326,7 +353,9 @@ export const checkBidCoordination = async (req, res) => {
       providerQuotationUpdate = await updateProviderQuotationCoordination(
         externalQuotationId,
         decisionData.finalDecision,
-        coordination._id.toString()
+        coordination._id.toString(),
+        scheduleEvaluation.requiredWindowStart,
+        scheduleEvaluation.requiredWindowEnd
       ); // Chaw: update Provider Service quotation with coordination result
     } catch (updateError) {
       providerQuotationUpdateWarning = updateError.message;
@@ -483,9 +512,7 @@ export const selectSuggestedSlot = async (req, res) => {
       }
 
       const currentUserId = String(req.user?.id || "");
-      const ownsCoordination = req.user?.role === "ServiceProvider"
-        ? String(coordination.providerId) === currentUserId
-        : String(coordination.seekerId) === currentUserId;
+      const ownsCoordination = req.user?.role === "Seeker" && String(coordination.seekerId) === currentUserId;
       if (!ownsCoordination) {
         return res.status(403).json({ success: false, message: "Access denied for this coordination." });
       }

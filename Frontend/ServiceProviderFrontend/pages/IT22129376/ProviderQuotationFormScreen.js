@@ -1,384 +1,87 @@
+import { COLORS } from './theme';
 import React, { useContext, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  ScrollView,
-} from 'react-native';
-
-import DateTimePicker from '@react-native-community/datetimepicker';
-
+import { View, Text, TextInput, TouchableOpacity, Alert, Platform, ScrollView, StyleSheet } from 'react-native';
 import { submitProviderQuotation } from '../../services/providerFlowApi';
 import { getStoredProviderAuth } from './services/providerAuthStorage';
+import { CONFIG } from '../../config';
 import ProviderPageHeader from '../../components/ProviderPageHeader';
 import { ThemeContext } from '../../context/ThemeContext';
 
+const notify = (title, message, done) => {
+  if (Platform.OS === 'web') { window.alert(`${title}\n\n${message}`); done?.(); }
+  else Alert.alert(title, message, [{ text: 'OK', onPress: done }]);
+};
+
 export default function ProviderQuotationFormScreen({ route, navigation }) {
-  const { isDark } = useContext(ThemeContext) || { isDark: false };
-
-  const C = {
-    bg: isDark ? '#0F172A' : '#F8FAFC',
-    card: isDark ? '#1E293B' : '#FFFFFF',
-    text: isDark ? '#F8FAFC' : '#1E293B',
-    muted: isDark ? '#CBD5E1' : '#374151',
-    border: isDark ? '#334155' : '#E2E8F0',
-  };
-
+  const { isDark } = useContext(ThemeContext) || {};
   const request = route?.params?.request || {};
-
+  const requestId = request._id || request.id || request.requestQuotationId;
   const [price, setPrice] = useState('');
-
-  const preferredDate = request?.preferredStartTime
-    ? new Date(request.preferredStartTime)
-    : new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-  const [startTime, setStartTime] = useState(
-    Number.isNaN(preferredDate.getTime())
-      ? new Date(Date.now() + 24 * 60 * 60 * 1000)
-      : preferredDate
-  );
-
-  const [pickerMode, setPickerMode] = useState(null);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const requestId =
-    request?._id ||
-    request?.id ||
-    request?.requestQuotationId;
-
-  const submit = async () => {
-    if (!price || !startTime) {
-      Alert.alert(
-        'Missing Details',
-        'Please enter price and proposed start time.'
-      );
-      return;
-    }
-
-    if (Number(price) <= 0 || startTime <= new Date()) {
-      Alert.alert(
-        'Invalid Details',
-        'Price must be greater than zero, and the proposed start must be in the future.'
-      );
-      return;
-    }
-
+  const [submitted, setSubmitted] = useState(false);
+  const [pendingQuoteId, setPendingQuoteId] = useState(null);
+  const start = request.preferredStartTime ? new Date(request.preferredStartTime) : null;
+  const validTime = start && Number.isFinite(start.getTime()) && start > new Date();
+  const C = { bg: isDark ? COLORS.darkBg : COLORS.bg, card: isDark ? COLORS.darkCard : COLORS.card, text: isDark ? COLORS.darkText : COLORS.text, muted: isDark ? COLORS.darkMuted : COLORS.muted, border: isDark ? COLORS.darkBorder : COLORS.border };
+  const requestReschedule = async () => {
+    if (saving || submitted) return;
+    setSaving(true);
     try {
-      setSaving(true);
-
-      const { token, providerId } = await getStoredProviderAuth();
-
-      console.log('LOGGED PROVIDER ID:', providerId);
-
-      if (!token || !providerId || !requestId) {
-        throw new Error(
-          'Your provider session or request details are missing. Please login again.'
-        );
-      }
-
-      await submitProviderQuotation({
-        providerRequestId: requestId,
-        externalRequestQuotationId: requestId,
-
-        externalSessionId:
-          request?.sessionId ||
-          request?.externalSessionId ||
-          request?.serviceSessionId,
-
-        seekerId: request?.seekerId,
-
-        providerId,
-
-        serviceCategory:
-          request?.detectedCategory ||
-          request?.category ||
-          request?.serviceCategory ||
-          'General',
-
-        serviceSubcategory:
-          request?.detectedObject ||
-          request?.serviceSubcategory ||
-          'Service',
-
-        price: Number(price),
-
-        // Provider supplies ONLY the start time.
-        // End time is calculated later using ML predicted duration.
-        proposedStartTime: startTime.toISOString(),
-
-        notes,
+      const { token } = await getStoredProviderAuth();
+      const response = await fetch(`${CONFIG.SEEKER_SERVICE_URL}/request-quotations/${requestId}/reschedule-request`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: notes.trim() || 'I cannot work at the requested time. Please choose another start time.' }),
       });
-
-      Alert.alert(
-        'Success',
-        'Quotation sent successfully.',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
-    } catch (error) {
-      Alert.alert(
-        'Failed',
-        error?.message ||
-          'Could not submit quotation. Please try again.'
-      );
-    } finally {
-      setSaving(false);
-    }
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Unable to request a new time.');
+      notify('New time requested', 'The seeker can choose a new date and time in this session. You have not submitted a quotation yet.', () => navigation.goBack());
+    } catch (error) { notify('Unable to request reschedule', error.message); }
+    finally { setSaving(false); }
   };
-
-  return (
-    <View
-      style={[
-        styles.container,
-        { backgroundColor: C.bg },
-      ]}
-    >
-      <ProviderPageHeader
-        navigation={navigation}
-        title="Submit Quotation"
-        subtitle="Prepare your price and schedule proposal"
-      />
-
-      <ScrollView contentContainerStyle={styles.content}>
-
-        <Text
-          style={[
-            styles.label,
-            { color: C.muted },
-          ]}
-        >
-          Price (LKR)
-        </Text>
-
-        <TextInput
-          style={[
-            styles.input,
-            {
-              backgroundColor: C.card,
-              borderColor: C.border,
-              color: C.text,
-            },
-          ]}
-          placeholderTextColor={
-            isDark ? '#64748B' : '#94A3B8'
-          }
-          keyboardType="numeric"
-          value={price}
-          onChangeText={setPrice}
-          placeholder="2000"
-        />
-
-        <Text
-          style={[
-            styles.autoDurationNote,
-            { color: C.muted },
-          ]}
-        >
-          Service duration and expected completion time
-          will be calculated automatically.
-        </Text>
-
-        <Text
-          style={[
-            styles.label,
-            { color: C.muted },
-          ]}
-        >
-          Proposed Date
-        </Text>
-
-        <TouchableOpacity
-          style={[
-            styles.pickerButton,
-            {
-              backgroundColor: C.card,
-              borderColor: C.border,
-            },
-          ]}
-          onPress={() => setPickerMode('date')}
-        >
-          <Text style={{ color: C.text }}>
-            {startTime.toLocaleDateString()}
-          </Text>
-        </TouchableOpacity>
-
-        <Text
-          style={[
-            styles.label,
-            { color: C.muted },
-          ]}
-        >
-          Proposed Start Time
-        </Text>
-
-        <TouchableOpacity
-          style={[
-            styles.pickerButton,
-            {
-              backgroundColor: C.card,
-              borderColor: C.border,
-            },
-          ]}
-          onPress={() => setPickerMode('time')}
-        >
-          <Text style={{ color: C.text }}>
-            {startTime.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
-        </TouchableOpacity>
-
-        {pickerMode ? (
-          <DateTimePicker
-            value={startTime}
-            mode={pickerMode}
-            minimumDate={
-              pickerMode === 'date'
-                ? new Date()
-                : undefined
-            }
-            onChange={(event, value) => {
-              const currentMode = pickerMode;
-              setPickerMode(null);
-
-              if (!value) return;
-
-              setStartTime((current) => {
-                const next = new Date(current);
-
-                if (currentMode === 'date') {
-                  next.setFullYear(
-                    value.getFullYear(),
-                    value.getMonth(),
-                    value.getDate()
-                  );
-                } else {
-                  next.setHours(
-                    value.getHours(),
-                    value.getMinutes(),
-                    0,
-                    0
-                  );
-                }
-
-                return next;
-              });
-            }}
-          />
-        ) : null}
-
-        <Text
-          style={[
-            styles.label,
-            { color: C.muted },
-          ]}
-        >
-          Notes
-        </Text>
-
-        <TextInput
-          style={[
-            styles.input,
-            styles.textArea,
-            {
-              backgroundColor: C.card,
-              borderColor: C.border,
-              color: C.text,
-            },
-          ]}
-          placeholderTextColor={
-            isDark ? '#64748B' : '#94A3B8'
-          }
-          value={notes}
-          onChangeText={setNotes}
-          placeholder="Add a short note"
-          multiline
-        />
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={submit}
-          disabled={saving}
-        >
-          <Text style={styles.buttonText}>
-            {saving
-              ? 'Submitting...'
-              : 'Submit Quotation'}
-          </Text>
-        </TouchableOpacity>
-
-      </ScrollView>
-    </View>
-  );
+  const retryValidation = async () => {
+    setSaving(true);
+    try {
+      const { token } = await getStoredProviderAuth();
+      const response = await fetch(`${CONFIG.PROVIDER_SERVICE_API_URL}/api/provider/quotations/${pendingQuoteId}/validate`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+      notify('Validation finished', 'Your saved quotation has been checked.', () => navigation.goBack());
+    } catch (error) { notify('Validation pending', error.message); }
+    finally { setSaving(false); }
+  };
+  const submit = async () => {
+    if (saving || submitted) return;
+    if (!Number.isFinite(Number(price)) || Number(price) <= 0) return notify('Invalid price', 'Enter a price greater than zero.');
+    if (!validTime || request.rescheduleRequestedAt) return notify('Start time needed', 'Ask the seeker to choose a future start time before submitting.');
+    setSaving(true);
+    try {
+      const result = await submitProviderQuotation({ providerRequestId: requestId, price: Number(price), notes });
+      setSubmitted(true);
+      if (result.validationPending) {
+        setPendingQuoteId(result._id || result.id);
+        notify('Quotation saved', result.message);
+        return;
+      }
+      notify('Quotation saved', ['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(result.coordinationStatus) ? 'Your quotation has been checked and sent to the seeker.' : 'Your price is saved. The requested time needs attention; ask the seeker to reschedule from My Jobs → Quotes.', () => navigation.goBack());
+    } catch (error) { notify('Quotation not sent', error.message || 'Please try again. If the time conflicts, request a reschedule.'); }
+    finally { setSaving(false); }
+  };
+  return <View style={[styles.container, { backgroundColor: C.bg }]}>
+    <ProviderPageHeader navigation={navigation} title="Send Quotation" subtitle="One quotation per request. The seeker chooses the start time." />
+    <ScrollView contentContainerStyle={styles.content}>
+      <Text style={[styles.label, { color: C.muted }]}>Seeker’s requested start</Text>
+      <Text style={[styles.time, { color: C.text }]}>{start && Number.isFinite(start.getTime()) ? start.toLocaleString() : 'Not selected yet'}</Text>
+      {request.rescheduleRequestedAt ? <Text style={{ color: C.muted }}>Waiting for the seeker to choose a new time.</Text> : null}
+      <Text style={[styles.label, { color: C.muted }]}>Your quotation (LKR)</Text>
+      <TextInput accessibilityLabel="Quotation price" style={[styles.input, { color: C.text, backgroundColor: C.card, borderColor: C.border }]} value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="Enter your total price" placeholderTextColor={C.muted} editable={!saving && !submitted} />
+      <Text style={[styles.label, { color: C.muted }]}>Note / reason for requesting a new time</Text>
+      <TextInput accessibilityLabel="Quotation note" style={[styles.input, { color: C.text, backgroundColor: C.card, borderColor: C.border }]} value={notes} onChangeText={setNotes} multiline placeholder="Optional note" placeholderTextColor={C.muted} />
+      <Text style={{ color: C.muted }}>Your working hours and existing bookings are checked before submission. Duration is calculated automatically.</Text>
+      <TouchableOpacity style={[styles.button, (!validTime || saving || submitted || request.rescheduleRequestedAt) && styles.disabled]} onPress={submit} disabled={!validTime || saving || submitted || Boolean(request.rescheduleRequestedAt)}><Text style={styles.buttonText}>{saving ? 'Checking availability…' : 'Check Availability & Send Quotation'}</Text></TouchableOpacity>
+      {pendingQuoteId ? <TouchableOpacity style={styles.button} onPress={retryValidation} disabled={saving}><Text style={styles.buttonText}>Retry Validation of Saved Quotation</Text></TouchableOpacity> : null}
+      <TouchableOpacity style={[styles.button, styles.secondary]} onPress={requestReschedule} disabled={saving || submitted}><Text style={styles.buttonText}>Ask Seeker to Reschedule</Text></TouchableOpacity>
+    </ScrollView>
+  </View>;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-
-  content: {
-    padding: 20,
-  },
-
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 8,
-  },
-
-  input: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 13,
-    marginBottom: 16,
-  },
-
-  autoDurationNote: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: -6,
-    marginBottom: 16,
-  },
-
-  pickerButton: {
-    minHeight: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 13,
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-
-  textArea: {
-    minHeight: 90,
-    textAlignVertical: 'top',
-  },
-
-  button: {
-    backgroundColor: '#667eea',
-    borderRadius: 12,
-    padding: 15,
-    alignItems: 'center',
-    marginTop: 6,
-  },
-
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-});
+const styles = StyleSheet.create({ container: { flex: 1 }, content: { padding: 20, gap: 12 }, label: { fontSize: 14, fontWeight: '600', marginTop: 8 }, time: { fontSize: 18 }, input: { borderWidth: 1, padding: 12, borderRadius: 12, fontSize: 16 }, button: { backgroundColor: '#667eea', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 8 }, secondary: { backgroundColor: '#475569' }, buttonText: { color: '#fff', fontWeight: '600', textAlign: 'center' }, disabled: { opacity: 0.5 } });

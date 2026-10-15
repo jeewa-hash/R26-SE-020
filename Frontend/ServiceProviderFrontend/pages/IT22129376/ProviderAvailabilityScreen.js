@@ -1,3 +1,4 @@
+import { COLORS } from './theme';
 import React, { useCallback, useContext, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -18,7 +19,7 @@ const timeText = (date) => `${String(date.getHours()).padStart(2, '0')}:${String
 
 export default function ProviderAvailabilityScreen({ navigation }) {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
-  const C = { bg: isDark ? '#0F172A' : '#F8FAFC', card: isDark ? '#1E293B' : '#FFFFFF', text: isDark ? '#F8FAFC' : '#1E293B', muted: isDark ? '#94A3B8' : '#64748B', border: isDark ? '#334155' : '#E2E8F0' };
+  const C = { bg: isDark ? COLORS.darkBg : COLORS.bg, card: isDark ? COLORS.darkCard : COLORS.card, text: isDark ? COLORS.darkText : COLORS.text, muted: isDark ? COLORS.darkMuted : COLORS.muted, border: isDark ? COLORS.darkBorder : COLORS.border };
   const [isAvailable, setIsAvailable] = useState(true);
   const [week, setWeek] = useState(initialWeek);
   const [picker, setPicker] = useState(null);

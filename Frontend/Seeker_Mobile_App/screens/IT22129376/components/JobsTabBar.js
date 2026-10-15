@@ -13,15 +13,15 @@ export default function JobsTabBar({ activeTab, onTabChange, counts = {}, isDark
           return (
             <TouchableOpacity
               key={tab}
-              style={[styles.tab, active && styles.tabActive, isDarkMode && styles.tabDark]}
+              style={[styles.tab, isDarkMode && styles.tabDark, active && styles.tabActive, active && isDarkMode && styles.tabActiveDark]}
               onPress={() => onTabChange(tab)}
               activeOpacity={0.85}
             >
               <Text style={[styles.tabText, isDarkMode && styles.tabTextDark, active && styles.tabTextActive]}>
                 {tab}
               </Text>
-              <View style={[styles.countPill, active && styles.countPillActive]}>
-                <Text style={[styles.countText, active && styles.countTextActive]}>{counts[tab] || 0}</Text>
+              <View style={[styles.countPill, isDarkMode && styles.countPillDark, active && styles.countPillActive]}>
+                <Text style={[styles.countText, isDarkMode && styles.tabTextDark, active && styles.countTextActive]}>{counts[tab] || 0}</Text>
               </View>
             </TouchableOpacity>
           );
@@ -58,6 +58,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.darkCard,
     borderColor: COLORS.darkBorder,
   },
+  tabActiveDark: { backgroundColor: '#252e58', borderColor: COLORS.primary },
+  countPillDark: { backgroundColor: COLORS.darkBorder },
   tabActive: {
     backgroundColor: '#EEF2FF',
     borderColor: '#C7D2FE',

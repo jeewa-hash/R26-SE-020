@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -168,15 +169,15 @@ const RequestCard = ({ request, onPress, onQuote, isDark }) => {
         </View>
         <Badge label={status.label} bg={status.bg} color={status.color} />
       </View>
-      <View style={styles.infoBlock}>
-        <Text style={styles.infoLine}>👤 {getSeekerName(request)}</Text>
-        <Text style={styles.infoLine}>📍 {request.locationText || 'Location not available'}</Text>
-        <Text style={styles.infoLine}>🕒 Preferred: {formatDate(request.preferredStartTime || request.requestedDate || request.createdAt)} {formatTime(request.preferredStartTime || request.requestedStartTime)}</Text>
-        <Text style={styles.infoLine}>💰 Budget: LKR {request.seekerBudgetAmount || request.budget || request.price || '-'}</Text>
+      <View style={[styles.infoBlock, isDark && styles.infoBlockDark]}>
+        <Text style={[styles.infoLine, isDark && styles.textDark]}>👤 {getSeekerName(request)}</Text>
+        <Text style={[styles.infoLine, isDark && styles.textDark]}>📍 {request.locationText || 'Location not available'}</Text>
+        <Text style={[styles.infoLine, isDark && styles.textDark]}>🕒 Preferred: {formatDate(request.preferredStartTime || request.requestedDate || request.createdAt)} {formatTime(request.preferredStartTime || request.requestedStartTime)}</Text>
+        <Text style={[styles.infoLine, isDark && styles.textDark]}>💰 Budget: LKR {request.seekerBudgetAmount || request.budget || request.price || '-'}</Text>
       </View>
       <View style={styles.actionRow}>
         <TouchableOpacity style={styles.secondaryButton} onPress={onPress}>
-          <Text style={styles.secondaryButtonText}>View Details</Text>
+          <Text style={[styles.secondaryButtonText, isDark && styles.textDark]}>View Details</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.primaryButton} onPress={onQuote}>
           <Ionicons name="send-outline" size={16} color="#fff" />
@@ -187,7 +188,7 @@ const RequestCard = ({ request, onPress, onQuote, isDark }) => {
   );
 };
 
-const QuoteCard = ({ quotation, onPress, onReviewSlots, isDark }) => {
+const QuoteCard = ({ quotation, onPress, onReviewSlots, onRetryValidation, isDark }) => {
   const status = getStatusStyle(quotation.status || quotation.coordinationStatus || 'SENT');
   return (
     <TouchableOpacity style={[styles.card, isDark && styles.cardDark]} activeOpacity={0.85} onPress={onPress}>
@@ -208,16 +209,17 @@ const QuoteCard = ({ quotation, onPress, onReviewSlots, isDark }) => {
           />
         ) : null}
       </View>
-      <View style={styles.infoBlock}>
-        <Text style={styles.infoLine}>🕒 Proposed: {formatDate(quotation.proposedStartTime)} {formatTime(quotation.proposedStartTime)}</Text>
-        <Text style={styles.infoLine}>⏱ Duration: {quotation.estimatedDurationHours || '-'} hours</Text>
+      <View style={[styles.infoBlock, isDark && styles.infoBlockDark]}>
+        <Text style={[styles.infoLine, isDark && styles.textDark]}>🕒 Proposed: {formatDate(quotation.proposedStartTime)} {formatTime(quotation.proposedStartTime)}</Text>
+        <Text style={[styles.infoLine, isDark && styles.textDark]}>⏱ Duration: {quotation.estimatedDurationHours || '-'} hours</Text>
       </View>
-      {String(quotation.coordinationStatus || '').toUpperCase() === 'RESCHEDULE_REQUIRED' ? (
+      {['RESCHEDULE_REQUIRED', 'CONFLICT_DETECTED', 'NOT_AVAILABLE', 'REJECTED_DUE_TO_CONFLICT', 'NEEDS_RESCHEDULE'].includes(String(quotation.coordinationStatus || '').toUpperCase()) ? (
         <TouchableOpacity style={styles.primaryButton} onPress={onReviewSlots}>
           <Ionicons name="calendar-outline" size={16} color="#fff" />
-          <Text style={styles.primaryButtonText}>View Suggested Slots</Text>
+          <Text style={styles.primaryButtonText}>Ask Seeker to Reschedule</Text>
         </TouchableOpacity>
       ) : null}
+      {quotation.status === 'SENT' && ['NOT_CHECKED', 'CHECKING'].includes(quotation.coordinationStatus || 'NOT_CHECKED') ? <TouchableOpacity style={styles.primaryButton} onPress={onRetryValidation}><Text style={styles.primaryButtonText}>Retry Availability Validation</Text></TouchableOpacity> : null}
     </TouchableOpacity>
   );
 };
@@ -236,11 +238,11 @@ const BookingCard = ({ booking, onPress, isDark }) => {
         </View>
         <Ionicons name="chevron-forward" size={20} color={COLORS.muted} />
       </View>
-      <View style={styles.infoBlock}>
-        <Text style={styles.infoLine}>👤 {getSeekerName(booking)}</Text>
-        <Text style={styles.infoLine}>📅 {formatDate(start)}</Text>
-        <Text style={styles.infoLine}>🕒 {formatTime(start)} - {formatTime(end)}</Text>
-        <Text style={styles.infoLine}>📍 {booking.locationText || 'Location not available'}</Text>
+      <View style={[styles.infoBlock, isDark && styles.infoBlockDark]}>
+        <Text style={[styles.infoLine, isDark && styles.textDark]}>👤 {getSeekerName(booking)}</Text>
+        <Text style={[styles.infoLine, isDark && styles.textDark]}>📅 {formatDate(start)}</Text>
+        <Text style={[styles.infoLine, isDark && styles.textDark]}>🕒 {formatTime(start)} - {formatTime(end)}</Text>
+        <Text style={[styles.infoLine, isDark && styles.textDark]}>📍 {booking.locationText || 'Location not available'}</Text>
       </View>
       <View style={styles.badgeRow}>
         <Badge label={status.label} bg={status.bg} color={status.color} />
@@ -293,6 +295,15 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const todayJobs = useMemo(() => normalizedJobs.filter((job) => isSameDay(getBookingStart(job), new Date()) && !isClosedBooking(job)), [normalizedJobs]);
   const scheduledJobs = useMemo(() => normalizedJobs.filter((job) => ['CONFIRMED', 'RESCHEDULED', 'RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED'].includes(getBookingStatus(job))), [normalizedJobs]);
   const historyJobs = useMemo(() => normalizedJobs.filter(isClosedBooking), [normalizedJobs]);
+
+  const tabCounts = {
+    Today: todayJobs.length,
+    Ongoing: normalizedOngoing.length,
+    Requests: normalizedRequests.length,
+    Quotes: normalizedQuotes.length,
+    Scheduled: scheduledJobs.length,
+    History: historyJobs.length,
+  };
 
   const loadAll = async () => {
     try {
@@ -421,28 +432,27 @@ export default function ProviderMyJobsScreen({ navigation }) {
   const openRequest = (request) => navigation.navigate('IT22129376ProviderRequestDetails', { request, providerId });
   const openQuoteForm = (request) => navigation.navigate('IT22129376ProviderQuotationForm', { request, providerId });
   const openAvailability = () => (navigation.getParent() || navigation).navigate('ProviderAvailability');
+  const notify = (title, message) => Platform.OS === 'web' ? window.alert(`${title}\n\n${message}`) : Alert.alert(title, message);
   const reviewSuggestedSlots = async (quotation) => {
     try {
-      const coordinationId = quotation?.coordinationId?._id || quotation?.coordinationId;
-      const review = await getCoordinationReview(coordinationId);
-      const slots = review?.suggestedSlots || [];
-      if (!slots.length) return Alert.alert('Suggested Slots', 'No currently available suggested slots were found. Ask the seeker to run the availability review again.');
-      const buttons = slots.slice(0, 3).map((slot) => ({
-        text: new Date(slot.startTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
-        onPress: async () => {
-          try {
-            await selectCoordinationSuggestedSlot(coordinationId, slot._id || slot.id);
-            Alert.alert('Time Updated', 'The slot was revalidated and the quotation can now be accepted.');
-            await loadAll();
-          } catch (error) {
-            Alert.alert('Slot Unavailable', error?.message || 'This slot is no longer available.');
-          }
-        },
-      }));
-      Alert.alert('Choose a Suggested Slot', 'The selected time will be validated again before it is applied.', [...buttons, { text: 'Cancel', style: 'cancel' }]);
-    } catch (error) {
-      Alert.alert('Unable to Load Slots', error?.message || 'Please try again.');
-    }
+      const auth = await getStoredProviderAuth();
+      const requestId = quotation.providerRequestId || quotation.externalRequestQuotationId || quotation.requestQuotationId;
+      const response = await fetch(`${SEEKER_SERVICE_URL}/request-quotations/${requestId}/reschedule-request`, { method: 'PATCH', headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'I cannot work at the requested time. Please choose another start time. My quotation price stays the same.' }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+      notify('New time requested', 'The seeker will choose the start time. Your original price stays unchanged.');
+      await loadAll();
+    } catch (error) { notify('Unable to request a new time', error.message); }
+  };
+  const retryValidation = async (quotation) => {
+    try {
+      const auth = await getStoredProviderAuth();
+      const response = await fetch(`${PROVIDER_SERVICE_API_URL}/api/provider/quotations/${getQuotationId(quotation)}/validate`, { method: 'POST', headers: { Authorization: `Bearer ${auth.token}` } });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message);
+      await loadAll();
+      notify('Validation complete', 'Your saved quotation was checked.');
+    } catch (error) { notify('Validation pending', error.message); }
   };
 
   const renderTimeline = () => {
@@ -493,7 +503,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       return <View style={[styles.stateCard, isDark && styles.cardDark]}><ActivityIndicator size="large" color={COLORS.primary} /><Text style={[styles.stateTitle, isDark && styles.textDark]}>Loading provider flow...</Text></View>;
     }
     if (error) {
-      return <View style={[styles.stateCard, isDark && styles.cardDark]}><Ionicons name="warning-outline" size={34} color={COLORS.danger} /><Text style={[styles.stateTitle, isDark && styles.textDark]}>Real Data Not Loaded</Text><Text style={styles.stateMsg}>{error}</Text><TouchableOpacity style={styles.primaryButton} onPress={onRefresh}><Text style={styles.primaryButtonText}>Try Again</Text></TouchableOpacity></View>;
+      return <View style={[styles.stateCard, isDark && styles.cardDark]}><Ionicons name="warning-outline" size={34} color={COLORS.danger} /><Text style={[styles.stateTitle, isDark && styles.textDark]}>Real Data Not Loaded</Text><Text style={[styles.stateMsg, isDark && styles.textMutedDark]}>{error}</Text><TouchableOpacity style={styles.primaryButton} onPress={onRefresh}><Text style={styles.primaryButtonText}>Try Again</Text></TouchableOpacity></View>;
     }
 
     const warningBlock = backendWarning ? <View style={[styles.warningCard, isDark && styles.warningCardDark]}><Ionicons name="information-circle-outline" size={20} color="#F59E0B" /><Text style={[styles.warningText, isDark && styles.textMutedDark]}>{backendWarning}</Text></View> : null;
@@ -508,7 +518,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       return <>{warningBlock}{normalizedRequests.length === 0 ? <EmptyState isDark={isDark} icon="mail-open-outline" title="No incoming requests" message="No incoming requests yet. New quotation requests assigned to you will appear here." /> : normalizedRequests.map((r) => <RequestCard key={getRequestId(r)} request={r} isDark={isDark} onPress={() => openRequest(r)} onQuote={() => openQuoteForm(r)} />)}</>;
     }
     if (activeTab === 'Quotes') {
-      return <>{warningBlock}{normalizedQuotes.length === 0 ? <EmptyState isDark={isDark} icon="receipt-outline" title="No quotations sent" message="After submitting a quotation, its seeker decision and coordination status will appear here." /> : normalizedQuotes.map((q) => <QuoteCard key={getQuotationId(q)} quotation={q} isDark={isDark} onReviewSlots={() => reviewSuggestedSlots(q)} onPress={() => Alert.alert('Quotation', `Status: ${q.status || 'SENT'}\nPrice: LKR ${q.price || '-'}`)} />)}</>;
+      return <>{warningBlock}{normalizedQuotes.length === 0 ? <EmptyState isDark={isDark} icon="receipt-outline" title="No quotations sent" message="After submitting a quotation, its seeker decision and coordination status will appear here." /> : normalizedQuotes.map((q) => <QuoteCard key={getQuotationId(q)} quotation={q} isDark={isDark} onReviewSlots={() => reviewSuggestedSlots(q)} onRetryValidation={() => retryValidation(q)} onPress={() => Alert.alert('Quotation', `Status: ${q.status || 'SENT'}\nPrice: LKR ${q.price || '-'}`)} />)}</>;
     }
     if (activeTab === 'Scheduled') {
       return <>{warningBlock}{scheduledJobs.length === 0 ? <EmptyState isDark={isDark} icon="briefcase-outline" title="No scheduled jobs" message="Bookings appear here only after the seeker confirms a coordinated quotation." /> : scheduledJobs.map((job) => <BookingCard key={getBookingId(job)} booking={job} onPress={() => openJob(job)} isDark={isDark} />)}</>;
@@ -536,7 +546,21 @@ export default function ProviderMyJobsScreen({ navigation }) {
       <View style={[styles.tabBar, isDark && styles.tabBarDark]}>
         {TABS.map((tab) => {
           const active = activeTab === tab;
-          return <TouchableOpacity key={tab} style={[styles.tab, active && styles.tabActive]} onPress={() => setActiveTab(tab)}><Text style={[styles.tabText, active && styles.tabTextActive]}>{tab}</Text></TouchableOpacity>;
+          return (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, active && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`${tab}, ${tabCounts[tab]} items`}
+            >
+              <Text style={[styles.tabText, isDark && styles.textMutedDark, active && styles.tabTextActive]}>{tab}</Text>
+              <View style={[styles.tabCount, isDark && styles.tabCountDark, active && styles.tabCountActive]}>
+                <Text style={[styles.tabCountText, isDark && styles.textMutedDark, active && styles.tabCountTextActive]}>{tabCounts[tab]}</Text>
+              </View>
+            </TouchableOpacity>
+          );
         })}
       </View>
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />} showsVerticalScrollIndicator={false}>
@@ -565,26 +589,32 @@ const styles = StyleSheet.create({
   statLabel: { color: COLORS.muted, fontSize: 11, fontWeight: '400', marginTop: 2 },
   tabBar: { flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 12, marginTop: -18, padding: 5, borderRadius: 18, elevation: 5, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12 },
   tabBarDark: { backgroundColor: COLORS.darkCard },
-  tab: { flex: 1, height: 36, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  tab: { flex: 1, height: 56, gap: 4, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   tabActive: { backgroundColor: COLORS.primary },
   tabText: { fontSize: 11, fontWeight: '600', color: COLORS.muted },
   tabTextActive: { color: '#fff' },
+  tabCount: { minWidth: 22, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' },
+  tabCountDark: { backgroundColor: '#334155' },
+  tabCountActive: { backgroundColor: 'rgba(255,255,255,0.22)' },
+  tabCountText: { fontSize: 10, fontWeight: '600', color: COLORS.primary },
+  tabCountTextActive: { color: '#fff' },
   content: { flex: 1, paddingHorizontal: 16, paddingTop: 18 },
   contentContainer: { paddingBottom: 20 },
   card: { backgroundColor: '#fff', borderRadius: 22, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: COLORS.border, elevation: 3, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
   cardDark: { backgroundColor: COLORS.darkCard, borderColor: COLORS.darkBorder },
-  cardTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardTopRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
   cardTitle: { flex: 1, color: COLORS.text, fontSize: 16, fontWeight: '600' },
   cardSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '400' },
   priceText: { color: COLORS.primary, fontSize: 17, fontWeight: '600' },
   infoBlock: { backgroundColor: '#F9FAFB', borderRadius: 16, padding: 12, marginTop: 12, gap: 6 },
+  infoBlockDark: { backgroundColor: COLORS.darkBg },
   infoLine: { color: COLORS.text, fontSize: 12, fontWeight: '400' },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   badge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, alignSelf: 'flex-start' },
   badgeText: { fontSize: 11, fontWeight: '600' },
-  actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
   primaryButton: { backgroundColor: COLORS.primary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  primaryButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  primaryButtonText: { flexShrink: 1, textAlign: 'center', color: '#fff', fontSize: 13, fontWeight: '600' },
   secondaryButton: { flex: 1, borderWidth: 1, borderColor: COLORS.border, paddingVertical: 10, borderRadius: 14, alignItems: 'center' },
   secondaryButtonText: { color: COLORS.text, fontSize: 13, fontWeight: '600' },
   timelineCard: { backgroundColor: '#fff', borderRadius: 22, padding: 16, marginBottom: 18, borderWidth: 1, borderColor: COLORS.border },

@@ -1,7 +1,10 @@
 import express from "express";
+import { authMiddleware } from "../middleware/auth.js";
 
 import {
   createRequestQuotation,
+  requestQuotationReschedule,
+  updateQuotationRequestedTime,
   getSeekerRequests,
   getProviderRequests,
   getSingleRequest,
@@ -14,7 +17,9 @@ import {
 
 const router = express.Router();
 
-router.post("/", createRequestQuotation);
+router.post("/", authMiddleware, createRequestQuotation);
+router.patch("/:id/reschedule-request", authMiddleware, requestQuotationReschedule);
+router.patch("/:id/preferred-time", authMiddleware, updateQuotationRequestedTime);
 
 router.get("/recommendations/seeker/:seekerId", getProviderRecommendations);
 

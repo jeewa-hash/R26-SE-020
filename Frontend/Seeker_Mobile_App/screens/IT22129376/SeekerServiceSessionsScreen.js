@@ -605,8 +605,9 @@ function SessionTabBar({ activeTab, onTabChange, counts, isDarkMode }) {
               key={tab}
               style={[
                 styles.tab,
-                active && styles.tabActive,
                 isDarkMode && styles.tabDark,
+                active && styles.tabActive,
+                active && isDarkMode && styles.tabActiveDark,
               ]}
               onPress={() => onTabChange(tab)}
               activeOpacity={0.85}
@@ -621,8 +622,8 @@ function SessionTabBar({ activeTab, onTabChange, counts, isDarkMode }) {
                 {tab}
               </Text>
 
-              <View style={[styles.countPill, active && styles.countPillActive]}>
-                <Text style={[styles.countText, active && styles.countTextActive]}>
+              <View style={[styles.countPill, isDarkMode && styles.countPillDark, active && styles.countPillActive]}>
+                <Text style={[styles.countText, isDarkMode && styles.textMutedDark, active && styles.countTextActive]}>
                   {counts[tab] || 0}
                 </Text>
               </View>
@@ -1091,6 +1092,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.darkCard,
     borderColor: COLORS.darkBorder,
   },
+  tabActiveDark: { backgroundColor: '#252e58', borderColor: COLORS.primary },
+  countPillDark: { backgroundColor: COLORS.darkBorder },
   tabActive: {
     backgroundColor: '#EEF2FF',
     borderColor: '#C7D2FE',

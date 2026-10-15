@@ -5,6 +5,7 @@ import Feedback from "../models/feedbackModel.js";
 
 export const createRequestQuotation = async (req, res) => {
   try {
+    if (req.user?.role !== 'Seeker' || String(req.body.seekerId) !== String(req.user.id)) return res.status(403).json({ message: 'Only the seeker can request a quotation and choose its time.' });
     const {
       seekerId,
       providerId,
@@ -122,6 +123,8 @@ export const createRequestQuotation = async (req, res) => {
         message: "Step breakdown must be an array",
       });
     }
+
+    if (!preferredStartTime || new Date(preferredStartTime) <= new Date()) return res.status(400).json({ message: "Choose a future start date and time." });
 
     if (preferredStartTime && Number.isNaN(new Date(preferredStartTime).getTime())) { // Chaw - Validate optional preferred start time if provided
       return res.status(400).json({
@@ -839,4 +842,42 @@ export const getProviderRequestsbyProvider = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+
+export const requestQuotationReschedule = async (req, res) => {
+  try {
+    const request = await RequestQuotation.findById(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Request not found.' });
+    if (req.user.role !== 'ServiceProvider' || String(request.providerId) !== String(req.user.id)) return res.status(403).json({ message: 'Only the requested provider can ask for a new time.' });
+    if (!['pending', 'quoted'].includes(request.status)) return res.status(409).json({ message: 'This request is closed.' });
+    request.rescheduleReason = String(req.body.reason || 'Please choose a different start time.').slice(0, 1000);
+    request.rescheduleRequestedAt = new Date();
+    await request.save();
+    res.json({ success: true, request });
+  } catch (error) { res.status(400).json({ message: error.message }); }
+};
+
+export const updateQuotationRequestedTime = async (req, res) => {
+  try {
+    const request = await RequestQuotation.findById(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Request not found.' });
+    if (req.user.role !== 'Seeker' || String(request.seekerId) !== String(req.user.id)) return res.status(403).json({ message: 'Only the seeker can choose the start time.' });
+    if (!['pending', 'quoted'].includes(request.status)) return res.status(409).json({ message: 'This request is already accepted or closed.' });
+    const start = new Date(req.body.preferredStartTime);
+    if (!req.body.preferredStartTime || !Number.isFinite(start.getTime()) || start <= new Date()) return res.status(400).json({ message: 'Choose a valid future start time.' });
+    request.preferredStartTime = start;
+    request.preferredEndTime = null;
+    request.preferredTimeLabel = start.toISOString();
+    request.rescheduleReason = '';
+    request.rescheduleRequestedAt = null;
+    await request.save();
+    let validationPending = false;
+    if (request.status === 'quoted') {
+      try {
+        await axios.post(`${process.env.PROVIDER_SERVICE_URL || 'http://localhost:3002'}/api/provider/quotations/request/${request._id}/requested-time`, {}, { headers: { Authorization: req.headers.authorization }, timeout: 65000 });
+      } catch (error) { validationPending = true; }
+    }
+    res.json({ success: true, request, validationPending });
+  } catch (error) { res.status(400).json({ message: error.message }); }
 };

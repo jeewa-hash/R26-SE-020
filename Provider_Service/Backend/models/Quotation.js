@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const quotationSchema = new mongoose.Schema(
   {
+    workflowVersion: { type: Number },
     providerRequestId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
@@ -134,5 +135,10 @@ const quotationSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+quotationSchema.index({ providerId: 1, externalSessionId: 1 }, {
+  unique: true,
+  partialFilterExpression: { workflowVersion: 2 },
+});
 
 export default mongoose.model("Quotation", quotationSchema);
