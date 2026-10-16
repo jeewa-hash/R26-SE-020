@@ -1,3 +1,4 @@
+import PageHeader from '../../components/PageHeader';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,21 +13,7 @@ export default function ScreenShell({ title, subtitle, navigation, children, foo
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor={isDarkMode ? COLORS.darkBg : COLORS.primary} />
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : [COLORS.primary, COLORS.primaryDark]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.header}
-      >
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={23} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerTextArea}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        </View>
-        <View style={styles.placeholder} />
-      </LinearGradient>
+      <PageHeader title={title} subtitle={subtitle} onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={[styles.content, footer && styles.contentWithFooter]} showsVerticalScrollIndicator={false}>
         {children}

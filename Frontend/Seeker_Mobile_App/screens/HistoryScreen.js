@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -271,18 +272,9 @@ export default function HistoryScreen({ navigation }) {
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
-        <LinearGradient
-          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-          style={styles.header}
-        >
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Service History</Text>
-          <TouchableOpacity style={styles.pointsNavButton}>
-            <Ionicons name="star" size={22} color="#fff" />
-          </TouchableOpacity>
-        </LinearGradient>
+        <PageHeader title={<>Service History</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity style={styles.pointsNavButton}>
+            <Ionicons name="star" size={22} color={textColor} />
+          </TouchableOpacity></>} />
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
             Loading service history...
@@ -302,23 +294,12 @@ export default function HistoryScreen({ navigation }) {
       />
 
       {/* Header */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Service History</Text>
-        <TouchableOpacity
+      <PageHeader title={<>Service History</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity
           style={styles.pointsNavButton}
           onPress={() => navigation.navigate('StarPoints')}
         >
-          <Ionicons name="star" size={22} color="#fff" />
-        </TouchableOpacity>
-      </LinearGradient>
+          <Ionicons name="star" size={22} color={textColor} />
+        </TouchableOpacity></>} />
 
       {/* Stats Cards - More prominent and clear */}
       <View style={[styles.statsContainer, isDarkMode && styles.statsContainerDark]}>

@@ -84,4 +84,4 @@ export default function ProviderQuotationFormScreen({ route, navigation }) {
     </ScrollView>
   </View>;
 }
-const styles = StyleSheet.create({ container: { flex: 1 }, content: { padding: 20, gap: 12 }, label: { fontSize: 14, fontWeight: '600', marginTop: 8 }, time: { fontSize: 18 }, input: { borderWidth: 1, padding: 12, borderRadius: 12, fontSize: 16 }, button: { backgroundColor: '#667eea', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 8 }, secondary: { backgroundColor: '#475569' }, buttonText: { color: '#fff', fontWeight: '600', textAlign: 'center' }, disabled: { opacity: 0.5 } });
+const styles = StyleSheet.create({ container: { flex: 1 }, content: { padding: 20, gap: 12 }, label: { fontSize: 14, fontWeight: '600', marginTop: 8 }, time: { fontSize: 18 }, input: { borderWidth: 1, padding: 12, borderRadius: 12, fontSize: 16 }, button: { backgroundColor: '#15803D', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 8 }, secondary: { backgroundColor: '#475569' }, buttonText: { color: '#fff', fontWeight: '600', textAlign: 'center' }, disabled: { opacity: 0.5 } });

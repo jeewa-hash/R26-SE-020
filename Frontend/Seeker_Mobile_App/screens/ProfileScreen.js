@@ -52,6 +52,24 @@ const getLocationString = (userObj, isSi) => {
 
 const getMenuItems = (isSi) => [
   {
+    id: 'myposts',
+    title: isSi ? 'මගේ පළ කිරීම්' : 'My Posts',
+    subtitle: isSi ? 'ඔබ පළ කළ ඉල්ලීම්' : 'Your posted service requests',
+    icon: 'newspaper',
+    iconType: 'ion',
+    color: '#06B6D4',
+    screen: 'MyPostsScreen',
+  },
+  {
+    id: 'serviceSessions',
+    title: isSi ? 'මගේ සේවා සැසි' : 'My Service Sessions',
+    subtitle: isSi ? 'සේවා ඉල්ලීම් සහ මිල ගණන්' : 'Requests, quotations & service sessions',
+    icon: 'assignment',
+    iconType: 'material',
+    color: '#4F46E5',
+    screen: 'SeekerServiceSessions',
+  },
+  {
     id: 'calendar',
     title: isSi ? 'දින දර්ශනය' : 'Calendar',
     subtitle: isSi ? 'මාසික සහ සතිපතා සේවා සැලසුම්' : 'Month, week & agenda views',
@@ -266,29 +284,6 @@ export default function ProfileScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-
-            <Text style={styles.headerTitle}>{isSi ? 'මගේ ගිණුම' : 'My Profile'}</Text>
-
-            <TouchableOpacity
-              onPress={toggleTheme}
-              style={styles.backButton}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={isDarkMode ? 'moon' : 'sunny'}
-                size={22}
-                color="#fff"
-              />
-            </TouchableOpacity>
-          </View>
 
           <View style={styles.profileInfo}>
             <View style={styles.avatarContainer}>

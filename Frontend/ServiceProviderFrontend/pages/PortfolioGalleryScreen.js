@@ -94,14 +94,14 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
 
   const C = isDark
     ? {
-        bg: '#0f0f0f', card: '#1c1c1e', text: '#F2F2F7',
-        textSub: '#8E8E93', border: '#2c2c2e',
-        chipBg: '#2a2a2a', chipBorder: '#3a3a3c', divider: '#2c2c2e',
+        bg: '#0C0F0D', card: '#161C18', text: '#F2F2F7',
+        textSub: '#8E8E93', border: '#303C33',
+        chipBg: '#2a2a2a', chipBorder: '#3a3a3c', divider: '#303C33',
       }
     : {
-        bg: '#F8FAFC', card: '#FFFFFF', text: '#111111',
-        textSub: '#6B7280', border: '#E2E8F0',
-        chipBg: '#FFFFFF', chipBorder: '#E2E8F0', divider: '#E2E8F0',
+        bg: '#F5FAF6', card: '#FFFFFF', text: '#111111',
+        textSub: '#6B7280', border: '#D8E8DC',
+        chipBg: '#FFFFFF', chipBorder: '#D8E8DC', divider: '#D8E8DC',
       };
 
   return (
@@ -137,10 +137,10 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
         <ScrollView
           contentContainerStyle={styles.emptyContainer}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7C3AED" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#166534" />
           }
         >
-          <MaterialIcons name="photo-library" size={64} color={isDark ? '#334155' : '#CBD5E1'} />
+          <MaterialIcons name="photo-library" size={64} color={isDark ? '#303C33' : '#CBD5E1'} />
           <Text style={[styles.emptyTitle, { color: C.text }]}>No Saved Portfolio Items</Text>
           <Text style={[styles.emptySubtitle, { color: C.textSub }]}>
             Upload work photos from your Profile screen.{'\n'}
@@ -152,7 +152,7 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7C3AED" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#166534" />
           }
         >
           {/* Stats Row */}
@@ -163,7 +163,7 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
             </View>
             <View style={[styles.statDivider, { backgroundColor: C.divider }]} />
             <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: '#7C3AED' }]}>{serviceList.length}</Text>
+              <Text style={[styles.statValue, { color: '#166534' }]}>{serviceList.length}</Text>
               <Text style={[styles.statLabel, { color: C.textSub }]}>Services</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: C.divider }]} />
@@ -238,7 +238,7 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
           <View style={styles.sectionsWrap}>
             {serviceKeys.length === 0 ? (
               <View style={styles.noResults}>
-                <MaterialIcons name="image-not-supported" size={36} color={isDark ? '#334155' : '#CBD5E1'} />
+                <MaterialIcons name="image-not-supported" size={36} color={isDark ? '#303C33' : '#CBD5E1'} />
                 <Text style={[styles.noResultsText, { color: C.textSub }]}>
                   No images in this service yet
                 </Text>
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: 'row', gap: 8 },
   countBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#7C3AED', borderRadius: 12,
+    backgroundColor: '#166534', borderRadius: 12,
     paddingHorizontal: 10, paddingVertical: 4,
   },
   countText: { fontSize: 12, color: '#FFFFFF', fontWeight: '700' },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 7,
     borderRadius: 20, borderWidth: 1,
   },
-  filterChipSelected: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+  filterChipSelected: { backgroundColor: '#166534', borderColor: '#166534' },
   filterChipText: { fontSize: 13, fontWeight: '600' },
   filterChipTextSelected: { color: '#FFFFFF', fontWeight: '700' },
   filterChipCount: { fontSize: 11, fontWeight: '700' },

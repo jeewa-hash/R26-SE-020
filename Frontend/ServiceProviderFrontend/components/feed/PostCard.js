@@ -17,8 +17,8 @@ const { width } = Dimensions.get('window');
 
 const getAvatarColor = (name) => {
   const colors = [
-    '#2563EB', '#7C3AED', '#059669', '#DC2626',
-    '#D97706', '#0891B2', '#BE185D', '#4F46E5',
+    '#15803D', '#166534', '#059669', '#DC2626',
+    '#D97706', '#0284C7', '#BE185D', '#166534',
   ];
   let hash = 0;
   for (let i = 0; i < (name || 'U').length; i++) hash += (name || 'U').charCodeAt(i);
@@ -126,36 +126,36 @@ export default function PostCard({ post, onApply, applying }) {
 
   // Theme colors
   const C = isDark
-    ? { 
-        card: '#1C1C1E', 
-        text: '#F2F2F7', 
-        textSub: '#8E8E93', 
-        border: '#2C2C2E',
+    ? {
+        card: '#161C18',
+        text: '#F2F2F7',
+        textSub: '#8E8E93',
+        border: '#303C33',
         subCard: '#2A2A2A',
-        statsBg: '#2C2C2E',
+        statsBg: '#303C33',
         locationBg: '#2A2A2A',
         locationBorder: '#3A3A3C',
         tagBg: '#2D1B3D',
-        tagBorder: '#3D2B4D',
-        tagText: '#A78BFA',
+        tagBorder: '#202A23',
+        tagText: '#86C99A',
         translateBg: '#2D1B3D',
         statusBg: '#2A2A2A',
         shadowColor: 'rgba(0,0,0,0.4)',
       }
-    : { 
-        card: '#FFFFFF', 
-        text: '#1F2937', 
-        textSub: '#6B7280', 
-        border: '#E5E7EB',
-        subCard: '#F9FAFB',
-        statsBg: '#F9FAFB',
-        locationBg: '#F9FAFB',
+    : {
+        card: '#FFFFFF',
+        text: '#162C49',
+        textSub: '#6B7280',
+        border: '#D8E8DC',
+        subCard: '#F5FAF6',
+        statsBg: '#F5FAF6',
+        locationBg: '#F5FAF6',
         locationBorder: '#F3F4F6',
-        tagBg: '#F3E8FF',
-        tagBorder: '#EDE9FE',
-        tagText: '#6D28D9',
-        translateBg: '#F3E8FF',
-        statusBg: '#F9FAFB',
+        tagBg: '#EAF7EE',
+        tagBorder: '#DCF0E1',
+        tagText: '#166534',
+        translateBg: '#EAF7EE',
+        statusBg: '#F5FAF6',
         shadowColor: 'rgba(0,0,0,0.08)',
       };
 
@@ -170,7 +170,7 @@ export default function PostCard({ post, onApply, applying }) {
   const locationData = resolveLocationDetails(post);
 
   const urgencyStyles = {
-    low: { bg: isDark ? '#1A2A4A' : '#DBEAFE', color: isDark ? '#60A5FA' : '#1D4ED8', label: 'Low Priority' },
+    low: { bg: isDark ? '#1A2A4A' : '#DBEAFE', color: isDark ? '#86C99A' : '#166534', label: 'Low Priority' },
     medium: { bg: isDark ? '#3D2A1A' : '#FEF3C7', color: isDark ? '#FBBF24' : '#B45309', label: 'Medium' },
     high: { bg: isDark ? '#3D1A1A' : '#FEE2E2', color: isDark ? '#F87171' : '#DC2626', label: '🔥 High Priority' },
   };
@@ -192,7 +192,7 @@ export default function PostCard({ post, onApply, applying }) {
   return (
     <TouchableOpacity
       activeOpacity={0.9}
-      style={[styles.card, { 
+      style={[styles.card, {
         backgroundColor: C.card,
         shadowColor: C.shadowColor,
       }]}
@@ -225,8 +225,8 @@ export default function PostCard({ post, onApply, applying }) {
             </Text>
           </View>
           {appliedCount > 0 && (
-            <View style={[styles.bidsBadge, { backgroundColor: isDark ? '#1A1A3A' : '#EEF2FF' }]}>
-              <MaterialIcons name="people" size={12} color="#6366F1" />
+            <View style={[styles.bidsBadge, { backgroundColor: isDark ? '#1A1A3A' : '#EAF7EE' }]}>
+              <MaterialIcons name="people" size={12} color="#15803D" />
               <Text style={styles.bidsBadgeText}>{appliedCount} bids</Text>
             </View>
           )}
@@ -288,7 +288,7 @@ export default function PostCard({ post, onApply, applying }) {
 
         {/* Full Location Details */}
         {(locationData.address || locationData.regionText) ? (
-          <View style={[styles.locationDetails, { 
+          <View style={[styles.locationDetails, {
             backgroundColor: C.locationBg,
             borderColor: C.locationBorder,
           }]}>
@@ -320,7 +320,7 @@ export default function PostCard({ post, onApply, applying }) {
         {post?.tags && post.tags.length > 0 && (
           <View style={styles.tagsContainer}>
             {post.tags.slice(0, 6).map((tag, i) => (
-              <View key={`${tag}-${i}`} style={[styles.tagChip, { 
+              <View key={`${tag}-${i}`} style={[styles.tagChip, {
                 backgroundColor: C.tagBg,
                 borderColor: C.tagBorder,
               }]}>
@@ -338,9 +338,9 @@ export default function PostCard({ post, onApply, applying }) {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator size={14} color="#7C3AED" />
+            <ActivityIndicator size={14} color="#166534" />
           ) : (
-            <MaterialIcons name="g-translate" size={16} color="#7C3AED" />
+            <MaterialIcons name="g-translate" size={16} color="#166534" />
           )}
           <Text style={styles.translateText}>
             {loading
@@ -354,8 +354,8 @@ export default function PostCard({ post, onApply, applying }) {
         {/* Stats Row */}
         <View style={[styles.statsContainer, { backgroundColor: C.statsBg }]}>
           <View style={styles.statItem}>
-            <View style={[styles.statIconBg, { backgroundColor: isDark ? '#2D1B3D' : '#EDE9FE' }]}>
-              <MaterialIcons name="people" size={14} color="#7C3AED" />
+            <View style={[styles.statIconBg, { backgroundColor: isDark ? '#2D1B3D' : '#DCF0E1' }]}>
+              <MaterialIcons name="people" size={14} color="#166534" />
             </View>
             <View>
               <Text style={[styles.statValue, { color: C.text }]}>{appliedCount + (applied ? 1 : 0)}</Text>
@@ -366,8 +366,8 @@ export default function PostCard({ post, onApply, applying }) {
           <View style={[styles.statDivider, { backgroundColor: C.border }]} />
 
           <View style={styles.statItem}>
-            <View style={[styles.statIconBg, { backgroundColor: isDark ? '#2D1B3D' : '#EDE9FE' }]}>
-              <MaterialIcons name="visibility" size={14} color="#7C3AED" />
+            <View style={[styles.statIconBg, { backgroundColor: isDark ? '#2D1B3D' : '#DCF0E1' }]}>
+              <MaterialIcons name="visibility" size={14} color="#166534" />
             </View>
             <View>
               <Text style={[styles.statValue, { color: C.text }]}>{post?.views || 0}</Text>
@@ -378,8 +378,8 @@ export default function PostCard({ post, onApply, applying }) {
           <View style={[styles.statDivider, { backgroundColor: C.border }]} />
 
           <View style={styles.statItem}>
-            <View style={[styles.statIconBg, { backgroundColor: isDark ? '#2D1B3D' : '#EDE9FE' }]}>
-              <MaterialIcons name="chat-bubble-outline" size={14} color="#7C3AED" />
+            <View style={[styles.statIconBg, { backgroundColor: isDark ? '#2D1B3D' : '#DCF0E1' }]}>
+              <MaterialIcons name="chat-bubble-outline" size={14} color="#166534" />
             </View>
             <View>
               <Text style={[styles.statValue, { color: C.text }]}>Open</Text>
@@ -390,7 +390,7 @@ export default function PostCard({ post, onApply, applying }) {
 
         {/* Status Banner */}
         {applied && status && (
-          <View style={[styles.statusBanner, { 
+          <View style={[styles.statusBanner, {
             backgroundColor: C.statusBg,
             borderLeftColor: status.color,
           }]}>
@@ -406,7 +406,7 @@ export default function PostCard({ post, onApply, applying }) {
           style={[
             styles.applyBtn,
             applied && { backgroundColor: status?.color || '#10B981' },
-            applying && { backgroundColor: '#A78BFA', opacity: 0.9 },
+            applying && { backgroundColor: '#86C99A', opacity: 0.9 },
           ]}
           onPress={doApply}
           disabled={applied || applying}
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
   bidsBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#6366F1',
+    color: '#15803D',
   },
   aiMatchBadge: {
     flexDirection: 'row',
@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
   },
   translateText: {
     fontSize: 12,
-    color: '#7C3AED',
+    color: '#166534',
     fontWeight: '600',
   },
   statsContainer: {
@@ -695,14 +695,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   applyBtn: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    shadowColor: '#7C3AED',
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,

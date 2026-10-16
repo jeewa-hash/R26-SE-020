@@ -44,25 +44,11 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
       routeName: 'FeedScreen',
     },
     {
-      id: 'Sessions',
-      label: isSi ? 'සැසි' : 'Sessions',
-      icon: 'assignment',
-      activeIcon: 'assignment',
-      routeName: 'SeekerServiceSessions',
-    },
-    {
       id: 'Create',
       label: isSi ? 'නව ඉල්ලුම' : 'Post Job',
       icon: 'add',
       routeName: 'CreatePostScreen',
       isCreateButton: true,
-    },
-    {
-      id: 'MyPosts',
-      label: isSi ? 'මගේ පළ කිරීම්' : 'My Posts',
-      icon: 'article',
-      activeIcon: 'article',
-      routeName: 'MyPostsScreen',
     },
     {
       id: 'Bookings',
@@ -73,9 +59,9 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
     },
     {
       id: 'Profile',
-      label: isSi ? 'මගේ ගිණුම' : 'Profile',
-      icon: 'person-outline',
-      activeIcon: 'person',
+      label: isSi ? 'තවත්' : 'More',
+      icon: 'more-horiz',
+      activeIcon: 'more-horiz',
       routeName: 'ProfileScreen',
     },
   ];
@@ -84,11 +70,9 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
     switch (itemId) {
       case 'Home': return currentRouteName === 'Home' || currentRouteName === 'HomeScreen';
       case 'Feed': return currentRouteName === 'FeedScreen';
-      case 'Sessions': return ['SeekerServiceSessions', 'SeekerServiceSessionDetails'].includes(currentRouteName);
       case 'Create': return currentRouteName === 'CreatePostScreen';
-      case 'MyPosts': return currentRouteName === 'MyPostsScreen';
       case 'Bookings': return currentRouteName === 'BookingsScreen';
-      case 'Profile': return ['ProfileScreen', 'SeekerCalendar'].includes(currentRouteName);
+      case 'Profile': return ['ProfileScreen', 'MyPostsScreen', 'SeekerCalendar', 'SeekerServiceSessions', 'SeekerServiceSessionDetails'].includes(currentRouteName);
       default: return false;
     }
   };
@@ -117,7 +101,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
                 colors={isDarkMode ? ['#818cf8', '#6366f1'] : ['#4F46E5', '#7C3AED']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[styles.createButton, { borderColor: isDarkMode ? '#0F172A' : '#ffffff' }]}
+                style={[styles.createButton, { borderColor: isDarkMode ? '#17192C' : '#ffffff' }]}
               >
                 <MaterialIcons name={item.icon} size={30} color="#fff" />
               </LinearGradient>
@@ -164,7 +148,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
 
 const styles = StyleSheet.create({
   navContainer: { flexShrink: 0, backgroundColor: '#ffffff' },
-  navContainerDark: { backgroundColor: '#0F172A' },
+  navContainerDark: { backgroundColor: '#17192C' },
   bottomNav: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -175,7 +159,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },
-  bottomNavDark: { backgroundColor: '#0F172A', borderTopColor: '#283449' },
+  bottomNavDark: { backgroundColor: '#17192C', borderTopColor: '#302E49' },
   navItem: {
     flex: 1,
     minWidth: 0,

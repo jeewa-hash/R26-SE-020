@@ -1,3 +1,4 @@
+import { useTheme } from '../../../hooks/useTheme';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -12,7 +13,11 @@ const variants = {
 };
 
 export default function ActionButton({ label, onPress, variant = 'primary', disabled, loading, icon }) {
-  const C = variants[variant] || variants.primary;
+  const { isDarkMode } = useTheme();
+  const C = { ...(variants[variant] || variants.primary) };
+  if (variant === 'primary') { C.bg = '#5145CD'; C.border = '#5145CD'; }
+  if (variant === 'secondary' && isDarkMode) { C.bg = '#24223E'; C.text = '#C4BEFF'; C.border = '#454066'; }
+  if (variant === 'ghost' && isDarkMode) C.text = '#B8C1D9';
 
   return (
     <TouchableOpacity
@@ -38,7 +43,7 @@ export default function ActionButton({ label, onPress, variant = 'primary', disa
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 16,
@@ -49,6 +54,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontSize: 14,
     fontWeight: '600',
   },

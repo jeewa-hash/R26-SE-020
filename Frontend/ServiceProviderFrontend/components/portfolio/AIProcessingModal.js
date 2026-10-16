@@ -17,8 +17,8 @@ export default function AIProcessingModal({ visible, progress, imageCount, onCan
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const C = isDark
-    ? { card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', track: '#2c2c2e' }
-    : { card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#E2E8F0', track: '#E2E8F0' };
+    ? { card: '#161C18', text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33', track: '#303C33' }
+    : { card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#D8E8DC', track: '#D8E8DC' };
 
   // Spin animation
   useEffect(() => {
@@ -63,9 +63,9 @@ export default function AIProcessingModal({ visible, progress, imageCount, onCan
 
           {/* Spinner */}
           <Animated.View style={[styles.spinnerWrapper, { transform: [{ scale: pulseAnim }] }]}>
-            <View style={[styles.spinnerBg, { backgroundColor: isDark ? '#1F2937' : '#EFF6FF' }]}>
+            <View style={[styles.spinnerBg, { backgroundColor: isDark ? '#162C49' : '#F1F5F2' }]}>
               <Animated.View style={{ transform: [{ rotate }] }}>
-                <MaterialIcons name="refresh" size={48} color="#6366F1" />
+                <MaterialIcons name="refresh" size={48} color="#15803D" />
               </Animated.View>
             </View>
             <View style={[styles.sparkBadge, { borderColor: C.card }]}>
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   progressPercent: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#6366F1',
+    color: '#15803D',
   },
   progressTrack: {
     height: 8,
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#6366F1',
+    backgroundColor: '#15803D',
     borderRadius: 4,
   },
 
@@ -213,4 +213,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelText: { fontSize: 14, fontWeight: '600' },
-});
+});

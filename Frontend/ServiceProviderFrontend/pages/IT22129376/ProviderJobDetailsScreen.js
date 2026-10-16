@@ -113,7 +113,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
   };
 
   if (loading && !getBookingId(booking)) {
-    return <View style={[styles.container, { backgroundColor: C.bg }]}><ProviderPageHeader navigation={navigation} title="Job Details" subtitle="View and manage this booking" /><View style={styles.loading}><ActivityIndicator color="#667eea" /><Text style={[styles.row, { color: C.muted }]}>Loading...</Text></View></View>;
+    return <View style={[styles.container, { backgroundColor: C.bg }]}><ProviderPageHeader navigation={navigation} title="Job Details" subtitle="View and manage this booking" /><View style={styles.loading}><ActivityIndicator color="#15803D" /><Text style={[styles.row, { color: C.muted }]}>Loading...</Text></View></View>;
   }
 
   return (
@@ -127,7 +127,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
           <Text style={[styles.row, { color: C.muted }]}>Scheduled: {formatDateTime(getBookingStartDate(booking))} – {formatDateTime(getBookingEndDate(booking))}</Text>
           <Text style={[styles.row, { color: C.muted }]}>Customer: {getHumanSeekerName(booking)}</Text>
           <Text style={[styles.row, { color: C.muted }]}>Location: {getHumanLocation(booking)}</Text>
-          {getHumanLocation(booking) !== 'Location not provided' ? <TouchableOpacity style={styles.mapButton} onPress={() => openLocationInMaps({ latitude: booking?.location?.lat, longitude: booking?.location?.lng, address: getHumanLocation(booking), label: getHumanServiceTitle(booking) })}><Ionicons name="map-outline" size={17} color="#4F46E5" /><Text style={styles.mapButtonText}>Open in Maps</Text></TouchableOpacity> : null}
+          {getHumanLocation(booking) !== 'Location not provided' ? <TouchableOpacity style={styles.mapButton} onPress={() => openLocationInMaps({ latitude: booking?.location?.lat, longitude: booking?.location?.lng, address: getHumanLocation(booking), label: getHumanServiceTitle(booking) })}><Ionicons name="map-outline" size={17} color="#166534" /><Text style={styles.mapButtonText}>Open in Maps</Text></TouchableOpacity> : null}
           {Number(booking?.estimatedTravelTimeMins) > 0 ? <Text style={[styles.row, { color: C.muted }]}>Estimated travel time: {Math.round(booking.estimatedTravelTimeMins)} mins</Text> : null}
           {Number(booking?.distanceFromPreviousBookingKm) > 0 ? <Text style={[styles.row, { color: C.muted }]}>Distance: {Number(booking.distanceFromPreviousBookingKm).toFixed(1)} km</Text> : null}
           <Text style={[styles.row, { color: C.muted }]}>Amount: {Number(booking?.finalAmount || booking?.amount || 0) ? `LKR ${Number(booking?.finalAmount || booking?.amount).toLocaleString()}` : 'Not set'}</Text>
@@ -178,10 +178,10 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' }, content: { padding: 16 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  card: { backgroundColor: '#fff', borderRadius: 18, padding: 18, borderWidth: 1 }, title: { fontSize: 20, fontWeight: '600', color: '#111827' }, status: { marginTop: 8, color: '#6366F1', fontWeight: '500' }, row: { marginTop: 12, color: '#4B5563', fontSize: 14, fontWeight: '400' },
-  info: { marginTop: 12, color: '#2563EB', fontWeight: '600' }, success: { marginTop: 12, color: '#047857', fontWeight: '600' }, delayBox: { marginTop: 12, backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10 }, warning: { color: '#B45309', marginBottom: 5 }, riskWarning: { marginTop: 12, color: '#B45309', backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10, fontWeight: '600' },
-  error: { color: '#B91C1C', backgroundColor: '#FEE2E2', padding: 12, borderRadius: 10, marginBottom: 12 }, input: { marginTop: 12, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, padding: 12, color: '#111827' }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
-  button: { backgroundColor: '#667eea', borderRadius: 10, padding: 12 }, buttonText: { color: '#fff', fontWeight: '600' }, warningButton: { backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12 }, warningButtonText: { color: '#B45309', fontWeight: '600' }, successButton: { backgroundColor: '#D1FAE5', borderRadius: 10, padding: 12 }, successButtonText: { color: '#047857', fontWeight: '600' },
-  mapButton: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#EEF2FF', borderRadius: 10 }, mapButtonText: { color: '#4F46E5', fontWeight: '600' },
+  container: { flex: 1, backgroundColor: '#F5FAF6' }, content: { padding: 16 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  card: { backgroundColor: '#fff', borderRadius: 18, padding: 18, borderWidth: 1 }, title: { fontSize: 20, fontWeight: '600', color: '#162C49' }, status: { marginTop: 8, color: '#15803D', fontWeight: '500' }, row: { marginTop: 12, color: '#4B5563', fontSize: 14, fontWeight: '400' },
+  info: { marginTop: 12, color: '#15803D', fontWeight: '600' }, success: { marginTop: 12, color: '#047857', fontWeight: '600' }, delayBox: { marginTop: 12, backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10 }, warning: { color: '#B45309', marginBottom: 5 }, riskWarning: { marginTop: 12, color: '#B45309', backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10, fontWeight: '600' },
+  error: { color: '#B91C1C', backgroundColor: '#FEE2E2', padding: 12, borderRadius: 10, marginBottom: 12 }, input: { marginTop: 12, borderWidth: 1, borderColor: '#D8E8DC', borderRadius: 10, padding: 12, color: '#162C49' }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
+  button: { backgroundColor: '#15803D', borderRadius: 10, padding: 12 }, buttonText: { color: '#fff', fontWeight: '600' }, warningButton: { backgroundColor: '#FEF3C7', borderRadius: 10, padding: 12 }, warningButtonText: { color: '#B45309', fontWeight: '600' }, successButton: { backgroundColor: '#D1FAE5', borderRadius: 10, padding: 12 }, successButtonText: { color: '#047857', fontWeight: '600' },
+  mapButton: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#EAF7EE', borderRadius: 10 }, mapButtonText: { color: '#166534', fontWeight: '600' },
 });

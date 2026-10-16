@@ -7,28 +7,28 @@ import { ThemeContext } from '../context/ThemeContext';
 export default function BidModal({ job, onDismiss }) {
   const { isDark } = useContext(ThemeContext) || {};
   const [bidAmount, setBidAmount] = useState(job?.minPrice || 50);
-  
+
   const handleIncrement = () => setBidAmount(prev => prev + 5);
   const handleDecrement = () => setBidAmount(prev => prev > 5 ? prev - 5 : prev);
 
   const C = isDark
     ? {
-        modalBg: '#1c1c1e',
+        modalBg: '#161C18',
         text: '#F2F2F7',
         textSub: '#8E8E93',
-        border: '#2c2c2e',
+        border: '#303C33',
         cardBg: '#2a2a2a',
         stepBg: '#3a3a3c',
         stepIcon: '#F2F2F7',
       }
     : {
         modalBg: '#FFFFFF',
-        text: '#1F2937',
+        text: '#162C49',
         textSub: '#6B7280',
-        border: '#E5E7EB',
-        cardBg: '#F9FAFB',
+        border: '#D8E8DC',
+        cardBg: '#F5FAF6',
         stepBg: '#FFFFFF',
-        stepIcon: '#1F2937',
+        stepIcon: '#162C49',
       };
 
   return (
@@ -51,9 +51,9 @@ export default function BidModal({ job, onDismiss }) {
           <Text style={[styles.insightLabel, { color: C.textSub }]}>Average Bid</Text>
           <Text style={[styles.insightValue, { color: C.text }]}>$45.00</Text>
         </View>
-        <View style={[styles.insightCard, isDark ? { backgroundColor: '#2e1065', borderColor: '#7c3aed' } : styles.activeInsight]}>
-          <Text style={[styles.insightLabel, { color: '#7C3AED' }]}>Top Bid</Text>
-          <Text style={[styles.insightValue, { color: '#7C3AED' }]}>$62.00</Text>
+        <View style={[styles.insightCard, isDark ? { backgroundColor: '#1A251E', borderColor: '#166534' } : styles.activeInsight]}>
+          <Text style={[styles.insightLabel, { color: '#166534' }]}>Top Bid</Text>
+          <Text style={[styles.insightValue, { color: '#166534' }]}>$62.00</Text>
         </View>
       </View>
 
@@ -62,7 +62,7 @@ export default function BidModal({ job, onDismiss }) {
         <TouchableOpacity onPress={handleDecrement} style={[styles.stepBtn, { backgroundColor: C.stepBg }]}>
           <MaterialCommunityIcons name="minus" size={28} color={C.stepIcon} />
         </TouchableOpacity>
-        
+
         <View style={styles.inputWrapper}>
           <Text style={[styles.currencySymbol, { color: C.text }]}>$</Text>
           <TextInput
@@ -80,8 +80,8 @@ export default function BidModal({ job, onDismiss }) {
 
       {/* 4. Action Buttons */}
       <View style={styles.footer}>
-        <Button 
-          mode="contained" 
+        <Button
+          mode="contained"
           onPress={() => console.log('Bid Placed:', bidAmount)}
           style={styles.confirmBtn}
           labelStyle={styles.confirmBtnLabel}
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   timerText: { color: '#EF4444', fontWeight: '700', fontSize: 13 },
-  
+
   insightsRow: {
     flexDirection: 'row',
     gap: 12,
@@ -138,8 +138,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   activeInsight: {
-    backgroundColor: '#F5F3FF',
-    borderColor: '#C4B5FD',
+    backgroundColor: '#F0F9F2',
+    borderColor: '#B5DCC0',
   },
   insightLabel: { fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
   insightValue: { fontSize: 18, fontWeight: '800', marginTop: 4 },
@@ -173,11 +173,11 @@ const styles = StyleSheet.create({
 
   footer: { gap: 12 },
   confirmBtn: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
     paddingVertical: 8,
     borderRadius: 16,
   },
   confirmBtnLabel: { fontSize: 16, fontWeight: '700', paddingVertical: 4 },
   cancelBtn: { paddingVertical: 10, alignItems: 'center' },
   cancelText: { fontWeight: '600' },
-});
+});

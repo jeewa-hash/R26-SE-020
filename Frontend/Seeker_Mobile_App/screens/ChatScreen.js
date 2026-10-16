@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/ChatScreen.js
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -369,31 +370,7 @@ export default function ChatScreen() {
       />
 
       {/* Header */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Image
-              source={{ uri: displayProviderAvatar }}
-              style={styles.headerAvatar}
-            />
-            <View style={styles.headerInfo}>
-              <Text style={styles.headerName}>{displayProviderName}</Text>
-              <Text style={styles.headerRole}>{userRole || 'Service Provider'}</Text>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.menuButton}>
-            <Ionicons name="ellipsis-vertical" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+      <PageHeader title={displayProviderName} subtitle={userRole || 'Service Provider'} leading={<Image source={{ uri: displayProviderAvatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />} renderActions={({ textColor }) => <TouchableOpacity style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="ellipsis-vertical" size={20} color={textColor} /></TouchableOpacity>} />
 
       {/* Messages List */}
       <FlatList

@@ -211,7 +211,7 @@ export default function LoginScreen({ navigation }) {
             accessibilityLabel="Toggle Language"
           >
             <Text style={styles.languageToggleText}>
-              {isSi ? '🇱🇰 සිංහල' : '🇬🇧 English'}
+              {isSi ? 'සිංහල' : 'English'}
             </Text>
           </TouchableOpacity>
         </View>

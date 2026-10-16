@@ -1,4 +1,7 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { COLORS } from '../pages/IT22129376/theme';
+import { useRoute } from '@react-navigation/native';
 import {
   View,
   TouchableOpacity,
@@ -20,7 +23,12 @@ import { CONFIG } from '../config';
 
 const { width } = Dimensions.get('window');
 
-export default function HeaderSection({
+export default function HeaderSection(props) {
+  const route = useRoute();
+  return route.name === 'NewsFeedMain' ? <HomeHeaderContent {...props} /> : null;
+}
+
+function HomeHeaderContent({
   navigation,
   userName = 'Provider',
   avatarUrl = null,
@@ -29,6 +37,8 @@ export default function HeaderSection({
   onInboxPress,
   onMenuPress,
 }) {
+  const { i18n } = useTranslation();
+  const isSi = i18n.language === 'si';
   const theme = useContext(ThemeContext) || {};
   const isDark = theme.isDark ?? false;
   const toggleTheme = theme.toggleTheme ?? (() => {});
@@ -126,15 +136,15 @@ export default function HeaderSection({
   const handleCloseSidebar = () => setIsSidebarVisible(false);
 
   const T = {
-    bg: isDark ? '#14141F' : '#FFFFFF',
+    bg: isDark ? COLORS.darkBg : COLORS.bg,
     border: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
     greeting: isDark ? '#94A3B8' : '#64748B',
-    name: isDark ? '#F1F5F9' : '#1E293B',
-    iconBg: isDark ? '#1E293B' : '#F1F5F9',
-    iconColor: isDark ? '#E2E8F0' : '#1E293B',
-    searchBg: isDark ? '#1E293B' : '#F8FAFC',
-    searchBorder: isDark ? '#334155' : '#E2E8F0',
-    searchText: isDark ? '#F1F5F9' : '#1E293B',
+    name: isDark ? '#F1F5F9' : '#161C18',
+    iconBg: isDark ? '#161C18' : '#F1F5F9',
+    iconColor: isDark ? '#D8E8DC' : '#161C18',
+    searchBg: isDark ? COLORS.darkCard : COLORS.card,
+    searchBorder: isDark ? COLORS.darkBorder : COLORS.border,
+    searchText: isDark ? '#F1F5F9' : '#161C18',
     placeholderColor: isDark ? '#64748B' : '#94A3B8',
   };
 
@@ -143,88 +153,19 @@ export default function HeaderSection({
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={T.bg} />
 
       <View style={[styles.headerContainer, { backgroundColor: T.bg, borderBottomColor: T.border }]}>
-        {/* Subtle gradient shimmer across top */}
-        <LinearGradient
-          colors={isDark ? ['#7C3AED18', '#4F46E508'] : ['#7C3AED0A', '#4F46E504']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.gradientBand}
-          pointerEvents="none"
-        />
-
-        <View style={styles.topRow}>
-          {/* Left: Avatar + Greeting */}
-          <View style={styles.userSection}>
-            <TouchableOpacity style={styles.avatarTouchable} activeOpacity={0.85}>
-              <LinearGradient
-                colors={['#7C3AED', '#4F46E5']}
-                style={styles.avatarRing}
-              >
-                {avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-                ) : (
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarFallbackText}>{getInitials(actualUserName)}</Text>
-                  </View>
-                )}
-              </LinearGradient>
-              {/* Online status dot */}
-              <View style={[styles.onlineDot, { borderColor: T.bg }]} />
-            </TouchableOpacity>
-
-            <View style={styles.userTextContainer}>
-              <Text style={[styles.greetingText, { color: T.greeting }]}>
-                {getGreeting()} 👋
-              </Text>
-              <Text style={[styles.userNameText, { color: T.name }]} numberOfLines={1}>
-                {actualUserName}
-              </Text>
-            </View>
+        <LinearGradient colors={isDark ? ['#0C0F0D', '#152119'] : ['#166534', '#15803D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.brandHeader}>
+          <View style={styles.brandArea}>
+            <Text style={styles.brandName}>WorkWave</Text>
+            <Text style={styles.brandTagline}>{isSi ? 'ඔබේ සේවා ව්‍යාපාරය' : 'Your Service Business'}</Text>
           </View>
-
-          {/* Right: Actions */}
-          <View style={styles.actionsContainer}>
-            {/* Dark / Light toggle */}
-            <TouchableOpacity
-              style={[styles.iconButton, { backgroundColor: T.iconBg }]}
-              onPress={toggleTheme}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={isDark ? 'weather-sunny' : 'weather-night'}
-                size={20}
-                color={isDark ? '#FBBF24' : '#6366F1'}
-              />
-            </TouchableOpacity>
-
-            {/* Inbox / Chat */}
-            <TouchableOpacity
-              style={[styles.iconButton, { backgroundColor: T.iconBg }]}
-              onPress={handleInboxPress}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="chat-bubble-outline" size={21} color={T.iconColor} />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Hamburger / Menu */}
-            <TouchableOpacity
-              style={[styles.menuBtn, { backgroundColor: T.iconBg, borderColor: T.border }]}
-              onPress={handleMenuPress}
-              activeOpacity={0.7}
-            >
-              <View style={styles.burgerLines}>
-                <View style={[styles.burgerLine, { backgroundColor: T.iconColor }]} />
-                <View style={[styles.burgerLine, { width: 13, backgroundColor: T.iconColor }]} />
-                <View style={[styles.burgerLine, { backgroundColor: T.iconColor }]} />
-              </View>
-            </TouchableOpacity>
+          <View style={[styles.headerActionsPill, { backgroundColor: isDark ? '#1A251E' : '#FFFFFF' }]}>
+            <TouchableOpacity accessibilityLabel="Change language" onPress={() => i18n.changeLanguage(isSi ? 'en' : 'si')} style={[styles.languageButton, { backgroundColor: isDark ? '#293A2E' : '#EAF7EE' }]}><Text style={{ color: isDark ? '#B5DCC0' : '#166534', fontSize: 11, fontWeight: '700' }}>{isSi ? 'සිං' : 'EN'}</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityLabel="Toggle theme" style={styles.pillButton} onPress={toggleTheme}><MaterialCommunityIcons name={isDark ? 'weather-night' : 'weather-sunny'} size={21} color={isDark ? '#86C99A' : '#D97706'} /></TouchableOpacity>
+            <TouchableOpacity accessibilityLabel="Messages" style={styles.pillButton} onPress={handleInboxPress}><MaterialIcons name="chat-bubble-outline" size={21} color={isDark ? '#D4EBDD' : '#334C70'} />{unreadCount > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}</TouchableOpacity>
+            <TouchableOpacity accessibilityLabel="Notifications" style={styles.pillButton} onPress={() => navigation.navigate('HomeTab', { screen: 'Notifications' })}><MaterialIcons name="notifications-none" size={23} color={isDark ? '#D4EBDD' : '#334C70'} /></TouchableOpacity>
+            <TouchableOpacity accessibilityLabel="Open menu" style={styles.pillButton} onPress={handleMenuPress}><MaterialIcons name="menu" size={22} color={isDark ? '#D4EBDD' : '#334C70'} /></TouchableOpacity>
           </View>
-        </View>
+        </LinearGradient>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -259,21 +200,14 @@ export default function HeaderSection({
 }
 
 const styles = StyleSheet.create({
-  headerContainer: {
-    paddingTop: Platform.OS === 'ios' ? 54 : 38,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomLeftRadius: 26,
-    borderBottomRightRadius: 26,
-    borderBottomWidth: 1,
-    elevation: 4,
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
-  },
+  brandHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 18, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  brandArea: { flexGrow: 1, minWidth: 110 },
+  brandName: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', letterSpacing: -1 },
+  brandTagline: { fontSize: 11, color: '#DBEAFE', marginTop: 2 },
+  headerActionsPill: { flexDirection: 'row', alignItems: 'center', borderRadius: 24, padding: 5, gap: 2 },
+  pillButton: { width: 32, height: 36, alignItems: 'center', justifyContent: 'center' },
+  languageButton: { minWidth: 32, height: 30, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  headerContainer: { paddingBottom: 12, borderBottomWidth: 1 },
   gradientBand: {
     position: 'absolute',
     top: 0,
@@ -305,7 +239,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
-    shadowColor: '#7C3AED',
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
@@ -319,7 +253,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#5B3FBF',
+    backgroundColor: '#166534',
     justifyContent: 'center',
     alignItems: 'center',
   },

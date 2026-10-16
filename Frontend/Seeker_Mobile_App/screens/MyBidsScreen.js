@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -53,20 +54,9 @@ export default function MyBidsScreen({ navigation }) {
       <StatusBar barStyle="light-content" backgroundColor="#667eea" />
       
       {/* Header */}
-      <LinearGradient
-        colors={['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Bids</Text>
-        <TouchableOpacity style={styles.createButton} onPress={() => navigation.navigate('BiddingScreen')}>
-          <Ionicons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
-      </LinearGradient>
+      <PageHeader title={<>My Bids</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity style={styles.createButton} onPress={() => navigation.navigate('BiddingScreen')}>
+          <Ionicons name="add" size={24} color={textColor} />
+        </TouchableOpacity></>} />
 
       {/* Stats Cards */}
       <View style={styles.statsContainer}>
