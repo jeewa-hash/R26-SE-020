@@ -44,11 +44,25 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
       routeName: 'FeedScreen',
     },
     {
+      id: 'Sessions',
+      label: isSi ? 'සැසි' : 'Sessions',
+      icon: 'assignment',
+      activeIcon: 'assignment',
+      routeName: 'SeekerServiceSessions',
+    },
+    {
       id: 'Create',
       label: isSi ? 'නව ඉල්ලුම' : 'Post Job',
       icon: 'add',
       routeName: 'CreatePostScreen',
       isCreateButton: true,
+    },
+    {
+      id: 'MyPosts',
+      label: isSi ? 'මගේ පළ කිරීම්' : 'My Posts',
+      icon: 'article',
+      activeIcon: 'article',
+      routeName: 'MyPostsScreen',
     },
     {
       id: 'Bookings',
@@ -70,9 +84,11 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
     switch (itemId) {
       case 'Home': return currentRouteName === 'Home' || currentRouteName === 'HomeScreen';
       case 'Feed': return currentRouteName === 'FeedScreen';
+      case 'Sessions': return ['SeekerServiceSessions', 'SeekerServiceSessionDetails'].includes(currentRouteName);
       case 'Create': return currentRouteName === 'CreatePostScreen';
+      case 'MyPosts': return currentRouteName === 'MyPostsScreen';
       case 'Bookings': return currentRouteName === 'BookingsScreen';
-      case 'Profile': return currentRouteName === 'ProfileScreen';
+      case 'Profile': return ['ProfileScreen', 'SeekerCalendar'].includes(currentRouteName);
       default: return false;
     }
   };
@@ -91,7 +107,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
           return (
             <TouchableOpacity
               key={item.id}
-              style={styles.createNavItem}
+              style={styles.navItem}
               onPress={() => navigate(item.routeName)}
               activeOpacity={0.85}
               accessibilityRole="button"
@@ -101,11 +117,11 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
                 colors={isDarkMode ? ['#818cf8', '#6366f1'] : ['#4F46E5', '#7C3AED']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.createButton}
+                style={[styles.createButton, { borderColor: isDarkMode ? '#0F172A' : '#ffffff' }]}
               >
                 <MaterialIcons name={item.icon} size={30} color="#fff" />
               </LinearGradient>
-              <Text style={[styles.createNavLabel, { color: active ? activeColor : (isDarkMode ? '#cbd5e1' : '#475569') }]}>
+              <Text numberOfLines={1} style={[styles.createNavLabel, { color: active ? activeColor : (isDarkMode ? '#cbd5e1' : '#475569') }]}>
                 {item.label}
               </Text>
             </TouchableOpacity>
@@ -124,7 +140,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
             <View style={[styles.iconWrapper, active && { backgroundColor: activeBg }]}>
               <MaterialIcons
                 name={active && item.activeIcon ? item.activeIcon : item.icon}
-                size={26}
+                size={23}
                 color={active ? activeColor : inactiveColor}
               />
             </View>
@@ -147,83 +163,45 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
 };
 
 const styles = StyleSheet.create({
-  navContainer: { paddingTop: 16, flexShrink: 0, backgroundColor: '#fff' },
-  navContainerDark: { backgroundColor: '#1a1a2e' },
+  navContainer: { flexShrink: 0, backgroundColor: '#ffffff' },
+  navContainerDark: { backgroundColor: '#0F172A' },
   bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 76,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     backgroundColor: '#ffffff',
-    paddingVertical: 6,
-    paddingHorizontal: 6,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 12,
   },
-  bottomNavDark: {
-    backgroundColor: '#0F172A',
-    borderTopColor: '#1E293B',
-    shadowOpacity: 0.4,
-  },
+  bottomNavDark: { backgroundColor: '#0F172A', borderTopColor: '#283449' },
   navItem: {
     flex: 1,
+    minWidth: 0,
+    minHeight: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 2,
+    gap: 3,
   },
   iconWrapper: {
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-    borderRadius: 16,
+    width: 38,
+    height: 40,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navLabel: {
-    fontSize: 11.5,
-    marginTop: 2,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-  },
-  activeLabel: {
-    fontWeight: '800',
-  },
-  createNavItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -20,
-    flexDirection: 'row', flexShrink: 0,
-    backgroundColor: '#fff', paddingVertical: 8, paddingHorizontal: 8,
-    borderTopWidth: 1, borderTopColor: '#E8ECF0', shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05,
-    shadowRadius: 8, elevation: 8,
-  },
+  navLabel: { width: '100%', textAlign: 'center', fontSize: 10, lineHeight: 14, fontWeight: '500' },
+  activeLabel: { fontWeight: '700' },
   createButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    marginBottom: 2,
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
-    borderWidth: 3,
-    borderColor: '#ffffff',
+    justifyContent: 'center',
+    borderWidth: 2,
   },
-  createNavLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
+  createNavLabel: { width: '100%', textAlign: 'center', fontSize: 10, lineHeight: 14, fontWeight: '700' },
 });
 
 export default BottomNav;
