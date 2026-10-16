@@ -1,4 +1,5 @@
 import 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -421,6 +422,7 @@ export default function App() {
   }
 
   return (
+    <SafeAreaProvider>
     <LanguageProvider>
       <ChatProvider>
         <ThemeProvider>
@@ -449,5 +451,6 @@ export default function App() {
         </ThemeProvider>
       </ChatProvider>
     </LanguageProvider>
+    </SafeAreaProvider>
   );
 }
