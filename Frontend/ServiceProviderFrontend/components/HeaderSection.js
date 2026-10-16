@@ -14,6 +14,7 @@ import {
 import { Text, Searchbar } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
 import { ThemeContext } from '../context/ThemeContext';
@@ -37,6 +38,7 @@ function HomeHeaderContent({
   onInboxPress,
   onMenuPress,
 }) {
+  const insets = useSafeAreaInsets();
   const { i18n } = useTranslation();
   const isSi = i18n.language === 'si';
   const theme = useContext(ThemeContext) || {};
@@ -153,7 +155,7 @@ function HomeHeaderContent({
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={T.bg} />
 
       <View style={[styles.headerContainer, { backgroundColor: T.bg, borderBottomColor: T.border }]}>
-        <LinearGradient colors={isDark ? ['#0C0F0D', '#152119'] : ['#166534', '#15803D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.brandHeader}>
+        <LinearGradient colors={isDark ? ['#0C0F0D', '#152119'] : ['#166534', '#15803D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.brandHeader, { paddingTop: 18 + insets.top, paddingLeft: 18 + insets.left, paddingRight: 18 + insets.right }]}>
           <View style={styles.brandArea}>
             <Text style={styles.brandName}>WorkWave</Text>
             <Text style={styles.brandTagline}>{isSi ? 'ඔබේ සේවා ව්‍යාපාරය' : 'Your Service Business'}</Text>

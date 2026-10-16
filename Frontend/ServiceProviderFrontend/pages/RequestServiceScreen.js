@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  SafeAreaView,
   View,
   Text,
   TextInput,
@@ -44,11 +43,11 @@ export default function RequestServiceScreen({ route, navigation }) {
 
   if (!post) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <View style={styles.safeArea}>
         <View style={styles.container}>
           <Text style={styles.sectionTitle}>No post selected</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -89,7 +88,7 @@ export default function RequestServiceScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.headerRow}>
@@ -156,6 +155,6 @@ export default function RequestServiceScreen({ route, navigation }) {
 
         <View style={{ height: 30 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

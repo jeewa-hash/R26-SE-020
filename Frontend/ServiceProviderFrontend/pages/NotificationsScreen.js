@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  SafeAreaView,
   Platform,
   StatusBar,
   ScrollView,
@@ -624,7 +623,7 @@ export default function NotificationScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.bg }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.headerBg} translucent={false} />
       <View style={[styles.container, { backgroundColor: colors.bg }]}>
         <View style={[styles.screenHeader, { backgroundColor: colors.headerBg, borderBottomColor: colors.border }]}>
@@ -697,7 +696,7 @@ export default function NotificationScreen({ navigation }) {
           />
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

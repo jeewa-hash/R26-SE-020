@@ -7,7 +7,6 @@ import {
   TextInput,
   Image,
   ScrollView,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -197,7 +196,7 @@ export default function SubmitInquiryScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header Bar with Penalty Score */}
         <View style={styles.topScoreBanner}>
@@ -497,7 +496,7 @@ export default function SubmitInquiryScreen({ navigation, route }) {
 
         <View style={{ height: 50 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

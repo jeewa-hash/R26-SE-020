@@ -6,6 +6,7 @@ import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { BottomInsetContext } from '../context/BottomInsetContext';
 import { ThemeContext } from '../context/ThemeContext';
 import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { io } from 'socket.io-client';
@@ -94,10 +95,11 @@ const DARK = {
 };
 
 function ProviderTabBar({ state, navigation, C }) {
+  const bottomInset = useContext(BottomInsetContext);
   const currentRoute = state.routes[state.index];
   if (['ChatScreen', 'QuotationTemplate', 'InboxScreen'].includes(getFocusedRouteNameFromRoute(currentRoute))) return null;
   return (
-    <View style={[styles.tabBar, { backgroundColor: C.bar, borderTopColor: C.barBorder }]}>
+    <View style={[styles.tabBar, { backgroundColor: C.bar, borderTopColor: C.barBorder, paddingBottom: 8 + bottomInset, minHeight: 76 + bottomInset }]}>
       {state.routes.map((route, index) => {
         const tab = TABS.find(item => item.name === route.name);
         if (!tab) return null;

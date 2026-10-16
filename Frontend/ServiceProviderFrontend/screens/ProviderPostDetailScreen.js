@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -267,7 +266,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
   // ───────────────────────────────────────────────────────────
   if (loading && !post.title) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: C.bg }]}>
+      <View style={[styles.safeArea, { backgroundColor: C.bg }]}>
         <LinearGradient
           colors={isDark ? ['#0C0F0D', '#161C18'] : ['#15803D', '#166534']}
           style={styles.header}
@@ -285,12 +284,12 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
           <ActivityIndicator size="large" color="#166534" />
           <Text style={{ color: C.textSub, marginTop: 12 }}>Loading post details...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: C.bg }]}>
+    <View style={[styles.safeArea, { backgroundColor: C.bg }]}>
       <StatusBar
         barStyle="light-content"
         backgroundColor={isDark ? '#0C0F0D' : '#15803D'}
@@ -598,7 +597,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
