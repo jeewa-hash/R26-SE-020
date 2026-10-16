@@ -1,7 +1,5 @@
 import pymongo
 import os
-import certifi
-from urllib.parse import parse_qs, urlsplit
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,17 +10,12 @@ class DBAdapter:
         self.uri = uri or os.getenv("MONGO_URI", "mongodb://localhost:27017/ServiceSeeker")
 
         print("Connecting to MongoDB...")
-        options = {key.lower(): values[-1].lower() for key, values in parse_qs(urlsplit(self.uri).query).items()}
-        uses_tls = options.get("tls", options.get("ssl", "true" if self.uri.startswith("mongodb+srv://") else "false")) == "true"
-        client_options = {}
-        if uses_tls and "tlscafile" not in options:
-            client_options["tlsCAFile"] = certifi.where()
-        self.client = pymongo.MongoClient(self.uri, **client_options)
+        self.client = pymongo.MongoClient(self.uri)
 
         self.db = self.client["ServiceSeeker"]
         self.collection = self.db["service_sessions"]
 
-        print("MongoDB client configured for database: ServiceSeeker")
+        print("Connected to database: ServiceSeeker")
 
     def save_session(self, session):
         """Save or update session safely"""
