@@ -62,7 +62,7 @@ export default function SubmitInquiryScreen({ navigation, route }) {
 
   const FILTER_TABS = [
     { id: 'ALL', label: 'All', count: countAll, icon: 'layers-outline' },
-    { id: 'RESUBMITTED', label: 'Re-submitted', count: countResubmitted, color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe', icon: 'refresh-circle-outline' },
+    { id: 'RESUBMITTED', label: 'Re-submitted', count: countResubmitted, color: '#166534', bg: '#F0F9F2', border: '#B5DCC0', icon: 'refresh-circle-outline' },
     { id: 'PENDING', label: 'Pending', count: countPending, color: '#b45309', bg: '#fefce8', border: '#fef08a', icon: 'hourglass-outline' },
     { id: 'REJECTED', label: 'Rejected', count: countRejected, color: '#dc2626', bg: '#fef2f2', border: '#fecaca', icon: 'alert-circle-outline' },
   ];
@@ -186,7 +186,7 @@ export default function SubmitInquiryScreen({ navigation, route }) {
         return { bg: '#d1fae5', text: '#065f46', label: 'APPROVED' };
       case 'RESUBMITTED':
       case 'RESUBMITED':
-        return { bg: '#ede9fe', text: '#7c3aed', label: 'RE-SUBMITTED (PENDING)' };
+        return { bg: '#DCF0E1', text: '#166534', label: 'RE-SUBMITTED (PENDING)' };
       case 'PENDING':
         return { bg: '#fef3c7', text: '#92400e', label: 'PENDING REVIEW' };
       case 'REJECTED':
@@ -224,7 +224,7 @@ export default function SubmitInquiryScreen({ navigation, route }) {
 
         {/* Section Notice */}
         <View style={styles.instructionCard}>
-          <Ionicons name="information-circle" size={20} color="#4f46e5" />
+          <Ionicons name="information-circle" size={20} color="#166534" />
           <Text style={styles.instructionText}>
             Select any missed or cancelled service below to submit or re-submit an explanation and proof to the Admin.
           </Text>
@@ -314,7 +314,7 @@ export default function SubmitInquiryScreen({ navigation, route }) {
                 >
                   <View style={styles.cardHeaderRow}>
                     <View style={styles.dateRow}>
-                      <MaterialIcons name="calendar-today" size={16} color="#4f46e5" />
+                      <MaterialIcons name="calendar-today" size={16} color="#166534" />
                       <Text style={styles.cardDate}>{service.date}</Text>
                     </View>
                     <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
@@ -353,17 +353,17 @@ export default function SubmitInquiryScreen({ navigation, route }) {
 
                   {/* Pending Notice if already submitted or re-submitted */}
                   {service.inquiryStatus === 'PENDING' || service.inquiryStatus === 'RESUBMITTED' || service.inquiryStatus === 'RESUBMITED' ? (
-                    <View style={[styles.pendingNoticeBox, (service.inquiryStatus === 'RESUBMITTED' || service.inquiryStatus === 'RESUBMITED') && { backgroundColor: '#f5f3ff', borderColor: '#ddd6fe' }]}>
-                      <Ionicons 
-                        name="hourglass-outline" 
-                        size={16} 
-                        color={service.inquiryStatus === 'RESUBMITTED' || service.inquiryStatus === 'RESUBMITED' ? '#7c3aed' : '#b45309'} 
+                    <View style={[styles.pendingNoticeBox, (service.inquiryStatus === 'RESUBMITTED' || service.inquiryStatus === 'RESUBMITED') && { backgroundColor: '#F0F9F2', borderColor: '#B5DCC0' }]}>
+                      <Ionicons
+                        name="hourglass-outline"
+                        size={16}
+                        color={service.inquiryStatus === 'RESUBMITTED' || service.inquiryStatus === 'RESUBMITED' ? '#166534' : '#b45309'}
                       />
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.pendingNoticeTitle, (service.inquiryStatus === 'RESUBMITTED' || service.inquiryStatus === 'RESUBMITED') && { color: '#7c3aed' }]}>
+                        <Text style={[styles.pendingNoticeTitle, (service.inquiryStatus === 'RESUBMITTED' || service.inquiryStatus === 'RESUBMITED') && { color: '#166534' }]}>
                           {service.inquiryStatus === 'RESUBMITTED' || service.inquiryStatus === 'RESUBMITED' ? 'Re-submitted Inquiry (Under Review)' : 'Inquiry Under Review (Pending)'}
                         </Text>
-                        <Text style={[styles.pendingNoticeSub, (service.inquiryStatus === 'RESUBMITTED' || service.inquiryStatus === 'RESUBMITED') && { color: '#6d28d9' }]}>
+                        <Text style={[styles.pendingNoticeSub, (service.inquiryStatus === 'RESUBMITTED' || service.inquiryStatus === 'RESUBMITED') && { color: '#166534' }]}>
                           Admin review usually takes 1 - 3 working days.
                         </Text>
                       </View>
@@ -380,7 +380,7 @@ export default function SubmitInquiryScreen({ navigation, route }) {
                       <MaterialIcons
                         name={isSelected ? 'check-circle' : isRejected ? 'replay' : 'create'}
                         size={16}
-                        color={isSelected ? '#fff' : isRejected ? '#dc2626' : '#4f46e5'}
+                        color={isSelected ? '#fff' : isRejected ? '#dc2626' : '#166534'}
                       />
                       <Text
                         style={[
@@ -419,7 +419,7 @@ export default function SubmitInquiryScreen({ navigation, route }) {
         {selectedBooking ? (
           <View style={styles.formContainer}>
             <View style={styles.formHeader}>
-              <MaterialIcons name="rate-review" size={22} color="#4f46e5" />
+              <MaterialIcons name="rate-review" size={22} color="#166534" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.formHeaderTitle}>
                   {selectedBooking.inquiryStatus === 'REJECTED' ? 'Re-submit Inquiry' : 'Submit Inquiry for Service'}
@@ -470,7 +470,7 @@ export default function SubmitInquiryScreen({ navigation, route }) {
               ) : (
                 <View style={styles.uploadPlaceholder}>
                   <View style={styles.iconCircle}>
-                    <MaterialIcons name="add-a-photo" size={24} color="#4f46e5" />
+                    <MaterialIcons name="add-a-photo" size={24} color="#166534" />
                   </View>
                   <Text style={styles.uploadText}>Attach Proof / Photo</Text>
                   <Text style={styles.uploadSubtext}>Medical slip, garage bill, or photo evidence</Text>
@@ -502,7 +502,7 @@ export default function SubmitInquiryScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#f8fafc' },
+  safeArea: { flex: 1, backgroundColor: '#F5FAF6' },
   container: { flex: 1, padding: 16 },
   topScoreBanner: {
     flexDirection: 'row',
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#D8E8DC',
     marginBottom: 16,
     elevation: 2,
     shadowColor: '#000',
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   topScoreLabel: { fontSize: 11, fontWeight: '700', color: '#64748b', letterSpacing: 0.5 },
-  topScoreValue: { fontSize: 24, fontWeight: '900', color: '#0f172a', marginTop: 2 },
+  topScoreValue: { fontSize: 24, fontWeight: '900', color: '#0C0F0D', marginTop: 2 },
   inquiryRequiredBadge: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
   inquiryRequiredBadgeText: { fontSize: 11, fontWeight: '800' },
   badgeDanger: { backgroundColor: '#fee2e2' },
@@ -533,9 +533,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#eef2ff',
+    backgroundColor: '#EAF7EE',
     borderWidth: 1,
-    borderColor: '#e0e7ff',
+    borderColor: '#D8E8DC',
     padding: 12,
     borderRadius: 12,
     marginBottom: 20,
@@ -549,17 +549,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    borderColor: '#D8E8DC',
     elevation: 1,
     shadowColor: '#000',
     shadowOpacity: 0.03,
     shadowRadius: 4,
   },
-  selectedBookingCard: { borderColor: '#4f46e5', backgroundColor: '#faf5ff' },
+  selectedBookingCard: { borderColor: '#166534', backgroundColor: '#faf5ff' },
   pendingBookingCard: { borderColor: '#fde68a', backgroundColor: '#fffdf5' },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardDate: { fontSize: 15, fontWeight: '800', color: '#0f172a' },
+  cardDate: { fontSize: 15, fontWeight: '800', color: '#0C0F0D' },
   statusBadge: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6 },
   statusBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   cardInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
@@ -579,15 +579,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#eef2ff',
+    backgroundColor: '#EAF7EE',
     borderWidth: 1,
-    borderColor: '#c7d2fe',
+    borderColor: '#A7D6B4',
     paddingVertical: 10,
     borderRadius: 10,
     marginTop: 12,
   },
-  actionCardBtnSelected: { backgroundColor: '#4f46e5', borderColor: '#4f46e5' },
-  actionCardBtnText: { fontSize: 12, fontWeight: '700', color: '#4f46e5' },
+  actionCardBtnSelected: { backgroundColor: '#166534', borderColor: '#166534' },
+  actionCardBtnText: { fontSize: 12, fontWeight: '700', color: '#166534' },
   actionCardBtnTextSelected: { color: '#ffffff' },
   pendingNoticeBox: {
     flexDirection: 'row',
@@ -602,37 +602,37 @@ const styles = StyleSheet.create({
   },
   pendingNoticeTitle: { fontSize: 12, fontWeight: '700', color: '#92400e' },
   pendingNoticeSub: { fontSize: 11, color: '#b45309', marginTop: 1 },
-  emptyState: { backgroundColor: '#fff', borderRadius: 16, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
-  emptyStateTitle: { fontSize: 16, fontWeight: '800', color: '#0f172a', marginTop: 8 },
+  emptyState: { backgroundColor: '#fff', borderRadius: 16, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: '#D8E8DC' },
+  emptyStateTitle: { fontSize: 16, fontWeight: '800', color: '#0C0F0D', marginTop: 8 },
   emptyStateSubtitle: { fontSize: 12, color: '#64748b', textAlign: 'center', marginTop: 4 },
   formContainer: {
     backgroundColor: '#ffffff',
     borderRadius: 18,
     padding: 18,
     borderWidth: 1.5,
-    borderColor: '#c7d2fe',
+    borderColor: '#A7D6B4',
     elevation: 3,
-    shadowColor: '#4f46e5',
+    shadowColor: '#166534',
     shadowOpacity: 0.1,
     shadowRadius: 10,
   },
-  formHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  formHeaderTitle: { fontSize: 15, fontWeight: '800', color: '#0f172a' },
+  formHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#D8E8DC' },
+  formHeaderTitle: { fontSize: 15, fontWeight: '800', color: '#0C0F0D' },
   formHeaderSub: { fontSize: 12, color: '#64748b', marginTop: 2 },
   inputLabel: { fontSize: 11, fontWeight: '800', color: '#475569', marginBottom: 6, letterSpacing: 0.5 },
   textArea: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F5FAF6',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#cbd5e1',
     padding: 12,
     fontSize: 14,
-    color: '#0f172a',
+    color: '#0C0F0D',
     minHeight: 90,
     marginBottom: 16,
   },
   uploadCard: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F5FAF6',
     borderRadius: 12,
     borderStyle: 'dashed',
     borderWidth: 1.5,
@@ -645,12 +645,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#eef2ff',
+    backgroundColor: '#EAF7EE',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
-  uploadText: { fontSize: 13, fontWeight: '700', color: '#0f172a' },
+  uploadText: { fontSize: 13, fontWeight: '700', color: '#0C0F0D' },
   uploadSubtext: { fontSize: 11, color: '#94a3b8', textAlign: 'center', marginTop: 2 },
   previewContainer: { width: '100%', height: 160, position: 'relative' },
   previewImage: { width: '100%', height: '100%', resizeMode: 'cover' },
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 10,
     bottom: 10,
-    backgroundColor: '#4f46e5',
+    backgroundColor: '#166534',
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   submitButton: {
-    backgroundColor: '#4f46e5',
+    backgroundColor: '#166534',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -674,12 +674,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     gap: 8,
     elevation: 3,
-    shadowColor: '#4f46e5',
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
   },
-  disabledButton: { backgroundColor: '#a5b4fc' },
+  disabledButton: { backgroundColor: '#86C99A' },
   submitText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
   rejectedBookingCard: {
     borderColor: '#fecaca',
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#D8E8DC',
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 20,
@@ -751,8 +751,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   filterTabPillActiveDefault: {
-    backgroundColor: '#4f46e5',
-    borderColor: '#4f46e5',
+    backgroundColor: '#166534',
+    borderColor: '#166534',
   },
   filterTabLabel: {
     fontSize: 12.5,

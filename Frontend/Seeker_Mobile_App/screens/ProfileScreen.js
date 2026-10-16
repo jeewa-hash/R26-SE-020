@@ -52,9 +52,18 @@ const getLocationString = (userObj, isSi) => {
 
 const getMenuItems = (isSi) => [
   {
+    id: 'myposts',
+    title: isSi ? 'මගේ පළ කිරීම්' : 'My Posts',
+    subtitle: isSi ? 'ඔබ පළ කළ ඉල්ලීම්' : 'Your posted service requests',
+    icon: 'newspaper',
+    iconType: 'ion',
+    color: '#06B6D4',
+    screen: 'MyPostsScreen',
+  },
+  {
     id: 'calendar',
-    title: isSi ? 'දින දර්ශනය' : 'Calendar',
-    subtitle: isSi ? 'මාසික සහ සතිපතා සේවා සැලසුම්' : 'Month, week & agenda views',
+    title: isSi ? 'දින දර්ශනය සහ සැසි' : 'Calendar & Sessions',
+    subtitle: isSi ? 'මාසික සහ සතිපතා සේවා සැලසුම්' : 'Service sessions, schedule & history',
     icon: 'calendar',
     iconType: 'ion',
     color: '#6366F1',

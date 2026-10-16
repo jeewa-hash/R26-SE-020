@@ -22,8 +22,8 @@ export default function ImageDetailModal({ image, onClose }) {
   const { deleteImage } = usePortfolio();
 
   const C = isDark
-    ? { card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', tagBg: '#2a2a2a' }
-    : { card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#E2E8F0', tagBg: '#F1F5F9' };
+    ? { card: '#161C18', text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33', tagBg: '#2a2a2a' }
+    : { card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#D8E8DC', tagBg: '#F1F5F9' };
 
   const handleDelete = () => {
     Alert.alert(
@@ -73,7 +73,7 @@ export default function ImageDetailModal({ image, onClose }) {
         <View style={[styles.infoCard, { backgroundColor: C.card }]}>
           <View style={styles.cardHeaderRow}>
             <View style={styles.serviceNameRow}>
-              <MaterialCommunityIcons name="robot" size={16} color="#6366F1" />
+              <MaterialCommunityIcons name="robot" size={16} color="#15803D" />
               <Text style={[styles.serviceTitle, { color: C.text }]}>
                 {image.label || image.category || 'Portfolio Item'}
               </Text>
@@ -88,8 +88,8 @@ export default function ImageDetailModal({ image, onClose }) {
 
           {image.specific_label ? (
             <View style={styles.specificWorkRow}>
-              <MaterialIcons name="auto-awesome" size={13} color="#7C3AED" />
-              <Text style={[styles.specificText, { color: isDark ? '#C4B5FD' : '#6D28D9' }]}>
+              <MaterialIcons name="auto-awesome" size={13} color="#166534" />
+              <Text style={[styles.specificText, { color: isDark ? '#B5DCC0' : '#166534' }]}>
                 {image.specific_label}
               </Text>
             </View>
@@ -101,7 +101,7 @@ export default function ImageDetailModal({ image, onClose }) {
               {Array.isArray(image.tags) && image.tags.length > 0 ? (
                 image.tags.map((tag) => (
                   <View key={tag} style={[styles.tag, { backgroundColor: C.tagBg, borderColor: C.border }]}>
-                    <MaterialIcons name="local-offer" size={11} color="#6366F1" />
+                    <MaterialIcons name="local-offer" size={11} color="#15803D" />
                     <Text style={[styles.tagText, { color: C.text }]}>{tag}</Text>
                   </View>
                 ))
@@ -163,4 +163,4 @@ const styles = StyleSheet.create({
   },
   tagText: { fontSize: 12, fontWeight: '600' },
   uploadDate: { fontSize: 11, marginTop: 4 },
-});
+});

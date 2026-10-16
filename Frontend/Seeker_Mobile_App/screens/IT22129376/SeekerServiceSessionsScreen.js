@@ -756,7 +756,7 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
   );
 }
 
-export default function SeekerServiceSessionsScreen({ navigation }) {
+export default function SeekerServiceSessionsScreen({ navigation, embedded = false }) {
   const { isDarkMode } = useTheme();
 
   const [activeTab, setActiveTab] = useState('Active');
@@ -961,8 +961,9 @@ export default function SeekerServiceSessionsScreen({ navigation }) {
   return (
     <SafeAreaView
       style={[styles.container, isDarkMode && styles.containerDark]}
-      edges={['top']}
+      edges={embedded ? [] : ['top']}
     >
+      {!embedded && <>
       <StatusBar
         barStyle="light-content"
         backgroundColor={isDarkMode ? COLORS.darkBg : COLORS.primary}
@@ -975,6 +976,8 @@ export default function SeekerServiceSessionsScreen({ navigation }) {
         scheduledCount={counts.Scheduled}
         ongoingCount={counts.Ongoing}
       />
+
+      </>}
 
       <SessionTabBar
         activeTab={activeTab}

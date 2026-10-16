@@ -44,25 +44,11 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
       routeName: 'FeedScreen',
     },
     {
-      id: 'Sessions',
-      label: isSi ? 'සැසි' : 'Sessions',
-      icon: 'assignment',
-      activeIcon: 'assignment',
-      routeName: 'SeekerServiceSessions',
-    },
-    {
       id: 'Create',
       label: isSi ? 'නව ඉල්ලුම' : 'Post Job',
       icon: 'add',
       routeName: 'CreatePostScreen',
       isCreateButton: true,
-    },
-    {
-      id: 'MyPosts',
-      label: isSi ? 'මගේ පළ කිරීම්' : 'My Posts',
-      icon: 'article',
-      activeIcon: 'article',
-      routeName: 'MyPostsScreen',
     },
     {
       id: 'Bookings',
@@ -84,11 +70,9 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
     switch (itemId) {
       case 'Home': return currentRouteName === 'Home' || currentRouteName === 'HomeScreen';
       case 'Feed': return currentRouteName === 'FeedScreen';
-      case 'Sessions': return ['SeekerServiceSessions', 'SeekerServiceSessionDetails'].includes(currentRouteName);
       case 'Create': return currentRouteName === 'CreatePostScreen';
-      case 'MyPosts': return currentRouteName === 'MyPostsScreen';
       case 'Bookings': return currentRouteName === 'BookingsScreen';
-      case 'Profile': return ['ProfileScreen', 'SeekerCalendar'].includes(currentRouteName);
+      case 'Profile': return ['ProfileScreen', 'MyPostsScreen', 'SeekerCalendar', 'SeekerServiceSessions', 'SeekerServiceSessionDetails'].includes(currentRouteName);
       default: return false;
     }
   };

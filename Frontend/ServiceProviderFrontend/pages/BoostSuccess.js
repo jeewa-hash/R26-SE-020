@@ -15,8 +15,8 @@ export default function BoostSuccessScreen({ route, navigation }) {
   const [successMessage, setSuccessMessage] = React.useState('');
 
   const C = isDark
-    ? { bg: '#0f0f0f', text: '#F2F2F7', textSub: '#8E8E93' }
-    : { bg: '#F8FAFC', text: '#111111', textSub: '#6B7280' };
+    ? { bg: '#0C0F0D', text: '#F2F2F7', textSub: '#8E8E93' }
+    : { bg: '#F5FAF6', text: '#111111', textSub: '#6B7280' };
 
   React.useEffect(() => {
     const confirmPayment = async () => {

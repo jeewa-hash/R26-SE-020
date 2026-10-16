@@ -48,12 +48,12 @@ export default function NotificationScreen({ navigation }) {
 
   const colors = isDark
     ? {
-        bg: '#0F0F14',
-        card: '#1C1C1E',
+        bg: '#0C0F0D',
+        card: '#161C18',
         textPrimary: '#F2F2F7',
         textSecondary: '#A1A1AA',
         textMuted: '#71717A',
-        border: '#2C2C2E',
+        border: '#303C33',
         headerBg: '#18181B',
         chipBg: '#27272A',
         chipText: '#A1A1AA',
@@ -61,8 +61,8 @@ export default function NotificationScreen({ navigation }) {
         chipBadgeText: '#D4D4D8',
         iconBgDefault: '#27272A',
         iconDefault: '#9CA3AF',
-        actionBtnBg: '#1E1B4B',
-        actionBtnText: '#818CF8',
+        actionBtnBg: '#1A251E',
+        actionBtnText: '#86C99A',
         clearBtnBg: '#450A0A',
         clearBtnText: '#FCA5A5',
         emptyIconBg: '#27272A',
@@ -77,21 +77,21 @@ export default function NotificationScreen({ navigation }) {
         suspensionBorder: '#991B1B',
       }
     : {
-        bg: '#F9FAFB',
+        bg: '#F5FAF6',
         card: '#FFFFFF',
-        textPrimary: '#111827',
+        textPrimary: '#162C49',
         textSecondary: '#6B7280',
         textMuted: '#9CA3AF',
         border: '#F1F5F9',
         headerBg: '#FFFFFF',
         chipBg: '#F3F4F6',
         chipText: '#4B5563',
-        chipBadgeBg: '#E5E7EB',
+        chipBadgeBg: '#D8E8DC',
         chipBadgeText: '#4B5563',
         iconBgDefault: '#F3F4F6',
         iconDefault: '#6B7280',
-        actionBtnBg: '#EEF2FF',
-        actionBtnText: '#4F46E5',
+        actionBtnBg: '#EAF7EE',
+        actionBtnText: '#166534',
         clearBtnBg: '#FEE2E2',
         clearBtnText: '#EF4444',
         emptyIconBg: '#F3F4F6',
@@ -161,7 +161,7 @@ export default function NotificationScreen({ navigation }) {
           name: 'Default Notifications',
           importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#6366F1',
+          lightColor: '#15803D',
         });
       }
 
@@ -443,7 +443,7 @@ export default function NotificationScreen({ navigation }) {
               key={cat.id}
               style={[
                 styles.chip,
-                { backgroundColor: isActive ? '#6366F1' : colors.chipBg },
+                { backgroundColor: isActive ? '#15803D' : colors.chipBg },
               ]}
               onPress={() => setSelectedCategory(cat.id)}
               activeOpacity={0.8}
@@ -457,7 +457,7 @@ export default function NotificationScreen({ navigation }) {
                 {cat.label}
               </Text>
               {count > 0 && (
-                <View style={[styles.chipBadge, { backgroundColor: isActive ? '#4F46E5' : colors.chipBadgeBg }]}>
+                <View style={[styles.chipBadge, { backgroundColor: isActive ? '#166534' : colors.chipBadgeBg }]}>
                   <Text style={[styles.chipBadgeText, { color: isActive ? '#FFFFFF' : colors.chipBadgeText }]}>
                     {count}
                   </Text>
@@ -490,7 +490,7 @@ export default function NotificationScreen({ navigation }) {
       cardBg = colors.suspensionBg;
       borderColor = colors.suspensionBorder;
     } else if (!item.isRead) {
-      cardBg = isDark ? '#1E1B4B22' : '#F9FAFF';
+      cardBg = isDark ? '#1A251E22' : '#F9FAFF';
     }
 
     return (
@@ -519,7 +519,7 @@ export default function NotificationScreen({ navigation }) {
               ? { backgroundColor: isDark ? '#075985' : '#E0F2FE' }
               : isOrder
               ? { backgroundColor: isDark ? '#78350F' : '#FEF3C7' }
-              : { backgroundColor: !item.isRead ? (isDark ? '#312E81' : '#6366F115') : colors.iconBgDefault },
+              : { backgroundColor: !item.isRead ? (isDark ? '#152119' : '#15803D15') : colors.iconBgDefault },
           ]}
         >
           <MaterialIcons
@@ -551,7 +551,7 @@ export default function NotificationScreen({ navigation }) {
                 : isOrder
                 ? isDark ? '#FBBF24' : '#D97706'
                 : !item.isRead
-                ? '#818CF8'
+                ? '#86C99A'
                 : colors.iconDefault
             }
           />
@@ -618,7 +618,7 @@ export default function NotificationScreen({ navigation }) {
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.bg }]}>
-        <ActivityIndicator size="large" color="#6366F1" />
+        <ActivityIndicator size="large" color="#15803D" />
       </View>
     );
   }
@@ -638,8 +638,8 @@ export default function NotificationScreen({ navigation }) {
           <View style={styles.headerTitleWrap}>
             <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
             {notifications.length > 0 && (
-              <View style={[styles.badgeCount, { backgroundColor: isDark ? '#312E81' : '#E0E7FF' }]}>
-                <Text style={[styles.badgeCountText, { color: isDark ? '#A5B4FC' : '#4F46E5' }]}>{notifications.length}</Text>
+              <View style={[styles.badgeCount, { backgroundColor: isDark ? '#152119' : '#D8E8DC' }]}>
+                <Text style={[styles.badgeCountText, { color: isDark ? '#86C99A' : '#166534' }]}>{notifications.length}</Text>
               </View>
             )}
           </View>
@@ -690,8 +690,8 @@ export default function NotificationScreen({ navigation }) {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                colors={['#6366F1']}
-                tintColor="#6366F1"
+                colors={['#15803D']}
+                tintColor="#15803D"
               />
             }
           />
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
   },
   unreadCard: {
     borderLeftWidth: 4,
-    borderLeftColor: '#6366F1',
+    borderLeftColor: '#15803D',
   },
   iconContainer: {
     width: 44,
@@ -851,7 +851,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#15803D',
   },
   emptyIconContainer: {
     width: 100,

@@ -133,7 +133,7 @@ const safelyFilterProviderResponse = (items, providerId, label) => {
 };
 
 const Badge = ({ label, bg, color }) => (
-  <View style={[styles.badge, { backgroundColor: bg }]}> 
+  <View style={[styles.badge, { backgroundColor: bg }]}>
     <Text style={[styles.badgeText, { color }]}>{label}</Text>
   </View>
 );
@@ -150,7 +150,7 @@ const EmptyState = ({ icon, title, message, isDark }) => (
 
 const StatCard = ({ icon, value, label, color, bg, isDark }) => (
   <View style={[styles.statCard, isDark && styles.statCardDark]}>
-    <View style={[styles.statIcon, { backgroundColor: bg }]}> 
+    <View style={[styles.statIcon, { backgroundColor: bg }]}>
       <Ionicons name={icon} size={20} color={color} />
     </View>
     <Text style={[styles.statValue, isDark && styles.textDark]}>{value}</Text>
@@ -593,8 +593,8 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: COLORS.primary },
   tabText: { fontSize: 11, fontWeight: '600', color: COLORS.muted },
   tabTextActive: { color: '#fff' },
-  tabCount: { minWidth: 22, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' },
-  tabCountDark: { backgroundColor: '#334155' },
+  tabCount: { minWidth: 22, height: 18, paddingHorizontal: 5, borderRadius: 9, backgroundColor: '#EAF7EE', alignItems: 'center', justifyContent: 'center' },
+  tabCountDark: { backgroundColor: '#303C33' },
   tabCountActive: { backgroundColor: 'rgba(255,255,255,0.22)' },
   tabCountText: { fontSize: 10, fontWeight: '600', color: COLORS.primary },
   tabCountTextActive: { color: '#fff' },
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
   cardTitle: { flex: 1, color: COLORS.text, fontSize: 16, fontWeight: '600' },
   cardSub: { color: COLORS.muted, fontSize: 12, marginTop: 3, fontWeight: '400' },
   priceText: { color: COLORS.primary, fontSize: 17, fontWeight: '600' },
-  infoBlock: { backgroundColor: '#F9FAFB', borderRadius: 16, padding: 12, marginTop: 12, gap: 6 },
+  infoBlock: { backgroundColor: '#F5FAF6', borderRadius: 16, padding: 12, marginTop: 12, gap: 6 },
   infoBlockDark: { backgroundColor: COLORS.darkBg },
   infoLine: { color: COLORS.text, fontSize: 12, fontWeight: '400' },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   timeLabel: { color: COLORS.muted, fontSize: 10, fontWeight: '600' },
   scheduleColumn: { flex: 1, position: 'relative' },
   scheduleLine: { height: 72, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
-  timelineJob: { position: 'absolute', left: 4, right: 0, backgroundColor: '#F8FAFF', borderRadius: 14, borderLeftWidth: 4, padding: 10, borderWidth: 1, borderColor: '#E0E7FF' },
+  timelineJob: { position: 'absolute', left: 4, right: 0, backgroundColor: '#F8FAFF', borderRadius: 14, borderLeftWidth: 4, padding: 10, borderWidth: 1, borderColor: '#D8E8DC' },
   timelineJobTitle: { color: COLORS.text, fontWeight: '600', fontSize: 13 },
   timelineJobTime: { color: COLORS.primary, fontSize: 11, fontWeight: '600', marginTop: 4 },
   timelineJobCustomer: { color: COLORS.muted, fontSize: 11, fontWeight: '400', marginTop: 3 },
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
   warningCard: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 18, padding: 12, marginBottom: 14, flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   warningCardDark: { backgroundColor: '#2A2112', borderColor: '#92400E' },
   warningText: { flex: 1, color: '#92400E', fontSize: 12, fontWeight: '600', lineHeight: 17 },
-  manageAvailabilityButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderColor: '#C7D2FE', backgroundColor: '#EEF2FF', borderRadius: 11, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 14 },
+  manageAvailabilityButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderColor: '#A7D6B4', backgroundColor: '#EAF7EE', borderRadius: 11, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 14 },
   manageAvailabilityText: { color: COLORS.primary, fontSize: 12, fontWeight: '600' },
   textDark: { color: COLORS.darkText },
   textMutedDark: { color: COLORS.darkMuted },

@@ -31,15 +31,15 @@ export default function SettingsScreen({ isDark = false }) {
   return (
     <View style={styles.wrapper}>
       <View style={styles.row}>
-        <View style={[styles.iconContainer, { backgroundColor: appLockEnabled ? (isDark ? '#26215C' : '#EEF0FF') : (isDark ? '#2c2c2e' : '#f3f4f6') }]}>
+        <View style={[styles.iconContainer, { backgroundColor: appLockEnabled ? (isDark ? '#202A23' : '#EEF0FF') : (isDark ? '#303C33' : '#f3f4f6') }]}>
           <MaterialIcons
             name={appLockEnabled ? 'lock' : 'lock-open'}
             size={20}
-            color={appLockEnabled ? (isDark ? '#AFA9EC' : '#6366f1') : (isDark ? '#8E8E93' : '#6b7280')}
+            color={appLockEnabled ? (isDark ? '#AFA9EC' : '#15803D') : (isDark ? '#8E8E93' : '#6b7280')}
           />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.label, { color: isDark ? '#F2F2F7' : '#111827' }]}>App Lock</Text>
+          <Text style={[styles.label, { color: isDark ? '#F2F2F7' : '#162C49' }]}>App Lock</Text>
           <Text style={[styles.status, { color: isDark ? '#8E8E93' : '#6b7280' }]}>
             {appLockEnabled ? 'Enabled' : 'Disabled'}
           </Text>
@@ -47,7 +47,7 @@ export default function SettingsScreen({ isDark = false }) {
         <Switch
           value={appLockEnabled}
           onValueChange={toggleAppLock}
-          trackColor={{ false: '#E5E7EB', true: '#7C3AED' }}
+          trackColor={{ false: '#D8E8DC', true: '#166534' }}
           thumbColor="#fff"
           style={{ transform: [{ scale: 0.85 }] }}
         />

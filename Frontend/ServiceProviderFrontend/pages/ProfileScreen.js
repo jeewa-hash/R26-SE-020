@@ -258,7 +258,7 @@ export default function ProfileScreen({ navigation }) {
     return Object.values(groupMap);
   }, [portfolioCategories, portfolioImages]);
 
-  const SERVICE_COLORS = ['#7C3AED', '#2563EB', '#059669', '#F59E0B', '#DC2626', '#0891B2'];
+  const SERVICE_COLORS = ['#166534', '#15803D', '#059669', '#F59E0B', '#DC2626', '#0284C7'];
 
   const handleAddPress = () => {
     setShowAddTooltip(true);
@@ -300,8 +300,8 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const C = isDark
-    ? { bg: '#0f0f0f', card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', subCard: '#2a2a2a' }
-    : { bg: '#F8FAFC', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#E2E8F0', subCard: '#F8FAFC' };
+    ? { bg: '#0C0F0D', card: '#161C18', text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33', subCard: '#2a2a2a' }
+    : { bg: '#F5FAF6', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#D8E8DC', subCard: '#F5FAF6' };
 
   return (
     <View style={[styles.root, { backgroundColor: C.bg }]}>
@@ -334,7 +334,7 @@ export default function ProfileScreen({ navigation }) {
 
           <View style={styles.badgeRow}>
             <View style={styles.verifiedBadge}>
-              <MaterialIcons name="verified" size={12} color="#2563EB" />
+              <MaterialIcons name="verified" size={12} color="#15803D" />
               <Text style={styles.verifiedBadgeText}>Verified</Text>
             </View>
 
@@ -371,10 +371,10 @@ export default function ProfileScreen({ navigation }) {
 
           <View style={[styles.statsStrip, { borderTopColor: C.border }]}>
             {[
-              { val: profile.jobs, lbl: 'Jobs', icon: 'work', color: '#2563EB' },
+              { val: profile.jobs, lbl: 'Jobs', icon: 'work', color: '#15803D' },
               { val: profile.rating, lbl: 'Rating', icon: 'star', color: '#F59E0B' },
               { val: profile.completion, lbl: 'Completion', icon: 'check-circle', color: '#16A34A' },
-              { val: profile.earned, lbl: 'Earned', icon: 'account-balance-wallet', color: '#7C3AED' },
+              { val: profile.earned, lbl: 'Earned', icon: 'account-balance-wallet', color: '#166534' },
             ].map((s, i, arr) => (
               <React.Fragment key={s.lbl}>
                 <View style={styles.statCell}>
@@ -399,7 +399,7 @@ export default function ProfileScreen({ navigation }) {
               onPress={() => navigation.navigate('HomeTab')}
               activeOpacity={0.85}
             >
-              <MaterialIcons name="work-history" size={23} color="#2563EB" />
+              <MaterialIcons name="work-history" size={23} color="#15803D" />
               <Text style={[styles.featureTitle, { color: C.text }]}>Live Job Status</Text>
               <Text style={[styles.featureSubtitle, { color: C.textSub }]}>
                 View current and next booking
@@ -411,7 +411,7 @@ export default function ProfileScreen({ navigation }) {
               onPress={() => navigation.getParent()?.navigate('ProviderAvailability')}
               activeOpacity={0.85}
             >
-              <MaterialIcons name="event-available" size={23} color="#7C3AED" />
+              <MaterialIcons name="event-available" size={23} color="#166534" />
               <Text style={[styles.featureTitle, { color: C.text }]}>Update Availability</Text>
               <Text style={[styles.featureSubtitle, { color: C.textSub }]}>
                 Manage available service slots
@@ -479,7 +479,7 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: C.text }]}>Portfolio</Text>
             <TouchableOpacity onPress={() => navigation.getParent()?.navigate('PortfolioGallery')}>
-              <Text style={{ fontSize: 13, color: '#7C3AED', fontWeight: '600' }}>View Gallery →</Text>
+              <Text style={{ fontSize: 13, color: '#166534', fontWeight: '600' }}>View Gallery →</Text>
             </TouchableOpacity>
           </View>
 
@@ -488,7 +488,7 @@ export default function ProfileScreen({ navigation }) {
               style={[styles.portfolioEmpty, { backgroundColor: C.subCard, borderColor: C.border }]}
               onPress={openGallery}
             >
-              <MaterialIcons name="add-photo-alternate" size={32} color="#7C3AED" />
+              <MaterialIcons name="add-photo-alternate" size={32} color="#166534" />
               <Text style={[styles.portfolioEmptyTitle, { color: C.text }]}>Add Portfolio Images</Text>
               <Text style={[styles.portfolioEmptySub, { color: C.textSub }]}>
                 Upload work photos — AI ML Engine will classify and tag them
@@ -617,7 +617,7 @@ export default function ProfileScreen({ navigation }) {
           <Pressable
             style={[
               styles.penaltyModalContainer,
-              { backgroundColor: isDark ? '#1C192E' : '#FFFFFF', borderColor: isDark ? '#3D2A5C' : '#E2E8F0' },
+              { backgroundColor: isDark ? '#1C192E' : '#FFFFFF', borderColor: isDark ? '#3D2A5C' : '#D8E8DC' },
             ]}
             onPress={(e) => e.stopPropagation()}
           >
@@ -632,7 +632,7 @@ export default function ProfileScreen({ navigation }) {
               </Text>
             </View>
 
-            <Text style={[styles.penaltyModalTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+            <Text style={[styles.penaltyModalTitle, { color: isDark ? '#FFFFFF' : '#0C0F0D' }]}>
               Posting Restricted
             </Text>
 
@@ -655,7 +655,7 @@ export default function ProfileScreen({ navigation }) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.penaltyDismissBtn, { borderColor: isDark ? '#334155' : '#E2E8F0' }]}
+              style={[styles.penaltyDismissBtn, { borderColor: isDark ? '#303C33' : '#D8E8DC' }]}
               onPress={() => setShowPenaltyModal(false)}
               activeOpacity={0.7}
             >
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
     height: 82,
     borderRadius: 41,
     borderWidth: 3,
-    borderColor: '#7C3AED',
+    borderColor: '#166534',
     padding: 3,
     marginBottom: 12,
     position: 'relative',
@@ -696,7 +696,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 38,
-    backgroundColor: '#2563EB',
+    backgroundColor: '#15803D',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -742,14 +742,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#F1F5F2',
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: '#B5DCC0',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  verifiedBadgeText: { fontSize: 11, color: '#1D4ED8', fontWeight: '600' },
+  verifiedBadgeText: { fontSize: 11, color: '#166534', fontWeight: '600' },
   onlineBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -770,7 +770,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
   },
   availabilityToggleDisabled: {
     opacity: 0.65,
@@ -893,10 +893,10 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#7C3AED',
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,
     shadowRadius: 6,
@@ -934,7 +934,7 @@ const styles = StyleSheet.create({
   serviceFolderCard: {
     width: 104, height: 104, borderRadius: 18,
     overflow: 'hidden', position: 'relative',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#D8E8DC',
   },
   serviceFolderImage: {
     width: '100%', height: '100%',
@@ -998,7 +998,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 12,
   },
-  submitInquiryBtnText: { fontSize: 13, fontWeight: '600', color: '#6366f1' },
+  submitInquiryBtnText: { fontSize: 13, fontWeight: '600', color: '#15803D' },
 
   penaltyModalOverlay: {
     flex: 1,
@@ -1064,14 +1064,14 @@ const styles = StyleSheet.create({
   penaltySubmitBtn: {
     width: '100%',
     height: 48,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
     borderRadius: 14,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
     marginBottom: 10,
-    shadowColor: '#7C3AED',
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,

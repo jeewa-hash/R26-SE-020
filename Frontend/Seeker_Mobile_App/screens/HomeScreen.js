@@ -867,7 +867,20 @@ export default function HomeScreen() {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.headerIconBtn} onPress={handleChatPress}>
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={toggleTheme}
+                accessibilityLabel="Toggle theme"
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name={isDarkMode ? 'moon' : 'sunny'}
+                  size={22}
+                  color={isDarkMode ? '#818cf8' : '#F59E0B'}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.headerIconBtn} accessibilityLabel="Messages" onPress={handleChatPress}>
                 <Ionicons name="chatbubble-ellipses-outline" size={22} color="#444" />
                 {totalUnreadMessages > 0 && (
                   <View style={styles.badge}>
@@ -878,7 +891,7 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.headerIconBtn} onPress={handleNotifications}>
+              <TouchableOpacity style={styles.headerIconBtn} accessibilityLabel="Notifications" onPress={handleNotifications}>
                 <Ionicons name="notifications-outline" size={22} color="#444" />
                 {notificationUnreadCount > 0 && (
                   <View style={styles.badge}>
@@ -889,17 +902,7 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.headerIconBtn}
-                onPress={toggleTheme}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name={isDarkMode ? 'moon' : 'sunny'}
-                  size={22}
-                  color={isDarkMode ? '#818cf8' : '#F59E0B'}
-                />
-              </TouchableOpacity>
+
             </View>
           </View>
         </LinearGradient>

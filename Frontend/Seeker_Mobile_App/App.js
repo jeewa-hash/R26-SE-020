@@ -30,7 +30,7 @@ import BidResponsesScreen from './screens/BidResponsesScreen';
 import UserQuotesScreen from './screens/UserQuotesScreen';
 
 // Profile Sub Screens
-import SeekerCalendarScreen from './screens/SeekerCalendarScreen';
+import SeekerScheduleHubScreen from './screens/SeekerScheduleHubScreen';
 import BookingsScreen from './screens/BookingsScreen';
 import MyBidsScreen from './screens/MyBidsScreen';
 import MyPostsScreen from './screens/MyPostsScreen';
@@ -53,7 +53,6 @@ import SuggestedSlotsScreen from './screens/IT22129376/SuggestedSlotsScreen';
 import ConfirmJobScreen from './screens/IT22129376/ConfirmJobScreen';
 import ScheduledJobDetailsScreen from './screens/IT22129376/ScheduledJobDetailsScreen';
 import JobHistoryDetailsScreen from './screens/IT22129376/JobHistoryDetailsScreen';
-import SeekerServiceSessionsScreen from './screens/IT22129376/SeekerServiceSessionsScreen';
 import SeekerServiceSessionDetailsScreen from './screens/IT22129376/SeekerServiceSessionDetailsScreen';
 // Chat Screens
 import { ChatProvider } from './context/ChatContext';
@@ -238,7 +237,7 @@ function AppNavigator({ initialRouteName }) {
       {/* Calendar views for booked services */}
       <Stack.Screen
         name="SeekerCalendar"
-        component={SeekerCalendarScreen}
+        component={SeekerScheduleHubScreen}
         options={{ headerShown: false }}
       />
 
@@ -299,7 +298,7 @@ function AppNavigator({ initialRouteName }) {
 
       <Stack.Screen
         name="SeekerServiceSessions"
-        component={SeekerServiceSessionsScreen}
+        component={SeekerScheduleHubScreen}
         options={{ headerShown: false }}
       />
 

@@ -8,12 +8,12 @@ import { CONFIG } from '../../config';
 import { ThemeContext } from '../../context/ThemeContext';
 
 const CATEGORY_META = {
-  plumbing:   { icon: 'plumbing',            color: '#2563EB' },
+  plumbing:   { icon: 'plumbing',            color: '#15803D' },
   electrical: { icon: 'electrical-services', color: '#F59E0B' },
-  carpentry:  { icon: 'handyman',            color: '#7C3AED' },
+  carpentry:  { icon: 'handyman',            color: '#166534' },
   cleaning:   { icon: 'cleaning-services',   color: '#059669' },
   painting:   { icon: 'format-paint',        color: '#DC2626' },
-  roofing:    { icon: 'home-repair-service', color: '#0891B2' },
+  roofing:    { icon: 'home-repair-service', color: '#0284C7' },
   gardening:  { icon: 'yard',                color: '#16A34A' },
   repairing:  { icon: 'build',               color: '#D97706' },
 };
@@ -110,7 +110,7 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddI
           onPress={() => handleCategoryPress()}
           activeOpacity={0.8}
         >
-          <MaterialIcons name="add" size={15} color="#7C3AED" />
+          <MaterialIcons name="add" size={15} color="#166534" />
           <Text style={styles.addImageBtnText}>Add Services</Text>
         </TouchableOpacity>
       </View>
@@ -179,7 +179,7 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddI
           <MaterialIcons
             name={showAllServices ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
             size={16}
-            color="#2563EB"
+            color="#15803D"
           />
         </TouchableOpacity>
       )}
@@ -201,14 +201,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#7C3AED18',
+    backgroundColor: '#16653418',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#7C3AED40',
+    borderColor: '#16653440',
   },
-  addImageBtnText: { fontSize: 12, color: '#7C3AED', fontWeight: '700' },
+  addImageBtnText: { fontSize: 12, color: '#166534', fontWeight: '700' },
 
   servicesRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   squareCard: {
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 4, marginTop: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1,
   },
-  seeMoreText: { fontSize: 12, fontWeight: '600', color: '#2563EB' },
+  seeMoreText: { fontSize: 12, fontWeight: '600', color: '#15803D' },
   loadingText:  { fontSize: 11, marginTop: 8, fontStyle: 'italic' },
   emptyText:    { fontSize: 12 },
 });
