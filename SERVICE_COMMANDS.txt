@@ -47,7 +47,7 @@ First setup:
 cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Seeker_Service/Ml_Service"
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install flask flask-cors requests PyJWT python-dotenv pymongo joblib scikit-learn numpy deep-translator
+python -m pip install flask flask-cors requests certifi PyJWT python-dotenv pymongo joblib scikit-learn numpy deep-translator
 
 Daily start / restart:
 cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Seeker_Service/Ml_Service"

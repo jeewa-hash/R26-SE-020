@@ -7,7 +7,6 @@ import {
   StyleSheet,
   ScrollView,
   Image,
-  SafeAreaView,
   LayoutAnimation,
   Platform,
   UIManager,
@@ -19,6 +18,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -708,7 +708,7 @@ export default function HomeScreen() {
       }
 
       const appLanguage = language === 'si' ? 'si' : 'en';
-      const url = `http://${IP_ADDRESS}:5002/text-predict`;
+      const url = `${CONFIG.TEXT_MODEL_URL}/text-predict`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -727,7 +727,28 @@ export default function HomeScreen() {
         return;
       }
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        console.error('Search returned a non-JSON response:', {
+          url,
+          status: response.status,
+          contentType: response.headers.get('content-type'),
+        });
+        Alert.alert(
+          'Search Service Error',
+          `The search service returned an unexpected response (HTTP ${response.status}). Check that the text ML service is running at ${CONFIG.TEXT_MODEL_URL}.`,
+        );
+        return;
+      }
+
+      if (!response.ok || !data || typeof data !== 'object') {
+        Alert.alert('Search Service Error', data?.error || data?.message || `Search failed (HTTP ${response.status}).`);
+        return;
+      }
+
 
       if (data.session_id) {
         navigation.navigate('FollowUpScreen', {
@@ -779,7 +800,7 @@ export default function HomeScreen() {
 
       formData.append('app_lan', language === 'si' ? 'si' : 'en');
 
-      const response = await fetch(`http://${IP_ADDRESS}:8000/predict`, {
+      const response = await fetch(`${CONFIG.IMAGE_CLASSIFIER_URL}/predict`, {
         method: 'POST',
         body: formData,
         headers: {
@@ -827,7 +848,7 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error('IMAGE CLASSIFIER REQUEST FAILED:', {
-        url: `${IMAGE_CLASSIFIER_URL}/predict`,
+        url: `${CONFIG.IMAGE_CLASSIFIER_URL}/predict`,
         error: error?.message,
       });
       Alert.alert(

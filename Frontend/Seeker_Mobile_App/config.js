@@ -13,6 +13,8 @@ export const AUTH_SERVICE_URL = 'https://r26-auth-service.onrender.com';
 
 export const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
 export const PROVIDER_API_BASE = `http://${IP_ADDRESS}:5000`;
+export const IMAGE_CLASSIFIER_URL = `http://${IP_ADDRESS}:8000`;
+export const TEXT_MODEL_URL = `http://${IP_ADDRESS}:5002`;
 
 // Shared CONFIG object used across screens and services
 export const CONFIG = {
