@@ -221,7 +221,9 @@ export default function BookingsScreen({ navigation }) {
           bg: isDarkMode ? '#1E293B' : '#F8FAFC',
           border: isDarkMode ? '#334155' : '#E2E8F0',
           color: isDarkMode ? '#94A3B8' : '#64748B',
-          text: status || (isSi ? 'සාමාන්‍ය' : 'Normal'),
+          text: status
+            ? String(status).replace(/_/g, ' ').replace(/^\w/, (letter) => letter.toUpperCase())
+            : (isSi ? 'සාමාන්‍ය' : 'Normal'),
         };
     }
   };
@@ -272,7 +274,7 @@ export default function BookingsScreen({ navigation }) {
   const toggleExpand = (sessionId) => {
     setExpandedSessions((prev) => ({
       ...prev,
-      [sessionId]: !(prev[sessionId] ?? true),
+      [sessionId]: !(prev[sessionId] ?? false),
     }));
   };
 
@@ -644,7 +646,7 @@ export default function BookingsScreen({ navigation }) {
             const date = formatDate(group.createdAt);
             const time = formatTime(group.createdAt);
             const providerCount = group.requests.length;
-            const isExpanded = expandedSessions[group.sessionId] ?? true;
+            const isExpanded = expandedSessions[group.sessionId] ?? false;
             const categoryIcon = getCategoryIcon(group.detectedCategory || '');
             const isUrgent =
               group.urgencyLevel &&
@@ -731,12 +733,12 @@ export default function BookingsScreen({ navigation }) {
 
                 {/* 2. Brief description (Clean, unobtrusive) */}
                 {group.briefDescription ? (
-                  <View style={[styles.descWrap, isDarkMode && styles.descWrapDark]}>
+                  <View style={styles.descWrap}>
                     <Text
                       style={[styles.descText, isDarkMode && styles.textMutedDark]}
-                      numberOfLines={2}
+                      numberOfLines={1}
                     >
-                      "{group.briefDescription}"
+                      {group.briefDescription}
                     </Text>
                   </View>
                 ) : null}
@@ -746,6 +748,10 @@ export default function BookingsScreen({ navigation }) {
                   style={[styles.accordionBar, isDarkMode && styles.accordionBarDark]}
                   onPress={() => toggleExpand(group.sessionId)}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={isExpanded
+                    ? (isSi ? `සපයන්නන් සඟවන්න (${providerCount})` : `Hide ${providerCount} providers`)
+                    : (isSi ? `සපයන්නන් පෙන්වන්න (${providerCount})` : `Show ${providerCount} providers`)}
                 >
                   <View style={styles.accordionLeft}>
                     <Ionicons
@@ -754,9 +760,9 @@ export default function BookingsScreen({ navigation }) {
                       color={isDarkMode ? '#818CF8' : '#4F46E5'}
                     />
                     <Text style={[styles.accordionTitle, isDarkMode && styles.textDark]}>
-                      {isSi
-                        ? `සපයන්නන් (${providerCount})`
-                        : `Providers Contacted (${providerCount})`}
+                      {isExpanded
+                        ? (isSi ? `සපයන්නන් සඟවන්න (${providerCount})` : `Hide ${providerCount} providers`)
+                        : (isSi ? `සපයන්නන් පෙන්වන්න (${providerCount})` : `Show ${providerCount} providers`)}
                     </Text>
                   </View>
 
@@ -832,9 +838,9 @@ export default function BookingsScreen({ navigation }) {
                                 onPress={() => handleViewQuote(req)}
                                 activeOpacity={0.8}
                               >
-                                <Ionicons name="document-text-outline" size={13} color="#fff" />
-                                <Text style={styles.viewBtnSolidText}>
-                                  {isSi ? 'විස්තර' : 'Details'}
+                                <Ionicons name="document-text-outline" size={13} color={isDarkMode ? '#CBD5E1' : '#475569'} />
+                                <Text style={[styles.viewBtnSolidText, isDarkMode && styles.viewBtnSolidTextDark]}>
+                                  {isSi ? 'මිල ගණන්' : 'Quote'}
                                 </Text>
                               </TouchableOpacity>
                             </View>
@@ -1108,24 +1114,13 @@ const styles = StyleSheet.create({
 
   // Description
   descWrap: {
-    backgroundColor: '#F8FAFC',
     marginHorizontal: 14,
-    marginBottom: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#818CF8',
-  },
-  descWrapDark: {
-    backgroundColor: '#0F172A',
-    borderLeftColor: '#4F46E5',
+    marginBottom: 8,
   },
   descText: {
-    fontSize: 11.5,
+    fontSize: 12,
     color: '#64748B',
     lineHeight: 16,
-    fontStyle: 'italic',
   },
 
   // Accordion Header
@@ -1133,11 +1128,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    marginHorizontal: 14,
+    marginBottom: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     backgroundColor: '#F8FAFC',
-    borderTopWidth: 1,
-    borderColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
   },
   accordionBarDark: {
     backgroundColor: '#0F172A',
@@ -1157,7 +1155,8 @@ const styles = StyleSheet.create({
   // Provider List
   providerList: {
     paddingHorizontal: 14,
-    paddingVertical: 4,
+    paddingTop: 0,
+    paddingBottom: 8,
   },
   providerRow: {
     flexDirection: 'row',
@@ -1210,38 +1209,44 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
-    backgroundColor: '#EEF2FF',
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
     gap: 3,
   },
   chatBtnOutlineDark: {
-    backgroundColor: '#1E1B4B',
-    borderColor: '#3730A3',
+    backgroundColor: '#111827',
+    borderColor: '#334155',
   },
   chatBtnText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#4F46E5',
+    color: '#475569',
   },
   chatBtnTextDark: {
-    color: '#818CF8',
+    color: '#CBD5E1',
   },
   viewBtnSolid: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 9,
     paddingVertical: 6,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     gap: 3,
   },
   viewBtnSolidDark: {
-    backgroundColor: '#4338CA',
+    backgroundColor: '#1F2937',
+    borderColor: '#334155',
   },
   viewBtnSolidText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#475569',
+  },
+  viewBtnSolidTextDark: {
+    color: '#CBD5E1',
   },
   rowDivider: {
     height: 1,

@@ -793,7 +793,16 @@ export default function HomeScreen() {
         return;
       }
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = {};
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(`Image classifier returned an invalid response (${response.status}).`);
+      }
+      if (!response.ok) {
+        throw new Error(data.detail || data.message || `Image classifier returned HTTP ${response.status}.`);
+      }
 
       if (data.session_id) {
         Alert.alert(
@@ -817,10 +826,13 @@ export default function HomeScreen() {
         Alert.alert(t('common_error'), t('home_no_object_detected'));
       }
     } catch (error) {
-      console.log('UPLOAD ERROR:', error);
+      console.error('IMAGE CLASSIFIER REQUEST FAILED:', {
+        url: `${IMAGE_CLASSIFIER_URL}/predict`,
+        error: error?.message,
+      });
       Alert.alert(
-        t('common_error'),
-        'Server connection failed. Please check if the backend is running.'
+        'Image model unavailable',
+        'Could not reach the hosted image model. Please try again later.'
       );
     }
   };

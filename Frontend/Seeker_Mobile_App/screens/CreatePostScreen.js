@@ -393,22 +393,22 @@ export default function CreatePostScreen() {
 
     const errors = {};
     if (!resolvedLocation.trim()) {
-      errors.location = isSi ? 'සේවා ස්ථානය ඇතුළත් කිරීම අනිවාර්යයි.' : 'Service location is mandatory.';
+      errors.location = isSi ? 'සේවා ස්ථානය ඇතුළත් කිරීම අනිවාර්යයි.' : 'Please enter a service location.';
     }
     if (!resolvedDate.trim()) {
-      errors.date = isSi ? 'අවශ්‍ය දිනය තෝරා ගැනීම අනිවාර්යයි.' : 'Preferred date is mandatory.';
+      errors.date = isSi ? 'අවශ්‍ය දිනය තෝරා ගැනීම අනිවාර්යයි.' : 'Please select a preferred date.';
     }
     if (!resolvedUrgency) {
-      errors.urgency = isSi ? 'හදිසිභාවය තෝරා ගැනීම අනිවාර්යයි.' : 'Urgency level is mandatory.';
+      errors.urgency = isSi ? 'හදිසිභාවය තෝරා ගැනීම අනිවාර්යයි.' : 'Please choose an urgency level.';
     }
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       Alert.alert(
-        isSi ? 'අනිවාර්ය තොරතුරු අවශ්‍යයි' : 'Mandatory Fields Required',
+        isSi ? 'අනිවාර්ය තොරතුරු අවශ්‍යයි' : 'Missing Information',
         isSi
           ? 'AI මඟින් සටහන සකස් කිරීමට ස්ථානය (Location), දිනය (Date) සහ හදිසිභාවය (Urgency) ඇතුළත් කිරීම අනිවාර්ය වේ.'
-          : 'Service Location, Preferred Date, and Urgency Level are mandatory to generate the post.'
+          : 'Add a service location, preferred date, and urgency level to continue.'
       );
       return;
     }
@@ -489,12 +489,12 @@ export default function CreatePostScreen() {
 
     if (!serviceLocation.trim() || !requiredDate.trim() || !urgency) {
       const errors = {};
-      if (!serviceLocation.trim()) errors.location = isSi ? 'සේවා ස්ථානය අනිවාර්යයි.' : 'Service location is mandatory.';
-      if (!requiredDate.trim()) errors.date = isSi ? 'අවශ්‍ය දිනය අනිවාර්යයි.' : 'Preferred date is mandatory.';
-      if (!urgency) errors.urgency = isSi ? 'හදිසිභාවය අනිවාර්යයි.' : 'Urgency level is mandatory.';
+      if (!serviceLocation.trim()) errors.location = isSi ? 'සේවා ස්ථානය අනිවාර්යයි.' : 'Please enter a service location.';
+      if (!requiredDate.trim()) errors.date = isSi ? 'අවශ්‍ය දිනය අනිවාර්යයි.' : 'Please select a preferred date.';
+      if (!urgency) errors.urgency = isSi ? 'හදිසිභාවය අනිවාර්යයි.' : 'Please choose an urgency level.';
       setFormErrors(errors);
       Alert.alert(
-        isSi ? 'අනිවාර්ය තොරතුරු සම්පූර්ණ කරන්න' : 'Mandatory Fields Required',
+        isSi ? 'අනිවාර්ය තොරතුරු සම්පූර්ණ කරන්න' : 'Missing Information',
         isSi
           ? 'පළ කිරීමට පෙර කරුණාකර ස්ථානය, දිනය සහ හදිසිභාවය ඇතුළත් කරන්න.'
           : 'Please provide Location, Date, and Urgency before publishing.'
@@ -748,9 +748,6 @@ export default function CreatePostScreen() {
                 <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>
                   {isSi ? 'අවශ්‍යතා සහ මනාපයන්' : 'Requirements & Schedule'}
                 </Text>
-                <Text style={[styles.cardSubtitle, { color: '#EF4444', fontWeight: '700' }]}>
-                  {isSi ? '⚠️ ස්ථානය, දිනය සහ හදිසිභාවය අනිවාර්ය වේ' : '⚠️ Location, Date, and Urgency are mandatory'}
-                </Text>
               </View>
             </View>
 
@@ -760,9 +757,6 @@ export default function CreatePostScreen() {
                 <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
                   {isSi ? 'සේවාව අවශ්‍ය ස්ථානය' : 'Service Location'} <Text style={styles.requiredAsterisk}>*</Text>
                 </Text>
-                <View style={styles.mandatoryBadge}>
-                  <Text style={styles.mandatoryBadgeText}>{isSi ? 'අනිවාර්යයි' : 'Mandatory'}</Text>
-                </View>
               </View>
 
               <View
@@ -832,9 +826,6 @@ export default function CreatePostScreen() {
                 <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
                   {isSi ? 'අවශ්‍ය දිනය' : 'Preferred Date'} <Text style={styles.requiredAsterisk}>*</Text>
                 </Text>
-                <View style={styles.mandatoryBadge}>
-                  <Text style={styles.mandatoryBadgeText}>{isSi ? 'අනිවාර්යයි' : 'Mandatory'}</Text>
-                </View>
               </View>
 
               <TouchableOpacity
@@ -849,7 +840,7 @@ export default function CreatePostScreen() {
                 <View style={styles.dateBtnLeft}>
                   <Ionicons name="calendar-outline" size={18} color="#4F46E5" />
                   <Text style={[styles.dateButtonText, !requiredDate && styles.placeholderText, isDarkMode && requiredDate && styles.textDark]}>
-                    {requiredDate || (isSi ? 'දිනයක් තෝරන්න (අනිවාර්යයි)' : 'Select a date (Mandatory)')}
+                    {requiredDate || (isSi ? 'දිනයක් තෝරන්න' : 'Select a date')}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={isDarkMode ? '#94A3B8' : '#94A3AF'} />
@@ -880,9 +871,6 @@ export default function CreatePostScreen() {
                 <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
                   {isSi ? 'හදිසිභාවය' : 'Urgency Level'} <Text style={styles.requiredAsterisk}>*</Text>
                 </Text>
-                <View style={styles.mandatoryBadge}>
-                  <Text style={styles.mandatoryBadgeText}>{isSi ? 'අනිවාර්යයි' : 'Mandatory'}</Text>
-                </View>
               </View>
 
               <View style={styles.urgencyGrid}>
@@ -1542,18 +1530,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '600',
     marginTop: 4,
-  },
-  mandatoryBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  mandatoryBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#EF4444',
-    textTransform: 'uppercase',
   },
   inputWithIcon: {
     flexDirection: 'row',

@@ -129,7 +129,7 @@ export default function LoginScreen({ navigation }) {
 
       // 4. Fetch full seeker profile
       try {
-        const profileRes = await axios.get(`${API_URL}/profile`, {
+        const profileRes = await axios.get(`${API_URL}/user/${userId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: 'application/json',
