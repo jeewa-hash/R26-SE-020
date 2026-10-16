@@ -74,7 +74,7 @@ const Stack = createStackNavigator();
 // ─── App Content Wrapper (Connects ThemeContext to Navigation & Paper) ───
 function AppContent() {
   const themeContext = useContext(ThemeContext);
-  
+
   // Fallback to light/dark themes from ./theme if context theme properties aren't directly available
   const isDark = themeContext?.isDark ?? false;
   const theme = themeContext?.theme || (isDark ? DarkTheme : LightTheme);
@@ -162,7 +162,7 @@ function AppContent() {
   if (!initialRoute) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color="#15803D" />
       </View>
     );
   }
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(99, 102, 241, 0.97)',
+    backgroundColor: 'rgba(37, 99, 235, 0.97)',
     justify: 'center',
     alignItems: 'center',
     zIndex: 999,
@@ -376,5 +376,5 @@ const styles = StyleSheet.create({
     minWidth: 240,
     alignItems: 'center',
   },
-  passwordButtonText: { color: '#6366f1', fontSize: 15, fontWeight: '700' },
+  passwordButtonText: { color: '#15803D', fontSize: 15, fontWeight: '700' },
 });

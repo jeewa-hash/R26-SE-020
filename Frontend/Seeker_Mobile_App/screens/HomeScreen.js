@@ -346,7 +346,7 @@ const Slideshow = ({ isDarkMode }) => {
           <View style={styles.slideHeaderRow}>
             <View style={styles.slideTagPill}>
               <Text style={styles.slideTagText}>
-                {item.isTopCategory ? '⭐ Top Category' : '📍 ' + (item.district || 'Recommended')}
+                {item.isTopCategory ? 'Top Category' : (item.district || 'Recommended')}
               </Text>
             </View>
 
@@ -875,11 +875,24 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.langBadgeText}>
-                  {isSi ? '🇱🇰 සිං' : '🇬🇧 EN'}
+                  {isSi ? 'සිං' : 'EN'}
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.headerIconBtn} onPress={handleChatPress}>
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={toggleTheme}
+                accessibilityLabel="Toggle theme"
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name={isDarkMode ? 'moon' : 'sunny'}
+                  size={22}
+                  color={isDarkMode ? '#818cf8' : '#F59E0B'}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.headerIconBtn} accessibilityLabel="Messages" onPress={handleChatPress}>
                 <Ionicons name="chatbubble-ellipses-outline" size={22} color="#444" />
                 {totalUnreadMessages > 0 && (
                   <View style={styles.badge}>
@@ -890,7 +903,7 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.headerIconBtn} onPress={handleNotifications}>
+              <TouchableOpacity style={styles.headerIconBtn} accessibilityLabel="Notifications" onPress={handleNotifications}>
                 <Ionicons name="notifications-outline" size={22} color="#444" />
                 {notificationUnreadCount > 0 && (
                   <View style={styles.badge}>
@@ -901,17 +914,7 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.headerIconBtn}
-                onPress={toggleTheme}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name={isDarkMode ? 'moon' : 'sunny'}
-                  size={22}
-                  color={isDarkMode ? '#818cf8' : '#F59E0B'}
-                />
-              </TouchableOpacity>
+
             </View>
           </View>
         </LinearGradient>
@@ -1079,7 +1082,7 @@ export default function HomeScreen() {
 
               <View style={styles.biddingTextContainer}>
                 <Text style={styles.biddingTitle}>
-                  {isSi ? '📸 කැඩුණු දෙයක් තිබේද?' : '📸 Need a Quick Repair?'}
+                  {isSi ? 'කැඩුණු දෙයක් තිබේද?' : 'Need a Quick Repair?'}
                 </Text>
                 <Text style={styles.biddingSubtitle}>
                   {isSi ? 'ඡායාරූපයක් ගන්න, සේවකයා අපි සොයන්නෙමු' : 'Take a photo, AI finds the right expert instantly'}

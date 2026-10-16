@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  ScrollView, 
-  TextInput, 
-  KeyboardAvoidingView, 
-  Platform, 
-  StyleSheet, 
-  TouchableOpacity, 
-  ActivityIndicator 
+import {
+  View,
+  ScrollView,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator
 } from 'react-native';
 import { Text, Avatar, IconButton, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -179,33 +179,33 @@ export default function ChatScreen({ route, navigation }) {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#111827' : '#F9FAFB' }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#162C49' : '#F5FAF6' }]}>
       {/* Header with Top Safe Area */}
-      <View 
+      <View
         style={[
-          styles.chatHeader, 
-          { 
-            backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
-            borderBottomColor: isDark ? '#374151' : '#E5E7EB',
+          styles.chatHeader,
+          {
+            backgroundColor: isDark ? '#162C49' : '#FFFFFF',
+            borderBottomColor: isDark ? '#374151' : '#D8E8DC',
             paddingTop: Math.max(insets.top, 20) + 10 // Dynamic top bar clearance
           }
         ]}
       >
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <MaterialCommunityIcons 
-            name="arrow-left" 
-            size={24} 
-            color={isDark ? '#F9FAFB' : '#1F2937'} 
+          <MaterialCommunityIcons
+            name="arrow-left"
+            size={24}
+            color={isDark ? '#F5FAF6' : '#162C49'}
           />
         </TouchableOpacity>
 
-        <Avatar.Text 
-          size={40} 
-          label={customer ? customer.charAt(0).toUpperCase() : 'C'} 
-          style={{ backgroundColor: theme.colors.primary }} 
+        <Avatar.Text
+          size={40}
+          label={customer ? customer.charAt(0).toUpperCase() : 'C'}
+          style={{ backgroundColor: theme.colors.primary }}
         />
         <View style={{ marginLeft: 12, flex: 1 }}>
-          <Text style={[styles.userName, { color: isDark ? '#F9FAFB' : '#1F2937' }]}>
+          <Text style={[styles.userName, { color: isDark ? '#F5FAF6' : '#162C49' }]}>
             {customer || 'Customer'}
           </Text>
           <Text style={styles.userStatus}>Online</Text>
@@ -213,7 +213,7 @@ export default function ChatScreen({ route, navigation }) {
       </View>
 
       {/* Keyboard Avoiding View wraps Messages + Input */}
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
@@ -224,7 +224,7 @@ export default function ChatScreen({ route, navigation }) {
             <ActivityIndicator size="large" color={theme.colors.primary} />
           </View>
         ) : (
-          <ScrollView 
+          <ScrollView
             ref={scrollViewRef}
             contentContainerStyle={{ padding: 20 }}
             onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
@@ -232,16 +232,16 @@ export default function ChatScreen({ route, navigation }) {
             {messages.map((item) => {
               const isMe = item.senderId === currentUserId;
               return (
-                <View 
-                  key={item._id || item.tempId || Math.random().toString()} 
+                <View
+                  key={item._id || item.tempId || Math.random().toString()}
                   style={[
-                    styles.bubble, 
-                    isMe 
-                      ? [styles.myBubble, { backgroundColor: theme.colors.primary }] 
-                      : [styles.theirBubble, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]
+                    styles.bubble,
+                    isMe
+                      ? [styles.myBubble, { backgroundColor: theme.colors.primary }]
+                      : [styles.theirBubble, { backgroundColor: isDark ? '#374151' : '#D8E8DC' }]
                   ]}
                 >
-                  <Text style={isMe ? styles.myText : [styles.theirText, { color: isDark ? '#F9FAFB' : '#1F2937' }]}>
+                  <Text style={isMe ? styles.myText : [styles.theirText, { color: isDark ? '#F5FAF6' : '#162C49' }]}>
                     {item.text}
                   </Text>
                 </View>
@@ -251,11 +251,11 @@ export default function ChatScreen({ route, navigation }) {
         )}
 
         {/* Input Bar with Bottom Safe Area Padding */}
-        <View 
+        <View
           style={[
-            styles.inputArea, 
-            { 
-              backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
+            styles.inputArea,
+            {
+              backgroundColor: isDark ? '#162C49' : '#FFFFFF',
               borderTopColor: isDark ? '#374151' : '#EEEEEE',
               paddingBottom: Math.max(insets.bottom, 10) // 2. Lifts box above bottom navbar
             }
@@ -264,13 +264,13 @@ export default function ChatScreen({ route, navigation }) {
           <TouchableOpacity style={styles.plusIcon}>
             <MaterialCommunityIcons name="plus" size={24} color={theme.colors.primary} />
           </TouchableOpacity>
-          
+
           <TextInput
             style={[
-              styles.input, 
-              { 
+              styles.input,
+              {
                 backgroundColor: isDark ? '#374151' : '#F3F4F6',
-                color: isDark ? '#F9FAFB' : '#111827'
+                color: isDark ? '#F5FAF6' : '#162C49'
               }
             ]}
             placeholder="Type a message..."
@@ -279,12 +279,12 @@ export default function ChatScreen({ route, navigation }) {
             onChangeText={setInputText}
             multiline
           />
-          
-          <IconButton 
-            icon="send" 
-            iconColor={theme.colors.primary} 
-            size={26} 
-            onPress={sendMessage} 
+
+          <IconButton
+            icon="send"
+            iconColor={theme.colors.primary}
+            size={26}
+            onPress={sendMessage}
           />
         </View>
       </KeyboardAvoidingView>
@@ -294,13 +294,13 @@ export default function ChatScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  chatHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingHorizontal: 15, 
-    paddingBottom: 12, 
+  chatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    elevation: 2 
+    elevation: 2
   },
   backButton: { marginRight: 10 },
   userName: { fontWeight: '700', fontSize: 16 },
@@ -311,20 +311,20 @@ const styles = StyleSheet.create({
   theirBubble: { alignSelf: 'flex-start', borderBottomLeftRadius: 2 },
   myText: { color: '#FFFFFF', fontSize: 15 },
   theirText: { fontSize: 15 },
-  inputArea: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingHorizontal: 10, 
-    paddingTop: 8, 
-    borderTopWidth: 1 
+  inputArea: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    borderTopWidth: 1
   },
   plusIcon: { paddingHorizontal: 8 },
-  input: { 
-    flex: 1, 
-    borderRadius: 22, 
-    paddingHorizontal: 16, 
-    paddingVertical: 8, 
-    maxHeight: 100, 
-    fontSize: 15 
+  input: {
+    flex: 1,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    maxHeight: 100,
+    fontSize: 15
   },
 });

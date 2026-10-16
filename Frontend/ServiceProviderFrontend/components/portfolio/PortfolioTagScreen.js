@@ -32,8 +32,8 @@ export default function PortfolioTagScreen({ images, onClose }) {
   const [accepting, setAccepting] = useState(false);
 
   const C = isDark
-    ? { bg: '#0f0f0f', card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', subCard: '#2a2a2a' }
-    : { bg: '#F8FAFC', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#E2E8F0', subCard: '#F1F5F9' };
+    ? { bg: '#0C0F0D', card: '#161C18', text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33', subCard: '#2a2a2a' }
+    : { bg: '#F5FAF6', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#D8E8DC', subCard: '#F1F5F9' };
 
   if (!images || images.length === 0) return null;
 
@@ -153,7 +153,7 @@ export default function PortfolioTagScreen({ images, onClose }) {
             <View style={[styles.predictionCard, { backgroundColor: C.card, borderColor: C.border }]}>
               <View style={styles.predictionTopRow}>
                 <View style={styles.badgeLabelRow}>
-                  <MaterialCommunityIcons name="robot" size={18} color="#6366F1" />
+                  <MaterialCommunityIcons name="robot" size={18} color="#15803D" />
                   <Text style={[styles.serviceTitle, { color: C.text }]}>
                     {currentImage.label || currentImage.category || 'Home Service'}
                   </Text>
@@ -167,8 +167,8 @@ export default function PortfolioTagScreen({ images, onClose }) {
 
               {currentImage.specific_label ? (
                 <View style={styles.specificWorkRow}>
-                  <MaterialIcons name="auto-awesome" size={14} color="#7C3AED" />
-                  <Text style={[styles.specificLabelText, { color: isDark ? '#C4B5FD' : '#6D28D9' }]}>
+                  <MaterialIcons name="auto-awesome" size={14} color="#166534" />
+                  <Text style={[styles.specificLabelText, { color: isDark ? '#B5DCC0' : '#166534' }]}>
                     Specific Work: {currentImage.specific_label}
                   </Text>
                 </View>
@@ -197,18 +197,18 @@ export default function PortfolioTagScreen({ images, onClose }) {
               {currentTags.map((tag) => (
                 <TouchableOpacity
                   key={tag}
-                  style={[styles.tag, { backgroundColor: isDark ? '#1F2937' : '#F1F5F9', borderColor: C.border }]}
+                  style={[styles.tag, { backgroundColor: isDark ? '#162C49' : '#F1F5F9', borderColor: C.border }]}
                   onPress={() => removeTag(tag)}
                   activeOpacity={0.7}
                 >
-                  <MaterialIcons name="local-offer" size={12} color="#6366F1" />
+                  <MaterialIcons name="local-offer" size={12} color="#15803D" />
                   <Text style={[styles.tagText, { color: C.text }]}>{tag}</Text>
                   <MaterialIcons name="close" size={14} color={C.textSub} />
                 </TouchableOpacity>
               ))}
 
               {showAddTag ? (
-                <View style={[styles.addTagInput, { borderColor: '#6366F1', backgroundColor: C.card }]}>
+                <View style={[styles.addTagInput, { borderColor: '#15803D', backgroundColor: C.card }]}>
                   <TextInput
                     value={newTag}
                     onChangeText={setNewTag}
@@ -219,7 +219,7 @@ export default function PortfolioTagScreen({ images, onClose }) {
                     onSubmitEditing={addTag}
                   />
                   <TouchableOpacity onPress={addTag}>
-                    <MaterialIcons name="check" size={18} color="#6366F1" />
+                    <MaterialIcons name="check" size={18} color="#15803D" />
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -286,8 +286,8 @@ const styles = StyleSheet.create({
     gap: 6, paddingBottom: 10, paddingTop: 6,
   },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#CBD5E1' },
-  dotActive: { width: 22, backgroundColor: '#6366F1' },
-  dotDone: { backgroundColor: '#A5B4FC' },
+  dotActive: { width: 22, backgroundColor: '#15803D' },
+  dotDone: { backgroundColor: '#86C99A' },
   image: { width: '100%', height: 260 },
   content: { padding: 18 },
 

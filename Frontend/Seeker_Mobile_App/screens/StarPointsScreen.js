@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useCallback, useState } from 'react';
 import {
   View,
@@ -88,20 +89,9 @@ export default function StarPointsScreen({ navigation }) {
       />
 
       {/* Header */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Star Points</Text>
-        <TouchableOpacity style={styles.helpButton}>
-          <Ionicons name="help-circle-outline" size={24} color="#fff" />
-        </TouchableOpacity>
-      </LinearGradient>
+      <PageHeader title={<>Star Points</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity style={styles.helpButton}>
+          <Ionicons name="help-circle-outline" size={24} color={textColor} />
+        </TouchableOpacity></>} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}

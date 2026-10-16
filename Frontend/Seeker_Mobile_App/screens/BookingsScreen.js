@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/BookingsScreen.js
 
 import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
@@ -428,16 +429,7 @@ export default function BookingsScreen({ navigation }) {
           barStyle="light-content"
           backgroundColor={isDarkMode ? '#0F172A' : '#4338CA'}
         />
-        <LinearGradient
-          colors={isDarkMode ? ['#0F172A', '#1E1B4B'] : ['#4338CA', '#4F46E5']}
-          style={styles.header}
-        >
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-            <Ionicons name="arrow-back" size={22} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</Text>
-          <View style={{ width: 38 }} />
-        </LinearGradient>
+        <PageHeader title={<>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</>} onBack={() => navigation.goBack()} />
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#4F46E5" />
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
@@ -459,32 +451,13 @@ export default function BookingsScreen({ navigation }) {
       />
 
       {/* Top Header - Compact & Clean */}
-      <LinearGradient
-        colors={isDarkMode ? ['#0F172A', '#1E1B4B'] : ['#4338CA', '#4F46E5']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.headerBtn}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="arrow-back" size={22} color="#fff" />
-        </TouchableOpacity>
-
-        <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.headerBtn}
+      <PageHeader title={<>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity
+          style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
           onPress={onRefresh}
           activeOpacity={0.8}
         >
-          <Ionicons name="refresh-outline" size={20} color="#fff" />
-        </TouchableOpacity>
-      </LinearGradient>
+          <Ionicons name="refresh-outline" size={20} color={textColor} />
+        </TouchableOpacity></>} />
 
       {/* Clean Top Controls: Filter Pills + Compact Search */}
       <View style={[styles.topControls, isDarkMode && styles.topControlsDark]}>

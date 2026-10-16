@@ -17,7 +17,7 @@ export default function MidAnnouncementCard() {
   return (
     <TouchableOpacity activeOpacity={0.95}>
       <LinearGradient
-        colors={['#7C3AED', '#8B5CF6', '#A78BFA']}
+        colors={['#166534', '#0284C7', '#86C99A']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradientBorder}
@@ -26,11 +26,11 @@ export default function MidAnnouncementCard() {
           {/* Decorative Circle */}
           <View style={styles.decorativeCircle1} />
           <View style={styles.decorativeCircle2} />
-          
+
           <View style={styles.header}>
             <View style={styles.iconWrapper}>
               <LinearGradient
-                colors={['#7C3AED', '#8B5CF6']}
+                colors={['#166534', '#0284C7']}
                 style={styles.iconGradient}
               >
                 <Text style={styles.icon}>{icon}</Text>
@@ -39,7 +39,7 @@ export default function MidAnnouncementCard() {
             <View style={styles.aiBadge}>
               <View style={styles.aiDot} />
               <Text style={styles.aiBadgeText}>AI SUGGESTION</Text>
-              <MaterialIcons name="auto-awesome" size={12} color="#7C3AED" />
+              <MaterialIcons name="auto-awesome" size={12} color="#166534" />
             </View>
           </View>
 
@@ -65,7 +65,7 @@ export default function MidAnnouncementCard() {
 
           <TouchableOpacity style={styles.btn}>
             <LinearGradient
-              colors={['#7C3AED', '#8B5CF6']}
+              colors={['#166534', '#0284C7']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.btnGradient}
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 1.5,
     marginBottom: 16,
-    shadowColor: '#7C3AED',
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#EAF7EE',
     opacity: 0.6,
   },
   decorativeCircle2: {
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#EDE9FE',
+    backgroundColor: '#DCF0E1',
     opacity: 0.4,
   },
   header: {
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#EAF7EE',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -155,13 +155,13 @@ const styles = StyleSheet.create({
   aiBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#166534',
     letterSpacing: 0.8,
   },
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1F2937',
+    color: '#162C49',
     marginBottom: 8,
     lineHeight: 24,
   },
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F5FAF6',
     borderRadius: 12,
     paddingVertical: 10,
     marginBottom: 16,
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   featureDivider: {
     width: 1,
     height: 20,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#D8E8DC',
   },
   btn: {
     borderRadius: 14,

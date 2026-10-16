@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/ProviderProfileScreen.js
 
 import React, { useState, useEffect } from 'react';
@@ -159,6 +160,7 @@ export default function ProviderProfileScreen({ route, navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <PageHeader title="Provider Profile" />
         {/* Profile card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarSection}>

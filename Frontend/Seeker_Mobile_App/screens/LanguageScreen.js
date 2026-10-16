@@ -1,3 +1,6 @@
+import { useTheme } from '../hooks/useTheme';
+import { COLORS } from './IT22129376/theme';
+import PageHeader from '../components/PageHeader';
 import React, { useContext, useState } from "react";
 import {
   View,
@@ -21,6 +24,8 @@ const { width, height } = Dimensions.get("window");
 
 export default function LanguageScreen({ navigation }) {
   const { t } = useTranslation();
+  const { isDarkMode } = useTheme();
+  const C = { bg: isDarkMode ? COLORS.darkBg : '#F8F8FC', card: isDarkMode ? COLORS.darkCard : '#FFFFFF', text: isDarkMode ? COLORS.darkText : COLORS.text, muted: isDarkMode ? COLORS.darkMuted : '#64748B', border: isDarkMode ? COLORS.darkBorder : '#E9E6F4' };
   const { changeLanguage } = useContext(LanguageContext);
   const [selectedLang, setSelectedLang] = useState(null);
   const fadeAnim = useState(new Animated.Value(0))[0];
@@ -64,7 +69,6 @@ export default function LanguageScreen({ navigation }) {
       id: "en",
       name: "English",
       nativeName: "English",
-      flag: "🇺🇸",
       description: "Connect with professionals globally",
       color: "#667eea",
     },
@@ -72,7 +76,6 @@ export default function LanguageScreen({ navigation }) {
       id: "si",
       name: "Sinhala",
       nativeName: "සිංහල",
-      flag: "🇱🇰",
       description: "ස්වදේශීය සේවා සපයන්නන් සමඟ සම්බන්ධ වන්න",
       color: "#764ba2",
     },
@@ -86,42 +89,25 @@ export default function LanguageScreen({ navigation }) {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+    <SafeAreaView style={[styles.container, { backgroundColor: C.bg }]}>
+      <PageHeader title="ServiceHub" onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Login")} />
       
       <Animated.ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         style={{ opacity: fadeAnim }}
       >
-        {/* Hero Section */}
-        <LinearGradient
-          colors={["#667eea", "#764ba2", "#f093fb"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroSection}
-        >
-          <View style={styles.logoWrapper}>
-            <View style={styles.logoContainer}>
-              <Ionicons name="briefcase" size={40} color="#fff" />
-            </View>
-            <View style={styles.logoDot} />
-          </View>
-          <Text style={styles.appName}>ServiceHub</Text>
-          <Text style={styles.tagline}>Connect with trusted professionals</Text>
-        </LinearGradient>
-
         {/* Features Section */}
         <View style={styles.featuresSection}>
-          <Text style={styles.sectionTitle}>Why Choose Us?</Text>
+          <Text style={[styles.sectionTitle, { color: C.text }]}>Why Choose Us?</Text>
           <View style={styles.featuresGrid}>
             {features.map((feature, index) => (
-              <View key={index} style={styles.featureCard}>
+              <View key={index} style={[styles.featureCard, { backgroundColor: C.card, borderColor: C.border }]}>
                 <View style={[styles.featureIcon, { backgroundColor: "#667eea15" }]}>
                   <Ionicons name={feature.icon} size={24} color="#667eea" />
                 </View>
-                <Text style={styles.featureTitle}>{feature.title}</Text>
-                <Text style={styles.featureDesc}>{feature.desc}</Text>
+                <Text style={[styles.featureTitle, { color: C.text }]}>{feature.title}</Text>
+                <Text style={[styles.featureDesc, { color: C.muted }]}>{feature.desc}</Text>
               </View>
             ))}
           </View>
@@ -129,8 +115,8 @@ export default function LanguageScreen({ navigation }) {
 
         {/* Language Selection */}
         <View style={styles.languageSection}>
-          <Text style={styles.sectionTitle}>Choose Your Language</Text>
-          <Text style={styles.sectionSubtitle}>Select your preferred language to continue</Text>
+          <Text style={[styles.sectionTitle, { color: C.text }]}>Choose Your Language</Text>
+          <Text style={[styles.sectionSubtitle, { color: C.muted }]}>Select your preferred language to continue</Text>
           
           {languages.map((lang) => (
             <TouchableOpacity
@@ -143,20 +129,20 @@ export default function LanguageScreen({ navigation }) {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={selectedLang === lang.id ? [lang.color, `${lang.color}CC`] : ["#ffffff", "#f8f9fa"]}
+                colors={selectedLang === lang.id ? [lang.color, `${lang.color}CC`] : [C.card, C.card]}
                 style={styles.cardGradient}
               >
                 <View style={styles.flagContainer}>
-                  <Text style={styles.flag}>{lang.flag}</Text>
+                  <Ionicons name="language-outline" size={28} color={lang.color} />
                 </View>
                 <View style={styles.languageInfo}>
-                  <Text style={[styles.languageName, selectedLang === lang.id && styles.languageNameSelected]}>
+                  <Text style={[styles.languageName, { color: C.text }, selectedLang === lang.id && styles.languageNameSelected]}>
                     {lang.name}
                   </Text>
-                  <Text style={[styles.languageNative, selectedLang === lang.id && styles.languageNativeSelected]}>
+                  <Text style={[styles.languageNative, { color: C.muted }, selectedLang === lang.id && styles.languageNativeSelected]}>
                     {lang.nativeName}
                   </Text>
-                  <Text style={[styles.languageDesc, selectedLang === lang.id && styles.languageDescSelected]}>
+                  <Text style={[styles.languageDesc, { color: C.muted }, selectedLang === lang.id && styles.languageDescSelected]}>
                     {lang.description}
                   </Text>
                 </View>
@@ -191,7 +177,7 @@ export default function LanguageScreen({ navigation }) {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>By continuing, you agree to our</Text>
+          <Text style={[styles.footerText, { color: C.muted }]}>By continuing, you agree to our</Text>
           <View style={styles.footerLinks}>
             <TouchableOpacity>
               <Text style={styles.footerLink}>Terms of Service</Text>
@@ -214,6 +200,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 40,
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
   },
   heroSection: {
     alignItems: "center",
@@ -259,7 +248,8 @@ const styles = StyleSheet.create({
   },
   featuresSection: {
     paddingHorizontal: 20,
-    paddingTop: 30,
+    paddingTop: 28,
+    paddingBottom: 24,
   },
   sectionTitle: {
     fontSize: 22,
@@ -275,12 +265,15 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   featuresGrid: {
+    marginTop: 24,
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
   },
   featureCard: {
-    width: (width - 50) / 2,
+    width: "48%",
+    minHeight: 156,
+    borderWidth: 1,
     backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
@@ -308,13 +301,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   featureDesc: {
-    fontSize: 11,
+    lineHeight: 18,
+    fontSize: 12,
     color: "#6B7280",
     textAlign: "center",
   },
   languageSection: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 12,
   },
   languageCard: {
     marginBottom: 16,

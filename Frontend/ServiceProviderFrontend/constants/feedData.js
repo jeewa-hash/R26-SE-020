@@ -6,7 +6,7 @@ export const CATEGORY_COLORS = {
   Plumbing: '#2196F3',
   Electrical: '#FF9800',
   Cleaning: '#4CAF50',
-  Painting: '#9C27B0',
+  Painting: '#166534',
   'AC Repair': '#00BCD4',
 };
 
@@ -18,8 +18,8 @@ export const ANNOUNCEMENTS = [
     titleSi: 'මෙම සතියේ ඉහළ ඉල්ලුම!',
     message: 'Plumbing services are 3x in demand in Colombo. Update your availability now.',
     messageSi: 'කොළඹ නළ සේවා ඉල්ලුම 3x ඉහළ ගොස් ඇත. ඔබේ ලබා ගැනීමේ හැකියාව යාවත්කාලීන කරන්න.',
-    color: '#2563EB',
-    bg: '#EFF6FF',
+    color: '#15803D',
+    bg: '#F1F5F2',
   },
   {
     id: 'a2',
@@ -28,8 +28,8 @@ export const ANNOUNCEMENTS = [
     titleSi: 'ඉඟිය: ඔබේ පැතිකඩ සම්පූර්ණ කරන්න',
     message: 'Providers with full profiles get 40% more job invites.',
     messageSi: 'සම්පූර්ණ පැතිකඩ ඇති සේවා සැපයුම්කරුවන්ට 40% වැඩි රැකියා ලැබේ.',
-    color: '#7C3AED',
-    bg: '#F5F3FF',
+    color: '#166534',
+    bg: '#F0F9F2',
   },
   {
     id: 'a3',

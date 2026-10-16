@@ -34,7 +34,7 @@ import {
   isOngoingBooking,
 } from '../services/providerFlowApi';
 
-const TABS = ['Calendar', 'Ongoing', 'Requests', 'Quotes', 'History'];
+const TABS = ['Ongoing', 'Requests', 'Quotes', 'Scheduled', 'History'];
 
 const dateKey = (date) => date.toISOString().slice(0, 10);
 
@@ -74,11 +74,11 @@ const formatMoney = (amount) => {
 const getStatusStyle = (status) => {
   const value = String(status || '').toUpperCase();
   if (value === 'CONFIRMED' || value === 'ACCEPTED') return { bg: '#D1FAE5', color: '#047857' };
-  if (value === 'ON_THE_WAY' || value === 'IN_PROGRESS' || value === 'QUOTED' || value === 'SENT') return { bg: '#DBEAFE', color: '#2563EB' };
+  if (value === 'ON_THE_WAY' || value === 'IN_PROGRESS' || value === 'QUOTED' || value === 'SENT') return { bg: '#DBEAFE', color: '#15803D' };
   if (value === 'DELAY_REPORTED' || value === 'RESCHEDULE_REQUESTED' || value === 'RESCHEDULING_REQUIRED') return { bg: '#FEF3C7', color: '#D97706' };
   if (value === 'REJECTED' || value === 'CANCELLED' || value === 'EXPIRED') return { bg: '#FEE2E2', color: '#DC2626' };
   if (value === 'COMPLETED' || value === 'RESCHEDULED') return { bg: '#F3F4F6', color: '#4B5563' };
-  return { bg: '#EEF2FF', color: '#6366F1' };
+  return { bg: '#EAF7EE', color: '#15803D' };
 };
 
 const matchesProvider = (item, providerId) => {
@@ -112,15 +112,15 @@ const getReminderText = (booking) => {
 export default function ProviderCalendarScreen({ navigation }) {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
   const C = {
-    bg: isDark ? '#0F172A' : '#F8FAFC',
-    card: isDark ? '#1E293B' : '#FFFFFF',
-    text: isDark ? '#F8FAFC' : '#1E293B',
+    bg: isDark ? '#0C0F0D' : '#F5FAF6',
+    card: isDark ? '#161C18' : '#FFFFFF',
+    text: isDark ? '#F5FAF6' : '#161C18',
     muted: isDark ? '#94A3B8' : '#64748B',
-    border: isDark ? '#334155' : '#E2E8F0',
+    border: isDark ? '#303C33' : '#D8E8DC',
     soft: isDark ? '#273449' : '#F1F5F9',
   };
   const [providerId, setProviderId] = useState(null);
-  const [activeTab, setActiveTab] = useState('Calendar');
+  const [activeTab, setActiveTab] = useState('Ongoing');
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
   const [requests, setRequests] = useState([]);
   const [quotations, setQuotations] = useState([]);
@@ -484,8 +484,11 @@ export default function ProviderCalendarScreen({ navigation }) {
     );
   };
 
+  const scheduledBookings = bookings.filter(booking => ['CONFIRMED', 'RESCHEDULED', 'RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED'].includes(getBookingStatus(booking)));
+  const tabCounts = { Ongoing: ongoingBookings.length, Requests: pendingRequests.length, Quotes: quotations.length, Scheduled: scheduledBookings.length, History: historyBookings.length };
+
   const renderBody = () => {
-    if (activeTab === 'Calendar') return renderCalendar();
+    if (activeTab === 'Scheduled') return scheduledBookings.length ? scheduledBookings.map(booking => renderBookingCard(booking, true)) : renderEmpty('calendar-outline', 'No scheduled jobs.', 'Confirmed bookings will appear here.');
     if (activeTab === 'Ongoing') {
       return ongoingBookings.length === 0
         ? renderEmpty('briefcase-outline', 'No ongoing jobs right now.', 'Jobs you start or jobs scheduled soon will appear here.')
@@ -518,10 +521,10 @@ export default function ProviderCalendarScreen({ navigation }) {
         <View style={[styles.header, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
           <View style={styles.headerTextWrap}>
             <Text style={[styles.headerTitle, { color: C.text }]}>My Jobs</Text>
-            <Text style={[styles.headerSubtitle, { color: C.muted }]}>Calendar, requests, quotes and ongoing work</Text>
+            <Text style={[styles.headerSubtitle, { color: C.muted }]}>Requests, quotes and ongoing work</Text>
           </View>
           <TouchableOpacity style={[styles.refreshButton, { backgroundColor: C.soft }]} onPress={onRefresh}>
-            <Ionicons name="refresh" size={20} color="#7C3AED" />
+            <Ionicons name="refresh" size={20} color="#166534" />
           </TouchableOpacity>
         </View>
 
@@ -531,7 +534,7 @@ export default function ProviderCalendarScreen({ navigation }) {
               const active = activeTab === tab;
               return (
                 <TouchableOpacity key={tab} style={[styles.tabPill, { backgroundColor: C.soft }, active && styles.tabPillActive]} onPress={() => setActiveTab(tab)}>
-                  <Text style={[styles.tabText, { color: C.muted }, active && styles.tabTextActive]}>{tab}</Text>
+                  <Text style={[styles.tabText, { color: C.muted }, active && styles.tabTextActive]}>{tab} ({tabCounts[tab]})</Text>
                 </TouchableOpacity>
               );
             })}
@@ -541,7 +544,7 @@ export default function ProviderCalendarScreen({ navigation }) {
         <View style={styles.contentContainer}>
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#667eea" />
+              <ActivityIndicator size="large" color="#15803D" />
               <Text style={[styles.loadingText, { color: C.muted }]}>Loading provider jobs...</Text>
             </View>
           ) : error ? (
@@ -557,15 +560,15 @@ export default function ProviderCalendarScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, minHeight: 0, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, minHeight: 0, backgroundColor: '#F5FAF6' },
   header: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 0.5 },
   headerTextWrap: { flex: 1 },
-  headerTitle: { fontSize: 24, fontWeight: '600', color: '#1E293B' },
+  headerTitle: { fontSize: 24, fontWeight: '600', color: '#161C18' },
   headerSubtitle: { fontSize: 12, fontWeight: '400', color: '#64748B', marginTop: 3 },
   refreshButton: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  tabsWrap: { flexShrink: 0, backgroundColor: '#F8FAFC', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  tabsWrap: { flexShrink: 0, backgroundColor: '#F5FAF6', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#D8E8DC' },
   tabPill: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, backgroundColor: '#F3F4F6', marginLeft: 10 },
-  tabPillActive: { backgroundColor: '#667eea' },
+  tabPillActive: { backgroundColor: '#15803D' },
   tabText: { color: '#6B7280', fontWeight: '500', fontSize: 13 },
   tabTextActive: { color: '#fff' },
   content: { flex: 1, minHeight: 0 },
@@ -574,16 +577,16 @@ const styles = StyleSheet.create({
   loadingText: { fontSize: 15, color: '#6B7280', marginTop: 8 },
   dateStrip: { flexGrow: 0, flexShrink: 0, marginBottom: 14 },
   datePill: { width: 86, paddingVertical: 12, borderRadius: 16, backgroundColor: '#fff', marginRight: 10, alignItems: 'center', borderWidth: 1, borderColor: '#EEF2F7' },
-  datePillActive: { backgroundColor: '#667eea', borderColor: '#667eea' },
+  datePillActive: { backgroundColor: '#15803D', borderColor: '#15803D' },
   datePillLabel: { color: '#6B7280', fontSize: 12, fontWeight: '500' },
-  datePillDay: { color: '#111827', fontSize: 20, fontWeight: '600', marginTop: 3 },
+  datePillDay: { color: '#162C49', fontSize: 20, fontWeight: '600', marginTop: 3 },
   datePillTextActive: { color: '#fff' },
-  sectionTitle: { fontSize: 20, fontWeight: '600', color: '#111827', marginTop: 6 },
+  sectionTitle: { fontSize: 20, fontWeight: '600', color: '#162C49', marginTop: 6 },
   summaryText: { color: '#6B7280', marginTop: 4, marginBottom: 14, fontSize: 13 },
   card: { backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 13, borderWidth: 1, borderColor: '#EEF2F7', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 },
   cardTitleWrap: { flex: 1, paddingRight: 10 },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#162C49' },
   cardSubText: { marginTop: 4, fontSize: 13, color: '#6B7280' },
   statusBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999 },
   statusText: { fontSize: 11, fontWeight: '600' },
@@ -593,12 +596,12 @@ const styles = StyleSheet.create({
   reminderBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFBEB', borderRadius: 12, padding: 10, marginBottom: 12 },
   reminderText: { color: '#92400E', fontSize: 12, fontWeight: '500', marginLeft: 8, flex: 1 },
   actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
-  secondaryButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#EEF2FF' },
-  secondaryButtonText: { color: '#4F46E5', fontWeight: '600', fontSize: 12 },
-  primaryButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#667eea' },
+  secondaryButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#EAF7EE' },
+  secondaryButtonText: { color: '#166534', fontWeight: '600', fontSize: 12 },
+  primaryButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#15803D' },
   primaryButtonText: { color: '#fff', fontWeight: '600', fontSize: 12 },
-  fullPrimaryButton: { marginTop: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: '#667eea', alignItems: 'center' },
-  fullSecondaryButton: { marginTop: 8, paddingVertical: 12, borderRadius: 12, backgroundColor: '#EEF2FF', alignItems: 'center' },
+  fullPrimaryButton: { marginTop: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: '#15803D', alignItems: 'center' },
+  fullSecondaryButton: { marginTop: 8, paddingVertical: 12, borderRadius: 12, backgroundColor: '#EAF7EE', alignItems: 'center' },
   warningButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#FEF3C7' },
   warningButtonText: { color: '#B45309', fontWeight: '600', fontSize: 12 },
   successButton: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 11, backgroundColor: '#D1FAE5' },

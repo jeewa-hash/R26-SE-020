@@ -12,8 +12,8 @@ export default function TagGallerySection({ tag, images, isNew }) {
   const [collapsed, setCollapsed] = useState(false);
 
   const C = isDark
-    ? { text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', chipBg: '#1c1c1e' }
-    : { text: '#111111', textSub: '#6B7280', border: '#E2E8F0', chipBg: '#F1F5F9' };
+    ? { text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33', chipBg: '#161C18' }
+    : { text: '#111111', textSub: '#6B7280', border: '#D8E8DC', chipBg: '#F1F5F9' };
 
   return (
     <View style={styles.section}>
@@ -47,7 +47,7 @@ export default function TagGallerySection({ tag, images, isNew }) {
           {images.map((img) => (
             <TouchableOpacity
               key={img.id}
-              style={[styles.imageWrapper, { backgroundColor: isDark ? '#1F2937' : '#E2E8F0' }]}
+              style={[styles.imageWrapper, { backgroundColor: isDark ? '#162C49' : '#D8E8DC' }]}
               onPress={() => setSelectedImage(img)}
               activeOpacity={0.85}
             >
@@ -89,14 +89,14 @@ const styles = StyleSheet.create({
   sectionLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tagDot: {
     width: 10, height: 10, borderRadius: 5,
-    backgroundColor: '#6366F1',
+    backgroundColor: '#15803D',
   },
   tagTitle: { fontSize: 15, fontWeight: '700' },
   newBadge: {
     backgroundColor: '#DBEAFE', borderRadius: 8,
     paddingHorizontal: 8, paddingVertical: 2,
   },
-  newText: { fontSize: 10, color: '#2563EB', fontWeight: '800' },
+  newText: { fontSize: 10, color: '#15803D', fontWeight: '800' },
   imageCount: {
     fontSize: 12, fontWeight: '600',
     borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2,
@@ -123,4 +123,4 @@ const styles = StyleSheet.create({
     borderRadius: 6, paddingHorizontal: 4, paddingVertical: 1,
   },
   confBadgeText: { fontSize: 9, color: '#FFFFFF', fontWeight: '800' },
-});
+});

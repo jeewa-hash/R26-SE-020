@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/CreatePostScreen.js
 
 import React, {
@@ -614,36 +615,9 @@ export default function CreatePostScreen() {
       />
 
       {/* Modern App Bar */}
-      <LinearGradient
-        colors={isDarkMode ? ['#0F172A', '#1E1B4B'] : ['#4338CA', '#4F46E5']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.headerBackBtn}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>
-            {isEditMode
+      <PageHeader title={<>{isEditMode
               ? (isSi ? 'පළකිරීම සංස්කරණය' : 'Edit Service Request')
-              : (isSi ? 'නව සේවා ඉල්ලුම' : 'Create Service Request')}
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            {isSi ? 'AI තාක්ෂණයෙන් පහසුවෙන් පළ කරන්න' : 'Powered by Smart AI Assistant'}
-          </Text>
-        </View>
-
-        <View style={styles.headerRightBadge}>
-          <Ionicons name="sparkles" size={14} color="#FDE047" />
-          <Text style={styles.aiBadgeText}>AI</Text>
-        </View>
-      </LinearGradient>
+              : (isSi ? 'නව සේවා ඉල්ලුම' : 'Create Service Request')}</>} subtitle={<>{isSi ? 'AI තාක්ෂණයෙන් පහසුවෙන් පළ කරන්න' : 'Powered by Smart AI Assistant'}</>} onBack={() => navigation.goBack()} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -747,6 +721,9 @@ export default function CreatePostScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>
                   {isSi ? 'අවශ්‍යතා සහ මනාපයන්' : 'Requirements & Schedule'}
+                </Text>
+                <Text style={[styles.cardSubtitle, { color: '#EF4444', fontWeight: '700' }]}>
+                  {isSi ? 'ස්ථානය, දිනය සහ හදිසිභාවය අනිවාර්ය වේ' : 'Location, Date, and Urgency are mandatory'}
                 </Text>
               </View>
             </View>
@@ -1291,7 +1268,7 @@ export default function CreatePostScreen() {
               </MapView>
               <View style={styles.mapHintBadge}>
                 <Text style={styles.mapHintText}>
-                  {isSi ? '📍 සිතියම මත අවශ්‍ය තැන tap කරන්න' : '📍 Tap anywhere on map to move pin'}
+                  {isSi ? 'සිතියම මත අවශ්‍ය තැන tap කරන්න' : 'Tap anywhere on map to move pin'}
                 </Text>
               </View>
             </View>
