@@ -52,22 +52,13 @@ const getLocationString = (userObj, isSi) => {
 
 const getMenuItems = (isSi) => [
   {
-    id: 'serviceSessions',
-    title: isSi ? 'මගේ සේවා සැසි' : 'My Service Sessions',
-    subtitle: isSi ? 'ක්‍රියාකාරී සේවාවන්' : 'Active sessions & schedules',
-    icon: 'assignment',
-    iconType: 'material',
-    color: '#4F46E5',
-    screen: 'SeekerServiceSessions',
-  },
-  {
-    id: 'myposts',
-    title: isSi ? 'මගේ පළ කිරීම්' : 'My Posts',
-    subtitle: isSi ? 'ඔබ පළ කළ ඉල්ලීම්' : 'Your posted service requests',
-    icon: 'newspaper',
+    id: 'calendar',
+    title: isSi ? 'දින දර්ශනය' : 'Calendar',
+    subtitle: isSi ? 'මාසික සහ සතිපතා සේවා සැලසුම්' : 'Month, week & agenda views',
+    icon: 'calendar',
     iconType: 'ion',
-    color: '#06B6D4',
-    screen: 'MyPostsScreen',
+    color: '#6366F1',
+    screen: 'SeekerCalendar',
   },
   {
     id: 'history',
