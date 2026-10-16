@@ -346,7 +346,7 @@ const Slideshow = ({ isDarkMode }) => {
           <View style={styles.slideHeaderRow}>
             <View style={styles.slideTagPill}>
               <Text style={styles.slideTagText}>
-                {item.isTopCategory ? '⭐ Top Category' : '📍 ' + (item.district || 'Recommended')}
+                {item.isTopCategory ? 'Top Category' : (item.district || 'Recommended')}
               </Text>
             </View>
 
@@ -863,7 +863,7 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.langBadgeText}>
-                  {isSi ? '🇱🇰 සිං' : '🇬🇧 EN'}
+                  {isSi ? 'සිං' : 'EN'}
                 </Text>
               </TouchableOpacity>
 
@@ -1070,7 +1070,7 @@ export default function HomeScreen() {
 
               <View style={styles.biddingTextContainer}>
                 <Text style={styles.biddingTitle}>
-                  {isSi ? '📸 කැඩුණු දෙයක් තිබේද?' : '📸 Need a Quick Repair?'}
+                  {isSi ? 'කැඩුණු දෙයක් තිබේද?' : 'Need a Quick Repair?'}
                 </Text>
                 <Text style={styles.biddingSubtitle}>
                   {isSi ? 'ඡායාරූපයක් ගන්න, සේවකයා අපි සොයන්නෙමු' : 'Take a photo, AI finds the right expert instantly'}

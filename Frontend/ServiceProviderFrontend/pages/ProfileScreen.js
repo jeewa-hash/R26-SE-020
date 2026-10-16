@@ -1,3 +1,6 @@
+import { useFocusEffect } from '@react-navigation/native';
+import { getStoredProviderAuth } from './IT22129376/services/providerAuthStorage';
+import { getProviderBookings } from '../services/providerFlowApi';
 import React, { useContext, useState, useEffect } from 'react';
 import {
   View, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Dimensions, Alert, Modal, Pressable, ActivityIndicator, Image
@@ -121,31 +124,45 @@ export default function ProfileScreen({ navigation }) {
     gender: '',
     profileImage: null,
     isVerified: false,
-    jobs: '0',
-    rating: '★',
-    completion: '%',
-    earned: 'K',
+
   });
 
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
 
-  useEffect(() => {
-    const fetchReviews = async () => {
+  const [bookingStats, setBookingStats] = useState(null);
+  const [ratingLoaded, setRatingLoaded] = useState(false);
+  useFocusEffect(React.useCallback(() => {
+    let active = true;
+    const load = async () => {
+      setBookingStats(null); setRatingLoaded(false); setReviews([]);
       try {
-        const providerId = await AsyncStorage.getItem('userId');
-        if (!providerId) return;
-        const res = await fetch(`${CONFIG.SEEKER_SERVICE_URL}/feedback/provider/${providerId}`);
-        if (res.ok) {
-          const data = await res.json();
-          setReviews(Array.isArray(data.data) ? data.data : []);
+        const auth = await getStoredProviderAuth();
+        if (!auth.isLoggedIn || !auth.providerId) return;
+        const results = await Promise.allSettled([
+          getProviderBookings(auth.providerId),
+          fetch(`${CONFIG.SEEKER_SERVICE_URL}/feedback/provider/${auth.providerId}`, { headers: { Authorization: `Bearer ${auth.token}` } }).then(async response => {
+            if (!response.ok) throw new Error('Reviews could not be loaded.');
+            const data = await response.json();
+            return Array.isArray(data.data) ? data.data : [];
+          }),
+        ]);
+        if (!active) return;
+        if (results[0].status === 'fulfilled') {
+          const bookings = results[0].value;
+          const completed = bookings.filter(item => String(item.bookingStatus || item.status).toUpperCase() === 'COMPLETED');
+          const closed = bookings.filter(item => ['COMPLETED', 'CANCELLED', 'EXPIRED'].includes(String(item.bookingStatus || item.status).toUpperCase()));
+          setBookingStats({ jobs: bookings.length, completion: closed.length ? `${Math.round(completed.length / closed.length * 100)}%` : '—', earned: completed.reduce((sum, item) => sum + (Number(item.finalAmount) || 0), 0) });
         }
-      } catch (error) { console.log('Error fetching provider feedback:', error); }
+        if (results[1].status === 'fulfilled') { setReviews(results[1].value); setRatingLoaded(true); }
+      } catch (error) { console.log('Profile statistics unavailable:', error.message); }
     };
-    fetchReviews();
-  }, []);
-
-
+    load();
+    return () => { active = false; };
+  }, []));
+  const validRatings = reviews.map(review => Number(review.rating)).filter(value => Number.isFinite(value) && value >= 1 && value <= 5);
+  const displayRating = ratingLoaded && validRatings.length ? `${(validRatings.reduce((sum, value) => sum + value, 0) / validRatings.length).toFixed(1)}★` : '—';
+  const displayEarned = bookingStats ? bookingStats.earned >= 1000000 ? `${(bookingStats.earned / 1000000).toFixed(1)}M` : bookingStats.earned >= 1000 ? `${(bookingStats.earned / 1000).toFixed(1)}K` : String(bookingStats.earned) : '—';
 
   // Fetch profile data
   useEffect(() => {
@@ -185,10 +202,7 @@ export default function ProfileScreen({ navigation }) {
             gender: p.gender || 'Not specified',
             profileImage: p.profileImage || null,
             isVerified: p.isVerified || false,
-            jobs: 'N/A',
-            rating: 'N/A★',
-            completion: 'N/A%',
-            earned: 'N/AK',
+
           });
 
         }
@@ -371,10 +385,10 @@ export default function ProfileScreen({ navigation }) {
 
           <View style={[styles.statsStrip, { borderTopColor: C.border }]}>
             {[
-              { val: profile.jobs, lbl: 'Jobs', icon: 'work', color: '#15803D' },
-              { val: profile.rating, lbl: 'Rating', icon: 'star', color: '#F59E0B' },
-              { val: profile.completion, lbl: 'Completion', icon: 'check-circle', color: '#16A34A' },
-              { val: profile.earned, lbl: 'Earned', icon: 'account-balance-wallet', color: '#166534' },
+              { val: bookingStats?.jobs ?? '—', lbl: 'Jobs', icon: 'work', color: '#15803D' },
+              { val: displayRating, lbl: 'Rating', icon: 'star', color: '#F59E0B' },
+              { val: bookingStats?.completion ?? '—', lbl: 'Completion', icon: 'check-circle', color: '#16A34A' },
+              { val: displayEarned, lbl: 'Earned', icon: 'account-balance-wallet', color: '#166534' },
             ].map((s, i, arr) => (
               <React.Fragment key={s.lbl}>
                 <View style={styles.statCell}>

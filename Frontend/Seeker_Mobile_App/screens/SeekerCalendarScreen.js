@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -47,11 +48,7 @@ export default function SeekerCalendarScreen({ navigation, embedded = false }) {
   const move = direction => { setDayOnly(false); setDate(current => view === 'Week' ? plusDays(current, direction * 7) : new Date(current.getFullYear(), current.getMonth() + direction, 1)); };
   const openBooking = booking => navigation.navigate('SeekerServiceSessionDetails', { sessionId: booking.externalSessionId || booking.sessionId, session: { sessionId: booking.externalSessionId || booking.sessionId, title: getHumanServiceTitle(booking), booking, bookings: [booking] } });
   return <SafeAreaView edges={embedded ? [] : ['top']} style={[styles.container, { backgroundColor: C.bg }]}>
-    <View style={styles.header}>
-      {!embedded && <TouchableOpacity accessibilityLabel="Back" onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="arrow-back" size={24} color={C.text} /></TouchableOpacity>}
-      <View style={styles.flex}><Text style={[styles.title, { color: C.text }]}>Calendar</Text><Text style={{ color: C.muted }}>Your booked services</Text></View>
-      <TouchableOpacity onPress={() => { setDate(dayOf(new Date())); setDayOnly(false); }} style={[styles.today, { borderColor: C.border }]}><Text style={{ color: C.accent }}>Today</Text></TouchableOpacity>
-    </View>
+    <PageHeader title="Calendar" showBack={!embedded} renderActions={({ textColor }) => <TouchableOpacity onPress={() => { setDate(dayOf(new Date())); setDayOnly(false); }} style={[styles.today, { borderColor: C.border }]}><Text style={{ color: C.accent }}>Today</Text></TouchableOpacity>} />
     <View style={[styles.tabs, { backgroundColor: C.card, borderColor: C.border }]}>{VIEWS.map(item => <TouchableOpacity key={item} accessibilityRole="tab" accessibilityState={{ selected: item === view }} style={[styles.tab, item === view && { backgroundColor: COLORS.primary }]} onPress={() => { setView(item); setDayOnly(false); }}><Text style={{ color: item === view ? '#fff' : C.muted, fontWeight: '600' }}>{item}</Text></TouchableOpacity>)}</View>
     <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={C.accent} />}>
       <View style={styles.period}><TouchableOpacity accessibilityLabel="Previous period" onPress={() => move(-1)} style={styles.iconButton}><Ionicons name="chevron-back" size={22} color={C.text} /></TouchableOpacity><Text style={[styles.periodTitle, { color: C.text }]}>{date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</Text><TouchableOpacity accessibilityLabel="Next period" onPress={() => move(1)} style={styles.iconButton}><Ionicons name="chevron-forward" size={22} color={C.text} /></TouchableOpacity></View>

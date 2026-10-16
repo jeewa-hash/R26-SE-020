@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useContext, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,10 +16,7 @@ export default function SeekerScheduleHubScreen({ route, navigation }) {
   const [tab, setTab] = useState(route.name === 'SeekerServiceSessions' ? 'Sessions' : 'Calendar');
   const C = { bg: isDarkMode ? COLORS.darkBg : COLORS.bg, card: isDarkMode ? COLORS.darkCard : COLORS.card, text: isDarkMode ? COLORS.darkText : COLORS.text, muted: isDarkMode ? COLORS.darkMuted : COLORS.muted, border: isDarkMode ? COLORS.darkBorder : COLORS.border };
   return <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: C.bg }]}>
-    <View style={styles.header}>
-      <TouchableOpacity accessibilityLabel="Back to profile" style={styles.back} onPress={() => navigation.navigate('ProfileScreen')}><Ionicons name="arrow-back" size={24} color={C.text} /></TouchableOpacity>
-      <Text style={[styles.title, { color: C.text }]}>{isSi ? 'දින දර්ශනය සහ සැසි' : 'Calendar & Sessions'}</Text>
-    </View>
+    <PageHeader title={isSi ? 'දින දර්ශනය සහ සැසි' : 'Calendar & Sessions'} onBack={() => navigation.navigate('ProfileScreen')} />
     <View style={[styles.tabs, { backgroundColor: C.card, borderColor: C.border }]}>
       {['Sessions', 'Calendar'].map(value => <TouchableOpacity key={value} accessibilityRole="tab" accessibilityState={{ selected: tab === value }} onPress={() => setTab(value)} style={[styles.tab, tab === value && styles.active]}><Ionicons name={value === 'Calendar' ? 'calendar-outline' : 'layers-outline'} size={19} color={tab === value ? '#fff' : C.muted} /><Text style={{ color: tab === value ? '#fff' : C.text, fontWeight: '600' }}>{isSi ? value === 'Sessions' ? 'සැසි' : 'දින දර්ශනය' : value}</Text></TouchableOpacity>)}
     </View>

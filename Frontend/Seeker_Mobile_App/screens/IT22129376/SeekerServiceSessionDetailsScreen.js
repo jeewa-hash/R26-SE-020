@@ -1,3 +1,4 @@
+import PageHeader from '../../components/PageHeader';
 import RequestedTimeModal from './components/RequestedTimeModal';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -154,15 +155,7 @@ const getQuoteStatusTone = (quote) => {
 
 function DetailsHeader({ isDarkMode, title, subtitle }) {
   return (
-    <LinearGradient
-      colors={isDarkMode ? ['#1a1a2e', '#16213e'] : [COLORS.primary, COLORS.primaryDark]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.header}
-    >
-      <Text style={styles.headerTitle}>{title}</Text>
-      <Text style={styles.headerSubtitle}>{subtitle}</Text>
-    </LinearGradient>
+    <PageHeader title={<>{title}</>} subtitle={<>{subtitle}</>} />
   );
 }
 
@@ -348,14 +341,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
         subtitle="Service session, provider requests and quotations"
       />
 
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="chevron-back" size={21} color="#fff" />
-        <Text style={styles.backButtonText}>Back</Text>
-      </TouchableOpacity>
+
 
       <ScrollView
         style={styles.scroll}

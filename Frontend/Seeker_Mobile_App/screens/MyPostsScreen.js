@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/FeedScreen.js
 
 import React, { useState, useEffect } from 'react';
@@ -263,31 +264,11 @@ export default function FeedScreen({ navigation }) {
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
 
-        <LinearGradient
-          colors={
-            isDarkMode
-              ? ['#1a1a2e', '#16213e']
-              : ['#667eea', '#764ba2']
-          }
-          style={styles.header}
-        >
-          <View style={styles.headerTitleRow}>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('ProfileScreen')}
-              accessibilityRole="button"
-              accessibilityLabel="Back to my profile"
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>My Posts</Text>
-          </View>
-          <TouchableOpacity
+        <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
             onPress={() => navigation.navigate('CreatePostScreen')}
           >
-            <Ionicons name="add-circle" size={28} color="#fff" />
-          </TouchableOpacity>
-        </LinearGradient>
+            <Ionicons name="add-circle" size={28} color={textColor} />
+          </TouchableOpacity></>} />
 
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
@@ -314,31 +295,11 @@ export default function FeedScreen({ navigation }) {
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
 
-        <LinearGradient
-          colors={
-            isDarkMode
-              ? ['#1a1a2e', '#16213e']
-              : ['#667eea', '#764ba2']
-          }
-          style={styles.header}
-        >
-          <View style={styles.headerTitleRow}>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('ProfileScreen')}
-              accessibilityRole="button"
-              accessibilityLabel="Back to my profile"
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>My Posts</Text>
-          </View>
-          <TouchableOpacity
+        <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
             onPress={() => navigation.navigate('CreatePostScreen')}
           >
-            <Ionicons name="add-circle" size={28} color="#fff" />
-          </TouchableOpacity>
-        </LinearGradient>
+            <Ionicons name="add-circle" size={28} color={textColor} />
+          </TouchableOpacity></>} />
 
         <View style={styles.centerContainer}>
           <Ionicons name="lock-closed-outline" size={60} color="#D1D5DB" />
@@ -369,32 +330,11 @@ export default function FeedScreen({ navigation }) {
       />
 
       {/* HEADER */}
-      <LinearGradient
-        colors={
-          isDarkMode
-            ? ['#1a1a2e', '#16213e']
-            : ['#667eea', '#764ba2']
-        }
-        style={styles.header}
-      >
-        <View style={styles.headerTitleRow}>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('ProfileScreen')}
-              accessibilityRole="button"
-              accessibilityLabel="Back to my profile"
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>My Posts</Text>
-          </View>
-
-        <TouchableOpacity
+      <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
           onPress={() => navigation.navigate('CreatePostScreen')}
         >
-          <Ionicons name="add-circle" size={28} color="#fff" />
-        </TouchableOpacity>
-      </LinearGradient>
+          <Ionicons name="add-circle" size={28} color={textColor} />
+        </TouchableOpacity></>} />
 
       {/* POSTS */}
       <ScrollView

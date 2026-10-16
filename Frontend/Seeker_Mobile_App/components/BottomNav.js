@@ -59,9 +59,9 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
     },
     {
       id: 'Profile',
-      label: isSi ? 'මගේ ගිණුම' : 'Profile',
-      icon: 'person-outline',
-      activeIcon: 'person',
+      label: isSi ? 'තවත්' : 'More',
+      icon: 'more-horiz',
+      activeIcon: 'more-horiz',
       routeName: 'ProfileScreen',
     },
   ];
@@ -101,7 +101,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
                 colors={isDarkMode ? ['#818cf8', '#6366f1'] : ['#4F46E5', '#7C3AED']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={[styles.createButton, { borderColor: isDarkMode ? '#0F172A' : '#ffffff' }]}
+                style={[styles.createButton, { borderColor: isDarkMode ? '#17192C' : '#ffffff' }]}
               >
                 <MaterialIcons name={item.icon} size={30} color="#fff" />
               </LinearGradient>
@@ -148,7 +148,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
 
 const styles = StyleSheet.create({
   navContainer: { flexShrink: 0, backgroundColor: '#ffffff' },
-  navContainerDark: { backgroundColor: '#0F172A' },
+  navContainerDark: { backgroundColor: '#17192C' },
   bottomNav: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },
-  bottomNavDark: { backgroundColor: '#0F172A', borderTopColor: '#283449' },
+  bottomNavDark: { backgroundColor: '#17192C', borderTopColor: '#302E49' },
   navItem: {
     flex: 1,
     minWidth: 0,

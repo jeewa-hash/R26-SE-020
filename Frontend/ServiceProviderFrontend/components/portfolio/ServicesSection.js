@@ -31,7 +31,7 @@ const resolveUrl = (raw) => {
   return raw;
 };
 
-export default function ServicesSection({ navigation, C, initialCategory, onAddImagePress }) {
+export default function ServicesSection({ navigation, C, initialCategory }) {
   const { isDark } = useContext(ThemeContext) || {};
   const [addedServices, setAddedServices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -85,10 +85,6 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddI
     fetchAddedServices();
   }, [fetchAddedServices]);
 
-  const handleAddImage = () => {
-    if (onAddImagePress) onAddImagePress();
-  };
-
   const handleCategoryPress = (categoryLabel) => {
     navigation.navigate('ServiceForm', {
       ...(typeof categoryLabel === 'string' ? { category: categoryLabel } : {}),
@@ -99,6 +95,7 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddI
     ? addedServices
     : addedServices.slice(0, INITIAL_SERVICE_LIMIT);
 
+  const accent = isDark ? '#86C99A' : '#15803D';
   const remainingServicesCount = Math.max(0, addedServices.length - INITIAL_SERVICE_LIMIT);
 
   return (
@@ -106,64 +103,55 @@ export default function ServicesSection({ navigation, C, initialCategory, onAddI
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: C.text }]}>My Services</Text>
         <TouchableOpacity
-          style={styles.addImageBtn}
+          style={[styles.addImageBtn, { backgroundColor: isDark ? '#86C99A' : '#15803D' }]}
           onPress={() => handleCategoryPress()}
           activeOpacity={0.8}
         >
-          <MaterialIcons name="add" size={15} color="#166534" />
-          <Text style={styles.addImageBtnText}>Add Services</Text>
+          <MaterialIcons name="add" size={17} color={isDark ? '#0C0F0D' : '#FFFFFF'} />
+          <Text style={[styles.addImageBtnText, { color: isDark ? '#0C0F0D' : '#FFFFFF' }]}>Add Services</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.servicesRow}>
-        {/* Primary category from signup */}
         {initialCategory && (
-          <View style={[styles.squareCard, {
-            backgroundColor: getMeta(initialCategory).color + '18',
-            borderColor: getMeta(initialCategory).color + '40',
-          }]}>
-            <View style={styles.primaryBadge}>
-              <MaterialIcons name="star" size={10} color="#F59E0B" />
+          <View style={[styles.serviceRow, { backgroundColor: C.subCard, borderColor: C.border }]}>
+            <View style={[styles.serviceIcon, { backgroundColor: accent + '18' }]}>
+              <MaterialIcons name={getMeta(initialCategory).icon} size={24} color={accent} />
             </View>
-            <MaterialIcons name={getMeta(initialCategory).icon} size={26} color={getMeta(initialCategory).color} />
-            <Text style={[styles.squareLabel, { color: getMeta(initialCategory).color }]} numberOfLines={1}>
-              {initialCategory}
-            </Text>
+            <View style={styles.serviceDetails}>
+              <Text style={[styles.serviceTitle, { color: C.text }]}>{initialCategory}</Text>
+              <Text style={[styles.serviceSubtitle, { color: C.textSub }]}>Primary service</Text>
+            </View>
+            <View style={[styles.primaryBadge, { backgroundColor: accent + '18' }]}>
+              <MaterialIcons name="star" size={14} color={accent} />
+            </View>
           </View>
         )}
-
-        {/* Services detected from tagged portfolio images */}
-        {displayedServices.map((svc) => {
-          const meta = getMeta(svc.categoryGroup);
-          return (
-            <TouchableOpacity
-              key={svc.id}
-              style={[styles.squareCard, { backgroundColor: meta.color + '18', borderColor: meta.color + '40' }]}
-              onPress={() => handleCategoryPress(svc.title)}
-              activeOpacity={0.85}
-            >
-              {/* Count badge */}
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{svc.count}</Text>
-              </View>
-
-              {/* Cover image or fallback icon */}
+        {displayedServices.map((svc) => (
+          <TouchableOpacity
+            key={svc.id}
+            style={[styles.serviceRow, { backgroundColor: C.subCard, borderColor: C.border }]}
+            onPress={() => handleCategoryPress(svc.title)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`View ${svc.title}`}
+          >
+            <View style={[styles.serviceIcon, { backgroundColor: accent + '18' }]}>
               {svc.coverImage ? (
-                <Image
-                  source={{ uri: svc.coverImage }}
-                  style={styles.coverImage}
-                  resizeMode="cover"
-                />
+                <Image source={{ uri: svc.coverImage }} style={styles.coverImage} resizeMode="cover" />
               ) : (
-                <MaterialIcons name={meta.icon} size={26} color={meta.color} />
+                <MaterialIcons name={getMeta(svc.categoryGroup).icon} size={24} color={accent} />
               )}
-
-              <Text style={[styles.squareLabel, { color: meta.color }]} numberOfLines={1}>
-                {svc.title}
+            </View>
+            <View style={styles.serviceDetails}>
+              <Text style={[styles.serviceTitle, { color: C.text }]}>{svc.title}</Text>
+              <Text style={[styles.serviceSubtitle, { color: C.textSub }]}>
+                {svc.count} portfolio photo{svc.count === 1 ? '' : 's'}
               </Text>
-            </TouchableOpacity>
-          );
-        })}
+            </View>
+            <MaterialIcons name="chevron-right" size={22} color={C.textSub} />
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* See More / Show Less Button */}
@@ -198,42 +186,24 @@ const styles = StyleSheet.create({
   sectionTitle:  { fontSize: 15, fontWeight: '700' },
 
   addImageBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#16653418',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#16653440',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingHorizontal: 12, minHeight: 36, borderRadius: 10,
   },
-  addImageBtnText: { fontSize: 12, color: '#166534', fontWeight: '700' },
-
-  servicesRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  squareCard: {
-    width: 88, height: 88, borderRadius: 14, borderWidth: 1,
-    justifyContent: 'center', alignItems: 'center', gap: 6,
-    position: 'relative', paddingHorizontal: 6, overflow: 'hidden',
+  addImageBtnText: { fontSize: 12, fontWeight: '700' },
+  servicesRow: { gap: 8 },
+  serviceRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 12, borderRadius: 12, borderWidth: 0.5,
   },
-  primaryBadge: { position: 'absolute', top: 6, right: 6, zIndex: 2 },
-  countBadge: {
-    position: 'absolute', top: 6, right: 6, zIndex: 2,
-    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 8,
-    minWidth: 16, paddingHorizontal: 4, alignItems: 'center',
+  serviceIcon: {
+    width: 44, height: 44, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
-  countBadgeText: { fontSize: 9, color: '#fff', fontWeight: '700' },
-  coverImage: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    width: '100%', height: '100%', opacity: 0.85,
-  },
-  squareLabel: {
-    fontSize: 11, fontWeight: '700', textAlign: 'center',
-    position: 'absolute', bottom: 6, zIndex: 2,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4,
-    color: '#fff',
-  },
+  serviceDetails: { flex: 1, minWidth: 0 },
+  serviceTitle: { fontSize: 14, fontWeight: '700' },
+  serviceSubtitle: { fontSize: 11, marginTop: 3 },
+  primaryBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  coverImage: { width: 44, height: 44 },
   seeMoreBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 4, marginTop: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1,

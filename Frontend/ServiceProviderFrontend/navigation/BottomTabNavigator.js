@@ -93,6 +93,33 @@ const DARK = {
   centerRing: 'rgba(134, 201, 154,0.12)',
 };
 
+function ProviderTabBar({ state, navigation, C }) {
+  const currentRoute = state.routes[state.index];
+  if (['ChatScreen', 'QuotationTemplate', 'InboxScreen'].includes(getFocusedRouteNameFromRoute(currentRoute))) return null;
+  return (
+    <View style={[styles.tabBar, { backgroundColor: C.bar, borderTopColor: C.barBorder }]}>
+      {state.routes.map((route, index) => {
+        const tab = TABS.find(item => item.name === route.name);
+        if (!tab) return null;
+        const focused = state.index === index;
+        return <TouchableOpacity
+          key={route.key}
+          style={styles.tabButton}
+          accessibilityRole="button"
+          accessibilityLabel={tab.label}
+          accessibilityState={{ selected: focused }}
+          activeOpacity={0.7}
+          onPress={() => {
+            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+          }}
+          onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
+        ><TabItem {...tab} focused={focused} C={C} /></TouchableOpacity>;
+      })}
+    </View>
+  );
+}
+
 function TabItem({ label, icon, iconActive, focused, C, hasNotif }) {
   const iconName = focused ? iconActive : icon;
 
@@ -101,7 +128,7 @@ function TabItem({ label, icon, iconActive, focused, C, hasNotif }) {
       <View style={[styles.iconWrap, focused && { backgroundColor: C.activeIcon === '#86C99A' ? '#202A23' : '#EAF7EE' }]}>
         <MaterialCommunityIcons
           name={iconName}
-          size={24}
+          size={23}
           color={focused ? C.activeIcon : C.inactiveIcon}
         />
 
@@ -121,12 +148,7 @@ function TabItem({ label, icon, iconActive, focused, C, hasNotif }) {
         {label}
       </Text>
 
-      <View
-        style={[
-          styles.activeDot,
-          { backgroundColor: focused ? C.indicator : 'transparent' },
-        ]}
-      />
+
     </View>
   );
 }
@@ -481,6 +503,7 @@ export default function BottomTabNavigator() {
       )}
 
       <Tab.Navigator
+        tabBar={props => <ProviderTabBar {...props} C={C} />}
         screenOptions={{
           headerShown: false,
           tabBarShowLabel: false,
@@ -557,7 +580,11 @@ export default function BottomTabNavigator() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    height: 76,
+    minHeight: 76,
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 2,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#D8E8DC',
@@ -565,20 +592,21 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     elevation: 0,
   },
-  tabItem: { flex: 1, minWidth: 0, height: 60, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  tabButton: { flex: 1, minWidth: 0, minHeight: 60, alignItems: 'center', justifyContent: 'center' },
+  tabItem: { width: '100%', minWidth: 0, height: 60, alignItems: 'center', justifyContent: 'center', gap: 3 },
   iconWrap: { width: 38, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', position: 'relative' },
 
   tabLabel: {
     width: '100%',
     fontSize: 10,
-    lineHeight: 13,
+    lineHeight: 14,
     letterSpacing: 0,
     textAlign: 'center',
     fontWeight: '500',
   },
 
   tabLabelActive: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   activeDot: {

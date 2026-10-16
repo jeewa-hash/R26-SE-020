@@ -714,17 +714,17 @@ export default function ProviderPostsSection({ navigation, isDark }) {
         </Text>
       </View>
       <TouchableOpacity
-        style={styles.newPostBtn}
+        style={[styles.newPostBtn, { backgroundColor: isDark ? '#86C99A' : Colors.primary }]}
         onPress={handleNewPostPress}
         activeOpacity={0.8}
         disabled={checkingPenalty}
       >
         {checkingPenalty ? (
-          <ActivityIndicator size="small" color="#fff" />
+          <ActivityIndicator size="small" color={isDark ? '#0C0F0D' : '#fff'} />
         ) : (
           <>
-            <MaterialIcons name="add" size={16} color="#fff" />
-            <Text style={styles.newPostBtnText}>New Post</Text>
+            <MaterialIcons name="add" size={17} color={isDark ? '#0C0F0D' : '#fff'} />
+            <Text style={[styles.newPostBtnText, { color: isDark ? '#0C0F0D' : '#fff' }]}>New Post</Text>
           </>
         )}
       </TouchableOpacity>
@@ -759,7 +759,7 @@ export default function ProviderPostsSection({ navigation, isDark }) {
             disabled={checkingPenalty}
           >
             {checkingPenalty ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={isDark ? '#0C0F0D' : '#fff'} />
             ) : (
               <Text style={styles.emptyBtnText}>Create Post</Text>
             )}
@@ -847,9 +847,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: Colors.primary,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   newPostBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   scrollContent: {

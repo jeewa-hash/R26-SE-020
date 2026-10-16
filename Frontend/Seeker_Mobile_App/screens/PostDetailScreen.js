@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
@@ -102,13 +103,13 @@ export default function PostDetailScreen({ navigation, route }) {
   const getRiskStyle = (riskLevel) => {
     switch (riskLevel?.toLowerCase()) {
       case 'high':
-        return { bg: '#FEE2E2', color: '#DC2626', text: '🔴 HIGH' };
+        return { bg: '#FEE2E2', color: '#DC2626', text: 'HIGH' };
       case 'medium':
-        return { bg: '#FEF3C7', color: '#F59E0B', text: '🟡 MEDIUM' };
+        return { bg: '#FEF3C7', color: '#F59E0B', text: 'MEDIUM' };
       case 'low':
-        return { bg: '#D1FAE5', color: '#10B981', text: '🟢 LOW' };
+        return { bg: '#D1FAE5', color: '#10B981', text: 'LOW' };
       default:
-        return { bg: '#F3F4F6', color: '#6B7280', text: '⚪ UNKNOWN' };
+        return { bg: '#F3F4F6', color: '#6B7280', text: 'UNKNOWN' };
     }
   };
 
@@ -130,19 +131,7 @@ export default function PostDetailScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <LinearGradient
-        colors={['#667eea', '#764ba2']}
-        style={styles.header}
-      >
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Post Details</Text>
-        <View style={{ width: 40 }} />
-      </LinearGradient>
+      <PageHeader title={<>Post Details</>} onBack={() => navigation.goBack()} />
 
       <ScrollView
         style={styles.content}
