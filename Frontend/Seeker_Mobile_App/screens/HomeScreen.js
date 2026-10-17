@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  SafeAreaView,
   LayoutAnimation,
   Platform,
   UIManager,
@@ -18,7 +19,6 @@ import {
   RefreshControl,
 } from 'react-native';
 import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,7 +30,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import { useNotification } from '../context/NotificationContext';
-import { AUTH_SERVICE_URL, API_BASE_URL, CONFIG, IP_ADDRESS } from '../config';
+import { AUTH_SERVICE_URL, API_BASE_URL, CONFIG, IP_ADDRESS, IMAGE_CLASSIFIER_URL } from '../config';
 import {
   getBookingEndDate,
   getBookingStartDate,
@@ -139,7 +139,7 @@ const Slideshow = ({ isDarkMode }) => {
         // Fallback to Seeker_Service endpoint if needed
         if (!response || !response.success) {
           try {
-            const fallbackUrl = `http://${IP_ADDRESS}:6000/request-quotations/recommendations/seeker/${userId || 'guest'}`;
+            const fallbackUrl = `${API_BASE_URL}/request-quotations/recommendations/seeker/${userId || 'guest'}`;
             const res2 = await fetch(fallbackUrl, {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -346,7 +346,7 @@ const Slideshow = ({ isDarkMode }) => {
           <View style={styles.slideHeaderRow}>
             <View style={styles.slideTagPill}>
               <Text style={styles.slideTagText}>
-                {item.isTopCategory ? 'Top Category' : (item.district || 'Recommended')}
+                {item.isTopCategory ? '⭐ Top Category' : '📍 ' + (item.district || 'Recommended')}
               </Text>
             </View>
 
@@ -708,7 +708,7 @@ export default function HomeScreen() {
       }
 
       const appLanguage = language === 'si' ? 'si' : 'en';
-      const url = `${CONFIG.TEXT_MODEL_URL}/text-predict`;
+      const url = `http://${IP_ADDRESS}:5002/text-predict`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -727,28 +727,7 @@ export default function HomeScreen() {
         return;
       }
 
-      const responseText = await response.text();
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch {
-        console.error('Search returned a non-JSON response:', {
-          url,
-          status: response.status,
-          contentType: response.headers.get('content-type'),
-        });
-        Alert.alert(
-          'Search Service Error',
-          `The search service returned an unexpected response (HTTP ${response.status}). Check that the text ML service is running at ${CONFIG.TEXT_MODEL_URL}.`,
-        );
-        return;
-      }
-
-      if (!response.ok || !data || typeof data !== 'object') {
-        Alert.alert('Search Service Error', data?.error || data?.message || `Search failed (HTTP ${response.status}).`);
-        return;
-      }
-
+      const data = await response.json();
 
       if (data.session_id) {
         navigation.navigate('FollowUpScreen', {
@@ -800,7 +779,7 @@ export default function HomeScreen() {
 
       formData.append('app_lan', language === 'si' ? 'si' : 'en');
 
-      const response = await fetch(`${CONFIG.IMAGE_CLASSIFIER_URL}/predict`, {
+      const response = await fetch(`${IMAGE_CLASSIFIER_URL}/predict`, {
         method: 'POST',
         body: formData,
         headers: {
@@ -848,7 +827,7 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error('IMAGE CLASSIFIER REQUEST FAILED:', {
-        url: `${CONFIG.IMAGE_CLASSIFIER_URL}/predict`,
+        url: `${IMAGE_CLASSIFIER_URL}/predict`,
         error: error?.message,
       });
       Alert.alert(
@@ -896,24 +875,11 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.langBadgeText}>
-                  {isSi ? 'සිං' : 'EN'}
+                  {isSi ? '🇱🇰 සිං' : '🇬🇧 EN'}
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.headerIconBtn}
-                onPress={toggleTheme}
-                accessibilityLabel="Toggle theme"
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name={isDarkMode ? 'moon' : 'sunny'}
-                  size={22}
-                  color={isDarkMode ? '#818cf8' : '#F59E0B'}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.headerIconBtn} accessibilityLabel="Messages" onPress={handleChatPress}>
+              <TouchableOpacity style={styles.headerIconBtn} onPress={handleChatPress}>
                 <Ionicons name="chatbubble-ellipses-outline" size={22} color="#444" />
                 {totalUnreadMessages > 0 && (
                   <View style={styles.badge}>
@@ -924,7 +890,7 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.headerIconBtn} accessibilityLabel="Notifications" onPress={handleNotifications}>
+              <TouchableOpacity style={styles.headerIconBtn} onPress={handleNotifications}>
                 <Ionicons name="notifications-outline" size={22} color="#444" />
                 {notificationUnreadCount > 0 && (
                   <View style={styles.badge}>
@@ -935,7 +901,17 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={toggleTheme}
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name={isDarkMode ? 'moon' : 'sunny'}
+                  size={22}
+                  color={isDarkMode ? '#818cf8' : '#F59E0B'}
+                />
+              </TouchableOpacity>
             </View>
           </View>
         </LinearGradient>
@@ -1103,7 +1079,7 @@ export default function HomeScreen() {
 
               <View style={styles.biddingTextContainer}>
                 <Text style={styles.biddingTitle}>
-                  {isSi ? 'කැඩුණු දෙයක් තිබේද?' : 'Need a Quick Repair?'}
+                  {isSi ? '📸 කැඩුණු දෙයක් තිබේද?' : '📸 Need a Quick Repair?'}
                 </Text>
                 <Text style={styles.biddingSubtitle}>
                   {isSi ? 'ඡායාරූපයක් ගන්න, සේවකයා අපි සොයන්නෙමු' : 'Take a photo, AI finds the right expert instantly'}

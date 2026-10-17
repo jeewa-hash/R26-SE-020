@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CONFIG, IP_ADDRESS } from "../config";
+import { CONFIG, API_BASE_URL } from "../config";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../hooks/useTheme";
 import RequestQuotationModal from "./IT22129376/components/RequestQuotationModal";
@@ -21,7 +21,7 @@ import RequestQuotationModal from "./IT22129376/components/RequestQuotationModal
 // --------------------------------------------------------------
 // 🔥 Build URL with IP from config
 // --------------------------------------------------------------
-const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
+const QUOTATION_API_URL = `${API_BASE_URL}/request-quotations`;
 
 export default function ProvidersScreen({ route, navigation }) {
   const {
@@ -38,7 +38,7 @@ export default function ProvidersScreen({ route, navigation }) {
   const [quotationModalVisible, setQuotationModalVisible] = useState(false);
   const [requestedProviderIds, setRequestedProviderIds] = useState(new Set());
 
-  const summary = finalDecision?.summary || {};
+  const summary = finalDecision?.summary || finalDecision || {};
   const sessionId = summary.session_id || finalDecision?.session_id || null;
 
   // Load seeker ID
@@ -89,7 +89,7 @@ export default function ProvidersScreen({ route, navigation }) {
    * PROVIDERS
    * ==========================================================
    */
-  const providerMatching = finalDecision?.summary?.provider_matching || {};
+  const providerMatching = summary.provider_matching || {};
   const rawProviders = providerMatching.providers || [];
   const providers = rawProviders.filter((item) => {
     const p = item?.provider || item || {};

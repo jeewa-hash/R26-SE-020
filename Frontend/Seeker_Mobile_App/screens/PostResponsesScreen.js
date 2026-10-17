@@ -19,13 +19,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS, AUTH_SERVICE_URL, PROVIDER_API_BASE, API_BASE_URL } from '../config';
+import { AUTH_SERVICE_URL, PROVIDER_API_BASE, API_BASE_URL } from '../config';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import axios from 'axios';
 import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
 
-const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
+const QUOTATION_API_URL = `${API_BASE_URL}/request-quotations`;
 
 export default function PostResponsesScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();

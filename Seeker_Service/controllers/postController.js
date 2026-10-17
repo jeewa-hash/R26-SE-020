@@ -9,7 +9,7 @@ import axios from "axios";
 // =======================================================
 
 const AUTH_SERVICE_URL =
-  process.env.AUTH_SERVICE_URL || "http://localhost:4003";
+  process.env.AUTH_SERVICE_URL || "https://r26-auth-service.onrender.com";
 
 
 // =======================================================
@@ -425,16 +425,16 @@ export const publishPost = async (req, res) => {
     }
 
     // Check whether user exists
-    const user = await getUserById(userId); // ✅ variable is "user"
+    const user = await getUserById(actualId);
 
-    if (!user) { // ✅ now checks "user" not "rawUser"
+    if (!user) {
       return res.status(404).json({
         success: false,
         error: "User not found in Auth Service",
       });
     }
 
-    const userInfo = buildUserInfo(user, userId); // ✅ uses "user"
+    const userInfo = buildUserInfo(user, actualId);
 
     const posterEmbed = {
       name: userInfo.name,
@@ -455,7 +455,6 @@ export const publishPost = async (req, res) => {
       urgency,
       location: typeof location === "string" ? { address: location } : location,
       preferredSchedule: preferredSchedule || {},
-      userId,
     });
 
     await newPost.save();
