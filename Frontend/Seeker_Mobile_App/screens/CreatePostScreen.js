@@ -33,9 +33,7 @@ import * as Location from 'expo-location';
 import MapView, { Marker } from '../components/SafeMapView';
 import { LanguageContext } from '../context/LanguageContext';
 import { useTheme } from '../hooks/useTheme';
-import { IP_ADDRESS } from '../config';
-
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
+import { API_BASE_URL } from '../config';
 
 const SRI_LANKA_DISTRICTS = [
   'Colombo', 'Gampaha', 'Kalutara', 'Kandy', 'Matale', 'Nuwara Eliya',

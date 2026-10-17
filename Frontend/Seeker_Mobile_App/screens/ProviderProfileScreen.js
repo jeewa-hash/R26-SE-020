@@ -15,12 +15,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CONFIG, IP_ADDRESS } from '../config';
+import { CONFIG, API_BASE_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
 import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
 
 const { width } = Dimensions.get('window');
-const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
+const QUOTATION_API_URL = `${API_BASE_URL}/request-quotations`;
 
 export default function ProviderProfileScreen({ route, navigation }) {
   const {

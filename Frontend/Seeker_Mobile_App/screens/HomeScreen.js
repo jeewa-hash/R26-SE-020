@@ -30,7 +30,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import { useNotification } from '../context/NotificationContext';
-import { AUTH_SERVICE_URL, API_BASE_URL, CONFIG, IP_ADDRESS } from '../config';
+import { AUTH_SERVICE_URL, API_BASE_URL, CONFIG, IP_ADDRESS, IMAGE_CLASSIFIER_URL } from '../config';
 import {
   getBookingEndDate,
   getBookingStartDate,
@@ -139,7 +139,7 @@ const Slideshow = ({ isDarkMode }) => {
         // Fallback to Seeker_Service endpoint if needed
         if (!response || !response.success) {
           try {
-            const fallbackUrl = `http://${IP_ADDRESS}:6000/request-quotations/recommendations/seeker/${userId || 'guest'}`;
+            const fallbackUrl = `${API_BASE_URL}/request-quotations/recommendations/seeker/${userId || 'guest'}`;
             const res2 = await fetch(fallbackUrl, {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -779,7 +779,7 @@ export default function HomeScreen() {
 
       formData.append('app_lan', language === 'si' ? 'si' : 'en');
 
-      const response = await fetch(`http://${IP_ADDRESS}:8000/predict`, {
+      const response = await fetch(`${IMAGE_CLASSIFIER_URL}/predict`, {
         method: 'POST',
         body: formData,
         headers: {

@@ -19,12 +19,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, API_BASE_URL } from '../config';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import { LanguageContext } from '../context/LanguageContext';
 
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
 
 // ─────────────────────────────────────────────────────────────
