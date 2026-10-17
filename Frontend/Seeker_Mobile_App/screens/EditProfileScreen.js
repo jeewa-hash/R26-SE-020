@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/EditProfileScreen.js
 import React, { useState, useEffect } from 'react';
 import {
@@ -21,10 +22,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL as LIVE_AUTH_URL } from '../config';
 
-const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003/seeker`;
-const BASE_AUTH_URL = `http://${IP_ADDRESS}:4003`;
+const BASE_AUTH_URL = LIVE_AUTH_URL || `http://${IP_ADDRESS}:4003`;
+const AUTH_SERVICE_URL = `${BASE_AUTH_URL}/seeker`;
 
 // ─── Helper: build full image URL ──────────────────────────
 const getFullImageUrl = (imagePath) => {
@@ -197,18 +198,7 @@ export default function EditProfileScreen() {
       <StatusBar barStyle="light-content" backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'} />
 
       {/* Header */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <View style={{ width: 40 }} />
-      </LinearGradient>
+      <PageHeader title={<>Edit Profile</>} onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* ─── Avatar Section ────────────────────────────────── */}

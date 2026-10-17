@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/ChatListScreen.js
 import React, { useState, useEffect } from 'react';
 import {
@@ -188,31 +189,9 @@ export default function ChatListScreen() {
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <View style={styles.titleRow}>
-            <Text style={styles.headerTitle}>Messages</Text>
-            {totalUnreadMessages > 0 && (
-              <View style={styles.headerUnreadBadge}>
-                <Text style={styles.headerUnreadText}>
-                  {totalUnreadMessages > 99 ? '99+' : totalUnreadMessages}
-                </Text>
-              </View>
-            )}
-          </View>
-          <TouchableOpacity style={styles.newChatButton}>
-            <Ionicons name="create-outline" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+      <PageHeader title={<>Messages</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity style={styles.newChatButton}>
+            <Ionicons name="create-outline" size={24} color={textColor} />
+          </TouchableOpacity></>} />
 
       <View style={[styles.searchContainer, isDarkMode && styles.searchContainerDark]}>
         <Ionicons name="search-outline" size={20} color={isDarkMode ? "#9CA3AF" : "#9CA3AF"} />

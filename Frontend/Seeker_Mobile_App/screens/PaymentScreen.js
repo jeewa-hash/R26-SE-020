@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, TextInput, Platform, StatusBar, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,20 +59,9 @@ export default function PaymentScreen({ navigation }) {
       />
       
       {/* Header */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payment Methods</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => setShowAddCard(true)}>
-          <Ionicons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
-      </LinearGradient>
+      <PageHeader title={<>Payment Methods</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity style={styles.addButton} onPress={() => setShowAddCard(true)}>
+          <Ionicons name="add" size={24} color={textColor} />
+        </TouchableOpacity></>} />
 
       <ScrollView 
         contentContainerStyle={styles.content}

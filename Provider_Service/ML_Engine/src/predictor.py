@@ -16,7 +16,7 @@ from PIL import Image
 
 # ─── Config ───────────────────────────────────────────────────────────────────
 
-MODEL_DIR            = r"E:\4th year\semester 1\Research\R26-SE-020\Provider_Service\ML_Engine\src\saved"
+MODEL_DIR            = os.getenv("MODEL_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "saved"))
 CONFIDENCE_THRESHOLD = 0.55     # Below this → rejected even if not "other"
 ENTROPY_THRESHOLD    = 0.80     # Above this (normalised) → rejected (model confused)
 

@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/FeedScreen.js
 
 import React, { useState, useEffect } from 'react';
@@ -263,21 +264,11 @@ export default function FeedScreen({ navigation }) {
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
 
-        <LinearGradient
-          colors={
-            isDarkMode
-              ? ['#1a1a2e', '#16213e']
-              : ['#667eea', '#764ba2']
-          }
-          style={styles.header}
-        >
-          <Text style={styles.headerTitle}>My Posts</Text>
-          <TouchableOpacity
+        <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
             onPress={() => navigation.navigate('CreatePostScreen')}
           >
-            <Ionicons name="add-circle" size={28} color="#fff" />
-          </TouchableOpacity>
-        </LinearGradient>
+            <Ionicons name="add-circle" size={28} color={textColor} />
+          </TouchableOpacity></>} />
 
         <View style={styles.loadingContainer}>
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
@@ -304,21 +295,11 @@ export default function FeedScreen({ navigation }) {
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
 
-        <LinearGradient
-          colors={
-            isDarkMode
-              ? ['#1a1a2e', '#16213e']
-              : ['#667eea', '#764ba2']
-          }
-          style={styles.header}
-        >
-          <Text style={styles.headerTitle}>My Posts</Text>
-          <TouchableOpacity
+        <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
             onPress={() => navigation.navigate('CreatePostScreen')}
           >
-            <Ionicons name="add-circle" size={28} color="#fff" />
-          </TouchableOpacity>
-        </LinearGradient>
+            <Ionicons name="add-circle" size={28} color={textColor} />
+          </TouchableOpacity></>} />
 
         <View style={styles.centerContainer}>
           <Ionicons name="lock-closed-outline" size={60} color="#D1D5DB" />
@@ -349,22 +330,11 @@ export default function FeedScreen({ navigation }) {
       />
 
       {/* HEADER */}
-      <LinearGradient
-        colors={
-          isDarkMode
-            ? ['#1a1a2e', '#16213e']
-            : ['#667eea', '#764ba2']
-        }
-        style={styles.header}
-      >
-        <Text style={styles.headerTitle}>My Posts</Text>
-
-        <TouchableOpacity
+      <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
           onPress={() => navigation.navigate('CreatePostScreen')}
         >
-          <Ionicons name="add-circle" size={28} color="#fff" />
-        </TouchableOpacity>
-      </LinearGradient>
+          <Ionicons name="add-circle" size={28} color={textColor} />
+        </TouchableOpacity></>} />
 
       {/* POSTS */}
       <ScrollView
@@ -637,6 +607,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     paddingTop: Platform.OS === 'ios' ? 12 : 16,
+  },
+
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   headerTitle: {

@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -16,11 +17,13 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL } from '../config';
 import { useTheme } from '../hooks/useTheme';
 import { useNotification } from '../context/NotificationContext';
 
-const API_URL = `http://${IP_ADDRESS}:4003/seeker`;
+const API_URL = AUTH_SERVICE_URL
+  ? `${AUTH_SERVICE_URL}/seeker`
+  : `http://${IP_ADDRESS}:4003/seeker`;
 const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:3002`;
 const QUOTATIONS_URL = `${PROVIDER_SERVICE_URL}/api/provider/quotations/seeker/me`;
 const READ_QUOTES_KEY = 'readQuotes';
@@ -319,20 +322,7 @@ export default function NotificationScreen({ navigation }) {
           barStyle="light-content"
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
-        <LinearGradient
-          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
-        >
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={26} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Notifications</Text>
-            <View style={{ width: 40 }} />
-          </View>
-        </LinearGradient>
+        <PageHeader title={<>Notifications</>} onBack={() => navigation.goBack()} />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#007bff'} />
         </View>
@@ -349,20 +339,7 @@ export default function NotificationScreen({ navigation }) {
       />
 
       {/* ========== GRADIENT HEADER ========== */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={26} color="#fff" />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: '#fff' }]}>Notifications</Text>
-          <View style={{ width: 40 }} />
-        </View>
-      </LinearGradient>
+      <PageHeader title={<>Notifications</>} onBack={() => navigation.goBack()} />
 
       <View style={styles.container}>
         {/* Tabs – no border */}

@@ -3,7 +3,6 @@ import { StyleSheet, Text, View } from 'react-native';
 import ScreenShell from './ScreenShell';
 import ActionButton from './components/ActionButton';
 import InfoRow from './components/InfoRow';
-import CoordinationSummaryCard from './components/CoordinationSummaryCard';
 import EmptyJobsState from './components/EmptyJobsState';
 import { COLORS } from './theme';
 import { formatCurrency, formatDateTime, formatDuration } from './utils/dateTimeFormatter';
@@ -49,9 +48,10 @@ export default function QuoteDetailsScreen({ route, navigation }) {
       navigation={navigation}
       footer={
         <ActionButton
-          label="Check Availability & Risk"
+          label={quote.coordinationId && ['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus) ? 'Select & Continue to Confirmation' : 'Awaiting Provider Validation'}
+          disabled={!quote.coordinationId || !['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus)}
           icon="rule"
-          onPress={() => navigation.navigate('IT22129376CoordinationReview', { quote: normalizedQuote })}
+          onPress={() => navigation.navigate('IT22129376ConfirmJob', { quote: normalizedQuote })}
         />
       }
     >
@@ -71,19 +71,13 @@ export default function QuoteDetailsScreen({ route, navigation }) {
         <View style={styles.divider} />
 
         <InfoRow icon="person" label="Provider" value={getProvider(quote)} isDarkMode={isDarkMode} />
-        <InfoRow icon="schedule" label="Proposed Time" value={formatDateTime(quote.proposedStartTime || quote.coordinatedStartTime)} isDarkMode={isDarkMode} />
+        <InfoRow icon="schedule" label="Your Requested Time" value={formatDateTime(quote.proposedStartTime || quote.coordinatedStartTime)} isDarkMode={isDarkMode} />
         <InfoRow icon="timer" label="Estimated Duration" value={formatDuration(quote.estimatedDurationHours || quote.durationHours)} isDarkMode={isDarkMode} />
         <InfoRow icon="account-balance-wallet" label="Your Budget" value={formatCurrency(getBudget(quote))} isDarkMode={isDarkMode} />
         <InfoRow icon="tag" label="Quote Status" value={quote.status || 'SENT'} isDarkMode={isDarkMode} />
       </View>
 
-      <CoordinationSummaryCard
-        decision={quote.coordinationDecision || quote.coordinationStatus || 'NOT_CHECKED'}
-        recommendedAction="Review the coordination result before confirming the job."
-        conflictDetected={quote.scheduleEvaluation?.conflictDetected}
-        delayRiskLevel={quote.delayRiskLevel || quote.scheduleEvaluation?.delayRiskLevel}
-        isDarkMode={isDarkMode}
-      />
+
     </ScreenShell>
   );
 }

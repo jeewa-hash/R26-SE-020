@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
 from predictor import ServicePredictor
@@ -19,6 +20,7 @@ from routes.portfolio_routes import portfolio_bp
 from auth_service import get_current_user
 
 app = Flask(__name__)
+CORS(app)
 app.register_blueprint(portfolio_bp)
 
 # ─── Config ───────────────────────────────────────────────────────────────────

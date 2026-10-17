@@ -25,18 +25,18 @@ const LANGUAGES = [
 ];
 
 const SIDEBAR_MENU = [
-  { id: '1', icon: 'edit', label: 'Edit Profile', route: 'EditProfile', color: '#2563EB', bg: '#EFF6FF' },
-  { id: '2', icon: 'rate-review', label: 'Submit Inquiry', route: 'SubmitInquiry', color: '#7C3AED', bg: '#F5F3FF' },
+  { id: '1', icon: 'edit', label: 'Edit Profile', route: 'EditProfile', color: '#15803D', bg: '#F1F5F2' },
+  { id: '2', icon: 'rate-review', label: 'Submit Inquiry', route: 'SubmitInquiry', color: '#166534', bg: '#F0F9F2' },
   { id: '3', icon: 'emoji-events', label: 'Requested Qutations', route: 'Badges', color: '#F59E0B', bg: '#FFFBEB' },
   { id: '4', icon: 'credit-card', label: 'Applied Jobs', route: 'AppliedJobs', color: '#059669', bg: '#ECFDF5' },
-  { id: '5', icon: 'settings', label: 'Settings', route: 'Settings', color: '#6B7280', bg: '#F9FAFB' },
-  { id: '6', icon: 'help-outline', label: 'Help & Support', route: 'Help', color: '#0891B2', bg: '#ECFEFF' },
+  { id: '5', icon: 'settings', label: 'Settings', route: 'Settings', color: '#6B7280', bg: '#F5FAF6' },
+  { id: '6', icon: 'help-outline', label: 'Help & Support', route: 'Help', color: '#0284C7', bg: '#ECFEFF' },
 ];
 
-export default function ProfileHeader({ 
-  navigation: propNavigation, 
-  onLogout, 
-  externalVisible = false, 
+export default function ProfileHeader({
+  navigation: propNavigation,
+  onLogout,
+  externalVisible = false,
   onClose = null,
   userName = 'Kasun Perera',
   userInitials = 'KP',
@@ -47,7 +47,7 @@ export default function ProfileHeader({
   const { i18n } = useTranslation();
   const { isDark, toggleTheme } = useContext(ThemeContext);
   const { language, setLanguage } = useContext(LanguageContext);
-  
+
   // Use prop navigation or fallback to useNavigation hook
   const navigation = propNavigation || useNavigation();
 
@@ -119,7 +119,7 @@ export default function ProfileHeader({
   return (
     <>
       {/* ── Top Header Bar ── */}
-      {showHeader && <View style={[styles.header, { backgroundColor: isDark ? '#1c1c1e' : '#fff', borderBottomColor: isDark ? '#2c2c2e' : '#F0F0F5' }]}>
+      {showHeader && <View style={[styles.header, { backgroundColor: isDark ? '#161C18' : '#fff', borderBottomColor: isDark ? '#303C33' : '#F0F0F5' }]}>
         {/* Logo + App name */}
         <View style={styles.brandRow}>
           <View style={[styles.logoBox, { backgroundColor: isDark ? '#fff' : '#111' }]}>
@@ -134,15 +134,15 @@ export default function ProfileHeader({
         {/* Right actions */}
         <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.iconBtn, { backgroundColor: isDark ? '#2c2c2e' : '#F5F5F7', borderColor: isDark ? '#3a3a3c' : '#EBEBEB' }]}
-            onPress={() => navigation.navigate('Notifications')}
+            style={[styles.iconBtn, { backgroundColor: isDark ? '#303C33' : '#F5F5F7', borderColor: isDark ? '#3a3a3c' : '#EBEBEB' }]}
+            onPress={() => navigation.navigate('HomeTab', { screen: 'Notifications' })}
           >
             <MaterialIcons name="notifications-none" size={20} color={isDark ? '#F2F2F7' : '#111'} />
-            <View style={[styles.notifDot, { borderColor: isDark ? '#1c1c1e' : '#fff' }]} />
+            <View style={[styles.notifDot, { borderColor: isDark ? '#161C18' : '#fff' }]} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.menuBtn, { backgroundColor: isDark ? '#2c2c2e' : '#F5F5F7', borderColor: isDark ? '#3a3a3c' : '#EBEBEB' }]}
+            style={[styles.menuBtn, { backgroundColor: isDark ? '#303C33' : '#F5F5F7', borderColor: isDark ? '#3a3a3c' : '#EBEBEB' }]}
             onPress={openSidebar}
           >
             <View style={styles.burgerLines}>
@@ -170,14 +170,14 @@ export default function ProfileHeader({
       )}
 
       {/* ── Right Sidebar ── */}
-      <Animated.View style={[styles.sidebar, { width: sidebarWidth, backgroundColor: isDark ? '#1c1c1e' : '#fff', transform: [{ translateX: sideAnim }] }]}>
+      <Animated.View style={[styles.sidebar, { width: sidebarWidth, backgroundColor: isDark ? '#161C18' : '#fff', transform: [{ translateX: sideAnim }] }]}>
         <ScrollView
   showsVerticalScrollIndicator={false}
   contentContainerStyle={styles.sidebarContent}
 >
           {/* Sidebar header */}
           <LinearGradient
-            colors={['#1D4ED8', '#7C3AED']}
+            colors={['#166534', '#166534']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.sidebarHeader}
@@ -205,7 +205,7 @@ export default function ProfileHeader({
             </View>
             <Text style={styles.sidebarName}>{userName}</Text>
             <Text style={styles.sidebarHandle}>@{userName.toLowerCase().replace(' ', '')}</Text>
-            
+
           </LinearGradient>
 
           {/* Menu items */}
@@ -242,7 +242,7 @@ export default function ProfileHeader({
                   {isSettings && settingsOpen && <SettingsScreen isDark={isDark} />}
 
                   {index < SIDEBAR_MENU.length - 1 && (
-                    <View style={[styles.menuDivider, { backgroundColor: isDark ? '#2c2c2e' : '#F1F5F9', marginLeft: 62 }]} />
+                    <View style={[styles.menuDivider, { backgroundColor: isDark ? '#303C33' : '#F1F5F9', marginLeft: 62 }]} />
                   )}
                 </View>
               );
@@ -255,20 +255,20 @@ export default function ProfileHeader({
 
             {/* Dark mode */}
             <View style={styles.menuRow}>
-              <View style={[styles.menuIconBox, { backgroundColor: isDark ? '#1a1a2e' : '#F0F0FF' }]}>
-                <MaterialIcons name={isDark ? 'dark-mode' : 'light-mode'} size={18} color={isDark ? '#AFA9EC' : '#534AB7'} />
+              <View style={[styles.menuIconBox, { backgroundColor: isDark ? '#0C0F0D' : '#F0F0FF' }]}>
+                <MaterialIcons name={isDark ? 'dark-mode' : 'light-mode'} size={18} color={isDark ? '#AFA9EC' : '#166534'} />
               </View>
               <Text style={[styles.menuLabel, { color: isDark ? '#F2F2F7' : '#111' }]}>Dark Mode</Text>
               <Switch
                 value={isDark}
                 onValueChange={toggleTheme}
-                trackColor={{ false: '#E5E7EB', true: '#7C3AED' }}
+                trackColor={{ false: '#D8E8DC', true: '#166534' }}
                 thumbColor="#fff"
                 style={{ transform: [{ scale: 0.85 }] }}
               />
             </View>
 
-            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#2c2c2e' : '#F1F5F9', marginLeft: 62 }]} />
+            <View style={[styles.menuDivider, { backgroundColor: isDark ? '#303C33' : '#F1F5F9', marginLeft: 62 }]} />
 
             {/* Language */}
             <View style={styles.menuRow}>
@@ -286,8 +286,8 @@ export default function ProfileHeader({
                     style={[
                       styles.langPill,
                       {
-                        backgroundColor: active ? '#7C3AED' : (isDark ? '#2a2a2a' : '#F1F5F9'),
-                        borderColor: active ? 'transparent' : (isDark ? '#3a3a3c' : '#E2E8F0'),
+                        backgroundColor: active ? '#166534' : (isDark ? '#2a2a2a' : '#F1F5F9'),
+                        borderColor: active ? 'transparent' : (isDark ? '#3a3a3c' : '#D8E8DC'),
                       },
                     ]}
                   >
@@ -310,7 +310,7 @@ export default function ProfileHeader({
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
 
-          
+
         </ScrollView>
       </Animated.View>
       </View>
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#7F77DD',
+    backgroundColor: '#15803D',
     borderWidth: 1.5,
   },
   menuBtn: {

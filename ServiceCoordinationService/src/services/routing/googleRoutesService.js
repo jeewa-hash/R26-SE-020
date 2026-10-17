@@ -9,10 +9,10 @@ const parseGoogleDurationSeconds = (value = "") => {
 };
 
 export async function getGoogleRoute(prevLat, prevLng, nextLat, nextLng) {
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY?.trim();
 
-  if (!apiKey) {
-    throw new Error("GOOGLE_MAPS_API_KEY is not configured");
+  if (!apiKey || /your[_ -]|replace|example|placeholder/i.test(apiKey)) {
+    throw new Error("Set GOOGLE_MAPS_API_KEY to a real Google Routes API key in ServiceCoordinationService/.env and restart the service");
   }
 
   const response = await axios.post(

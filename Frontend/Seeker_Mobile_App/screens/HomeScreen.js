@@ -7,7 +7,6 @@ import {
   StyleSheet,
   ScrollView,
   Image,
-  SafeAreaView,
   LayoutAnimation,
   Platform,
   UIManager,
@@ -19,11 +18,13 @@ import {
   RefreshControl,
 } from 'react-native';
 import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { LanguageContext } from '../context/LanguageContext';
+import { setLanguage } from '../i18n';
 import { getSlideshowData } from '../data/seasonalData';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../hooks/useTheme';
@@ -54,30 +55,38 @@ const CATEGORIES = [
   {
     id: 1,
     title: 'Repairing Services',
+    titleSi: 'අලුත්වැඩියා සේවා',
     icon: 'build',
     color: '#FF6B6B',
     subcategories: ['Electrical', 'Plumbing', 'Furniture', 'Painting & Reno'],
+    subcategoriesSi: ['විදුලි කාර්මික', 'ජලනල කාර්මික', 'ලී බඩු අලුත්වැඩියා', 'තීන්ත ආලේපන'],
   },
   {
     id: 2,
     title: 'Cleaning Services',
+    titleSi: 'පිරිසිදු කිරීම් සේවා',
     icon: 'cleaning-services',
-    color: '#4ECDC4',
+    color: '#06B6D4',
     subcategories: ['House Cleaning', 'Post-Construction', 'Move-in/out', 'Sofa/Carpet'],
+    subcategoriesSi: ['නිවාස පිරිසිදු කිරීම', 'ඉදිකිරීම් පසු පිරිසිදු කිරීම', 'පදිංචි පෙර/පසු', 'සෝෆා සහ කාපට්'],
   },
   {
     id: 3,
     title: 'Gardening Services',
+    titleSi: 'ගෙවතු හා වතු සේවා',
     icon: 'grass',
-    color: '#45B7D1',
+    color: '#10B981',
     subcategories: ['Maintenance', 'Landscaping', 'Planting'],
+    subcategoriesSi: ['ගෙවතු නඩත්තුව', 'භූමි අලංකරණය', 'පැළ සිටුවීම'],
   },
   {
     id: 4,
     title: 'Care & Personal',
+    titleSi: 'රැකවරණ සේවා',
     icon: 'volunteer-activism',
-    color: '#96CEB4',
+    color: '#8B5CF6',
     subcategories: ['Child Care', 'Elderly Care', 'Pet Care', 'Personal Asst'],
+    subcategoriesSi: ['ළමා රැකවරණය', 'වැඩිහිටි රැකවරණය', 'සුරතල් සතුන් රැකවරණය', 'පුද්ගලික සහායක'],
   },
 ];
 
@@ -337,7 +346,7 @@ const Slideshow = ({ isDarkMode }) => {
           <View style={styles.slideHeaderRow}>
             <View style={styles.slideTagPill}>
               <Text style={styles.slideTagText}>
-                {item.isTopCategory ? '⭐ Top Category' : '📍 ' + (item.district || 'Recommended')}
+                {item.isTopCategory ? 'Top Category' : (item.district || 'Recommended')}
               </Text>
             </View>
 
@@ -441,7 +450,11 @@ const ServiceCard = ({
   onSubPress,
   onImageUpload,
   isDarkMode,
+  isSi,
 }) => {
+  const title = isSi ? (category.titleSi || category.title) : category.title;
+  const subcategories = isSi && category.subcategoriesSi ? category.subcategoriesSi : category.subcategories;
+
   return (
     <View style={[styles.accordionContainer, isDarkMode && styles.accordionContainerDark]}>
       <TouchableOpacity
@@ -454,16 +467,16 @@ const ServiceCard = ({
             colors={[category.color, `${category.color}CC`]}
             style={styles.iconBoxGradient}
           >
-            <MaterialIcons name={category.icon} size={22} color="#fff" />
+            <MaterialIcons name={category.icon} size={24} color="#fff" />
           </LinearGradient>
 
           <View>
             <Text style={[styles.mainTitle, isDarkMode && styles.textDark]}>
-              {category.title}
+              {title}
             </Text>
 
             <Text style={[styles.subtitleCount, isDarkMode && styles.textMutedDark]}>
-              {category.subcategories.length} services available
+              {subcategories.length} {isSi ? 'සේවාවන් තිබේ' : 'services available'}
             </Text>
           </View>
         </View>
@@ -478,25 +491,25 @@ const ServiceCard = ({
           <MaterialIcons
             name={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
             size={24}
-            color={isDarkMode ? '#818cf8' : '#667eea'}
+            color={isDarkMode ? '#818cf8' : '#4F46E5'}
           />
         </View>
       </TouchableOpacity>
 
       {expanded && (
         <View style={[styles.subGrid, isDarkMode && styles.subGridDark]}>
-          {category.subcategories.map((sub, index) => (
+          {subcategories.map((sub, index) => (
             <TouchableOpacity
               key={index}
               style={[styles.subThumbnail, isDarkMode && styles.subThumbnailDark]}
-              onPress={() => onSubPress(sub)}
+              onPress={() => onSubPress(category.subcategories[index] || sub)}
               activeOpacity={0.8}
             >
               <View style={[styles.subIconCircle, { backgroundColor: `${category.color}15` }]}>
                 <MaterialIcons name="check-circle" size={14} color={category.color} />
               </View>
 
-              <Text style={[styles.subText, isDarkMode && styles.textDark]}>
+              <Text style={[styles.subText, isDarkMode && styles.textDark]} numberOfLines={1}>
                 {sub}
               </Text>
             </TouchableOpacity>
@@ -509,13 +522,15 @@ const ServiceCard = ({
               onPress={onImageUpload}
             >
               <LinearGradient
-                colors={isDarkMode ? ['#6366f1', '#4f46e5'] : ['#667eea', '#764ba2']}
+                colors={isDarkMode ? ['#6366f1', '#4f46e5'] : ['#4F46E5', '#7C3AED']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientButton}
               >
                 <Feather name="camera" size={18} color="#fff" />
-                <Text style={styles.uploadText}>Upload Photo for Repair</Text>
+                <Text style={styles.uploadText}>
+                  {isSi ? 'ඡායාරූපයක් යොමු කර පිළියම් සොයන්න' : 'Upload Photo for Repair'}
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           )}
@@ -527,7 +542,8 @@ const ServiceCard = ({
 
 export default function HomeScreen() {
   const { t } = useTranslation();
-  const { language } = useContext(LanguageContext);
+  const { language, changeLanguage } = useContext(LanguageContext) || { language: 'en' };
+  const isSi = language === 'si';
   const { isDarkMode, toggleTheme } = useTheme();
   const { unreadCount } = useChat();
   const { unreadCount: notificationUnreadCount } = useNotification();
@@ -542,6 +558,12 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const navigation = useNavigation();
+
+  const toggleLanguage = async () => {
+    const nextLang = isSi ? 'en' : 'si';
+    await setLanguage(nextLang);
+    if (changeLanguage) changeLanguage(nextLang);
+  };
 
   const loadLiveSummary = React.useCallback(async (showLoading = false) => {
     if (showLoading) setLiveLoading(true);
@@ -570,13 +592,30 @@ export default function HomeScreen() {
 
   const formatLiveTime = (value) => value && !Number.isNaN(new Date(value).getTime())
     ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
-    : 'Not scheduled';
+    : (isSi ? 'නියමිත කර නැත' : 'Not scheduled');
 
   const openBookingDetails = (booking) => navigation.navigate('IT22129376ScheduledJobDetails', { booking });
 
   const renderLiveBooking = () => {
-    if (liveLoading) return <View style={[styles.liveStateCard, isDarkMode && styles.liveCardDark]}><ActivityIndicator color="#667eea" /><Text style={[styles.liveStateText, isDarkMode && styles.textMutedDark]}>Loading your booking status...</Text></View>;
-    if (liveError) return <View style={[styles.liveStateCard, isDarkMode && styles.liveCardDark]}><Ionicons name="warning-outline" size={26} color="#EF4444" /><Text style={[styles.liveStateText, isDarkMode && styles.textMutedDark]}>Unable to load booking status right now.</Text><TouchableOpacity onPress={() => loadLiveSummary(true)}><Text style={styles.liveRetry}>Try again</Text></TouchableOpacity></View>;
+    if (liveLoading) return (
+      <View style={[styles.liveStateCard, isDarkMode && styles.liveCardDark]}>
+        <ActivityIndicator color="#4F46E5" />
+        <Text style={[styles.liveStateText, isDarkMode && styles.textMutedDark]}>
+          {isSi ? 'ඇණවුම් තත්ත්වය පරීක්ෂා කරමින්...' : 'Loading your booking status...'}
+        </Text>
+      </View>
+    );
+    if (liveError) return (
+      <View style={[styles.liveStateCard, isDarkMode && styles.liveCardDark]}>
+        <Ionicons name="warning-outline" size={26} color="#EF4444" />
+        <Text style={[styles.liveStateText, isDarkMode && styles.textMutedDark]}>
+          {isSi ? 'ඇණවුම් තත්ත්වය ලබා ගැනීමට නොහැකි විය.' : 'Unable to load booking status right now.'}
+        </Text>
+        <TouchableOpacity onPress={() => loadLiveSummary(true)}>
+          <Text style={styles.liveRetry}>{isSi ? 'නැවත උත්සාහ කරන්න' : 'Try again'}</Text>
+        </TouchableOpacity>
+      </View>
+    );
 
     const ongoing = liveSummary?.delayedService || liveSummary?.currentService || liveSummary?.onTheWayService || null;
     const next = liveSummary?.startingSoonBooking || liveSummary?.nextBooking || null;
@@ -587,22 +626,56 @@ export default function HomeScreen() {
       const color = delayed ? '#D97706' : traveling ? '#7C3AED' : kind === 'current' ? '#2563EB' : soon ? '#7C3AED' : '#059669';
       const start = getBookingStartDate(booking);
       const end = getBookingEndDate(booking);
-      return <View style={styles.liveInnerSection}>
-        <View style={styles.liveInnerHeader}><Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>{traveling ? 'Provider On the Way' : kind === 'current' ? 'In Progress Booking' : 'Next Booking'}</Text><Text style={[styles.liveInnerStatus, { color }]}>{traveling ? 'Provider is travelling to you' : kind === 'current' ? (delayed ? 'Provider reported a delay' : 'Service in progress') : (soon ? `Starting soon · ${getTimeRemainingLabel(start)}` : getTimeRemainingLabel(start))}</Text></View>
-        <Text style={[styles.liveServiceTitle, isDarkMode && styles.textDark]}>{getHumanServiceTitle(booking)}</Text>
-        <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Provider: {getHumanProviderName(booking)}</Text>
-        <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Location: {getHumanLocation(booking)}</Text>
-        {kind === 'current' ? <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{traveling ? `On the way since: ${formatLiveTime(booking.onTheWayAt)}` : delayed ? `Reason: ${booking?.delayInfo?.delayReason || 'Not provided'}` : `Started: ${formatLiveTime(booking.actualStartTime || start)}`}</Text> : <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Starts: {formatLiveTime(start)}</Text>}
-        {kind === 'current' && !traveling ? <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>Expected end: {formatLiveTime(end)}</Text> : null}
-        <TouchableOpacity style={[styles.liveDetailsButton, { backgroundColor: color }]} onPress={() => openBookingDetails(booking)}><Text style={styles.liveDetailsButtonText}>View Details</Text></TouchableOpacity>
-      </View>;
+      return (
+        <View style={styles.liveInnerSection}>
+          <View style={styles.liveInnerHeader}>
+            <Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>
+              {traveling 
+                ? (isSi ? 'සේවකයා පැමිණෙමින් සිටී' : 'Provider On the Way') 
+                : kind === 'current' 
+                  ? (isSi ? 'ක්‍රියාකාරී සේවාව' : 'In Progress Booking') 
+                  : (isSi ? 'මීළඟ සේවාව' : 'Next Booking')}
+            </Text>
+            <Text style={[styles.liveInnerStatus, { color }]}>
+              {traveling 
+                ? (isSi ? 'සේවකයා ඔබ වෙත ගමන් කරයි' : 'Provider is travelling to you') 
+                : kind === 'current' 
+                  ? (delayed ? (isSi ? 'ප්‍රමාදයක් වාර්තා කර ඇත' : 'Provider reported a delay') : (isSi ? 'සේවාව සිදු වෙමින් පවතී' : 'Service in progress')) 
+                  : (soon ? (isSi ? `ළඟදීම · ${getTimeRemainingLabel(start)}` : `Starting soon · ${getTimeRemainingLabel(start)}`) : getTimeRemainingLabel(start))}
+            </Text>
+          </View>
+          <Text style={[styles.liveServiceTitle, isDarkMode && styles.textDark]}>{getHumanServiceTitle(booking)}</Text>
+          <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'සේවකයා: ' : 'Provider: '}{getHumanProviderName(booking)}</Text>
+          <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'ස්ථානය: ' : 'Location: '}{getHumanLocation(booking)}</Text>
+          {kind === 'current' ? (
+            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>
+              {traveling ? `${isSi ? 'ගමන ඇරඹුවේ: ' : 'On the way since: '}${formatLiveTime(booking.onTheWayAt)}` : delayed ? `${isSi ? 'හේතුව: ' : 'Reason: '}${booking?.delayInfo?.delayReason || (isSi ? 'සඳහන් කර නැත' : 'Not provided')}` : `${isSi ? 'ආරම්භ කළේ: ' : 'Started: '}${formatLiveTime(booking.actualStartTime || start)}`}
+            </Text>
+          ) : (
+            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'ආරම්භ වන්නේ: ' : 'Starts: '}{formatLiveTime(start)}</Text>
+          )}
+          {kind === 'current' && !traveling ? (
+            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'අවසන් වීමට නියමිත: ' : 'Expected end: '}{formatLiveTime(end)}</Text>
+          ) : null}
+          <TouchableOpacity style={[styles.liveDetailsButton, { backgroundColor: color }]} onPress={() => openBookingDetails(booking)}>
+            <Text style={styles.liveDetailsButtonText}>{isSi ? 'විස්තර බලන්න' : 'View Details'}</Text>
+          </TouchableOpacity>
+        </View>
+      );
     };
-    const emptySection = (label, message) => <View style={styles.liveInnerSection}><Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>{label}</Text><Text style={[styles.liveDetail, styles.liveEmptyText, isDarkMode && styles.textMutedDark]}>{message}</Text></View>;
-    return <View style={[styles.liveBookingCard, isDarkMode && styles.liveCardDark]}>
-      {ongoing ? renderSection(ongoing, 'current') : emptySection('In Progress Booking', 'No in-progress booking')}
-      <View style={[styles.liveDivider, isDarkMode && styles.liveDividerDark]} />
-      {next ? renderSection(next, 'next') : emptySection('Next Booking', 'No upcoming confirmed booking')}
-    </View>;
+    const emptySection = (label, message) => (
+      <View style={styles.liveInnerSection}>
+        <Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>{label}</Text>
+        <Text style={[styles.liveDetail, styles.liveEmptyText, isDarkMode && styles.textMutedDark]}>{message}</Text>
+      </View>
+    );
+    return (
+      <View style={[styles.liveBookingCard, isDarkMode && styles.liveCardDark]}>
+        {ongoing ? renderSection(ongoing, 'current') : emptySection(isSi ? 'ක්‍රියාකාරී සේවාව' : 'In Progress Booking', isSi ? 'දැනට ක්‍රියාකාරී සේවාවක් නැත' : 'No in-progress booking')}
+        <View style={[styles.liveDivider, isDarkMode && styles.liveDividerDark]} />
+        {next ? renderSection(next, 'next') : emptySection(isSi ? 'මීළඟ සේවාව' : 'Next Booking', isSi ? 'ඉදිරි සේවාවක් නැත' : 'No upcoming confirmed booking')}
+      </View>
+    );
   };
 
   const totalUnreadMessages = Object.values(unreadCount).reduce(
@@ -635,7 +708,7 @@ export default function HomeScreen() {
       }
 
       const appLanguage = language === 'si' ? 'si' : 'en';
-      const url = `http://10.0.2.2:5002/text-predict`;
+      const url = `${CONFIG.TEXT_MODEL_URL}/text-predict`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -654,7 +727,28 @@ export default function HomeScreen() {
         return;
       }
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        console.error('Search returned a non-JSON response:', {
+          url,
+          status: response.status,
+          contentType: response.headers.get('content-type'),
+        });
+        Alert.alert(
+          'Search Service Error',
+          `The search service returned an unexpected response (HTTP ${response.status}). Check that the text ML service is running at ${CONFIG.TEXT_MODEL_URL}.`,
+        );
+        return;
+      }
+
+      if (!response.ok || !data || typeof data !== 'object') {
+        Alert.alert('Search Service Error', data?.error || data?.message || `Search failed (HTTP ${response.status}).`);
+        return;
+      }
+
 
       if (data.session_id) {
         navigation.navigate('FollowUpScreen', {
@@ -706,7 +800,7 @@ export default function HomeScreen() {
 
       formData.append('app_lan', language === 'si' ? 'si' : 'en');
 
-      const response = await fetch('http://10.0.2.2:8000/predict', {
+      const response = await fetch(`${CONFIG.IMAGE_CLASSIFIER_URL}/predict`, {
         method: 'POST',
         body: formData,
         headers: {
@@ -720,7 +814,16 @@ export default function HomeScreen() {
         return;
       }
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = {};
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(`Image classifier returned an invalid response (${response.status}).`);
+      }
+      if (!response.ok) {
+        throw new Error(data.detail || data.message || `Image classifier returned HTTP ${response.status}.`);
+      }
 
       if (data.session_id) {
         Alert.alert(
@@ -744,10 +847,13 @@ export default function HomeScreen() {
         Alert.alert(t('common_error'), t('home_no_object_detected'));
       }
     } catch (error) {
-      console.log('UPLOAD ERROR:', error);
+      console.error('IMAGE CLASSIFIER REQUEST FAILED:', {
+        url: `${CONFIG.IMAGE_CLASSIFIER_URL}/predict`,
+        error: error?.message,
+      });
       Alert.alert(
-        t('common_error'),
-        'Server connection failed. Please check if the backend is running.'
+        'Image model unavailable',
+        'Could not reach the hosted image model. Please try again later.'
       );
     }
   };
@@ -768,7 +874,7 @@ export default function HomeScreen() {
           colors={
             isDarkMode
               ? ['#0f1121', '#1a1a2e', '#16213e']
-              : ['#4765eb', '#926ee7', '#9d6aa3']
+              : ['#4338CA', '#4F46E5', '#6366F1']
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -776,13 +882,39 @@ export default function HomeScreen() {
         >
           <View style={styles.header}>
             <View style={styles.brandArea}>
-              <Text style={styles.appName}>Work Wave</Text>
+              <Text style={styles.appName}>WorkWave</Text>
+              <Text style={styles.appTagline}>
+                {isSi ? 'ඔබට අවශ්‍ය ඕනෑම සේවාවක්' : 'Verified Home & Local Services'}
+              </Text>
             </View>
 
             <View style={styles.headerActionsPill}>
-              <TouchableOpacity style={styles.headerIconBtn} onPress={handleChatPress}>
-                <Ionicons name="chatbubble-ellipses-outline" size={24} color="#444" />
+              {/* Language Switch Button */}
+              <TouchableOpacity
+                style={styles.langBadgeBtn}
+                onPress={toggleLanguage}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.langBadgeText}>
+                  {isSi ? 'සිං' : 'EN'}
+                </Text>
+              </TouchableOpacity>
 
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={toggleTheme}
+                accessibilityLabel="Toggle theme"
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name={isDarkMode ? 'moon' : 'sunny'}
+                  size={22}
+                  color={isDarkMode ? '#818cf8' : '#F59E0B'}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.headerIconBtn} accessibilityLabel="Messages" onPress={handleChatPress}>
+                <Ionicons name="chatbubble-ellipses-outline" size={22} color="#444" />
                 {totalUnreadMessages > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>
@@ -792,9 +924,8 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.headerIconBtn} onPress={handleNotifications}>
-                <Ionicons name="notifications" size={23} color="#D97706" />
-
+              <TouchableOpacity style={styles.headerIconBtn} accessibilityLabel="Notifications" onPress={handleNotifications}>
+                <Ionicons name="notifications-outline" size={22} color="#444" />
                 {notificationUnreadCount > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>
@@ -804,17 +935,7 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.headerIconBtn}
-                onPress={toggleTheme}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name={isDarkMode ? 'moon' : 'sunny'}
-                  size={24}
-                  color={isDarkMode ? '#818cf8' : '#FBBF24'}
-                />
-              </TouchableOpacity>
+
             </View>
           </View>
         </LinearGradient>
@@ -830,12 +951,12 @@ export default function HomeScreen() {
             <Feather
               name="search"
               size={20}
-              color={isDarkMode ? '#818cf8' : '#667eea'}
+              color={isDarkMode ? '#818cf8' : '#4F46E5'}
             />
 
             <TextInput
-              placeholder={t('search_placeholder')}
-              placeholderTextColor={isDarkMode ? '#6B7280' : '#999'}
+              placeholder={isSi ? 'සේවාවක් සොයන්න (උදා: ජලනල, විදුලි)...' : (t('search_placeholder') || 'Search for any service...')}
+              placeholderTextColor={isDarkMode ? '#6B7280' : '#94A3B8'}
               style={[styles.searchInput, isDarkMode && styles.textDark]}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -865,7 +986,7 @@ export default function HomeScreen() {
               <Feather
                 name="sliders"
                 size={20}
-                color={isDarkMode ? '#818cf8' : '#667eea'}
+                color={isDarkMode ? '#818cf8' : '#4F46E5'}
               />
             </TouchableOpacity>
           </View>
@@ -878,37 +999,97 @@ export default function HomeScreen() {
               contentContainerStyle={styles.filterChipsContent}
             >
               <TouchableOpacity style={styles.filterChipActive}>
-                <Text style={styles.filterChipTextActive}>Nearby</Text>
+                <Text style={styles.filterChipTextActive}>{isSi ? 'ලඟම' : 'Nearby'}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
                 <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  Top Rated
+                  {isSi ? 'ඉහළ ඇගයීම්' : 'Top Rated'}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
                 <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  Lowest Price
+                  {isSi ? 'අඩුම මිල' : 'Lowest Price'}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
                 <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  Available Now
+                  {isSi ? 'දැන් ලබාගත හැක' : 'Available Now'}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
                 <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  24/7 Support
+                  {isSi ? '24/7 සහාය' : '24/7 Support'}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
           )}
         </View>
 
-        <TouchableOpacity onPress={() => toggleExpand(1)} activeOpacity={0.9}>
+        {/* 4 Big Visual Quick Action Cards for High Accessibility & Clarity */}
+        <View style={styles.quickGridContainer}>
+          <TouchableOpacity
+            style={[styles.quickCard, isDarkMode && styles.quickCardDark]}
+            onPress={handleImageUpload}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#FF6B6B', '#EE5253']}
+              style={styles.quickIconCircle}
+            >
+              <MaterialIcons name="photo-camera" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={[styles.quickCardTitle, isDarkMode && styles.textDark]}>
+              {isSi ? 'කැඩුණු දේ' : 'Photo Repair'}
+            </Text>
+            <Text style={[styles.quickCardSub, isDarkMode && styles.textMutedDark]}>
+              {isSi ? 'ඡායාරූපයෙන්' : 'Snap photo'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickCard, isDarkMode && styles.quickCardDark]}
+            onPress={handleCreatePress}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#059669', '#10B981']}
+              style={styles.quickIconCircle}
+            >
+              <MaterialIcons name="post-add" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={[styles.quickCardTitle, isDarkMode && styles.textDark]}>
+              {isSi ? 'වැඩක් දාන්න' : 'Post Job'}
+            </Text>
+            <Text style={[styles.quickCardSub, isDarkMode && styles.textMutedDark]}>
+              {isSi ? 'මිල ගණන්' : 'Free quotes'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickCard, isDarkMode && styles.quickCardDark]}
+            onPress={() => navigation.navigate('BookingsScreen')}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#D97706', '#F59E0B']}
+              style={styles.quickIconCircle}
+            >
+              <MaterialIcons name="event-note" size={24} color="#fff" />
+            </LinearGradient>
+            <Text style={[styles.quickCardTitle, isDarkMode && styles.textDark]}>
+              {isSi ? 'මගේ ඇණවුම්' : 'My Orders'}
+            </Text>
+            <Text style={[styles.quickCardSub, isDarkMode && styles.textMutedDark]}>
+              {isSi ? 'තත්ත්වය' : 'Track status'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity onPress={handleImageUpload} activeOpacity={0.9}>
           <LinearGradient
             colors={['#FF6B6B', '#FF8E53']}
             start={{ x: 0, y: 0 }}
@@ -917,20 +1098,22 @@ export default function HomeScreen() {
           >
             <View style={styles.biddingContent}>
               <View style={styles.biddingIconContainer}>
-                <MaterialIcons name="image-search" size={32} color="#fff" />
+                <MaterialIcons name="photo-camera" size={30} color="#fff" />
               </View>
 
               <View style={styles.biddingTextContainer}>
-                <Text style={styles.biddingTitle}>🔓 Unlock New Feature</Text>
+                <Text style={styles.biddingTitle}>
+                  {isSi ? 'කැඩුණු දෙයක් තිබේද?' : 'Need a Quick Repair?'}
+                </Text>
                 <Text style={styles.biddingSubtitle}>
-                  Search repairs by uploading a photo
+                  {isSi ? 'ඡායාරූපයක් ගන්න, සේවකයා අපි සොයන්නෙමු' : 'Take a photo, AI finds the right expert instantly'}
                 </Text>
               </View>
 
               <View style={styles.biddingArrow}>
                 <Feather
-                  name={expandedId === 1 ? 'chevron-up' : 'chevron-down'}
-                  size={24}
+                  name="arrow-right"
+                  size={20}
                   color="#fff"
                 />
               </View>
@@ -939,7 +1122,9 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         <View style={styles.liveSection}>
-          <Text style={[styles.liveSectionTitle, isDarkMode && styles.textDark]}>Live Booking Status</Text>
+          <Text style={[styles.liveSectionTitle, isDarkMode && styles.textDark]}>
+            {isSi ? 'ක්‍රියාකාරී සේවා තත්ත්වය' : 'Live Booking Status'}
+          </Text>
           {renderLiveBooking()}
         </View>
 
@@ -948,23 +1133,23 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <View>
             <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
-              {t('all_services')}
+              {isSi ? 'සියලු සේවා වර්ග' : (t('all_services') || 'All Services')}
             </Text>
 
             <Text style={[styles.sectionSubtitle, isDarkMode && styles.textMutedDark]}>
-              Browse by category
+              {isSi ? 'කාණ්ඩය අනුව තෝරන්න' : 'Browse by category'}
             </Text>
           </View>
 
           <TouchableOpacity style={styles.seeAllBtn}>
             <Text style={[styles.seeAllText, isDarkMode && styles.seeAllTextDark]}>
-              {t('home_see_all')}
+              {isSi ? 'සියල්ල' : (t('home_see_all') || 'See All')}
             </Text>
 
             <Feather
               name="arrow-right"
               size={14}
-              color={isDarkMode ? '#818cf8' : '#667eea'}
+              color={isDarkMode ? '#818cf8' : '#4F46E5'}
             />
           </TouchableOpacity>
         </View>
@@ -978,6 +1163,7 @@ export default function HomeScreen() {
             onSubPress={handleSubCategoryPress}
             onImageUpload={handleImageUpload}
             isDarkMode={isDarkMode}
+            isSi={isSi}
           />
         ))}
 
@@ -1036,10 +1222,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   appName: {
-    fontSize: 31,
+    fontSize: 28,
     fontWeight: '900',
     color: '#fff',
-    letterSpacing: -1,
+    letterSpacing: -0.8,
+  },
+  appTagline: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.88)',
+    marginTop: 2,
+    fontWeight: '500',
   },
   headerActionsPill: {
     flexDirection: 'row',
@@ -1054,6 +1246,66 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 10,
     elevation: 6,
+  },
+  langBadgeBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#4338CA',
+  },
+  quickGridContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginTop: 18,
+    gap: 10,
+  },
+  quickCard: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  quickCardDark: {
+    backgroundColor: '#1E293B',
+    borderColor: '#334155',
+  },
+  quickIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  quickCardTitle: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+  },
+  quickCardSub: {
+    fontSize: 9.5,
+    color: '#64748B',
+    marginTop: 1.5,
+    textAlign: 'center',
   },
   headerIconBtn: {
     position: 'relative',

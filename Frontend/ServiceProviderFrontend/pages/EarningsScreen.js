@@ -61,17 +61,17 @@ export default function EarningsScreen() {
   });
 
   const theme = {
-    bg: isDark ? '#0F172A' : '#F8FAFC',
-    cardBg: isDark ? '#1E293B' : '#FFFFFF',
-    cardBorder: isDark ? '#334155' : '#E2E8F0',
-    textPrimary: isDark ? '#F8FAFC' : '#1E293B',
+    bg: isDark ? '#0C0F0D' : '#F5FAF6',
+    cardBg: isDark ? '#161C18' : '#FFFFFF',
+    cardBorder: isDark ? '#303C33' : '#D8E8DC',
+    textPrimary: isDark ? '#F5FAF6' : '#161C18',
     textSecondary: isDark ? '#94A3B8' : '#64748B',
     textMuted: isDark ? '#64748B' : '#94A3B8',
-    surfaceVariant: isDark ? '#1E293B' : '#FFFFFF',
-    trackBg: isDark ? '#334155' : '#F1F5F9',
-    divider: isDark ? '#334155' : '#F1F5F9',
-    headerBtnBg: isDark ? '#1E293B' : '#FFFFFF',
-    pillInactiveBg: isDark ? '#1E293B' : '#FFFFFF',
+    surfaceVariant: isDark ? '#161C18' : '#FFFFFF',
+    trackBg: isDark ? '#303C33' : '#F1F5F9',
+    divider: isDark ? '#303C33' : '#F1F5F9',
+    headerBtnBg: isDark ? '#161C18' : '#FFFFFF',
+    pillInactiveBg: isDark ? '#161C18' : '#FFFFFF',
     pillInactiveText: isDark ? '#94A3B8' : '#64748B',
   };
 
@@ -247,13 +247,13 @@ export default function EarningsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7C3AED']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#166534']} />}
       >
         <HeaderSection navigation={navigation} />
 
         <View style={styles.refreshRow}>
           <View style={styles.screenBadge}>
-            <MaterialCommunityIcons name="finance" size={13} color="#7C3AED" />
+            <MaterialCommunityIcons name="finance" size={13} color="#166534" />
             <Text style={styles.screenBadgeText}>FINANCIAL HUB</Text>
           </View>
 
@@ -264,7 +264,7 @@ export default function EarningsScreen() {
             activeOpacity={0.7}
           >
             {refreshing ? (
-              <ActivityIndicator size="small" color="#7C3AED" />
+              <ActivityIndicator size="small" color="#166534" />
             ) : (
               <MaterialIcons name="refresh" size={20} color={theme.textPrimary} />
             )}
@@ -312,7 +312,7 @@ export default function EarningsScreen() {
         )}
 
         <LinearGradient
-          colors={isDark ? ['#312E81', '#4C1D95', '#6D28D9'] : ['#4F46E5', '#7C3AED', '#9333EA']}
+          colors={isDark ? ['#152119', '#1D3F69', '#166534'] : ['#166534', '#166534', '#166534']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroCard}
@@ -401,7 +401,7 @@ export default function EarningsScreen() {
           <Surface style={[styles.portalCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]} elevation={2}>
             <View style={styles.portalHeader}>
               <View style={styles.portalTitleWrap}>
-                <LinearGradient colors={['#3B82F6', '#2563EB']} style={styles.gatewayIconBadge}>
+                <LinearGradient colors={['#3B82F6', '#15803D']} style={styles.gatewayIconBadge}>
                   <MaterialCommunityIcons name="shield-check" size={20} color="#FFF" />
                 </LinearGradient>
 
@@ -471,7 +471,7 @@ export default function EarningsScreen() {
 
             <View style={styles.portalRow}>
               <Text style={[styles.portalLabel, { color: theme.textSecondary }]}>5% Platform Service Fee:</Text>
-              <Text style={[styles.portalValHighlight, { color: '#7C3AED' }]}>
+              <Text style={[styles.portalValHighlight, { color: '#166534' }]}>
                 LKR {formatLkr(urgentBill.serviceChargeAmount)}
               </Text>
             </View>
@@ -498,7 +498,7 @@ export default function EarningsScreen() {
                   colors={
                     urgentBill.status === 'SUSPENDED' || urgentBill.status === 'OVERDUE'
                       ? ['#DC2626', '#B91C1C']
-                      : ['#6366F1', '#4F46E5', '#4338CA']
+                      : ['#15803D', '#166534', '#4338CA']
                   }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -546,7 +546,7 @@ export default function EarningsScreen() {
               onPress={() => setPeriod(p)}
               style={[
                 styles.pill,
-                { backgroundColor: period === p ? '#7C3AED' : theme.pillInactiveBg, borderColor: theme.cardBorder },
+                { backgroundColor: period === p ? '#166534' : theme.pillInactiveBg, borderColor: theme.cardBorder },
               ]}
               activeOpacity={0.7}
             >
@@ -578,7 +578,7 @@ export default function EarningsScreen() {
           <View style={styles.barsContainer}>
             {barData.map((bar) => (
               <View key={bar.monthKey} style={styles.barWrap}>
-                <Text style={[styles.barAmountText, { color: bar.active ? '#7C3AED' : theme.textMuted }]}>
+                <Text style={[styles.barAmountText, { color: bar.active ? '#166534' : theme.textMuted }]}>
                   {bar.income > 0 ? `${Math.round(bar.income / 1000)}k` : '0'}
                 </Text>
 
@@ -588,7 +588,7 @@ export default function EarningsScreen() {
                       styles.barFill,
                       {
                         height: `${bar.pct * 100}%`,
-                        backgroundColor: bar.active ? '#7C3AED' : isDark ? '#4338CA' : '#DDD6FE',
+                        backgroundColor: bar.active ? '#166534' : isDark ? '#4338CA' : '#B5DCC0',
                       },
                     ]}
                   />
@@ -597,7 +597,7 @@ export default function EarningsScreen() {
                 <Text
                   style={[
                     styles.barLabel,
-                    { color: bar.active ? '#7C3AED' : theme.textMuted },
+                    { color: bar.active ? '#166534' : theme.textMuted },
                     bar.active && styles.barLabelActive,
                   ]}
                 >
@@ -627,14 +627,14 @@ export default function EarningsScreen() {
               <MaterialCommunityIcons
                 name={t.icon}
                 size={16}
-                color={activeTab === t.key ? '#7C3AED' : theme.textSecondary}
+                color={activeTab === t.key ? '#166534' : theme.textSecondary}
                 style={{ marginRight: 6 }}
               />
 
               <Text
                 style={[
                   styles.tabNavText,
-                  { color: activeTab === t.key ? '#7C3AED' : theme.textSecondary },
+                  { color: activeTab === t.key ? '#166534' : theme.textSecondary },
                   activeTab === t.key && styles.tabNavTextActive,
                 ]}
               >
@@ -711,7 +711,7 @@ export default function EarningsScreen() {
 
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={[styles.billDetailLabel, { color: theme.textMuted }]}>5% Service Fee</Text>
-                      <Text style={[styles.billDetailVal, { color: '#7C3AED' }]}>
+                      <Text style={[styles.billDetailVal, { color: '#166534' }]}>
                         LKR {formatLkr(b.serviceChargeAmount)}
                       </Text>
                     </View>
@@ -739,7 +739,7 @@ export default function EarningsScreen() {
           <View>
             <Surface style={[styles.infoCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]} elevation={1}>
               <View style={styles.infoCardTop}>
-                <MaterialCommunityIcons name="information-outline" size={22} color="#6366F1" />
+                <MaterialCommunityIcons name="information-outline" size={22} color="#15803D" />
                 <Text style={[styles.infoCardTitle, { color: theme.textPrimary }]}>How 5% Commission Works</Text>
               </View>
 
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     width: 240,
     height: 240,
     borderRadius: 120,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
   },
 
   glowOrb2: {
@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
   screenBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#7C3AED18',
+    backgroundColor: '#16653418',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
@@ -889,7 +889,7 @@ const styles = StyleSheet.create({
   screenBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#7C3AED',
+    color: '#166534',
     letterSpacing: 0.8,
   },
 
@@ -970,7 +970,7 @@ const styles = StyleSheet.create({
     padding: 22,
     marginBottom: 14,
     elevation: 6,
-    shadowColor: '#7C3AED',
+    shadowColor: '#166534',
     shadowOpacity: 0.4,
     shadowRadius: 18,
   },
@@ -1326,7 +1326,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
   },
 
   legendText: {
@@ -1391,8 +1391,8 @@ const styles = StyleSheet.create({
   },
 
   tabNavBtnActive: {
-    borderColor: '#7C3AED',
-    backgroundColor: '#7C3AED12',
+    borderColor: '#166534',
+    backgroundColor: '#16653412',
   },
 
   tabNavText: {
@@ -1475,7 +1475,7 @@ const styles = StyleSheet.create({
   },
 
   smallPayBtn: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',

@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -16,15 +17,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { IP_ADDRESS } from '../config';
 
-// Replace with your actual machine IP if testing on a real device
-const API_BASE_URL = Platform.OS === 'android'
-  ? 'http://10.0.2.2:6000'
-  : 'http://localhost:6000';
+// Uses LAN IP from config.js for real device support
+const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 
-const COORDINATION_API_BASE_URL = Platform.OS === 'android'
-  ? 'http://10.0.2.2:5010'
-  : 'http://localhost:5010';
+const COORDINATION_API_BASE_URL = `http://${IP_ADDRESS}:5010`;
 
 export default function FeedbackScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();
@@ -246,16 +244,7 @@ export default function FeedbackScreen({ navigation, route }) {
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
-        <LinearGradient
-          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-          style={styles.header}
-        >
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Select Job to Review</Text>
-          <View style={{ width: 40 }} />
-        </LinearGradient>
+        <PageHeader title={<>Select Job to Review</>} onBack={() => navigation.goBack()} />
 
         <ScrollView contentContainerStyle={styles.content}>
           {completedJobs.length === 0 ? (
@@ -318,16 +307,7 @@ export default function FeedbackScreen({ navigation, route }) {
   if (existingFeedback) {
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-        <LinearGradient
-          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-          style={styles.header}
-        >
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Review</Text>
-          <View style={{ width: 40 }} />
-        </LinearGradient>
+        <PageHeader title={<>Review</>} onBack={() => navigation.goBack()} />
 
         <View style={styles.alreadyReviewedContainer}>
           <Ionicons name="checkmark-circle" size={64} color="#10B981" />
@@ -357,16 +337,7 @@ export default function FeedbackScreen({ navigation, route }) {
       />
 
       {/* Header */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Write a Review</Text>
-        <View style={{ width: 40 }} />
-      </LinearGradient>
+      <PageHeader title={<>Write a Review</>} onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* Service & Provider Info */}

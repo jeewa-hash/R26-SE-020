@@ -13,12 +13,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Surface } from 'react-native-paper';
 import { clearAllAuthStorage } from '../pages/IT22129376/services/providerAuthStorage';
 import { CommonActions } from '@react-navigation/native';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { ThemeContext } from '../context/ThemeContext';
 import { getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 
-const API_URL = `http://${IP_ADDRESS}:4003`;
-const ADMIN_API_URL = `http://${IP_ADDRESS}:5001`;
+const API_URL = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
+const ADMIN_API_URL = ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
 const { width } = Dimensions.get('window');
 
 export default function ProfileScreen({ navigation }) {
@@ -29,14 +29,14 @@ export default function ProfileScreen({ navigation }) {
   const [providerDetails, setProviderDetails] = useState(null);
 
   const T = {
-    bg: isDark ? '#0F172A' : '#F8FAFC',
-    cardBg: isDark ? '#1E293B' : '#FFFFFF',
-    cardBorder: isDark ? '#334155' : '#F1F5F9',
-    textPrimary: isDark ? '#F1F5F9' : '#1E293B',
+    bg: isDark ? '#0C0F0D' : '#F5FAF6',
+    cardBg: isDark ? '#161C18' : '#FFFFFF',
+    cardBorder: isDark ? '#303C33' : '#F1F5F9',
+    textPrimary: isDark ? '#F1F5F9' : '#161C18',
     textSecondary: isDark ? '#94A3B8' : '#64748B',
     textMuted: isDark ? '#64748B' : '#94A3B8',
-    divider: isDark ? '#334155' : '#F1F5F9',
-    iconBg: isDark ? '#1E293B' : '#F8FAFC',
+    divider: isDark ? '#303C33' : '#F1F5F9',
+    iconBg: isDark ? '#161C18' : '#F5FAF6',
   };
 
   useEffect(() => {
@@ -109,7 +109,7 @@ export default function ProfileScreen({ navigation }) {
 
   const handleLogout = async () => {
     await clearAllAuthStorage();
-    
+
     navigation.dispatch(
       CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] })
     );
@@ -134,7 +134,7 @@ export default function ProfileScreen({ navigation }) {
 
         {/* ── Gradient Hero Banner ── */}
         <LinearGradient
-          colors={isDark ? ['#312E81', '#4C1D95', '#6D28D9'] : ['#4F46E5', '#7C3AED', '#9333EA']}
+          colors={isDark ? ['#152119', '#1D3F69', '#166534'] : ['#166534', '#166534', '#166534']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.heroBanner}
         >
@@ -169,7 +169,7 @@ export default function ProfileScreen({ navigation }) {
 
           {/* Role badge */}
           <View style={styles.roleBadge}>
-            <MaterialCommunityIcons name="briefcase-check" size={13} color="#C4B5FD" />
+            <MaterialCommunityIcons name="briefcase-check" size={13} color="#B5DCC0" />
             <Text style={styles.roleBadgeText}>Service Provider</Text>
           </View>
 
@@ -202,8 +202,8 @@ export default function ProfileScreen({ navigation }) {
             </Surface>
 
             <Surface style={[styles.statCard, { backgroundColor: T.cardBg, borderColor: T.cardBorder }]} elevation={1}>
-              <View style={[styles.statIconWrap, { backgroundColor: '#6366F115' }]}>
-                <MaterialCommunityIcons name="briefcase-check" size={20} color="#6366F1" />
+              <View style={[styles.statIconWrap, { backgroundColor: '#15803D15' }]}>
+                <MaterialCommunityIcons name="briefcase-check" size={20} color="#15803D" />
               </View>
               <Text style={[styles.statNumber, { color: T.textPrimary }]}>150</Text>
               <Text style={[styles.statLabel, { color: T.textSecondary }]}>Total Jobs</Text>
@@ -256,7 +256,7 @@ export default function ProfileScreen({ navigation }) {
                     },
                   ]}
                 >
-                  <LinearGradient colors={['#7C3AED', '#4F46E5']} style={styles.missedDot} />
+                  <LinearGradient colors={['#166534', '#166534']} style={styles.missedDot} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.missedDate, { color: T.textPrimary }]}>{service.date}</Text>
                     <Text style={[styles.missedInfo, { color: T.textSecondary }]}>
@@ -284,7 +284,7 @@ export default function ProfileScreen({ navigation }) {
               onPress={() => navigation.navigate('SubmitInquiry', { missedServices })}
               activeOpacity={0.8}
             >
-              <MaterialIcons name="rate-review" size={17} color="#7C3AED" />
+              <MaterialIcons name="rate-review" size={17} color="#166534" />
               <Text style={styles.inquiryBtnText}>Submit Inquiries</Text>
             </TouchableOpacity>
           </Surface>
@@ -297,11 +297,11 @@ export default function ProfileScreen({ navigation }) {
 
             {/* Theme toggle row */}
             <TouchableOpacity style={styles.menuRow} onPress={toggleTheme} activeOpacity={0.7}>
-              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? '#FBBF2418' : '#6366F115' }]}>
+              <View style={[styles.menuIconWrap, { backgroundColor: isDark ? '#FBBF2418' : '#15803D15' }]}>
                 <MaterialCommunityIcons
                   name={isDark ? 'weather-sunny' : 'weather-night'}
                   size={20}
-                  color={isDark ? '#FBBF24' : '#6366F1'}
+                  color={isDark ? '#FBBF24' : '#15803D'}
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
   onlineDot: {
     position: 'absolute', bottom: 4, right: 4,
     width: 16, height: 16, borderRadius: 8,
-    backgroundColor: '#10B981', borderWidth: 3, borderColor: '#6D28D9',
+    backgroundColor: '#10B981', borderWidth: 3, borderColor: '#166534',
   },
   heroName: { fontSize: 22, fontWeight: '900', color: '#FFF', letterSpacing: -0.3 },
   heroEmail: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 3, marginBottom: 10 },
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 5,
     borderRadius: 20, marginBottom: 10,
   },
-  roleBadgeText: { fontSize: 12, fontWeight: '700', color: '#E9D5FF' },
+  roleBadgeText: { fontSize: 12, fontWeight: '700', color: '#B5DCC0' },
   restrictionChip: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingVertical: 9,
@@ -478,10 +478,10 @@ const styles = StyleSheet.create({
   inquiryBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, margin: 14, marginTop: 6,
-    backgroundColor: '#7C3AED12',
+    backgroundColor: '#16653412',
     paddingVertical: 10, borderRadius: 12,
   },
-  inquiryBtnText: { fontSize: 13, fontWeight: '800', color: '#7C3AED' },
+  inquiryBtnText: { fontSize: 13, fontWeight: '800', color: '#166534' },
 
   // Menu rows
   menuRow: {

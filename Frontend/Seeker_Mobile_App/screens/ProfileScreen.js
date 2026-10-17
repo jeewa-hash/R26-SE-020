@@ -1,6 +1,4 @@
-// screens/ProfileScreen.js
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 
 import {
   View,
@@ -26,10 +24,11 @@ import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { confirmLogout } from '../utils/confirmLogout';
-import { IP_ADDRESS } from '../config';
+import { LanguageContext } from '../context/LanguageContext';
+import { IP_ADDRESS, AUTH_SERVICE_URL as LIVE_AUTH_URL } from '../config';
 
-const AUTH_SERVICE_URL = `http://${IP_ADDRESS}:4003/seeker`;
-const BASE_AUTH_URL = `http://${IP_ADDRESS}:4003`;
+const BASE_AUTH_URL = LIVE_AUTH_URL || `http://${IP_ADDRESS}:4003`;
+const AUTH_SERVICE_URL = `${BASE_AUTH_URL}/seeker`;
 
 const getProfileImage = (imagePath) => {
   if (!imagePath) return 'https://i.pravatar.cc/150?img=7';
@@ -39,7 +38,7 @@ const getProfileImage = (imagePath) => {
   return `${BASE_AUTH_URL}/${imagePath.replace(/^\/+/, '')}`;
 };
 
-const getLocationString = (userObj) => {
+const getLocationString = (userObj, isSi) => {
   if (userObj?.district) return userObj.district;
 
   if (userObj?.address) return userObj.address;
@@ -48,49 +47,63 @@ const getLocationString = (userObj) => {
     return userObj.location;
   }
 
-  return 'Location not set';
+  return isSi ? 'ස්ථානය සටහන් කර නැත' : 'Location not set';
 };
 
-const menuItems = [
-  {
-    id: 'serviceSessions',
-    title: 'My Service Sessions',
-    icon: 'assignment',
-    iconType: 'material',
-    color: '#667eea',
-    screen: 'SeekerServiceSessions',
-  },
-  // {
-  //   id: 'myjobs',
-  //   title: 'My Jobs',
-  //   icon: 'work',
-  //   iconType: 'material',
-  //   color: '#667eea',
-  //   screen: 'MyJobsScreen',
-  // },
+const getMenuItems = (isSi) => [
   {
     id: 'myposts',
-    title: 'My Posts',
+    title: isSi ? 'මගේ පළ කිරීම්' : 'My Posts',
+    subtitle: isSi ? 'ඔබ පළ කළ ඉල්ලීම්' : 'Your posted service requests',
     icon: 'newspaper',
     iconType: 'ion',
-    color: '#45B7D1',
+    color: '#06B6D4',
     screen: 'MyPostsScreen',
   },
   {
+    id: 'serviceSessions',
+    title: isSi ? 'මගේ සේවා සැසි' : 'My Service Sessions',
+    subtitle: isSi ? 'සේවා ඉල්ලීම් සහ මිල ගණන්' : 'Requests, quotations & service sessions',
+    icon: 'assignment',
+    iconType: 'material',
+    color: '#4F46E5',
+    screen: 'SeekerServiceSessions',
+  },
+  {
+    id: 'calendar',
+    title: isSi ? 'දින දර්ශනය' : 'Calendar',
+    subtitle: isSi ? 'මාසික සහ සතිපතා සේවා සැලසුම්' : 'Month, week & agenda views',
+    icon: 'calendar',
+    iconType: 'ion',
+    color: '#6366F1',
+    screen: 'SeekerCalendar',
+  },
+  {
     id: 'history',
-    title: 'Service History',
+    title: isSi ? 'සේවා ඉතිහාසය' : 'Service History',
+    subtitle: isSi ? 'අවසන් වූ සේවාවන්' : 'Completed bookings',
     icon: 'time',
     iconType: 'ion',
-    color: '#96CEB4',
+    color: '#10B981',
     screen: 'HistoryScreen',
   },
   {
     id: 'starpoints',
-    title: 'Star Points',
+    title: isSi ? 'තරු ලකුණු' : 'Star Points & Rewards',
+    subtitle: isSi ? 'ලැබූ ලකුණු සහ වට්ටම්' : 'Points & special offers',
     icon: 'star',
     iconType: 'ion',
-    color: '#FBBF24',
+    color: '#F59E0B',
     screen: 'StarPointsScreen',
+  },
+  {
+    id: 'language',
+    title: isSi ? 'භාෂාව වෙනස් කරන්න' : 'Change Language',
+    subtitle: isSi ? 'වත්මන් භාෂාව: සිංහල' : 'Current: English',
+    icon: 'translate',
+    iconType: 'material',
+    color: '#8B5CF6',
+    screen: 'Language',
   },
 ];
 
@@ -106,21 +119,22 @@ export default function ProfileScreen() {
   const navigation = useNavigation();
 
   const { isDarkMode, toggleTheme } = useTheme();
-
   const { user, saveUser, logout } = useAuth();
+  const { language } = useContext(LanguageContext) || { language: 'en' };
+  const isSi = language === 'si';
 
   const [showEditModal, setShowEditModal] = useState(false);
-
   const [refreshing, setRefreshing] = useState(false);
-
   const [isLoading, setIsLoading] = useState(false);
 
+  const menuItems = getMenuItems(isSi);
+
   const [userData, setUserData] = useState({
-    name: user?.name || 'User',
+    name: user?.name || (isSi ? 'පරිශීලකයා' : 'User'),
     email: user?.email || '',
     phone: user?.phone || user?.telephone || '',
-    location: getLocationString(user),
-    memberSince: 'January 2024',
+    location: getLocationString(user, isSi),
+    memberSince: isSi ? '2024 ජනවාරි' : 'January 2024',
     avatar: getProfileImage(user?.profilePicture || user?.profileImage || user?.avatar),
   });
 
@@ -130,10 +144,10 @@ export default function ProfileScreen() {
       name: user?.name || current.name,
       email: user?.email || current.email,
       phone: user?.phone || user?.telephone || current.phone,
-      location: getLocationString(user),
+      location: getLocationString(user, isSi),
       avatar: getProfileImage(user?.profilePicture || user?.profileImage || user?.avatar),
     }));
-  }, [user]);
+  }, [user, isSi]);
 
   const handleMenuPress = (screen) => {
     navigation.navigate(screen);
@@ -270,29 +284,6 @@ export default function ProfileScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-
-            <Text style={styles.headerTitle}>My Profile</Text>
-
-            <TouchableOpacity
-              onPress={toggleTheme}
-              style={styles.backButton}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={isDarkMode ? 'moon' : 'sunny'}
-                size={22}
-                color="#fff"
-              />
-            </TouchableOpacity>
-          </View>
 
           <View style={styles.profileInfo}>
             <View style={styles.avatarContainer}>
@@ -331,9 +322,16 @@ export default function ProfileScreen() {
                 {renderMenuIcon(item)}
               </View>
 
-              <Text style={[styles.menuTitle, isDarkMode && styles.textDark]}>
-                {item.title}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuTitle, isDarkMode && styles.textDark]}>
+                  {item.title}
+                </Text>
+                {item.subtitle ? (
+                  <Text style={[styles.menuSubtitle, isDarkMode && styles.textMutedDark]}>
+                    {item.subtitle}
+                  </Text>
+                ) : null}
+              </View>
 
               <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </TouchableOpacity>
@@ -352,7 +350,7 @@ export default function ProfileScreen() {
             style={styles.logoutGradient}
           >
             <Ionicons name="log-out-outline" size={20} color="#fff" />
-            <Text style={styles.logoutText}>Logout</Text>
+            <Text style={styles.logoutText}>{isSi ? 'ඉවත් වන්න' : 'Logout'}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
@@ -621,10 +619,14 @@ const styles = StyleSheet.create({
   },
 
   menuTitle: {
-    flex: 1,
     fontSize: 15,
-    fontWeight: '500',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  menuSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
   },
 
   logoutButton: {

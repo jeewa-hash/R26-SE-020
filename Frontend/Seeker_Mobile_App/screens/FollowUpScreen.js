@@ -19,6 +19,7 @@ import { useTheme } from "../hooks/useTheme";
 import MapView, { Marker } from "../components/SafeMapView";
 import * as Location from "expo-location";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { IP_ADDRESS } from '../config';
 
 const { width, height } = Dimensions.get("window");
 
@@ -92,7 +93,7 @@ if (!token) {
 }
 
 const res = await fetch(
-  "http://10.0.2.2:5002/text-predict",
+  `http://${IP_ADDRESS}:5002/text-predict`,
   {
     method: "POST",
     headers: {
@@ -391,8 +392,8 @@ if (!token) {
 
 const endpoint =
   source === "image"
-    ? "http://10.0.2.2:8000/flow/next"
-    : "http://10.0.2.2:5002/text-chat";
+    ? `http://${IP_ADDRESS}:8000/flow/next`
+    : `http://${IP_ADDRESS}:5002/text-chat`;
 
 const response = await fetch(endpoint, {
   method: "POST",
