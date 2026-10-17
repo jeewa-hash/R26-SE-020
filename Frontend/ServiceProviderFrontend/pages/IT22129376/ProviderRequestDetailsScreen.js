@@ -12,7 +12,7 @@ const clean = (value, fallback = 'Not provided') => {
 
 export default function ProviderRequestDetailsScreen({ route, navigation }) {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
-  const C = { bg: isDark ? '#0F172A' : '#F8FAFC', card: isDark ? '#1E293B' : '#FFFFFF', text: isDark ? '#F8FAFC' : '#1E293B', muted: isDark ? '#94A3B8' : '#4B5563', border: isDark ? '#334155' : '#E2E8F0' };
+  const C = { bg: isDark ? '#0C0F0D' : '#F5FAF6', card: isDark ? '#161C18' : '#FFFFFF', text: isDark ? '#F5FAF6' : '#161C18', muted: isDark ? '#94A3B8' : '#4B5563', border: isDark ? '#303C33' : '#D8E8DC' };
   const request = route?.params?.request || {};
   const requestStatus = String(request?.status || 'pending').toLowerCase();
   const duration = request?.seekerEstimatedDurationHours || request?.estimatedDurationHours;
@@ -29,7 +29,7 @@ export default function ProviderRequestDetailsScreen({ route, navigation }) {
           <Text style={[styles.row, { color: C.muted }]}>Detected service: {clean(request?.detectedObject || request?.serviceSubcategory, 'Service')}</Text>
           <Text style={[styles.row, { color: C.muted }]}>Customer: {getHumanSeekerName(request)}</Text>
           <Text style={[styles.row, { color: C.muted }]}>Location: {getHumanLocation(request)}</Text>
-          {(getHumanLocation(request) !== 'Location not provided') ? <TouchableOpacity style={styles.mapButton} onPress={() => openLocationInMaps({ latitude: request?.serviceLatitude ?? request?.location?.lat, longitude: request?.serviceLongitude ?? request?.location?.lng, address: getHumanLocation(request), label: getHumanServiceTitle(request) })}><Ionicons name="map-outline" size={17} color="#4F46E5" /><Text style={styles.mapButtonText}>Open in Maps</Text></TouchableOpacity> : null}
+          {(getHumanLocation(request) !== 'Location not provided') ? <TouchableOpacity style={styles.mapButton} onPress={() => openLocationInMaps({ latitude: request?.serviceLatitude ?? request?.location?.lat, longitude: request?.serviceLongitude ?? request?.location?.lng, address: getHumanLocation(request), label: getHumanServiceTitle(request) })}><Ionicons name="map-outline" size={17} color="#166534" /><Text style={styles.mapButtonText}>Open in Maps</Text></TouchableOpacity> : null}
           {Number(request?.estimatedTravelTimeMins) > 0 ? <Text style={[styles.row, { color: C.muted }]}>Estimated travel time: {Math.round(request.estimatedTravelTimeMins)} mins</Text> : null}
           {Number(request?.distanceFromPreviousBookingKm) > 0 ? <Text style={[styles.row, { color: C.muted }]}>Distance: {Number(request.distanceFromPreviousBookingKm).toFixed(1)} km</Text> : null}
           <Text style={[styles.row, { color: C.muted }]}>Preferred time: {clean(request?.preferredTimeLabel)}</Text>
@@ -51,13 +51,13 @@ export default function ProviderRequestDetailsScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#F5FAF6' },
   content: { padding: 16 }, card: { backgroundColor: '#fff', borderRadius: 18, padding: 18, borderWidth: 1 },
-  title: { fontSize: 20, fontWeight: '600', color: '#111827' }, status: { marginTop: 8, color: '#6366F1', fontWeight: '600' },
+  title: { fontSize: 20, fontWeight: '600', color: '#162C49' }, status: { marginTop: 8, color: '#15803D', fontWeight: '600' },
   row: { marginTop: 12, color: '#4B5563', fontSize: 14, fontWeight: '400' },
-  description: { marginTop: 16, color: '#374151', lineHeight: 21, backgroundColor: '#F9FAFB', padding: 12, borderRadius: 10 },
-  button: { backgroundColor: '#667eea', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
+  description: { marginTop: 16, color: '#374151', lineHeight: 21, backgroundColor: '#F5FAF6', padding: 12, borderRadius: 10 },
+  button: { backgroundColor: '#15803D', borderRadius: 12, padding: 15, alignItems: 'center', marginTop: 20 },
   buttonText: { color: '#fff', fontWeight: '600' },
-  mapButton: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#EEF2FF', borderRadius: 10 },
-  mapButtonText: { color: '#4F46E5', fontWeight: '600' },
+  mapButton: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#EAF7EE', borderRadius: 10 },
+  mapButtonText: { color: '#166534', fontWeight: '600' },
 });

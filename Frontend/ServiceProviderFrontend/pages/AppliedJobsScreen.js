@@ -37,26 +37,26 @@ export default function AppliedJobsScreen() {
 
   const C = isDark
     ? {
-        bg: '#0f0f0f',
-        card: '#1c1c1e',
+        bg: '#0C0F0D',
+        card: '#161C18',
         text: '#F2F2F7',
         textSub: '#8E8E93',
-        border: '#2c2c2e',
+        border: '#303C33',
         chipBg: '#2a2a2a',
         chipBorder: '#3a3a3c',
-        searchBg: '#1c1c1e',
-        searchBorder: '#2c2c2e',
+        searchBg: '#161C18',
+        searchBorder: '#303C33',
       }
     : {
-        bg: '#F8FAFC',
+        bg: '#F5FAF6',
         card: '#FFFFFF',
         text: '#111111',
         textSub: '#6B7280',
-        border: '#E2E8F0',
+        border: '#D8E8DC',
         chipBg: '#F3F4F6',
-        chipBorder: '#E5E7EB',
+        chipBorder: '#D8E8DC',
         searchBg: '#FFFFFF',
-        searchBorder: '#E5E7EB',
+        searchBorder: '#D8E8DC',
       };
 
   const isSi = require('../locales').default.language === 'si';
@@ -73,7 +73,7 @@ export default function AppliedJobsScreen() {
       <View style={[styles.emptyState, { backgroundColor: C.bg }]}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
         <View style={styles.emptyStateIcon}>
-          <MaterialIcons name="assignment" size={48} color="#C4B5FD" />
+          <MaterialIcons name="assignment" size={48} color="#B5DCC0" />
         </View>
         <Text style={[styles.emptyStateTitle, { color: C.text }]}>No applications yet</Text>
         <Text style={[styles.emptyStateText, { color: C.textSub }]}>
@@ -148,7 +148,7 @@ export default function AppliedJobsScreen() {
                 <View
                   style={[
                     styles.filterCount,
-                    { backgroundColor: isDark ? '#374151' : '#E5E7EB' },
+                    { backgroundColor: isDark ? '#374151' : '#D8E8DC' },
                     isActive && styles.filterCountActive,
                   ]}
                 >
@@ -180,7 +180,7 @@ export default function AppliedJobsScreen() {
         {filteredJobs.map((job) => {
           const status =
             Object.values(JOB_STATUS).find((s) => s.key === job.status) || JOB_STATUS.PENDING;
-          const categoryColor = CATEGORY_COLORS[job.category] || '#7C3AED';
+          const categoryColor = CATEGORY_COLORS[job.category] || '#166534';
           const initials = job.customer
             .split(' ')
             .map((n) => n[0])
@@ -226,7 +226,7 @@ export default function AppliedJobsScreen() {
                     </View>
                   </View>
 
-                  <Text style={[styles.appliedBudget, { color: '#6366F1' }]}>{job.budget}</Text>
+                  <Text style={[styles.appliedBudget, { color: '#15803D' }]}>{job.budget}</Text>
                 </View>
 
                 <Text style={[styles.appliedDescription, { color: C.textSub }]} numberOfLines={2}>
@@ -311,14 +311,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#D8E8DC',
   },
   searchInput: {
     flex: 1,
     paddingVertical: 14,
     paddingHorizontal: 8,
     fontSize: 14,
-    color: '#1F2937',
+    color: '#162C49',
   },
   filtersContainer: {
     paddingHorizontal: 20,
@@ -334,11 +334,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#D8E8DC',
   },
   filterChipActive: {
-    backgroundColor: '#7C3AED',
-    borderColor: '#7C3AED',
+    backgroundColor: '#166534',
+    borderColor: '#166534',
   },
   filterChipText: {
     fontSize: 13,
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   filterCount: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#D8E8DC',
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 1,
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   appliedName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#162C49',
     marginBottom: 4,
   },
   appliedMeta: {
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
   appliedBudget: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#166534',
   },
   appliedDescription: {
     fontSize: 13,
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    
+
   },
   appliedDate: {
     flexDirection: 'row',
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#EAF7EE',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
   emptyStateTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#162C49',
     marginBottom: 8,
   },
   emptyStateText: {

@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/EditProfileScreen.js
 import React, { useState, useEffect } from 'react';
 import {
@@ -197,18 +198,7 @@ export default function EditProfileScreen() {
       <StatusBar barStyle="light-content" backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'} />
 
       {/* Header */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
-        <View style={{ width: 40 }} />
-      </LinearGradient>
+      <PageHeader title={<>Edit Profile</>} onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* ─── Avatar Section ────────────────────────────────── */}

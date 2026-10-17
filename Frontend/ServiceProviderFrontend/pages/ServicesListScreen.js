@@ -17,12 +17,12 @@ import { CONFIG } from '../config';
 import { Colors } from '../theme';
 
 const CATEGORY_META = {
-  plumbing:   { icon: 'plumbing',            color: '#2563EB' },
+  plumbing:   { icon: 'plumbing',            color: '#15803D' },
   electrical: { icon: 'electrical-services', color: '#F59E0B' },
-  carpentry:  { icon: 'handyman',            color: '#7C3AED' },
+  carpentry:  { icon: 'handyman',            color: '#166534' },
   cleaning:   { icon: 'cleaning-services',   color: '#059669' },
   painting:   { icon: 'format-paint',        color: '#DC2626' },
-  roofing:    { icon: 'home-repair-service', color: '#0891B2' },
+  roofing:    { icon: 'home-repair-service', color: '#0284C7' },
   planting:   { icon: 'local-florist',       color: '#15803D' },
   other:      { icon: 'build',               color: '#6B7280' },
 };
@@ -47,8 +47,8 @@ export default function ServicesListScreen({ navigation }) {
   const [filterActive, setFilterActive] = useState('all');
 
   const C = isDark
-    ? { bg: '#0f0f0f', card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', subCard: '#2a2a2a', inputBg: '#2c2c2e' }
-    : { bg: '#F8FAFC', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#E2E8F0', subCard: '#F8FAFC', inputBg: '#F1F5F9' };
+    ? { bg: '#0C0F0D', card: '#161C18', text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33', subCard: '#2a2a2a', inputBg: '#303C33' }
+    : { bg: '#F5FAF6', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#D8E8DC', subCard: '#F5FAF6', inputBg: '#F1F5F9' };
 
   const fetchServices = useCallback(async () => {
     try {
@@ -212,7 +212,7 @@ export default function ServicesListScreen({ navigation }) {
 
       <View style={[styles.statsBar, { backgroundColor: C.card, borderBottomColor: C.border }]}>
         {[
-          { key: 'all', label: 'All', count: stats.total, color: '#2563EB' },
+          { key: 'all', label: 'All', count: stats.total, color: '#15803D' },
           { key: 'active', label: 'Active', count: stats.active, color: '#16A34A' },
           { key: 'inactive', label: 'Inactive', count: stats.inactive, color: '#DC2626' },
         ].map((tab) => (
@@ -289,7 +289,7 @@ export default function ServicesListScreen({ navigation }) {
                           </Text>
                           {service.mlDetected && (
                             <View style={styles.mlBadge}>
-                              <MaterialIcons name="auto-awesome" size={10} color="#7C3AED" />
+                              <MaterialIcons name="auto-awesome" size={10} color="#166534" />
                               <Text style={styles.mlBadgeText}>AI</Text>
                             </View>
                           )}
@@ -344,7 +344,7 @@ export default function ServicesListScreen({ navigation }) {
                       style={[styles.actionBtn, styles.actionEdit]}
                       onPress={() => handleEdit(service)}
                     >
-                      <MaterialIcons name="edit" size={14} color="#2563EB" />
+                      <MaterialIcons name="edit" size={14} color="#15803D" />
                       <Text style={styles.actionEditText}>Edit</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#F5F3FF',
+    backgroundColor: '#F0F9F2',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   mlBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: '#166534',
   },
 
   serviceDesc: {
@@ -591,12 +591,12 @@ const styles = StyleSheet.create({
   },
   actionEdit: {
     borderRightWidth: 0.5,
-    borderRightColor: '#E2E8F0',
+    borderRightColor: '#D8E8DC',
   },
   actionEditText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563EB',
+    color: '#15803D',
   },
   actionDeleteText: {
     fontSize: 12,
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 30,
     right: 20,
-    shadowColor: '#6C63FF',
+    shadowColor: '#15803D',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,

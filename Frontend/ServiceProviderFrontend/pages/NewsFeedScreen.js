@@ -30,7 +30,6 @@ import { ThemeContext } from '../context/ThemeContext';
 import { getStoredProviderAuth } from './IT22129376/services/providerAuthStorage';
 import {
   getProviderJobs,
-  getProviderOngoingJobs,
   getProviderQuotations,
   getProviderRequests,
 } from './IT22129376/services/providerFlowApi';
@@ -63,19 +62,19 @@ const belongsToProvider = (item, providerId) => {
 function AppliedJobsView({ isDark, onViewMore, appliedJobs }) {
   const { updateJobStatus } = useAppliedJobs();
   const isSi = i18n.language === 'si';
-  
+
   // Show only first 3 jobs in feed view
   const displayJobs = appliedJobs.slice(0, 3);
 
   const C = isDark
-    ? { bg: '#1C1C1E', card: '#2C2C2E', text: '#F2F2F7', textSub: '#8E8E93', border: '#3A3A3C' }
-    : { bg: '#F9FAFB', card: '#FFFFFF', text: '#111827', textSub: '#6B7280', border: '#E5E7EB' };
+    ? { bg: '#161C18', card: '#303C33', text: '#F2F2F7', textSub: '#8E8E93', border: '#3A3A3C' }
+    : { bg: '#F5FAF6', card: '#FFFFFF', text: '#162C49', textSub: '#6B7280', border: '#D8E8DC' };
 
   if (appliedJobs.length === 0) {
     return (
       <View style={[styles.emptyContainer, { backgroundColor: C.bg }]}>
         <View style={styles.emptyIconBg}>
-          <MaterialIcons name="assignment" size={40} color="#7C3AED" />
+          <MaterialIcons name="assignment" size={40} color="#166534" />
         </View>
 
         <Text style={[styles.emptyTitle, { color: C.text }]}>
@@ -85,10 +84,10 @@ function AppliedJobsView({ isDark, onViewMore, appliedJobs }) {
         <Text style={[styles.emptySubtitle, { color: C.textSub }]}>
           Switch to All Jobs and apply to service requests
         </Text>
-        <TouchableOpacity style={[styles.viewMoreButton, { backgroundColor: C.card, borderColor: '#7C3AED', borderWidth: 2 }]} onPress={onViewMore}>
+        <TouchableOpacity style={[styles.viewMoreButton, { backgroundColor: C.card, borderColor: '#166534', borderWidth: 2 }]} onPress={onViewMore}>
           <View style={styles.viewMoreContent}>
-            <Text style={[styles.viewMoreText, { color: '#7C3AED' }]}>View All Applied Jobs</Text>
-            <MaterialIcons name="arrow-forward" size={20} color="#7C3AED" />
+            <Text style={[styles.viewMoreText, { color: '#166534' }]}>View All Applied Jobs</Text>
+            <MaterialIcons name="arrow-forward" size={20} color="#166534" />
           </View>
         </TouchableOpacity>
       </View>
@@ -110,25 +109,25 @@ function AppliedJobsView({ isDark, onViewMore, appliedJobs }) {
             <View
               style={[
                 styles.appliedStatusStrip,
-                { backgroundColor: status?.color || '#7C3AED' },
+                { backgroundColor: status?.color || '#166534' },
               ]}
             />
 
             <View style={styles.appliedCardContent}>
-              <View style={[styles.statusBadge, { backgroundColor: status?.bg || '#F3E8FF' }]}>
+              <View style={[styles.statusBadge, { backgroundColor: status?.bg || '#EAF7EE' }]}>
                 <MaterialIcons
                   name={status?.icon || 'info'}
                   size={14}
-                  color={status?.color || '#7C3AED'}
+                  color={status?.color || '#166534'}
                 />
 
-                <Text style={[styles.statusBadgeText, { color: status?.color || '#7C3AED' }]}>
+                <Text style={[styles.statusBadgeText, { color: status?.color || '#166534' }]}>
                   {isSi ? status?.labelSi : status?.label}
                 </Text>
               </View>
 
               <View style={styles.appliedHeader}>
-                <View style={[styles.appliedAvatar, { backgroundColor: '#7C3AED' }]}>
+                <View style={[styles.appliedAvatar, { backgroundColor: '#166534' }]}>
                   <Text style={styles.appliedAvatarText}>{initials}</Text>
                 </View>
 
@@ -189,25 +188,25 @@ function AppliedJobsView({ isDark, onViewMore, appliedJobs }) {
           </View>
         );
       })}
-      
+
       {/* Always show the link to the full applied-jobs page. */}
       <TouchableOpacity
-          style={[styles.viewMoreButton, { 
-            backgroundColor: isDark ? '#2C2C2E' : '#FFFFFF',
-            borderColor: '#7C3AED',
+          style={[styles.viewMoreButton, {
+            backgroundColor: isDark ? '#303C33' : '#FFFFFF',
+            borderColor: '#166534',
             borderWidth: 2,
           }]}
           onPress={onViewMore}
           activeOpacity={0.7}
         >
           <View style={styles.viewMoreContent}>
-            <Text style={[styles.viewMoreText, { color: '#7C3AED' }]}>
+            <Text style={[styles.viewMoreText, { color: '#166534' }]}>
               View All Applied Jobs
             </Text>
             <View style={styles.viewMoreBadge}>
               <Text style={styles.viewMoreBadgeText}>{appliedJobs.length}</Text>
             </View>
-            <MaterialIcons name="arrow-forward" size={20} color="#7C3AED" />
+            <MaterialIcons name="arrow-forward" size={20} color="#166534" />
           </View>
       </TouchableOpacity>
     </View>
@@ -253,20 +252,20 @@ export default function NewsFeedScreen() {
 
   const C = isDark
     ? {
-        bg: '#0F0F0F',
-        card: '#1C1C1E',
+        bg: '#0C0F0D',
+        card: '#161C18',
         text: '#F2F2F7',
         textSub: '#8E8E93',
-        border: '#2C2C2E',
+        border: '#303C33',
         subCard: '#2A2A2A',
       }
     : {
-        bg: '#F8FAFC',
+        bg: '#F5FAF6',
         card: '#FFFFFF',
-        text: '#111827',
+        text: '#162C49',
         textSub: '#6B7280',
-        border: '#E5E7EB',
-        subCard: '#F9FAFB',
+        border: '#D8E8DC',
+        subCard: '#F5FAF6',
       };
 
   const loadProviderSummary = useCallback(async () => {
@@ -286,41 +285,29 @@ export default function NewsFeedScreen() {
         getProviderRequests(auth.providerId),
         getProviderQuotations(auth.providerId),
         getProviderJobs(auth.providerId),
-        getProviderOngoingJobs(auth.providerId),
       ]);
 
-      if (results.some((result) => result.status === 'rejected')) {
-        throw new Error('One or more provider summary APIs failed');
-      }
-
-      const requests = (results[0].value.rawList || []).filter((item) =>
+      const requests = (results[0].status === 'fulfilled' ? results[0].value?.rawList || results[0].value || [] : []).filter((item) =>
         belongsToProvider(item, auth.providerId)
       );
 
-      const quotations = (results[1].value.rawList || []).filter((item) =>
+      const quotations = (results[1].status === 'fulfilled' ? results[1].value?.rawList || results[1].value || [] : []).filter((item) =>
         belongsToProvider(item, auth.providerId)
       );
 
-      const bookings = (results[2].value.rawList || []).filter((item) =>
-        belongsToProvider(item, auth.providerId)
-      );
-
-      const ongoingBookings = (results[3].value.rawList || []).filter((item) =>
+      const bookings = (results[2].status === 'fulfilled' ? results[2].value?.rawList || results[2].value || [] : []).filter((item) =>
         belongsToProvider(item, auth.providerId)
       );
 
       setSummary({
-        pending: requests.filter((item) => String(item.status || '').toLowerCase() === 'pending')
-          .length,
-        waiting: quotations.filter((item) => String(item.status || '').toUpperCase() === 'SENT')
-          .length,
+        pending: requests.filter((item) => String(item.status || '').toLowerCase() === 'pending').length,
+        waiting: quotations.filter((item) => String(item.status || '').toUpperCase() === 'SENT').length,
         scheduled: bookings.filter((item) => item.bookingStatus === 'CONFIRMED').length,
-        ongoing: ongoingBookings.filter((item) =>
+        ongoing: bookings.filter((item) =>
           ['ON_THE_WAY', 'IN_PROGRESS', 'DELAY_REPORTED'].includes(item.bookingStatus)
         ).length,
         completed: bookings.filter((item) => item.bookingStatus === 'COMPLETED').length,
-        rejected: quotations.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED')
-          .length,
+        rejected: quotations.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED').length,
       });
     } catch (error) {
       console.log('Provider summary load error:', error?.message);
@@ -463,7 +450,7 @@ export default function NewsFeedScreen() {
     if (liveLoading) {
       return (
         <View style={[styles.liveState, { backgroundColor: C.card, borderColor: C.border }]}>
-          <ActivityIndicator color="#7C3AED" />
+          <ActivityIndicator color="#166534" />
 
           <Text style={[styles.liveStateText, { color: C.textSub }]}>
             Loading today’s work...
@@ -501,11 +488,11 @@ export default function NewsFeedScreen() {
       const color = delayed
         ? '#D97706'
         : traveling
-          ? '#7C3AED'
+          ? '#166534'
         : kind === 'current'
-          ? '#2563EB'
+          ? '#15803D'
           : soon
-            ? '#7C3AED'
+            ? '#166534'
             : '#059669';
 
       const icon = delayed
@@ -717,7 +704,7 @@ export default function NewsFeedScreen() {
 
   const summaryCards = [
     { key: 'pending', label: 'Pending Requests', icon: 'pending-actions', color: '#F59E0B' },
-    { key: 'waiting', label: 'Waiting for Seeker', icon: 'hourglass-top', color: '#8B5CF6' },
+    { key: 'waiting', label: 'Waiting for Seeker', icon: 'hourglass-top', color: '#0284C7' },
     { key: 'scheduled', label: 'Scheduled', icon: 'event-available', color: '#10B981' },
     { key: 'ongoing', label: 'Ongoing', icon: 'engineering', color: '#3B82F6' },
     { key: 'completed', label: 'Completed', icon: 'task-alt', color: '#059669' },
@@ -1040,9 +1027,9 @@ export default function NewsFeedScreen() {
   return (
     <View style={[styles.container, { backgroundColor: C.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      
+
       {/* Profile Header with Sidebar */}
-      <HeaderSection 
+      <HeaderSection
         navigation={navigation}
         userName={userName}
         avatarUrl={userAvatar}
@@ -1052,7 +1039,7 @@ export default function NewsFeedScreen() {
         onInboxPress={() => navigation.navigate('InboxScreen')}
       />
 
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -1063,7 +1050,7 @@ export default function NewsFeedScreen() {
 
         <View style={styles.liveSection}>
           <View style={styles.unlockHeader}>
-            
+
 
             <Text style={[styles.summaryTitle, styles.liveTitle, { color: C.text }]}>
               Live Job Status
@@ -1085,7 +1072,7 @@ export default function NewsFeedScreen() {
           >
             {quickCategories.map((category) => {
               const isActive = selectedCategory === category;
-              const color = category === 'All' ? '#7C3AED' : CATEGORY_COLORS[category] || '#7C3AED';
+              const color = category === 'All' ? '#166534' : CATEGORY_COLORS[category] || '#166534';
               const icon = getCategoryIcon(category);
 
               return (
@@ -1096,8 +1083,8 @@ export default function NewsFeedScreen() {
                     styles.quickCategoryChip,
                     isActive && styles.quickCategoryChipActive,
                     !isActive && {
-                      backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
-                      borderColor: isDark ? '#334155' : '#E2E8F0',
+                      backgroundColor: isDark ? '#161C18' : '#F1F5F9',
+                      borderColor: isDark ? '#303C33' : '#D8E8DC',
                     },
                   ]}
                   activeOpacity={0.7}
@@ -1141,15 +1128,15 @@ export default function NewsFeedScreen() {
 
         {/* Toggle: All Jobs vs Applied - Modern Design */}
         <View style={styles.toggleSection}>
-          <Surface style={[styles.toggleContainer, { 
-            backgroundColor: isDark ? '#2C2C2E' : '#F3F4F6',
-            borderColor: isDark ? '#3A3A3C' : '#E5E7EB',
+          <Surface style={[styles.toggleContainer, {
+            backgroundColor: isDark ? '#303C33' : '#F3F4F6',
+            borderColor: isDark ? '#3A3A3C' : '#D8E8DC',
           }]}>
             <TouchableOpacity
               style={[
-                styles.toggleOption, 
+                styles.toggleOption,
                 !showApplied && styles.toggleOptionActive,
-                !showApplied && { backgroundColor: '#7C3AED' }
+                !showApplied && { backgroundColor: '#166534' }
               ]}
               onPress={() => setShowApplied(false)}
             >
@@ -1159,7 +1146,7 @@ export default function NewsFeedScreen() {
                 color={!showApplied ? '#FFFFFF' : isDark ? '#8E8E93' : '#6B7280'}
               />
               <Text style={[
-                styles.toggleOptionText, 
+                styles.toggleOptionText,
                 !showApplied && styles.toggleOptionTextActive,
                 !showApplied && { color: '#FFFFFF' }
               ]}>
@@ -1169,9 +1156,9 @@ export default function NewsFeedScreen() {
 
             <TouchableOpacity
               style={[
-                styles.toggleOption, 
+                styles.toggleOption,
                 showApplied && styles.toggleOptionActive,
-                showApplied && { backgroundColor: '#7C3AED' }
+                showApplied && { backgroundColor: '#166534' }
               ]}
               onPress={() => setShowApplied(true)}
             >
@@ -1181,7 +1168,7 @@ export default function NewsFeedScreen() {
                 color={showApplied ? '#FFFFFF' : isDark ? '#8E8E93' : '#6B7280'}
               />
               <Text style={[
-                styles.toggleOptionText, 
+                styles.toggleOptionText,
                 showApplied && styles.toggleOptionTextActive,
                 showApplied && { color: '#FFFFFF' }
               ]}>
@@ -1191,7 +1178,7 @@ export default function NewsFeedScreen() {
               {appliedJobs.length > 0 && (
                 <View style={[
                   styles.toggleCount,
-                  { backgroundColor: showApplied ? 'rgba(255,255,255,0.25)' : '#7C3AED' }
+                  { backgroundColor: showApplied ? 'rgba(255,255,255,0.25)' : '#166534' }
                 ]}>
                   <Text style={[
                     styles.toggleCountText,
@@ -1204,8 +1191,8 @@ export default function NewsFeedScreen() {
         </View>
 
         {showApplied ? (
-          <AppliedJobsView 
-            isDark={isDark} 
+          <AppliedJobsView
+            isDark={isDark}
             onViewMore={handleViewMoreApplied}
             appliedJobs={appliedJobs}
           />
@@ -1216,7 +1203,7 @@ export default function NewsFeedScreen() {
                 <View>
                   <View style={styles.sectionAccentRow}>
                     <LinearGradient
-                      colors={['#7C3AED', '#4F46E5']}
+                      colors={['#166534', '#166534']}
                       style={styles.sectionAccent}
                     />
 
@@ -1230,8 +1217,8 @@ export default function NewsFeedScreen() {
                   </Text>
                 </View>
 
-                <View style={[styles.resultBadge, { backgroundColor: isDark ? '#1E293B' : '#F3E8FF' }]}>
-                  <Text style={[styles.resultBadgeText, { color: isDark ? '#A78BFA' : '#7C3AED' }]}>
+                <View style={[styles.resultBadge, { backgroundColor: isDark ? '#161C18' : '#EAF7EE' }]}>
+                  <Text style={[styles.resultBadgeText, { color: isDark ? '#86C99A' : '#166534' }]}>
                     {filteredPosts.length} jobs
                   </Text>
                 </View>
@@ -1252,7 +1239,7 @@ export default function NewsFeedScreen() {
                 )
               ) : (
                 <View style={[styles.noJobsContainer, { backgroundColor: C.card }]}>
-                  <MaterialIcons name="check-circle" size={64} color="#C4B5FD" />
+                  <MaterialIcons name="check-circle" size={64} color="#B5DCC0" />
 
                   <Text style={[styles.noJobsTitle, { color: C.text }]}>
                     All caught up!
@@ -1438,7 +1425,7 @@ const styles = StyleSheet.create({
   },
 
   liveRetry: {
-    color: '#7C3AED',
+    color: '#166534',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -1612,7 +1599,7 @@ const styles = StyleSheet.create({
   },
 
   modalSubmit: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
     paddingHorizontal: 17,
     paddingVertical: 11,
     borderRadius: 10,
@@ -1647,7 +1634,7 @@ const styles = StyleSheet.create({
   quickCategoryChipActive: {
     borderWidth: 0,
     elevation: 4,
-    shadowColor: '#7C3AED',
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -1701,7 +1688,7 @@ const styles = StyleSheet.create({
 
   toggleOptionActive: {
     elevation: 2,
-    shadowColor: '#7C3AED',
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -1939,7 +1926,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F3E8FF',
+    backgroundColor: '#EAF7EE',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -1955,7 +1942,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
     elevation: 2,
-    shadowColor: '#7C3AED',
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1971,7 +1958,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   viewMoreBadge: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 3,

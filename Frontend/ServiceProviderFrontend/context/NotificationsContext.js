@@ -13,8 +13,8 @@ const INITIAL_NOTIFICATIONS = [
     body: 'Urgent plumbing repair needed in Colombo 03.',
     bodySi: 'කොළඹ 03 හි හදිසි නළ අලුත්වැඩියාවක් අවශ්‍යයි.',
     icon: 'auto-awesome',
-    iconColor: '#7C3AED',
-    iconBg: '#F5F3FF',
+    iconColor: '#166534',
+    iconBg: '#F0F9F2',
     aiMatch: 92,
     job: {
       id: 'n1',

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Quotation from "../models/Quotation.js";
 import Notification from "../models/Notification.js";
 import { sendRealtimeNotification } from "../sockets/notificationSocket.js";
@@ -18,11 +19,8 @@ export const createQuotation = async (req, res) => {
 
     const {
       providerRequestId,
-      externalSessionId, // Chaw: added ServiceSession ID from seeker/request flow
-      seekerId,
-      postId = null,
       price,
-      proposedStartTime, // Chaw: added provider proposed job start date/time
+      proposedStartTime: suppliedStartTime, // Chaw: added provider proposed job start date/time
       estimatedDurationHours = null, // Legacy compatibility only; new flow predicts duration in Coordination Service
       durationText = "",
       notes = "",
@@ -30,42 +28,26 @@ export const createQuotation = async (req, res) => {
       serviceSubcategory = "",
     } = req.body;
 
-    // Validate essential parameters from the Seeker's request payload
-    if (
-      !providerRequestId ||
-      !externalSessionId || // Chaw: required to link quotation to ServiceSession
-      !seekerId ||
-      price == null ||
-      !proposedStartTime // Chaw: required for scheduling/conflict validation
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "providerRequestId, externalSessionId, seekerId, price, and proposedStartTime are required.",
-      });
-    }
-
-    if (Number(price) < 0) { // Chaw: validate quotation amount
-      return res.status(400).json({
-        success: false,
-        message: "price cannot be negative.",
-      });
-    }
-
-    // Legacy clients may still send estimatedDurationHours. Validate it only when present.
-    if (estimatedDurationHours != null && Number(estimatedDurationHours) <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "estimatedDurationHours must be greater than 0 when provided.",
-      });
-    }
-
-    if (Number.isNaN(new Date(proposedStartTime).getTime())) { // Chaw: validate proposed start time
-      return res.status(400).json({
-        success: false,
-        message: "Invalid proposedStartTime.",
-      });
-    }
+    if (!mongoose.Types.ObjectId.isValid(providerRequestId)) return res.status(400).json({ message: 'A valid request ID is required.' });
+    if (!Number.isFinite(Number(price)) || Number(price) <= 0) return res.status(400).json({ message: 'Price must be a number greater than zero.' });
+    const requestResponse = await axios.get(`${SEEKER_SERVICE_URL}/request-quotations/${providerRequestId}`, { timeout: 10000 });
+    const request = requestResponse.data.request || requestResponse.data.data || requestResponse.data;
+    if (String(request.providerId) !== String(providerId)) return res.status(403).json({ message: 'This request belongs to another provider.' });
+    if (request.rescheduleRequestedAt) return res.status(409).json({ message: 'Waiting for the seeker to choose a new time.' });
+    const externalSessionId = request.sessionId;
+    const seekerId = request.seekerId;
+    const postId = request.postId || null;
+    const proposedStartTime = request.preferredStartTime;
+    if (!proposedStartTime || !Number.isFinite(new Date(proposedStartTime).getTime()) || new Date(proposedStartTime) <= new Date()) return res.status(400).json({ message: 'Ask the seeker to choose a future start time.' });
+    if (suppliedStartTime && new Date(suppliedStartTime).getTime() !== new Date(proposedStartTime).getTime()) return res.status(400).json({ message: 'Only the seeker can choose the start time.' });
+    if (request.status !== 'pending') return res.status(409).json({ message: 'This request is not awaiting a quotation.' });
+    await Quotation.init();
+    const existing = await Quotation.findOne({ providerId, externalSessionId });
+    if (existing) return res.status(409).json({ message: 'You have already submitted your one quotation for this session.', quotationId: existing._id });
+    const coordinationUrl = (process.env.COORDINATION_SERVICE_URL || 'http://localhost:5010').replace(/\/$/, '');
+    await axios.post(`${coordinationUrl}/bid-coordinations/validate-quotation`, { providerRequestId }, {
+      headers: { Authorization: req.headers.authorization }, timeout: 30000,
+    });
 
     const providerSnapshot = {
       providerId,
@@ -89,7 +71,8 @@ export const createQuotation = async (req, res) => {
     };
 
     // 1. Create Quotation in Database
-    const quotation = await Quotation.create({
+    let quotation = await Quotation.create({
+      workflowVersion: 2,
       providerRequestId,
       externalSessionId, // Chaw: save ServiceSession reference
       seekerId,
@@ -102,12 +85,26 @@ export const createQuotation = async (req, res) => {
         durationText ||
         (estimatedDurationHours != null ? `${estimatedDurationHours} Hours` : ""),
       notes,
-      serviceCategory,
-      serviceSubcategory,
+      serviceCategory: request.detectedCategory || request.serviceCategory || serviceCategory,
+      serviceSubcategory: request.detectedObject || request.serviceSubcategory || serviceSubcategory,
       providerSnapshot,
       status: "SENT",
       coordinationStatus: "NOT_CHECKED", // Chaw: new quotation must be checked by Coordination Service
     });
+
+    // Run coordination before exposing a selectable offer to the seeker.
+    let validationPending = false;
+    try {
+      await axios.post(`${coordinationUrl}/bid-coordinations/check`, {
+        externalRequestQuotationId: providerRequestId,
+        externalQuotationId: String(quotation._id),
+      }, { timeout: 60000 });
+      quotation = await Quotation.findById(quotation._id);
+      validationPending = !quotation?.coordinationId || ["NOT_CHECKED", "CHECKING"].includes(quotation.coordinationStatus);
+    } catch (error) {
+      validationPending = true;
+      console.error('Quotation validation pending:', error.response?.data?.message || error.message);
+    }
 
     // 2. Persistent Notification for Seeker
     const notification = await Notification.create({
@@ -136,10 +133,13 @@ export const createQuotation = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Quotation sent to seeker successfully.",
+      message: validationPending ? "Quotation saved. Availability validation is pending; retry validation from your quotation." : "Quotation sent to seeker successfully.",
+      validationPending,
       data: quotation,
     });
   } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ message: 'You have already submitted your one quotation for this session.' });
+    if (error.response) return res.status(error.response.status >= 500 ? 503 : error.response.status).json({ message: error.response.data?.message || 'Availability check failed.', code: error.response.data?.code });
     console.error("CREATE QUOTATION ERROR:", error);
 
     return res.status(500).json({
@@ -148,6 +148,37 @@ export const createQuotation = async (req, res) => {
       error: error.message,
     });
   }
+};
+
+export const syncQuotationRequestedTime = async (req, res) => {
+  try {
+    const quote = await Quotation.findOne({ providerRequestId: req.params.requestId });
+    if (!quote) return res.json({ success: true, quotation: null });
+    if (String(quote.seekerId) !== String(req.user.id)) return res.status(403).json({ message: 'Only the seeker can change the requested time.' });
+    if (quote.status !== 'SENT') return res.status(409).json({ message: 'This quotation is already closed or accepted.' });
+    const response = await axios.get(`${SEEKER_SERVICE_URL}/request-quotations/${req.params.requestId}`, { timeout: 10000 });
+    const request = response.data.request || response.data.data || response.data;
+    const time = new Date(request.preferredStartTime);
+    if (!request.preferredStartTime || !Number.isFinite(time.getTime()) || time <= new Date()) return res.status(400).json({ message: 'A future start time is required.' });
+    quote.proposedStartTime = time;
+    quote.coordinationStatus = 'NOT_CHECKED';
+    await quote.save();
+    const coordinationUrl = (process.env.COORDINATION_SERVICE_URL || 'http://localhost:5010').replace(/\/$/, '');
+    await axios.post(`${coordinationUrl}/bid-coordinations/check`, { externalRequestQuotationId: String(quote.providerRequestId), externalQuotationId: String(quote._id) }, { timeout: 60000 });
+    return res.json({ success: true, data: await Quotation.findById(quote._id) });
+  } catch (error) { return res.status(503).json({ message: 'The new time was saved; provider validation is pending.' }); }
+};
+
+export const retryQuotationValidation = async (req, res) => {
+  try {
+    const quote = await Quotation.findById(req.params.id);
+    if (!quote) return res.status(404).json({ message: 'Quotation not found.' });
+    if (String(quote.providerId) !== String(req.user.id)) return res.status(403).json({ message: 'This quotation belongs to another provider.' });
+    if (quote.status !== 'SENT') return res.status(409).json({ message: 'Only sent quotations can be validated.' });
+    const coordinationUrl = (process.env.COORDINATION_SERVICE_URL || 'http://localhost:5010').replace(/\/$/, '');
+    await axios.post(`${coordinationUrl}/bid-coordinations/check`, { externalRequestQuotationId: String(quote.providerRequestId), externalQuotationId: String(quote._id) }, { timeout: 60000 });
+    res.json({ success: true, data: await Quotation.findById(quote._id) });
+  } catch (error) { res.status(503).json({ message: error.response?.data?.message || 'Validation could not finish. Your quotation and price are saved; try again.' }); }
 };
 
 export const getProviderQuotations = async (req, res) => {

@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   checkBidCoordination,
+  validateQuotationSchedule,
   getBidCoordinationById,
   getBidCoordinationsBySession,
   selectSuggestedSlot
@@ -9,6 +10,8 @@ import {
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+router.post("/validate-quotation", protect(["ServiceProvider"]), validateQuotationSchedule);
 
 router.post("/check", checkBidCoordination); // Chaw: run bid coordination check
 
@@ -18,7 +21,7 @@ router.get("/:id", getBidCoordinationById); // Chaw: fetch one bid coordination 
 
 router.patch(
   "/:coordinationId/suggested-slots/:slotId/select",
-  protect(["ServiceProvider", "Seeker"]),
+  protect(["Seeker"]),
   selectSuggestedSlot
 );
 

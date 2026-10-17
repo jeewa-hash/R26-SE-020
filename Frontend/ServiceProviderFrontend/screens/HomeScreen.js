@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IP_ADDRESS } from '../config';
@@ -15,14 +15,14 @@ export default function HomeScreen({ navigation }) {
       fetchUnreadCount();
       intervalId = setInterval(fetchUnreadCount, 10000);
     });
-    
+
     const unsubscribeBlur = navigation.addListener('blur', () => {
       if (intervalId) clearInterval(intervalId);
     });
 
     fetchUnreadCount();
     intervalId = setInterval(fetchUnreadCount, 10000);
-    
+
     return () => {
       unsubscribe();
       unsubscribeBlur();
@@ -40,7 +40,7 @@ export default function HomeScreen({ navigation }) {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       const data = await response.json();
       if (response.ok) {
         const unread = data.filter(n => !n.isRead).length;
@@ -54,8 +54,8 @@ export default function HomeScreen({ navigation }) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity 
-          style={styles.bellContainer} 
+        <TouchableOpacity
+          style={styles.bellContainer}
           onPress={() => navigation.navigate('Notifications')}
         >
           <MaterialIcons name="notifications-none" size={28} color="#333" />
@@ -70,7 +70,7 @@ export default function HomeScreen({ navigation }) {
       headerTitleStyle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#1f2937',
+        color: '#162C49',
       },
     });
   }, [navigation, unreadCount]);
@@ -97,7 +97,7 @@ export default function HomeScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.welcomeSection}>
           <Text style={styles.greeting}>Hello, Provider!</Text>
@@ -106,27 +106,27 @@ export default function HomeScreen({ navigation }) {
 
         <View style={styles.statsRow}>
           <StatCard label="Earnings" value="$1,240" icon="attach-money" color="#10b981" />
-          <StatCard label="Jobs" value="12" icon="work" color="#6366f1" />
+          <StatCard label="Jobs" value="12" icon="work" color="#15803D" />
         </View>
 
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionsGrid}>
-          <QuickAction icon="add-task" label="New Job" color="#6366f1" />
+          <QuickAction icon="add-task" label="New Job" color="#15803D" />
           <QuickAction icon="history" label="History" color="#f59e0b" />
           <QuickAction icon="person" label="Profile" color="#10b981" onPress={() => navigation.navigate('Profile')} />
           <QuickAction icon="settings" label="Settings" color="#6b7280" onPress={() => navigation.navigate('Settings')} />
         </View>
-        
+
         <View style={{ height: 40 }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F5FAF6',
   },
   container: {
     flex: 1,
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#162C49',
   },
   subtitle: {
     fontSize: 15,
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#162C49',
   },
   statIconContainer: {
     width: 36,
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#162C49',
     marginBottom: 15,
   },
   actionsGrid: {

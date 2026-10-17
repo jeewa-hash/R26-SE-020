@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Platform, StatusBar, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,18 +46,7 @@ export default function HelpScreen({ navigation }) {
       />
       
       {/* Header */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Help Center</Text>
-        <View style={{ width: 40 }} />
-      </LinearGradient>
+      <PageHeader title={<>Help Center</>} onBack={() => navigation.goBack()} />
 
       <ScrollView 
         contentContainerStyle={styles.content}

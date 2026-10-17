@@ -4,6 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { decodeJwt, getUserIdFromJwt, getRoleFromJwt } from '../utils/jwtHelpers';
 import { clearCredentials } from '../../../utils/biometricAuth';
 
+const sessionListeners = new Set();
+export const subscribeProviderSession = (listener) => {
+  sessionListeners.add(listener);
+  return () => sessionListeners.delete(listener);
+};
+const notifyProviderSession = (providerId) => sessionListeners.forEach((listener) => listener(providerId));
+
 export const AUTH_KEYS = [
   'userToken',
   'token',
@@ -26,6 +33,7 @@ export const AUTH_KEYS = [
 export const clearAllAuthStorage = async () => {
   try {
     await AsyncStorage.multiRemove(AUTH_KEYS);
+    notifyProviderSession(null);
   } catch (error) {
     console.log('AsyncStorage clear warning:', error?.message);
   }
@@ -112,6 +120,7 @@ export const saveProviderLogin = async ({ token, user, role, response }) => {
   }
 
   await AsyncStorage.multiSet(entries);
+  notifyProviderSession(String(providerId));
 
   console.log('LOGIN SAVED USER ID:', providerId);
   console.log('LOGIN SAVED ROLE:', finalRole);

@@ -1,0 +1,7 @@
+node_modules/
+DurationMLService/
+.env
+.git/
+.gitignore
+*.md
+*.csv

@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -321,20 +322,7 @@ export default function NotificationScreen({ navigation }) {
           barStyle="light-content"
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
-        <LinearGradient
-          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
-        >
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <MaterialIcons name="arrow-back" size={26} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Notifications</Text>
-            <View style={{ width: 40 }} />
-          </View>
-        </LinearGradient>
+        <PageHeader title={<>Notifications</>} onBack={() => navigation.goBack()} />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#007bff'} />
         </View>
@@ -351,20 +339,7 @@ export default function NotificationScreen({ navigation }) {
       />
 
       {/* ========== GRADIENT HEADER ========== */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <MaterialIcons name="arrow-back" size={26} color="#fff" />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: '#fff' }]}>Notifications</Text>
-          <View style={{ width: 40 }} />
-        </View>
-      </LinearGradient>
+      <PageHeader title={<>Notifications</>} onBack={() => navigation.goBack()} />
 
       <View style={styles.container}>
         {/* Tabs – no border */}

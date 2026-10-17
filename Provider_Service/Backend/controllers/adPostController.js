@@ -187,8 +187,8 @@ export const listPostsByProvider = async (req, res) => {
 export const listAllPublicPosts = async (req, res) => {
   try {
     const posts = await AdPost.find({ status: "draft" }).sort({
-      priority: -1,
       createdAt: -1,
+      _id: -1,
     });
     res.json({ success: true, count: posts.length, data: posts });
   } catch (err) {

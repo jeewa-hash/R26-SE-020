@@ -7,16 +7,6 @@ import { LanguageContext } from '../context/LanguageContext';
 
 const HIDDEN_ROUTES = new Set([
   'Login', 'Register', 'VerifyOTP', 'Language', 'Onboarding',
-  'FollowUpScreen', 'ProvidersScreen', 'ProviderProfile',
-  'RequestQuotationDetails', 'PostResponsesScreen', 'BidResponsesScreen',
-  'UserQuotesScreen', 'FeedbackScreen', 'NotificationScreen', 'ChatScreen',
-  'EditProfileScreen', 'SeasonalDemandsScreen', 'RescheduleScreen',
-  'IT22129376JobDetails', 'IT22129376QuoteDetails',
-  'IT22129376CoordinationReview', 'IT22129376SuggestedSlots',
-  'IT22129376ConfirmJob', 'IT22129376ScheduledJobDetails',
-  'IT22129376JobHistoryDetails', 'MyBidsScreen', 'MyPostsScreen',
-  'HistoryScreen', 'StarPointsScreen', 'PaymentScreen', 'SettingsScreen',
-  'HelpScreen', 'SpendAnalyticsScreen',
 ]);
 
 const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
@@ -69,9 +59,9 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
     },
     {
       id: 'Profile',
-      label: isSi ? 'මගේ ගිණුම' : 'Profile',
-      icon: 'person-outline',
-      activeIcon: 'person',
+      label: isSi ? 'තවත්' : 'More',
+      icon: 'more-horiz',
+      activeIcon: 'more-horiz',
       routeName: 'ProfileScreen',
     },
   ];
@@ -82,7 +72,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
       case 'Feed': return currentRouteName === 'FeedScreen';
       case 'Create': return currentRouteName === 'CreatePostScreen';
       case 'Bookings': return currentRouteName === 'BookingsScreen';
-      case 'Profile': return currentRouteName === 'ProfileScreen';
+      case 'Profile': return ['ProfileScreen', 'MyPostsScreen', 'SeekerCalendar', 'SeekerServiceSessions', 'SeekerServiceSessionDetails'].includes(currentRouteName);
       default: return false;
     }
   };
@@ -92,6 +82,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
   const activeBg = isDarkMode ? 'rgba(129, 140, 248, 0.15)' : 'rgba(79, 70, 229, 0.1)';
 
   return (
+    <View style={[styles.navContainer, isDarkMode && styles.navContainerDark]}>
     <View style={[styles.bottomNav, isDarkMode && styles.bottomNavDark]}>
       {navItems.map((item) => {
         const active = isActive(item.id);
@@ -100,7 +91,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
           return (
             <TouchableOpacity
               key={item.id}
-              style={styles.createNavItem}
+              style={styles.navItem}
               onPress={() => navigate(item.routeName)}
               activeOpacity={0.85}
               accessibilityRole="button"
@@ -110,11 +101,11 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
                 colors={isDarkMode ? ['#818cf8', '#6366f1'] : ['#4F46E5', '#7C3AED']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.createButton}
+                style={[styles.createButton, { borderColor: isDarkMode ? '#17192C' : '#ffffff' }]}
               >
                 <MaterialIcons name={item.icon} size={30} color="#fff" />
               </LinearGradient>
-              <Text style={[styles.createNavLabel, { color: active ? activeColor : (isDarkMode ? '#cbd5e1' : '#475569') }]}>
+              <Text numberOfLines={1} style={[styles.createNavLabel, { color: active ? activeColor : (isDarkMode ? '#cbd5e1' : '#475569') }]}>
                 {item.label}
               </Text>
             </TouchableOpacity>
@@ -133,7 +124,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
             <View style={[styles.iconWrapper, active && { backgroundColor: activeBg }]}>
               <MaterialIcons
                 name={active && item.activeIcon ? item.activeIcon : item.icon}
-                size={26}
+                size={23}
                 color={active ? activeColor : inactiveColor}
               />
             </View>
@@ -151,80 +142,50 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
         );
       })}
     </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  navContainer: { flexShrink: 0, backgroundColor: '#ffffff' },
+  navContainerDark: { backgroundColor: '#17192C' },
   bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 76,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     backgroundColor: '#ffffff',
-    paddingVertical: 6,
-    paddingHorizontal: 6,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 12,
   },
-  bottomNavDark: {
-    backgroundColor: '#0F172A',
-    borderTopColor: '#1E293B',
-    shadowOpacity: 0.4,
-  },
+  bottomNavDark: { backgroundColor: '#17192C', borderTopColor: '#302E49' },
   navItem: {
     flex: 1,
+    minWidth: 0,
+    minHeight: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 2,
+    gap: 3,
   },
   iconWrapper: {
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-    borderRadius: 16,
+    width: 38,
+    height: 40,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navLabel: {
-    fontSize: 11.5,
-    marginTop: 2,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-  },
-  activeLabel: {
-    fontWeight: '800',
-  },
-  createNavItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -20,
-  },
+  navLabel: { width: '100%', textAlign: 'center', fontSize: 10, lineHeight: 14, fontWeight: '500' },
+  activeLabel: { fontWeight: '700' },
   createButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
-    marginBottom: 2,
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
-    borderWidth: 3,
-    borderColor: '#ffffff',
+    justifyContent: 'center',
+    borderWidth: 2,
   },
-  createNavLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
+  createNavLabel: { width: '100%', textAlign: 'center', fontSize: 10, lineHeight: 14, fontWeight: '700' },
 });
 
 export default BottomNav;

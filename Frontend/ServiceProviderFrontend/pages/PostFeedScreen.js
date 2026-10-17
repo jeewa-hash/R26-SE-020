@@ -12,16 +12,16 @@ export default function PostFeedScreen() {
   const { isDark } = useContext(ThemeContext);
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDark ? '#0f0f0f' : '#F8FAFC', padding: 10 }}>
+    <View style={{ flex: 1, backgroundColor: isDark ? '#0C0F0D' : '#F5FAF6', padding: 10 }}>
       <FlatList
         data={MOCK_POSTS}
         keyExtractor={item => item.id}
         renderItem={({ item }) => (
-          <Card style={[styles.card, { backgroundColor: isDark ? '#1c1c1e' : '#fff' }]}>
+          <Card style={[styles.card, { backgroundColor: isDark ? '#161C18' : '#fff' }]}>
             <Card.Title
               title={item.title}
               subtitle={item.date}
-              left={(props) => <Avatar.Icon {...props} icon="pencil" backgroundColor="#7C3AED" />}
+              left={(props) => <Avatar.Icon {...props} icon="pencil" backgroundColor="#166534" />}
             />
             <Card.Content>
               <Text style={{ color: isDark ? '#8E8E93' : '#6B7280' }}>{item.excerpt}</Text>

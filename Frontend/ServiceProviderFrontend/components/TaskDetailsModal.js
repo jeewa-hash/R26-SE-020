@@ -6,7 +6,7 @@ import { ThemeContext } from '../context/ThemeContext';
 
 const DetailRow = ({ icon, label, value, C }) => (
   <View style={styles.row}>
-    <MaterialIcons name={icon} size={20} color="#7C3AED" />
+    <MaterialIcons name={icon} size={20} color="#166534" />
     <View style={{ marginLeft: 12 }}>
       <Text style={[styles.label, { color: C.textSub }]}>{label}</Text>
       <Text style={[styles.value, { color: C.text }]}>{value}</Text>
@@ -19,15 +19,15 @@ export default function TaskDetailsModal({ visible, onDismiss, task, onChat, onQ
   if (!task) return null;
 
   const C = isDark
-    ? { modalBg: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', divider: '#2c2c2e' }
-    : { modalBg: '#FFFFFF', text: '#111827', textSub: '#6B7280', border: '#E5E7EB', divider: '#F3F4F6' };
+    ? { modalBg: '#161C18', text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33', divider: '#303C33' }
+    : { modalBg: '#FFFFFF', text: '#162C49', textSub: '#6B7280', border: '#D8E8DC', divider: '#F3F4F6' };
 
   return (
     <Portal>
       <Modal visible={visible} onDismiss={onDismiss} contentContainerStyle={[styles.modalContainer, { backgroundColor: C.modalBg, borderColor: C.border, borderWidth: isDark ? 1 : 0 }]}>
         <Text style={[styles.modalTitle, { color: C.text }]}>Task Summary</Text>
         <Text style={[styles.modalSubtitle, { color: C.textSub }]}>{task.title}</Text>
-        
+
         <View style={styles.detailBox}>
           <DetailRow icon="description" label="Requirements" value={task.body} C={C} />
           <DetailRow icon="location-on" label="Location" value="Colombo 03" C={C} />
@@ -38,20 +38,20 @@ export default function TaskDetailsModal({ visible, onDismiss, task, onChat, onQ
         <Divider style={[styles.divider, { backgroundColor: C.divider }]} />
 
         <View style={styles.modalActions}>
-          <Button 
-            mode="outlined" 
-            icon="chat" 
+          <Button
+            mode="outlined"
+            icon="chat"
             onPress={onChat}
-            style={[styles.flexBtn, { borderColor: '#7C3AED' }]}
-            textColor="#7C3AED"
+            style={[styles.flexBtn, { borderColor: '#166534' }]}
+            textColor="#166534"
           >
             Chat First
           </Button>
 
-          <Button 
-            mode="contained" 
+          <Button
+            mode="contained"
             onPress={onQuote}
-            style={[styles.flexBtn, { backgroundColor: '#7C3AED' }]}
+            style={[styles.flexBtn, { backgroundColor: '#166534' }]}
           >
             Send Quote
           </Button>
@@ -72,4 +72,4 @@ const styles = StyleSheet.create({
   divider: { marginVertical: 20 },
   modalActions: { flexDirection: 'row', gap: 12 },
   flexBtn: { flex: 1, borderRadius: 14, paddingVertical: 4 },
-});
+});

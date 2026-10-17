@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState } from 'react';
 import {
   View,
@@ -55,13 +56,7 @@ export default function UserQuotesScreen({ navigation }) {
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'} />
       
       {/* Header */}
-      <LinearGradient colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Quote / Invoice</Text>
-        <View style={{ width: 40 }} />
-      </LinearGradient>
+      <PageHeader title={<>Quote / Invoice</>} onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Invoice Card */}
@@ -141,6 +136,8 @@ export default function UserQuotesScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  textDark: { color: '#FFFFFF' },
+  textMutedDark: { color: '#B8C1D9' },
   container: { flex: 1, backgroundColor: '#F8F9FA' },
   containerDark: { backgroundColor: '#1a1a2e' },
   header: {

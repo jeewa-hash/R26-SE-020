@@ -1,3 +1,4 @@
+import PageHeader from '../../components/PageHeader';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -540,44 +541,9 @@ const getSessionStatusMeta = (session) => {
   };
 };
 
-function ServiceSessionsHeader({ isDarkMode, activeCount, scheduledCount, ongoingCount }) {
+function ServiceSessionsHeader({ isDarkMode, onBack }) {
   return (
-    <LinearGradient
-      colors={isDarkMode ? ['#1a1a2e', '#16213e'] : [COLORS.primary, COLORS.primaryDark]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.header}
-    >
-      <View style={styles.titleRow}>
-        <View>
-          <Text style={styles.headerTitle}>My Service Sessions</Text>
-          <Text style={styles.headerSubtitle}>
-            Grouped service sessions with requests, quotes and bookings
-          </Text>
-        </View>
-
-        <View style={styles.iconCircle}>
-          <MaterialIcons name="assignment" size={28} color="#fff" />
-        </View>
-      </View>
-
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryNumber}>{activeCount}</Text>
-          <Text style={styles.summaryLabel}>Active</Text>
-        </View>
-
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryNumber}>{scheduledCount}</Text>
-          <Text style={styles.summaryLabel}>Scheduled</Text>
-        </View>
-
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryNumber}>{ongoingCount}</Text>
-          <Text style={styles.summaryLabel}>Ongoing</Text>
-        </View>
-      </View>
-    </LinearGradient>
+    <PageHeader title={<>My Service Sessions</>} onBack={onBack} />
   );
 }
 
@@ -597,8 +563,9 @@ function SessionTabBar({ activeTab, onTabChange, counts, isDarkMode }) {
               key={tab}
               style={[
                 styles.tab,
-                active && styles.tabActive,
                 isDarkMode && styles.tabDark,
+                active && styles.tabActive,
+                active && isDarkMode && styles.tabActiveDark,
               ]}
               onPress={() => onTabChange(tab)}
               activeOpacity={0.85}
@@ -613,8 +580,8 @@ function SessionTabBar({ activeTab, onTabChange, counts, isDarkMode }) {
                 {tab}
               </Text>
 
-              <View style={[styles.countPill, active && styles.countPillActive]}>
-                <Text style={[styles.countText, active && styles.countTextActive]}>
+              <View style={[styles.countPill, isDarkMode && styles.countPillDark, active && styles.countPillActive]}>
+                <Text style={[styles.countText, isDarkMode && styles.textMutedDark, active && styles.countTextActive]}>
                   {counts[tab] || 0}
                 </Text>
               </View>
@@ -747,7 +714,7 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
   );
 }
 
-export default function SeekerServiceSessionsScreen({ navigation }) {
+export default function SeekerServiceSessionsScreen({ navigation, embedded = false }) {
   const { isDarkMode } = useTheme();
 
   const [activeTab, setActiveTab] = useState('Active');
@@ -952,19 +919,20 @@ export default function SeekerServiceSessionsScreen({ navigation }) {
   return (
     <SafeAreaView
       style={[styles.container, isDarkMode && styles.containerDark]}
-      edges={['top']}
+      edges={embedded ? [] : ['top']}
     >
+      {!embedded && <>
       <StatusBar
         barStyle="light-content"
         backgroundColor={isDarkMode ? COLORS.darkBg : COLORS.primary}
       />
 
       <ServiceSessionsHeader
+        onBack={() => navigation.navigate('ProfileScreen')}
         isDarkMode={isDarkMode}
-        activeCount={counts.Active}
-        scheduledCount={counts.Scheduled}
-        ongoingCount={counts.Ongoing}
       />
+
+      </>}
 
       <SessionTabBar
         activeTab={activeTab}
@@ -996,59 +964,42 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.darkBg,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 22,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 16,
+    gap: 8,
   },
   headerTitle: {
-    fontSize: 30,
+    fontSize: 22,
     fontWeight: '600',
     color: '#fff',
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: 'rgba(255,255,255,0.82)',
     marginTop: 4,
     maxWidth: 275,
     lineHeight: 18,
   },
   iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    marginTop: 20,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderRadius: 18,
-    padding: 12,
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  summaryNumber: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  summaryLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.78)',
-    marginTop: 2,
   },
   tabWrapper: {
     backgroundColor: COLORS.bg,
@@ -1076,6 +1027,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.darkCard,
     borderColor: COLORS.darkBorder,
   },
+  tabActiveDark: { backgroundColor: '#252e58', borderColor: COLORS.primary },
+  countPillDark: { backgroundColor: COLORS.darkBorder },
   tabActive: {
     backgroundColor: '#EEF2FF',
     borderColor: '#C7D2FE',

@@ -21,8 +21,8 @@ export default function QuotationTemplate({ route, navigation }) {
           mode="outlined"
           keyboardType="numeric"
           style={styles.input}
-          outlineColor="#E5E7EB"
-          activeOutlineColor="#7C3AED"
+          outlineColor="#D8E8DC"
+          activeOutlineColor="#166534"
         />
 
         <TextInput
@@ -31,8 +31,8 @@ export default function QuotationTemplate({ route, navigation }) {
           onChangeText={setDuration}
           mode="outlined"
           style={styles.input}
-          outlineColor="#E5E7EB"
-          activeOutlineColor="#7C3AED"
+          outlineColor="#D8E8DC"
+          activeOutlineColor="#166534"
         />
 
         <TextInput
@@ -43,12 +43,12 @@ export default function QuotationTemplate({ route, navigation }) {
           multiline
           numberOfLines={4}
           style={styles.input}
-          outlineColor="#E5E7EB"
-          activeOutlineColor="#7C3AED"
+          outlineColor="#D8E8DC"
+          activeOutlineColor="#166534"
         />
 
-        <Button 
-          mode="contained" 
+        <Button
+          mode="contained"
           style={styles.submitBtn}
           onPress={() => alert('Quotation Sent Successfully!')}
         >
@@ -60,10 +60,10 @@ export default function QuotationTemplate({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
-  title: { fontSize: 24, fontWeight: '800', color: '#111827', marginTop: 40 },
+  container: { flex: 1, backgroundColor: '#F5FAF6' },
+  title: { fontSize: 24, fontWeight: '800', color: '#162C49', marginTop: 40 },
   subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 20 },
   formCard: { padding: 20, borderRadius: 20, backgroundColor: '#FFF' },
   input: { marginBottom: 16, backgroundColor: '#FFF' },
-  submitBtn: { backgroundColor: '#7C3AED', paddingVertical: 6, borderRadius: 12, marginTop: 10 }
+  submitBtn: { backgroundColor: '#166534', paddingVertical: 6, borderRadius: 12, marginTop: 10 }
 });

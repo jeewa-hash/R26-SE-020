@@ -1,11 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { 
-  View, 
-  FlatList, 
-  TouchableOpacity, 
-  StyleSheet, 
-  ActivityIndicator, 
-  RefreshControl 
+import {
+  View,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { Text, Searchbar, Avatar, useTheme } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
@@ -135,16 +135,16 @@ export default function InboxScreen({ navigation, route }) {
   };
 
   const renderChatItem = ({ item }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[
-        styles.chatCard, 
+        styles.chatCard,
         { borderBottomColor: isDark ? '#374151' : '#F3F4F6' }
       ]}
-      onPress={() => 
-        navigation.navigate('ChatScreen', { 
+      onPress={() =>
+        navigation.navigate('ChatScreen', {
           chatId: item.id,
           receiverId: item.receiverId,
-          customer: item.name 
+          customer: item.name
         })
       }
     >
@@ -152,25 +152,25 @@ export default function InboxScreen({ navigation, route }) {
         {item.avatarUrl ? (
           <Avatar.Image size={56} source={{ uri: item.avatarUrl }} />
         ) : (
-          <Avatar.Text 
-            size={56} 
-            label={item.name ? item.name.charAt(0).toUpperCase() : 'U'} 
-            style={{ backgroundColor: theme.colors.primary }} 
+          <Avatar.Text
+            size={56}
+            label={item.name ? item.name.charAt(0).toUpperCase() : 'U'}
+            style={{ backgroundColor: theme.colors.primary }}
           />
         )}
         {item.online && (
-          <View 
+          <View
             style={[
-              styles.onlineDot, 
-              { borderColor: isDark ? '#1F2937' : '#FFFFFF' }
-            ]} 
+              styles.onlineDot,
+              { borderColor: isDark ? '#162C49' : '#FFFFFF' }
+            ]}
           />
         )}
       </View>
 
       <View style={styles.chatInfo}>
         <View style={styles.chatHeader}>
-          <Text style={[styles.userName, { color: isDark ? '#F9FAFB' : '#111827' }]}>
+          <Text style={[styles.userName, { color: isDark ? '#F5FAF6' : '#162C49' }]}>
             {item.name}
           </Text>
           <Text style={[styles.timeText, { color: isDark ? '#9CA3AF' : '#6B7280' }]}>
@@ -178,12 +178,12 @@ export default function InboxScreen({ navigation, route }) {
           </Text>
         </View>
         <View style={styles.msgRow}>
-          <Text 
+          <Text
             style={[
-              styles.lastMsg, 
+              styles.lastMsg,
               { color: isDark ? '#9CA3AF' : '#6B7280' },
-              item.unread > 0 && { color: isDark ? '#F9FAFB' : '#111827', fontWeight: '700' }
-            ]} 
+              item.unread > 0 && { color: isDark ? '#F5FAF6' : '#162C49', fontWeight: '700' }
+            ]}
             numberOfLines={1}
           >
             {item.lastMsg}
@@ -199,20 +199,20 @@ export default function InboxScreen({ navigation, route }) {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: isDark ? '#111827' : '#FFFFFF' }]}>
+    <View style={[styles.container, { backgroundColor: isDark ? '#162C49' : '#FFFFFF' }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: isDark ? '#F9FAFB' : '#1F2937' }]}>
+        <Text style={[styles.title, { color: isDark ? '#F5FAF6' : '#162C49' }]}>
           Messages
         </Text>
-        <Searchbar 
-          placeholder="Search..." 
-          onChangeText={handleSearch} 
-          value={search} 
+        <Searchbar
+          placeholder="Search..."
+          onChangeText={handleSearch}
+          value={search}
           style={[
-            styles.searchBar, 
-            { backgroundColor: isDark ? '#1F2937' : '#F3F4F6' }
+            styles.searchBar,
+            { backgroundColor: isDark ? '#162C49' : '#F3F4F6' }
           ]}
-          inputStyle={{ color: isDark ? '#F9FAFB' : '#111827' }}
+          inputStyle={{ color: isDark ? '#F5FAF6' : '#162C49' }}
           placeholderTextColor={isDark ? '#9CA3AF' : '#6B7280'}
           iconColor={isDark ? '#9CA3AF' : '#6B7280'}
         />
@@ -229,10 +229,10 @@ export default function InboxScreen({ navigation, route }) {
           renderItem={renderChatItem}
           contentContainerStyle={{ paddingHorizontal: 20 }}
           refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={onRefresh} 
-              colors={[theme.colors.primary]} 
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[theme.colors.primary]}
               tintColor={theme.colors.primary}
             />
           }

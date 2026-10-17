@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/PostResponsesScreen.js
 
 import React, { useState, useEffect } from 'react';
@@ -312,12 +313,7 @@ export default function PostResponsesScreen({ navigation, route }) {
           </View>
         </View>
 
-        {item.bidAmount ? (
-          <View style={styles.bidContainer}>
-            <Ionicons name="cash-outline" size={16} color="#10B981" />
-            <Text style={styles.bidAmount}>LKR {item.bidAmount.toLocaleString()}</Text>
-          </View>
-        ) : null}
+
 
         {item.note ? (
           <Text style={[styles.responseMessage, isDarkMode && styles.textMutedDark]}>
@@ -356,16 +352,7 @@ export default function PostResponsesScreen({ navigation, route }) {
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
-        <LinearGradient
-          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-          style={styles.header}
-        >
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Responses</Text>
-          <View style={{ width: 24 }} />
-        </LinearGradient>
+        <PageHeader title={<>Responses</>} onBack={() => navigation.goBack()} />
 
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#667eea'} />
@@ -400,16 +387,7 @@ export default function PostResponsesScreen({ navigation, route }) {
       />
 
       {/* HEADER */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        style={styles.header}
-      >
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Post & Responses</Text>
-        <View style={{ width: 24 }} />
-      </LinearGradient>
+      <PageHeader title={<>Post & Responses</>} onBack={() => navigation.goBack()} />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -534,7 +512,7 @@ export default function PostResponsesScreen({ navigation, route }) {
               No Responses Yet
             </Text>
             <Text style={[styles.emptySubtext, isDarkMode && styles.textMutedDark]}>
-              Providers will review your post soon. You will receive bids and messages here.
+              Providers will review your post soon. Interested providers will appear here. Request their quotation with your preferred date and time.
             </Text>
           </View>
         ) : (

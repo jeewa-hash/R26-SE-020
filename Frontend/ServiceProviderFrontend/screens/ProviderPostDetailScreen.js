@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -29,8 +28,8 @@ const { width } = Dimensions.get('window');
 
 const getAvatarColor = (name) => {
   const colors = [
-    '#2563EB', '#7C3AED', '#059669', '#DC2626',
-    '#D97706', '#0891B2', '#BE185D', '#4F46E5',
+    '#15803D', '#166534', '#059669', '#DC2626',
+    '#D97706', '#0284C7', '#BE185D', '#166534',
   ];
   let hash = 0;
   for (let i = 0; i < (name || 'U').length; i++) hash += (name || 'U').charCodeAt(i);
@@ -91,12 +90,11 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
   const [isOwner, setIsOwner] = useState(false);
 
   const [applyVisible, setApplyVisible] = useState(false);
-  const [bidAmount, setBidAmount] = useState('');
   const [note, setNote] = useState('');
 
   const C = isDark
-    ? { bg: '#0F0F14', card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', chipBg: '#2d3561' }
-    : { bg: '#F8FAFC', card: '#FFFFFF', text: '#1F2937', textSub: '#6B7280', border: '#E5E7EB', chipBg: '#F3E8FF' };
+    ? { bg: '#0C0F0D', card: '#161C18', text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33', chipBg: '#303C33' }
+    : { bg: '#F5FAF6', card: '#FFFFFF', text: '#162C49', textSub: '#6B7280', border: '#D8E8DC', chipBg: '#EAF7EE' };
 
   // ─── Viewer identity ───────────────────────────────────────
   useEffect(() => {
@@ -187,16 +185,20 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
   const owner = isOwner || ownerMatch;
 
   const urgencyStyles = {
-    low: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Low Priority' },
+    low: { bg: '#DBEAFE', color: '#166534', label: 'Low Priority' },
     medium: { bg: '#FEF3C7', color: '#B45309', label: 'Medium' },
     high: { bg: '#FEE2E2', color: '#DC2626', label: '🔥 High Priority' },
   };
   const urgency = urgencyStyles[post.urgency] || urgencyStyles.medium;
 
   // ─── Apply via API ─────────────────────────────────────────
+  const notifyInterest = (title, message, buttons) => {
+    if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
+    else Alert.alert(title, message, buttons);
+  };
   const submitApply = async () => {
     if (!viewerId) {
-      Alert.alert('Error', 'Provider ID not found, please login again.');
+      notifyInterest('Error', 'Provider ID not found, please login again.');
       return;
     }
     setApplying(true);
@@ -206,7 +208,6 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
         providerId: viewerId,
         applicantId: viewerId,
         applicantName: viewerName || undefined,
-        bidAmount: bidAmount ? Number(bidAmount) : undefined,
         note: note || undefined,
       };
 
@@ -238,13 +239,10 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
       if (markApplied) markApplied(postId || post.id);
 
       setApplyVisible(false);
-      setBidAmount('');
       setNote('');
-      Alert.alert(
+      notifyInterest(
         '✅ Application Submitted!',
-        `Your offer has been sent to ${posterName}. ${
-          bidAmount ? `\nBid: LKR ${Number(bidAmount).toLocaleString()}` : ''
-        }`,
+        `Your interest has been sent to ${posterName}. They can request your quotation with a preferred date and time.`,
         [{
           text: 'View Applied Jobs',
           onPress: () => navigation.navigate('AppliedJobs'),
@@ -252,7 +250,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
       );
     } catch (err) {
       console.warn(err);
-      Alert.alert('Error', `Failed to apply: ${err.message}`);
+      notifyInterest('Error', `Failed to apply: ${err.message}`);
     } finally {
       setApplying(false);
     }
@@ -268,9 +266,9 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
   // ───────────────────────────────────────────────────────────
   if (loading && !post.title) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: C.bg }]}>
+      <View style={[styles.safeArea, { backgroundColor: C.bg }]}>
         <LinearGradient
-          colors={isDark ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
+          colors={isDark ? ['#0C0F0D', '#161C18'] : ['#15803D', '#166534']}
           style={styles.header}
         >
           <TouchableOpacity
@@ -283,23 +281,23 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
           <View style={{ width: 40 }} />
         </LinearGradient>
         <View style={styles.loadWrap}>
-          <ActivityIndicator size="large" color="#7C3AED" />
+          <ActivityIndicator size="large" color="#166534" />
           <Text style={{ color: C.textSub, marginTop: 12 }}>Loading post details...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: C.bg }]}>
+    <View style={[styles.safeArea, { backgroundColor: C.bg }]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isDark ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDark ? '#0C0F0D' : '#15803D'}
       />
 
       {/* Header */}
       <LinearGradient
-        colors={isDark ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
+        colors={isDark ? ['#0C0F0D', '#161C18'] : ['#15803D', '#166534']}
         style={styles.header}
       >
         <TouchableOpacity
@@ -348,7 +346,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.posterName, { color: C.text }]}>{posterName}</Text>
                 <View style={styles.posterMetaRow}>
-                  <MaterialIcons name="place" size={13} color="#8B5CF6" />
+                  <MaterialIcons name="place" size={13} color="#0284C7" />
                   <Text style={[styles.posterMeta, { color: C.textSub }]}>
                     {post.poster?.district ||
                         post.locationDistrict ||
@@ -362,7 +360,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
                   </Text>
                 </View>
                 <View style={styles.posterMetaRow}>
-                  <MaterialIcons name="schedule" size={13} color="#8B5CF6" />
+                  <MaterialIcons name="schedule" size={13} color="#0284C7" />
                   <Text style={[styles.posterMeta, { color: C.textSub }]}>
                     {post.postedAt || post.createdAt ? new Date(post.postedAt || post.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently'}
                   </Text>
@@ -383,8 +381,8 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
             {/* Meta chips */}
             <View style={styles.chipRow}>
               <View style={[styles.chip, { backgroundColor: C.chipBg }]}>
-                <MaterialIcons name="category" size={14} color="#7C3AED" />
-                <Text style={[styles.chipText, { color: '#6D28D9' }]}>{post.category || 'General'}</Text>
+                <MaterialIcons name="category" size={14} color="#166534" />
+                <Text style={[styles.chipText, { color: '#166534' }]}>{post.category || 'General'}</Text>
               </View>
               {post.budget ? (
                 <View style={[styles.chip, { backgroundColor: '#ECFDF5' }]}>
@@ -392,8 +390,8 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
                   <Text style={[styles.chipText, { color: '#065f46' }]}>Budget: {post.budget}</Text>
                 </View>
               ) : null}
-              <View style={[styles.chip, { backgroundColor: '#EEF2FF' }]}>
-                <MaterialIcons name="people" size={14} color="#6366F1" />
+              <View style={[styles.chip, { backgroundColor: '#EAF7EE' }]}>
+                <MaterialIcons name="people" size={14} color="#15803D" />
                 <Text style={[styles.chipText, { color: '#4338CA' }]}>{appliedCount} bids</Text>
               </View>
             </View>
@@ -402,8 +400,8 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
             {post.tags && post.tags.length > 0 && (
               <View style={styles.tagRow}>
                 {post.tags.slice(0, 8).map((tag, i) => (
-                  <View key={`${tag}-${i}`} style={[styles.tag, { backgroundColor: C.chipBg, borderColor: '#EDE9FE' }]}>
-                    <Text style={[styles.tagText, { color: '#6D28D9' }]}>{tag}</Text>
+                  <View key={`${tag}-${i}`} style={[styles.tag, { backgroundColor: C.chipBg, borderColor: '#DCF0E1' }]}>
+                    <Text style={[styles.tagText, { color: '#166534' }]}>{tag}</Text>
                   </View>
                 ))}
               </View>
@@ -417,7 +415,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
                 <Text style={[styles.sectionTitle, { color: C.text }]}>
                   Applicants ({appliedCount})
                 </Text>
-                <MaterialIcons name="group" size={22} color="#7C3AED" />
+                <MaterialIcons name="group" size={22} color="#166534" />
               </View>
 
               {post.applicants && post.applicants.length > 0 ? (
@@ -430,7 +428,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
                     : null;
                   const avColor = getAvatarColor(aName);
                   return (
-                    <View key={`a-${idx}`} style={[styles.applicantCard, { backgroundColor: isDark ? '#2a2a35' : '#FAFAFA', borderColor: C.border }]}>
+                    <View key={`a-${idx}`} style={[styles.applicantCard, { backgroundColor: isDark ? '#161C18' : '#FAFAFA', borderColor: C.border }]}>
                       <View style={[styles.applicantAvatar, { backgroundColor: aAvatar ? 'transparent' : avColor }]}>
                         {aAvatar ? (
                           <Image
@@ -446,7 +444,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
                         <View style={styles.applicantRow}>
                           <Text style={[styles.applicantName, { color: C.text }]}>{aName}</Text>
                           <View style={[styles.roleChip, { backgroundColor: (a.role || 'Provider') === 'ServiceProvider' ? '#DBEAFE' : '#FEF3C7' }]}>
-                            <Text style={[styles.roleText, { color: (a.role || 'Provider') === 'ServiceProvider' ? '#1D4ED8' : '#B45309' }]}>
+                            <Text style={[styles.roleText, { color: (a.role || 'Provider') === 'ServiceProvider' ? '#166534' : '#B45309' }]}>
                               {(a.role || 'Provider') === 'ServiceProvider' ? 'Provider' : (a.role || 'Seeker')}
                             </Text>
                           </View>
@@ -522,7 +520,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
               <Ionicons name={alreadyApplied ? 'checkmark-circle' : 'paper-plane'} size={22} color="#fff" />
             )}
             <Text style={styles.applyNowText}>
-              {alreadyApplied ? '✓ You Applied' : applying ? 'Submitting...' : 'Apply / Send Offer'}
+              {alreadyApplied ? '✓ You Applied' : applying ? 'Submitting...' : "I'm Available"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -552,34 +550,19 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
             onPress={() => !applying && setApplyVisible(false)}
             disabled={applying}
           >
-            <TouchableOpacity activeOpacity={1} style={styles.sheet} onPress={() => {}}>
-              <View style={styles.sheetHandle} />
-              <Text style={styles.sheetTitle}>Submit Your Offer</Text>
+            <TouchableOpacity activeOpacity={1} style={[styles.sheet, { backgroundColor: C.card, borderColor: C.border }]} onPress={() => {}}>
+              <View style={[styles.sheetHandle, { backgroundColor: isDark ? '#52525B' : C.border }]} />
+              <Text style={[styles.sheetTitle, { color: C.text }]}>Express Interest</Text>
               <Text style={[styles.sheetSubtitle, { color: C.textSub }]}>
-                Send a quote and cover note to {posterName}
+                Let {posterName} know you are interested. Quote once they send the job details and preferred time.
               </Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: C.text }]}>
-                  Bid Amount (LKR)
-                  <Text style={{ color: C.textSub, fontWeight: '400' }}>  {post.budget ? `(Budget: ${post.budget})` : '(optional)'}</Text>
-                </Text>
-                <TextInput
-                  style={[styles.amountInput, { backgroundColor: C.bg, color: C.text, borderColor: C.border }]}
-                  placeholder="e.g. 15000"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  value={bidAmount}
-                  onChangeText={setBidAmount}
-                />
-              </View>
 
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: C.text }]}>Cover Note (optional)</Text>
                 <TextInput
                   style={[styles.noteInput, { backgroundColor: C.bg, color: C.text, borderColor: C.border, textAlignVertical: 'top' }]}
                   placeholder={`Hi ${posterName.split(' ')[0]}, I'd love to help with this because...`}
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={isDark ? '#A1A1AA' : C.textSub}
                   multiline
                   numberOfLines={4}
                   value={note}
@@ -606,7 +589,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
                     <Ionicons name="paper-plane" size={18} color="#fff" />
                   )}
                   <Text style={styles.submitBtnText}>
-                    {applying ? 'Sending...' : 'Send Offer'}
+                    {applying ? 'Sending...' : 'Send Interest'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -614,7 +597,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -661,7 +644,7 @@ const styles = StyleSheet.create({
   posterAvatar: {
     width: 48, height: 48, borderRadius: 24,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-    borderWidth: 2, borderColor: '#8B5CF6',
+    borderWidth: 2, borderColor: '#0284C7',
   },
   posterAvatarText: { fontSize: 18, fontWeight: '800', color: '#fff' },
   posterName: { fontSize: 16, fontWeight: '700' },
@@ -751,16 +734,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 12, paddingHorizontal: 14,
     borderRadius: 14,
-    borderWidth: 1, borderColor: '#E5E7EB',
+    borderWidth: 1, borderColor: '#D8E8DC',
   },
   applyNow: {
     flex: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
     paddingVertical: 14,
     borderRadius: 14,
     gap: 8,
-    shadowColor: '#7C3AED',
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14,
     elevation: 8,
   },
@@ -773,6 +756,10 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: '#fff',
+    borderWidth: 1,
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 20,
@@ -780,11 +767,11 @@ const styles = StyleSheet.create({
   },
   sheetHandle: {
     width: 46, height: 5, borderRadius: 3,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#D8E8DC',
     alignSelf: 'center', marginBottom: 16,
   },
-  sheetTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-  sheetSubtitle: { fontSize: 13, marginTop: 4, marginBottom: 18 },
+  sheetTitle: { fontSize: 20, fontWeight: '800', color: '#162C49' },
+  sheetSubtitle: { lineHeight: 19, fontSize: 13, marginTop: 4, marginBottom: 18 },
   inputGroup: { marginBottom: 16 },
   inputLabel: { fontSize: 13, fontWeight: '700', marginBottom: 8 },
   amountInput: {
@@ -799,18 +786,22 @@ const styles = StyleSheet.create({
     height: 110,
   },
   sheetActions: {
-    flexDirection: 'row', gap: 10, marginTop: 8,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8,
   },
   cancelBtn: {
     flex: 1,
+    minWidth: 100,
+    minHeight: 48,
     borderWidth: 1, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
     paddingVertical: 14,
   },
   submitBtn: {
     flex: 1.4,
+    minWidth: 150,
+    minHeight: 48,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#10B981',
+    backgroundColor: '#047857',
     borderRadius: 14,
     paddingVertical: 14, gap: 8,
     shadowColor: '#10B981',
