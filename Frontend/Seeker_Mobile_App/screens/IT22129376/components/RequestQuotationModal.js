@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -61,6 +61,7 @@ export default function RequestQuotationModal({
   initialDescription = "",
   onClose,
   onSuccess,
+  onAlreadyRequested,
 }) {
   const { isDarkMode } = useTheme();
   const { width, height } = useWindowDimensions();
@@ -86,6 +87,7 @@ export default function RequestQuotationModal({
   const [urgency, setUrgency] = useState(normalizeUrgency(defaultUrgency));
   const [picker, setPicker] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const submissionLock = useRef(false);
 
   const providerName = useMemo(
     () =>
@@ -134,6 +136,7 @@ export default function RequestQuotationModal({
   };
 
   const submit = async () => {
+    if (submissionLock.current) return;
     const explicitProviderId = firstValue(
       provider?.providerId?._id,
       provider?.providerId,
@@ -246,6 +249,7 @@ export default function RequestQuotationModal({
       seekerBudgetAmount: Number(budget),
     };
 
+    submissionLock.current = true;
     setSubmitting(true);
     try {
       const token =
@@ -255,6 +259,7 @@ export default function RequestQuotationModal({
       onSuccess?.(result, providerId);
     } catch (error) {
       const isDuplicate = error.status === 409;
+      if (isDuplicate && onAlreadyRequested) { onAlreadyRequested(error.data, providerId); return; }
       const isNetworkError = !error.status;
       showRequestAlert(
         isDuplicate ? "Already requested" : "Request failed",
@@ -265,6 +270,7 @@ export default function RequestQuotationModal({
           : "Could not send the quotation request. Please check the details and try again."
       );
     } finally {
+      submissionLock.current = false;
       setSubmitting(false);
     }
   };

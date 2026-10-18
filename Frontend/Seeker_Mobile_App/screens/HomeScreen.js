@@ -1,3 +1,5 @@
+import FeedScreen from './FeedScreen';
+import { startServiceSearch } from '../utils/serviceSearchApi';
 import React, { useContext, useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -550,12 +552,13 @@ export default function HomeScreen() {
 
   const [expandedId, setExpandedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [liveSummary, setLiveSummary] = useState(null);
   const [liveLoading, setLiveLoading] = useState(true);
   const [liveError, setLiveError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [feedRefreshKey, setFeedRefreshKey] = useState(0);
 
   const navigation = useNavigation();
 
@@ -587,6 +590,7 @@ export default function HomeScreen() {
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
+    setFeedRefreshKey(current => current + 1);
     loadLiveSummary(false);
   }, [loadLiveSummary]);
 
@@ -594,7 +598,7 @@ export default function HomeScreen() {
     ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
     : (isSi ? 'නියමිත කර නැත' : 'Not scheduled');
 
-  const openBookingDetails = (booking) => navigation.navigate('IT22129376ScheduledJobDetails', { booking });
+  const openBookingDetails = booking => navigation.navigate('SeekerServiceSessionDetails', { sessionId: String(booking.externalSessionId || booking.sessionId || `booking:${booking._id || booking.id}`), session: { booking, bookings: [booking] } });
 
   const renderLiveBooking = () => {
     if (liveLoading) return (
@@ -693,55 +697,18 @@ export default function HomeScreen() {
   const handleNotifications = () => navigation.navigate('NotificationScreen');
 
   const handleSubCategoryPress = (subcategory) => {
-    Alert.alert('Service Selected', `${subcategory} service will be available soon`);
+    navigation.navigate('FindService', { description: `I need help with ${subcategory}.` });
   };
 
   const handleSearch = async () => {
-    if (searchQuery.trim().length === 0) return;
-
+    if (!searchQuery.trim() || searching) return;
+    setSearching(true);
     try {
-      const token = await AsyncStorage.getItem('userToken');
-
-      if (!token) {
-        Alert.alert('Error', 'You are not logged in. Please log in again.');
-        return;
-      }
-
-      const appLanguage = language === 'si' ? 'si' : 'en';
-      const url = `http://${IP_ADDRESS}:5002/text-predict`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          text: searchQuery,
-          app_lan: appLanguage,
-        }),
-      });
-
-      if (response.status === 401) {
-        Alert.alert('Session Expired', 'Please log in again.');
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.session_id) {
-        navigation.navigate('FollowUpScreen', {
-          initialMessage: searchQuery,
-          backendResponse: data,
-          source: 'text',
-        });
-      } else {
-        Alert.alert('Error', data.error || 'Unable to process your request.');
-      }
+      const data = await startServiceSearch(searchQuery, language);
+      navigation.navigate('FollowUpScreen', { initialMessage: searchQuery.trim(), backendResponse: data, source: 'text' });
     } catch (error) {
-      console.error('Search error:', error);
-      Alert.alert('Network Error', 'Could not connect to the service.');
-    }
+      if (Platform.OS === 'web') window.alert(error.message); else Alert.alert('Unable to find services', error.message);
+    } finally { setSearching(false); }
   };
 
   const handleImageUpload = async () => {
@@ -879,7 +846,7 @@ export default function HomeScreen() {
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.headerIconBtn} onPress={handleChatPress}>
+              <TouchableOpacity style={styles.headerIconBtn} accessibilityRole="button" accessibilityLabel="Messages" onPress={handleChatPress}>
                 <Ionicons name="chatbubble-ellipses-outline" size={22} color="#444" />
                 {totalUnreadMessages > 0 && (
                   <View style={styles.badge}>
@@ -890,7 +857,7 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.headerIconBtn} onPress={handleNotifications}>
+              <TouchableOpacity style={styles.headerIconBtn} accessibilityRole="button" accessibilityLabel={`Notifications, ${notificationUnreadCount} unread`} onPress={handleNotifications}>
                 <Ionicons name="notifications-outline" size={22} color="#444" />
                 {notificationUnreadCount > 0 && (
                   <View style={styles.badge}>
@@ -916,6 +883,15 @@ export default function HomeScreen() {
           </View>
         </LinearGradient>
 
+        {(liveLoading || liveError || liveSummary?.delayedService || liveSummary?.currentService || liveSummary?.onTheWayService || liveSummary?.startingSoonBooking || liveSummary?.nextBooking) ? (
+        <View style={styles.liveSection}>
+          <Text style={[styles.liveSectionTitle, isDarkMode && styles.textDark]}>
+            {isSi ? 'ක්‍රියාකාරී සේවා තත්ත්වය' : 'Live Booking Status'}
+          </Text>
+          {renderLiveBooking()}
+        </View>
+        ) : null}
+
         <View style={styles.searchWrapper}>
           <View
             style={[
@@ -937,6 +913,7 @@ export default function HomeScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
+              editable={!searching}
               onSubmitEditing={handleSearch}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
@@ -956,53 +933,16 @@ export default function HomeScreen() {
             )}
 
             <TouchableOpacity
-              onPress={() => setShowFilters(!showFilters)}
+              accessibilityRole="button" accessibilityLabel={searching ? 'Finding services' : 'Find a service'}
+              disabled={searching}
+              onPress={() => searchQuery.trim() ? handleSearch() : navigation.navigate('FindService')}
               style={[styles.filterIcon, isDarkMode && styles.filterIconDark]}
             >
-              <Feather
-                name="sliders"
-                size={20}
-                color={isDarkMode ? '#818cf8' : '#4F46E5'}
-              />
+              {searching ? <ActivityIndicator size="small" color="#6366F1" /> : <Feather name="arrow-right" size={20} color={isDarkMode ? '#818cf8' : '#4F46E5'} />}
             </TouchableOpacity>
           </View>
 
-          {showFilters && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filterChips}
-              contentContainerStyle={styles.filterChipsContent}
-            >
-              <TouchableOpacity style={styles.filterChipActive}>
-                <Text style={styles.filterChipTextActive}>{isSi ? 'ලඟම' : 'Nearby'}</Text>
-              </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? 'ඉහළ ඇගයීම්' : 'Top Rated'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? 'අඩුම මිල' : 'Lowest Price'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? 'දැන් ලබාගත හැක' : 'Available Now'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? '24/7 සහාය' : '24/7 Support'}
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          )}
         </View>
 
         {/* 4 Big Visual Quick Action Cards for High Accessibility & Clarity */}
@@ -1097,14 +1037,21 @@ export default function HomeScreen() {
           </LinearGradient>
         </TouchableOpacity>
 
-        <View style={styles.liveSection}>
-          <Text style={[styles.liveSectionTitle, isDarkMode && styles.textDark]}>
-            {isSi ? 'ක්‍රියාකාරී සේවා තත්ත්වය' : 'Live Booking Status'}
-          </Text>
-          {renderLiveBooking()}
-        </View>
+
 
         <Slideshow isDarkMode={isDarkMode} />
+
+        <View style={styles.sectionHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>{isSi ? 'සේවා සපයන්නන්ගේ පළ කිරීම්' : 'Provider Feed'}</Text>
+            <Text style={[styles.sectionSubtitle, isDarkMode && styles.textMutedDark]}>{isSi ? 'නවතම සේවා සහ මිල ගණන් ඉල්ලීම්' : 'Discover services and request a quotation'}</Text>
+          </View>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="View all provider posts" style={styles.seeAllBtn} onPress={() => navigation.navigate('FeedScreen')}>
+            <Text style={[styles.seeAllText, isDarkMode && styles.seeAllTextDark]}>{isSi ? 'සියල්ල' : 'View All'}</Text>
+            <Feather name="arrow-right" size={14} color={isDarkMode ? '#818cf8' : '#4F46E5'} />
+          </TouchableOpacity>
+        </View>
+        <FeedScreen navigation={navigation} embedded limit={3} refreshKey={feedRefreshKey} />
 
         <View style={styles.sectionHeader}>
           <View>
@@ -1117,7 +1064,7 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.seeAllBtn}>
+          <TouchableOpacity style={styles.seeAllBtn} onPress={() => navigation.navigate('FindService')}>
             <Text style={[styles.seeAllText, isDarkMode && styles.seeAllTextDark]}>
               {isSi ? 'සියල්ල' : (t('home_see_all') || 'See All')}
             </Text>

@@ -1,3 +1,5 @@
+import FindServiceScreen from './screens/FindServiceScreen';
+import SeekerServicesScreen from './screens/SeekerServicesScreen';
 import 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import React, { useEffect, useState } from 'react';
@@ -88,6 +90,8 @@ function AppNavigator({ initialRouteName }) {
         cardStyle: Platform.OS === 'web' ? { flex: 1, minHeight: 0, height: '100%' } : undefined,
       }}
     >
+      <Stack.Screen name="FindService" component={FindServiceScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="SeekerServices" component={SeekerServicesScreen} options={{ headerShown: false }} />
       {/* Authentication Screens */}
       <Stack.Screen
         name="Login"

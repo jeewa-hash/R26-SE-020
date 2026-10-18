@@ -13,6 +13,7 @@ export default function SuggestedSlotsScreen({ route, navigation }) {
   const { isDarkMode } = useTheme();
   const quote = route.params?.quote;
   const [selectedSlot, setSelectedSlot] = useState(quote?.selectedSlot || null);
+  const [validatedQuote, setValidatedQuote] = useState(null);
   const [loadingSlotId, setLoadingSlotId] = useState(null);
 
   if (!quote?.coordinationId) {
@@ -43,8 +44,22 @@ export default function SuggestedSlotsScreen({ route, navigation }) {
     setLoadingSlotId(slotId);
 
     try {
-      await selectSuggestedSlot(quote.coordinationId, slotId);
-      setSelectedSlot(slot);
+      const result = await selectSuggestedSlot(quote.coordinationId, slotId);
+      const payload = result.data || result;
+      const decision = payload.coordination?.finalDecision;
+      if (!['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(decision)) {
+        throw new Error('This time is not ready for booking. Please review availability again.');
+      }
+      setValidatedQuote({
+        ...quote,
+        coordinationStatus: decision,
+        coordinationDecision: decision,
+        scheduleEvaluation: payload.scheduleEvaluation,
+        selectedSlot: payload.selectedSlot || slot,
+        coordinatedStartTime: payload.scheduleEvaluation?.requiredWindowStart || slot.startTime,
+        coordinatedEndTime: payload.scheduleEvaluation?.requiredWindowEnd || slot.endTime,
+      });
+      setSelectedSlot(payload.selectedSlot || slot);
     } catch (error) {
       Alert.alert('Slot Selection Failed', error.message || 'Please try again.');
     } finally {
@@ -52,16 +67,7 @@ export default function SuggestedSlotsScreen({ route, navigation }) {
     }
   };
 
-  const updatedQuote = selectedSlot
-    ? {
-        ...quote,
-        selectedSlot,
-        proposedStartTime: selectedSlot.startTime,
-        coordinatedStartTime: selectedSlot.startTime,
-        coordinatedEndTime: selectedSlot.endTime,
-        coordinationDecision: 'AVAILABLE_WITH_CAUTION',
-      }
-    : quote;
+  const updatedQuote = validatedQuote;
 
   return (
     <ScreenShell
@@ -73,7 +79,7 @@ export default function SuggestedSlotsScreen({ route, navigation }) {
           label="Continue to Confirm Job"
           icon="check-circle"
           variant="success"
-          disabled={!selectedSlot}
+          disabled={!validatedQuote || Boolean(loadingSlotId)}
           onPress={() => navigation.navigate('IT22129376ConfirmJob', { quote: updatedQuote })}
         />
       }

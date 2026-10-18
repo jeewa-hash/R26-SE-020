@@ -17,13 +17,13 @@ export default function HelpScreen({ navigation }) {
     { id: 4, question: "How to cancel a booking?", answer: "Go to My Bookings, select the booking you want to cancel, and click 'Cancel'. Please note cancellation fees may apply.", category: "Bookings" },
     { id: 5, question: "Is my payment information secure?", answer: "Yes, we use industry-standard encryption to protect your payment information. We never store your full card details.", category: "Security" },
     { id: 6, question: "How do I contact a provider?", answer: "You can message providers directly through the chat feature in your bookings or from their profile page.", category: "Communication" },
-    { id: 7, question: "What is the refund policy?", answer: "Refunds are processed within 5-7 business days based on the service provider's cancellation policy.", category: "Payments" },
+    { id: 7, question: "What is the refund policy?", answer: "Discuss refund eligibility and timing with your provider before agreeing to payment terms.", category: "Payments" },
   ];
 
   const contactOptions = [
-    { icon: 'chatbubble', title: 'Live Chat', subtitle: 'Available 24/7', action: 'chat', color: '#667eea', gradient: ['#667eea', '#764ba2'] },
-    { icon: 'mail', title: 'Email Us', subtitle: 'support@servicehub.com', action: 'email', color: '#4ECDC4', gradient: ['#4ECDC4', '#44B3A5'] },
-    { icon: 'call', title: 'Call Us', subtitle: '+94 77 123 4567', action: 'call', color: '#45B7D1', gradient: ['#45B7D1', '#3498DB'] },
+    { icon: 'chatbubble', title: 'Provider Messages', subtitle: 'Your service conversations', action: 'chat', color: '#667eea', gradient: ['#667eea', '#764ba2'] },
+    ...(process.env.EXPO_PUBLIC_SUPPORT_EMAIL ? [{ icon: 'mail', title: 'Email Support', subtitle: process.env.EXPO_PUBLIC_SUPPORT_EMAIL, action: 'email', color: '#4ECDC4', gradient: ['#4ECDC4', '#44B3A5'] }] : []),
+    ...(process.env.EXPO_PUBLIC_SUPPORT_PHONE ? [{ icon: 'call', title: 'Call Support', subtitle: process.env.EXPO_PUBLIC_SUPPORT_PHONE, action: 'call', color: '#45B7D1', gradient: ['#45B7D1', '#3498DB'] }] : []),
   ];
 
   const handleContact = (action, value) => {

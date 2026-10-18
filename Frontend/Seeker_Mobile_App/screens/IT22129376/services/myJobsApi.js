@@ -1,3 +1,4 @@
+import { fetchSeekerWithTimeout } from '../../../utils/seekerHttp';
 import { CONFIG } from '../../../config';
 
 import { buildAuthHeaders } from './seekerAuthStorage';
@@ -207,6 +208,15 @@ export const checkBidCoordination = async ({
   return parseResponse(response);
 };
 
+export const getBidCoordination = async (coordinationId) => {
+  const headers = await buildAuthHeaders();
+  const response = await fetchSeekerWithTimeout(
+    `${SERVICE_COORDINATION_SERVICE_URL}/bid-coordinations/${coordinationId}`,
+    { method: 'GET', headers }
+  );
+  return parseResponse(response);
+};
+
 export const selectSuggestedSlot = async (coordinationId, slotId) => {
   const headers = await buildAuthHeaders();
 
@@ -246,7 +256,7 @@ export const createSeekerRescheduleSuggestion = async ({
 }) => {
   if (!bookingId) throw new Error('A confirmed booking is required before rescheduling.');
   const headers = await buildAuthHeaders();
-  const response = await fetch(
+  const response = await fetchSeekerWithTimeout(
     `${SERVICE_COORDINATION_SERVICE_URL}/reschedules/bookings/${bookingId}/reschedule`,
     {
       method: 'POST',

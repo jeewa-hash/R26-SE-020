@@ -219,6 +219,7 @@ export const createRequestQuotation = async (req, res) => {
       request,
     });
   } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ success: false, message: 'You have already requested a quotation from this provider for this service.' });
     console.error("CREATE REQUEST QUOTATION ERROR:", error);
 
     return res.status(500).json({
