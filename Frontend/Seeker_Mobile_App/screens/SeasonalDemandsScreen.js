@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/SeasonalDemandsScreen.js
 import React from 'react';
 import {
@@ -34,15 +35,9 @@ export default function SeasonalDemandsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Seasonal Offers</Text>
-        <TouchableOpacity style={styles.searchButton}>
+      <PageHeader title={<>Seasonal Offers</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity style={styles.searchButton}>
           <Ionicons name="search-outline" size={22} color="#1F2937" />
-        </TouchableOpacity>
-      </View>
+        </TouchableOpacity></>} />
 
       {/* Banner */}
       <LinearGradient

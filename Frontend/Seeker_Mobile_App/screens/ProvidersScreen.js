@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -211,6 +212,7 @@ export default function ProvidersScreen({ route, navigation }) {
         style={[styles.container, isDarkMode && { backgroundColor: "#111827" }]}
         showsVerticalScrollIndicator={false}
       >
+        <PageHeader title="Providers" subtitle="Services matching your request" />
         {/* MATCH SUMMARY */}
         <View style={[styles.matchSummary, isDarkMode && { backgroundColor: "#064E3B" }]}>
           <View style={styles.matchIcon}>

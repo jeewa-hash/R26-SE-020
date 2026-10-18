@@ -11,9 +11,9 @@ import { IP_ADDRESS } from '../config';
 const API_URL = `http://${IP_ADDRESS}:4003`;
 
 const DISTRICTS = [
-  "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", "Galle", "Gampaha", 
-  "Hambantota", "Jaffna", "Kalutara", "Kandy", "Kegalle", "Kilinochchi", "Kurunegala", 
-  "Mannar", "Matale", "Matara", "Moneragala", "Mullaitivu", "Nuwara Eliya", 
+  "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", "Galle", "Gampaha",
+  "Hambantota", "Jaffna", "Kalutara", "Kandy", "Kegalle", "Kilinochchi", "Kurunegala",
+  "Mannar", "Matale", "Matara", "Moneragala", "Mullaitivu", "Nuwara Eliya",
   "Polonnaruwa", "Puttalam", "Ratnapura", "Trincomalee", "Vavuniya"
 ];
 
@@ -78,7 +78,7 @@ export default function RegisterScreen({ navigation }) {
   const hasLowerCase = /[a-z]/.test(password);
   const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/.test(password);
   const isPasswordValid = isLengthValid && hasUpperCase && hasLowerCase && hasSymbol;
-  
+
   // Password confirmation check
   const passwordsMatch = password === confirmPassword;
   const showPasswordError = confirmPassword.length > 0 && !passwordsMatch;
@@ -145,7 +145,7 @@ export default function RegisterScreen({ navigation }) {
 
   const scanNicFromCamera = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    
+
     if (permissionResult.granted === false) {
       Alert.alert("Permission Refused", "You've refused to allow this app to access your camera!");
       return;
@@ -231,7 +231,7 @@ export default function RegisterScreen({ navigation }) {
     }
 
     setLoading(true);
-    
+
     const formData = new FormData();
     formData.append('name', name);
     formData.append('email', email);
@@ -283,8 +283,8 @@ export default function RegisterScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1 }}
     >
       <ScrollView contentContainerStyle={styles.container}>
@@ -319,13 +319,13 @@ export default function RegisterScreen({ navigation }) {
 
       <Text style={styles.label}>Brief Description of Your Skills</Text>
       {isBioEditable ? (
-        <TextInput 
-          style={[styles.input, { height: 160, textAlignVertical: 'top', marginBottom: 10 }]} 
-          placeholder="E.g., I am a good carpenter, 5 years work in Colombo" 
+        <TextInput
+          style={[styles.input, { height: 160, textAlignVertical: 'top', marginBottom: 10 }]}
+          placeholder="E.g., I am a good carpenter, 5 years work in Colombo"
           multiline
           numberOfLines={6}
-          value={rawBio} 
-          onChangeText={setRawBio} 
+          value={rawBio}
+          onChangeText={setRawBio}
         />
       ) : (
         <ScrollView style={[styles.input, { height: 160, marginBottom: 10, backgroundColor: '#e9ecef' }]}>
@@ -343,7 +343,7 @@ export default function RegisterScreen({ navigation }) {
                 </>
               )}
             </TouchableOpacity>
-            
+
             {isBioEditable ? (
               <TouchableOpacity style={styles.editBtn} onPress={() => setIsBioEditable(false)}>
                 <MaterialIcons name="save" size={18} color="#fff" style={{ marginRight: 5 }} />
@@ -367,12 +367,12 @@ export default function RegisterScreen({ navigation }) {
           </TouchableOpacity>
         )}
       </View>
-      
+
       <Text style={styles.label}>Telephone Number</Text>
       <View style={styles.phoneContainer}>
         <View style={styles.countryCodePicker}>
-          <Picker 
-            selectedValue={countryCode} 
+          <Picker
+            selectedValue={countryCode}
             onValueChange={(itemValue) => setCountryCode(itemValue)}
           >
             <Picker.Item label="+94 (SL)" value="+94" />
@@ -382,12 +382,12 @@ export default function RegisterScreen({ navigation }) {
             <Picker.Item label="+91 (IN)" value="+91" />
           </Picker>
         </View>
-        <TextInput 
-          style={styles.phoneInput} 
-          placeholder="71 234 5678" 
-          keyboardType="phone-pad" 
-          value={telephone} 
-          onChangeText={setTelephone} 
+        <TextInput
+          style={styles.phoneInput}
+          placeholder="71 234 5678"
+          keyboardType="phone-pad"
+          value={telephone}
+          onChangeText={setTelephone}
         />
       </View>
 
@@ -446,18 +446,18 @@ export default function RegisterScreen({ navigation }) {
 
       <Modal visible={mapVisible} animationType="slide">
         <View style={styles.fullScreenMapContainer}>
-          <MapPicker 
-            style={styles.fullScreenMap} 
+          <MapPicker
+            style={styles.fullScreenMap}
             region={tempLocation}
             onPress={handleMapPress}
           />
-          
+
           <View style={styles.mapTopButtons}>
             <TouchableOpacity style={styles.mapCancelBtn} onPress={closeMap}>
               <MaterialIcons name="close" size={20} color="#fff" />
               <Text style={styles.mapBtnText}>Cancel</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.mapFindMeBtn} onPress={findMe} disabled={findingLocation}>
               <MaterialIcons name="my-location" size={20} color="#fff" />
               <Text style={styles.mapBtnText}>{findingLocation ? "Locating..." : "Find Me"}</Text>
@@ -475,21 +475,21 @@ export default function RegisterScreen({ navigation }) {
 
       <Text style={styles.label}>Password</Text>
       <View style={[styles.passwordContainer, password.length > 0 && !isPasswordValid && styles.inputError]}>
-        <TextInput 
-          style={styles.passwordInput} 
-          placeholder="Password" 
-          secureTextEntry={!showPassword} 
-          value={password} 
-          onChangeText={setPassword} 
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Password"
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={setPassword}
         />
-        <TouchableOpacity 
-          style={styles.eyeIcon} 
+        <TouchableOpacity
+          style={styles.eyeIcon}
           onPress={() => setShowPassword(!showPassword)}
         >
-          <MaterialIcons 
-            name={showPassword ? 'visibility' : 'visibility-off'} 
-            size={24} 
-            color="#777" 
+          <MaterialIcons
+            name={showPassword ? 'visibility' : 'visibility-off'}
+            size={24}
+            color="#777"
           />
         </TouchableOpacity>
       </View>
@@ -512,21 +512,21 @@ export default function RegisterScreen({ navigation }) {
       )}
 
       <View style={[styles.passwordContainer, showPasswordError && styles.inputError]}>
-        <TextInput 
-          style={styles.passwordInput} 
-          placeholder="Confirm Password" 
-          secureTextEntry={!showConfirmPassword} 
-          value={confirmPassword} 
-          onChangeText={setConfirmPassword} 
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Confirm Password"
+          secureTextEntry={!showConfirmPassword}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
         />
-        <TouchableOpacity 
-          style={styles.eyeIcon} 
+        <TouchableOpacity
+          style={styles.eyeIcon}
           onPress={() => setShowConfirmPassword(!showConfirmPassword)}
         >
-          <MaterialIcons 
-            name={showConfirmPassword ? 'visibility' : 'visibility-off'} 
-            size={24} 
-            color="#777" 
+          <MaterialIcons
+            name={showConfirmPassword ? 'visibility' : 'visibility-off'}
+            size={24}
+            color="#777"
           />
         </TouchableOpacity>
       </View>
@@ -543,7 +543,7 @@ export default function RegisterScreen({ navigation }) {
           <Text style={styles.actionButtonText}>Gallery</Text>
         </TouchableOpacity>
       </View>
-      
+
       {nicImage && (
         <View style={styles.imagePreviewContainer}>
           <Image source={{ uri: nicImage.uri }} style={styles.previewImage} />
@@ -567,52 +567,52 @@ export default function RegisterScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flexGrow: 1, padding: 24, paddingTop: 40, backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#111827', marginBottom: 8, textAlign: 'center' },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#162C49', marginBottom: 8, textAlign: 'center' },
   subtitle: { fontSize: 16, color: '#6b7280', textAlign: 'center', marginBottom: 30 },
   profileImageContainer: { alignItems: 'center', marginBottom: 24 },
-  profileImage: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: '#6366f1' },
-  profileImagePlaceholder: { width: 110, height: 110, borderRadius: 55, backgroundColor: '#f3f4ff', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb', borderStyle: 'dashed' },
-  profileImageText: { color: '#6366f1', fontSize: 13, fontWeight: '600', marginTop: 8 },
+  profileImage: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: '#15803D' },
+  profileImagePlaceholder: { width: 110, height: 110, borderRadius: 55, backgroundColor: '#f3f4ff', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#D8E8DC', borderStyle: 'dashed' },
+  profileImageText: { color: '#15803D', fontSize: 13, fontWeight: '600', marginTop: 8 },
   label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8, marginTop: 16, marginLeft: 4 },
-  locationContainer: { backgroundColor: '#f9fafb', padding: 16, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#e5e7eb', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  locationText: { fontSize: 14, color: '#111827', fontWeight: '600', flex: 1 },
+  locationContainer: { backgroundColor: '#F5FAF6', padding: 16, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#D8E8DC', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  locationText: { fontSize: 14, color: '#162C49', fontWeight: '600', flex: 1 },
   noLocationText: { fontSize: 14, color: '#9ca3af', fontStyle: 'italic', flex: 1 },
-  openMapBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#6366f1', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
+  openMapBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#15803D', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
   openMapBtnText: { color: '#fff', fontWeight: 'bold', marginLeft: 6, fontSize: 14 },
-  
+
   fullScreenMapContainer: { flex: 1 },
   fullScreenMap: { ...StyleSheet.absoluteFillObject },
   mapTopButtons: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 50, position: 'absolute', top: 0, width: '100%' },
   mapCancelBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(239, 68, 68, 0.9)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
-  mapFindMeBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(99, 102, 241, 0.9)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
+  mapFindMeBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(37, 99, 235, 0.9)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
   mapBottomButtons: { position: 'absolute', bottom: 40, width: '100%', alignItems: 'center' },
   mapConfirmBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(16, 185, 129, 0.9)', paddingHorizontal: 30, paddingVertical: 15, borderRadius: 30, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 3 },
   mapBtnText: { color: '#fff', fontWeight: 'bold', marginLeft: 8, fontSize: 16 },
 
-  input: { backgroundColor: '#f9fafb', padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#e5e7eb', fontSize: 15, color: '#111827' },
-  generateBtn: { backgroundColor: '#6366f1', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', elevation: 2, shadowColor: '#6366f1', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
+  input: { backgroundColor: '#F5FAF6', padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#D8E8DC', fontSize: 15, color: '#162C49' },
+  generateBtn: { backgroundColor: '#15803D', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', elevation: 2, shadowColor: '#15803D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
   editBtn: { backgroundColor: '#10b981', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10, alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', elevation: 2, shadowColor: '#10b981', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
   generateBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
   phoneContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, height: 56 },
-  countryCodePicker: { flex: 1.2, backgroundColor: '#f9fafb', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', marginRight: 10, justifyContent: 'center' },
-  phoneInput: { flex: 2, backgroundColor: '#f9fafb', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', height: '100%', fontSize: 15, color: '#111827' },
-  passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9fafb', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 15 },
-  passwordInput: { flex: 1, padding: 15, fontSize: 15, color: '#111827' },
+  countryCodePicker: { flex: 1.2, backgroundColor: '#F5FAF6', borderRadius: 12, borderWidth: 1, borderColor: '#D8E8DC', marginRight: 10, justifyContent: 'center' },
+  phoneInput: { flex: 2, backgroundColor: '#F5FAF6', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#D8E8DC', height: '100%', fontSize: 15, color: '#162C49' },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5FAF6', borderRadius: 12, borderWidth: 1, borderColor: '#D8E8DC', marginBottom: 15 },
+  passwordInput: { flex: 1, padding: 15, fontSize: 15, color: '#162C49' },
   eyeIcon: { padding: 15 },
   inputError: { borderColor: '#ef4444', borderWidth: 1 },
   validationBox: { marginBottom: 15, marginTop: -8, paddingHorizontal: 8 },
   errorText: { color: '#ef4444', fontSize: 13, marginBottom: 4 },
   successText: { color: '#10b981', fontSize: 13, marginBottom: 4 },
   errorTextAlone: { color: '#ef4444', fontSize: 13, marginTop: -10, marginBottom: 15, marginLeft: 8 },
-  pickerContainer: { backgroundColor: '#f9fafb', borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 15, overflow: 'hidden' },
+  pickerContainer: { backgroundColor: '#F5FAF6', borderRadius: 12, borderWidth: 1, borderColor: '#D8E8DC', marginBottom: 15, overflow: 'hidden' },
   imageActionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, gap: 12 },
-  actionButton: { flex: 1, backgroundColor: '#f3f4ff', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#e5e7eb', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 },
-  actionButtonText: { color: '#6366f1', fontWeight: 'bold', fontSize: 14 },
+  actionButton: { flex: 1, backgroundColor: '#f3f4ff', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#D8E8DC', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  actionButtonText: { color: '#15803D', fontWeight: 'bold', fontSize: 14 },
   imagePreviewContainer: { alignItems: 'center', marginBottom: 20 },
   previewImage: { width: '100%', height: 220, borderRadius: 16, resizeMode: 'cover' },
-  button: { backgroundColor: '#6366f1', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 12, marginBottom: 24, shadowColor: '#6366f1', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+  button: { backgroundColor: '#15803D', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 12, marginBottom: 24, shadowColor: '#15803D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   footer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 40 },
   footerText: { color: '#6b7280', fontSize: 15 },
-  link: { color: '#6366f1', fontWeight: 'bold', fontSize: 15 }
+  link: { color: '#15803D', fontWeight: 'bold', fontSize: 15 }
 });

@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useTheme } from '../../hooks/useTheme';
 
-import JobsHeader from './components/JobsHeader';
+import PageHeader from '../../components/PageHeader';
 import JobsTabBar from './components/JobsTabBar';
 
 import ActiveJobsSection from './sections/ActiveJobsSection';
@@ -496,12 +496,7 @@ export default function MyJobsScreen({ navigation }) {
         backgroundColor={isDarkMode ? COLORS.darkBg : COLORS.primary}
       />
 
-      <JobsHeader
-        isDarkMode={isDarkMode}
-        activeCount={counts.Active}
-        quotesCount={counts.Quotes}
-        scheduledCount={counts.Scheduled}
-      />
+      <PageHeader title="My Jobs" />
 
       <JobsTabBar
         activeTab={activeTab}

@@ -6,6 +6,7 @@ import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { BottomInsetContext } from '../context/BottomInsetContext';
 import { ThemeContext } from '../context/ThemeContext';
 import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { io } from 'socket.io-client';
@@ -17,6 +18,7 @@ const ADMIN_API_URL = ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
 // Import Screens
 import NewsFeedScreen from '../pages/NewsFeedScreen';
 import BookingsScreen from '../pages/BookingsScreen';
+import ProviderScheduleScreen from '../screens/ProviderScheduleScreen';
 import EarningsScreen from '../pages/EarningsScreen';
 import ProfileScreen from '../pages/ProfileScreen';
 import ChatScreen from '../pages/ChatScreen';
@@ -49,7 +51,7 @@ function HomeStack() {
 const TABS = [
   { name: 'HomeTab', label: 'Home', icon: 'home-outline', iconActive: 'home' },
   { name: 'Bookings', label: 'My Jobs', icon: 'briefcase-outline', iconActive: 'briefcase' },
-  { name: 'NotificationsTab', label: 'Alerts', icon: 'bell-outline', iconActive: 'bell', isCenter: true },
+  { name: 'CalendarTab', label: 'Calendar', icon: 'calendar-month-outline', iconActive: 'calendar-month' },
   { name: 'Earnings', label: 'Earnings', icon: 'wallet-outline', iconActive: 'wallet' },
   { name: 'Profile', label: 'Profile', icon: 'account-outline', iconActive: 'account' },
 ];
@@ -57,50 +59,78 @@ const TABS = [
 const SCREENS = {
   HomeTab: HomeStack,
   Bookings: BookingsScreen,
-  NotificationsTab: NotificationsScreen,
+  CalendarTab: ProviderScheduleScreen,
   Earnings: EarningsScreen,
   Profile: ProfileScreen,
 };
 
 const LIGHT = {
-  bar: 'rgba(255,255,255,0.97)',
+  bar: '#FFFFFF',
   barBorder: 'rgba(20,20,30,0.06)',
-  activeIcon: '#15151F',
+  activeIcon: '#166534',
   inactiveIcon: '#ADAAC0',
-  activeLabel: '#15151F',
+  activeLabel: '#166534',
   inactiveLabel: '#ADAAC0',
-  indicator: '#22C55E',
+  indicator: '#15803D',
   shadowColor: '#3A3560',
-  centerGradient: ['#5B6EF5', '#8B5CF6'],
-  centerGlow: '#5B6EF5',
+  centerGradient: ['#15803D', '#0284C7'],
+  centerGlow: '#15803D',
   centerIcon: '#FFFFFF',
-  centerRing: 'rgba(91,110,245,0.14)',
+  centerRing: 'rgba(37, 99, 235,0.14)',
 };
 
 const DARK = {
-  bar: 'rgba(20,20,29,0.97)',
+  bar: '#101512',
   barBorder: 'rgba(255,255,255,0.06)',
-  activeIcon: '#FFFFFF',
+  activeIcon: '#86C99A',
   inactiveIcon: '#7C7C8D',
-  activeLabel: '#FFFFFF',
+  activeLabel: '#86C99A',
   inactiveLabel: '#7C7C8D',
-  indicator: '#22C55E',
+  indicator: '#15803D',
   shadowColor: '#000000',
-  centerGradient: ['#5B6EF5', '#8B5CF6'],
-  centerGlow: '#5B6EF5',
+  centerGradient: ['#15803D', '#0284C7'],
+  centerGlow: '#15803D',
   centerIcon: '#FFFFFF',
-  centerRing: 'rgba(91,110,245,0.28)',
+  centerRing: 'rgba(134, 201, 154,0.12)',
 };
+
+function ProviderTabBar({ state, navigation, C }) {
+  const bottomInset = useContext(BottomInsetContext);
+  const currentRoute = state.routes[state.index];
+  if (['ChatScreen', 'QuotationTemplate', 'InboxScreen'].includes(getFocusedRouteNameFromRoute(currentRoute))) return null;
+  return (
+    <View style={[styles.tabBar, { backgroundColor: C.bar, borderTopColor: C.barBorder, paddingBottom: 8 + bottomInset, minHeight: 76 + bottomInset }]}>
+      {state.routes.map((route, index) => {
+        const tab = TABS.find(item => item.name === route.name);
+        if (!tab) return null;
+        const focused = state.index === index;
+        return <TouchableOpacity
+          key={route.key}
+          style={styles.tabButton}
+          accessibilityRole="button"
+          accessibilityLabel={tab.label}
+          accessibilityState={{ selected: focused }}
+          activeOpacity={0.7}
+          onPress={() => {
+            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+          }}
+          onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
+        ><TabItem {...tab} focused={focused} C={C} /></TouchableOpacity>;
+      })}
+    </View>
+  );
+}
 
 function TabItem({ label, icon, iconActive, focused, C, hasNotif }) {
   const iconName = focused ? iconActive : icon;
 
   return (
     <View style={styles.tabItem}>
-      <View style={styles.iconWrap}>
+      <View style={[styles.iconWrap, focused && { backgroundColor: C.activeIcon === '#86C99A' ? '#202A23' : '#EAF7EE' }]}>
         <MaterialCommunityIcons
           name={iconName}
-          size={24}
+          size={23}
           color={focused ? C.activeIcon : C.inactiveIcon}
         />
 
@@ -120,12 +150,7 @@ function TabItem({ label, icon, iconActive, focused, C, hasNotif }) {
         {label}
       </Text>
 
-      <View
-        style={[
-          styles.activeDot,
-          { backgroundColor: focused ? C.indicator : 'transparent' },
-        ]}
-      />
+
     </View>
   );
 }
@@ -221,7 +246,7 @@ export default function BottomTabNavigator() {
         console.warn('Socket connection error in TabNavigator:', sockErr.message);
       }
 
-      const fetchWithTimeout = async (url, opts = {}, ms = 5000) => {
+      const fetchWithTimeout = async (url, opts = {}, ms = 2500) => {
         const ctrl = new AbortController();
         const tid = setTimeout(() => ctrl.abort(), ms);
         try {
@@ -355,7 +380,7 @@ export default function BottomTabNavigator() {
             colors={
               activeAlertBanner.type === 'high_demand_alert' ||
               (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
-                ? ['#EEF2FF', '#E0E7FF']
+                ? ['#EAF7EE', '#D8E8DC']
                 : activeAlertBanner.type === 'inquiry_approved'
                 ? ['#ECFDF5', '#D1FAE5']
                 : ['#FEF2F2', '#FEE2E2']
@@ -367,7 +392,7 @@ export default function BottomTabNavigator() {
                 styles.floatingBannerIconWrap,
                 activeAlertBanner.type === 'high_demand_alert' ||
                 (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
-                  ? { backgroundColor: '#C7D2FE' }
+                  ? { backgroundColor: '#A7D6B4' }
                   : activeAlertBanner.type === 'inquiry_approved'
                   ? styles.floatingBannerIconWrapApproved
                   : styles.floatingBannerIconWrapRejected,
@@ -386,7 +411,7 @@ export default function BottomTabNavigator() {
                 color={
                   activeAlertBanner.type === 'high_demand_alert' ||
                   (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
-                    ? '#4F46E5'
+                    ? '#166534'
                     : activeAlertBanner.type === 'inquiry_approved'
                     ? '#059669'
                     : '#dc2626'
@@ -418,7 +443,7 @@ export default function BottomTabNavigator() {
                     styles.floatingBannerActionBtn,
                     activeAlertBanner.type === 'high_demand_alert' ||
                     (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
-                      ? { backgroundColor: '#4F46E5' }
+                      ? { backgroundColor: '#166534' }
                       : activeAlertBanner.type === 'inquiry_approved'
                       ? { backgroundColor: '#059669' }
                       : { backgroundColor: '#dc2626' },
@@ -480,6 +505,7 @@ export default function BottomTabNavigator() {
       )}
 
       <Tab.Navigator
+        tabBar={props => <ProviderTabBar {...props} C={C} />}
         screenOptions={{
           headerShown: false,
           tabBarShowLabel: false,
@@ -533,7 +559,7 @@ export default function BottomTabNavigator() {
                     iconActive={tab.iconActive}
                     focused={focused}
                     C={C}
-                    hasNotif={tab.name === 'Earnings'}
+                    hasNotif={false}
                   />
                 ),
 
@@ -556,51 +582,33 @@ export default function BottomTabNavigator() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: Platform.OS === 'ios' ? 26 : 14,
-    height: 82,
-    borderRadius: 30,
-    borderWidth: 1,
+    minHeight: 76,
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 10 : 8,
-    elevation: 15,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
-  },
-
-  tabItem: {
-    flex: 1,
-    height: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: 2,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#D8E8DC',
+    paddingTop: 8,
+    paddingBottom: 8,
+    elevation: 0,
   },
-
-  iconWrap: {
-    height: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    marginBottom: 4,
-  },
+  tabButton: { flex: 1, minWidth: 0, minHeight: 60, alignItems: 'center', justifyContent: 'center' },
+  tabItem: { width: '100%', minWidth: 0, height: 60, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  iconWrap: { width: 38, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', position: 'relative' },
 
   tabLabel: {
     width: '100%',
     fontSize: 10,
-    lineHeight: 13,
+    lineHeight: 14,
     letterSpacing: 0,
     textAlign: 'center',
     fontWeight: '500',
   },
 
   tabLabelActive: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   activeDot: {
@@ -668,7 +676,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#FF4B4B',
     borderWidth: 1.5,
-    borderColor: '#5B6EF5',
+    borderColor: '#15803D',
   },
 
   floatingBannerContainer: {

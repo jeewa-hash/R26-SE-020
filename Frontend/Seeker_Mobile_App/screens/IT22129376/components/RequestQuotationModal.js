@@ -22,6 +22,11 @@ import MapView, { Marker } from "../../../components/SafeMapView";
 import * as ExpoLocation from "expo-location";
 import { createRequestQuotation } from "../services/requestQuotationApi";
 
+const showRequestAlert = (title, message) => {
+  if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
+  else Alert.alert(title, message);
+};
+
 const TIME_WINDOWS = {
   Morning: [9, 12],
   Afternoon: [13, 17],
@@ -160,14 +165,14 @@ export default function RequestQuotationModal({
       seekerId ||
       (await AsyncStorage.getItem("seekerId")) ||
       (await AsyncStorage.getItem("userId"));
-    if (!resolvedSeekerId) return Alert.alert("Sign in required", "Please sign in before requesting a quotation.");
-    if (!providerId) return Alert.alert("Provider unavailable", "Please select a provider again.");
-    if (!sessionId) return Alert.alert("Service details unavailable", "Please complete the service diagnosis first.");
+    if (!resolvedSeekerId) return showRequestAlert("Sign in required", "Please sign in before requesting a quotation.");
+    if (!providerId) return showRequestAlert("Provider unavailable", "Please select a provider again.");
+    if (!sessionId) return showRequestAlert("Service details unavailable", "Please complete the service diagnosis first.");
     if (!preferredDate || !startTime)
-      return Alert.alert("Missing time", "Please select a preferred date and time.");
-    if (!location.trim()) return Alert.alert("Missing location", "Please enter your service location.");
+      return showRequestAlert("Missing time", "Please select a preferred date and time.");
+    if (!location.trim()) return showRequestAlert("Missing location", "Please enter your service location.");
     if (!budget.trim() || Number(budget) < 0 || Number.isNaN(Number(budget)))
-      return Alert.alert("Missing budget", "Please enter your budget amount.");
+      return showRequestAlert("Missing budget", "Please enter your budget amount.");
 
     const preferredStartTime = new Date(preferredDate);
     preferredStartTime.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
@@ -195,7 +200,7 @@ export default function RequestQuotationModal({
       "Service"
     );
     if (!detectedCategory || !detectedObject)
-      return Alert.alert("Service details unavailable", "Please complete the service diagnosis first.");
+      return showRequestAlert("Service details unavailable", "Please complete the service diagnosis first.");
 
     const payload = {
       seekerId: resolvedSeekerId,
@@ -251,7 +256,7 @@ export default function RequestQuotationModal({
     } catch (error) {
       const isDuplicate = error.status === 409;
       const isNetworkError = !error.status;
-      Alert.alert(
+      showRequestAlert(
         isDuplicate ? "Already requested" : "Request failed",
         isDuplicate
           ? "You have already requested a quotation from this provider for this service."
@@ -279,13 +284,13 @@ export default function RequestQuotationModal({
     try {
       setLocating(true);
       const permission = await ExpoLocation.requestForegroundPermissionsAsync();
-      if (permission.status !== 'granted') return Alert.alert('Location permission', 'You can still type the service address manually.');
+      if (permission.status !== 'granted') return showRequestAlert('Location permission', 'You can still type the service address manually.');
       const current = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.Balanced });
       const point = { latitude: current.coords.latitude, longitude: current.coords.longitude };
       setCoordinates(point);
       await resolveSelectedAddress(point);
     } catch (error) {
-      Alert.alert('Location unavailable', 'Unable to get your current location. You can still type the address manually.');
+      showRequestAlert('Location unavailable', 'Unable to get your current location. You can still type the address manually.');
     } finally { setLocating(false); }
   };
 

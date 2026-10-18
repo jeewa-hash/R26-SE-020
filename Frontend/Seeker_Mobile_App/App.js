@@ -1,4 +1,5 @@
 import 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -30,6 +31,8 @@ import BidResponsesScreen from './screens/BidResponsesScreen';
 import UserQuotesScreen from './screens/UserQuotesScreen';
 
 // Profile Sub Screens
+import SeekerCalendarScreen from './screens/SeekerCalendarScreen';
+import SeekerServiceSessionsScreen from './screens/IT22129376/SeekerServiceSessionsScreen';
 import BookingsScreen from './screens/BookingsScreen';
 import MyBidsScreen from './screens/MyBidsScreen';
 import MyPostsScreen from './screens/MyPostsScreen';
@@ -52,7 +55,6 @@ import SuggestedSlotsScreen from './screens/IT22129376/SuggestedSlotsScreen';
 import ConfirmJobScreen from './screens/IT22129376/ConfirmJobScreen';
 import ScheduledJobDetailsScreen from './screens/IT22129376/ScheduledJobDetailsScreen';
 import JobHistoryDetailsScreen from './screens/IT22129376/JobHistoryDetailsScreen';
-import SeekerServiceSessionsScreen from './screens/IT22129376/SeekerServiceSessionsScreen';
 import SeekerServiceSessionDetailsScreen from './screens/IT22129376/SeekerServiceSessionDetailsScreen';
 // Chat Screens
 import { ChatProvider } from './context/ChatContext';
@@ -234,7 +236,13 @@ function AppNavigator({ initialRouteName }) {
         options={{ headerShown: false }}
       />
 
-      {/* Existing Bookings screen - keep unchanged */}
+      {/* Calendar views for booked services */}
+      <Stack.Screen
+        name="SeekerCalendar"
+        component={SeekerCalendarScreen}
+        options={{ headerShown: false }}
+      />
+
       <Stack.Screen
         name="BookingsScreen"
         component={BookingsScreen}
@@ -414,6 +422,7 @@ export default function App() {
   }
 
   return (
+    <SafeAreaProvider>
     <LanguageProvider>
       <ChatProvider>
         <ThemeProvider>
@@ -442,5 +451,6 @@ export default function App() {
         </ThemeProvider>
       </ChatProvider>
     </LanguageProvider>
+    </SafeAreaProvider>
   );
 }

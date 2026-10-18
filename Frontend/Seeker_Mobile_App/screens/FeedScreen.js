@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
@@ -469,20 +470,7 @@ export default function FeedScreen({ navigation }) {
         backgroundColor={isDarkMode ? '#1a1a2e' : '#4338CA'}
       />
 
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#3730A3', '#4F46E5']}
-        style={styles.headerGradient}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
-            {isSi ? 'සේවා දැන්වීම්' : 'Provider Ads'}
-          </Text>
-          <View style={{ width: 24 }} />
-        </View>
-      </LinearGradient>
+      <PageHeader title={<>{isSi ? 'සේවා දැන්වීම්' : 'Provider Ads'}</>} onBack={() => navigation.goBack()} />
 
       <ScrollView
         style={styles.feedContainer}

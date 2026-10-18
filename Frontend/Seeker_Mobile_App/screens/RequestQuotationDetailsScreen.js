@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/RequestQuotationDetailsScreen.js
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -224,19 +225,7 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
           barStyle="light-content"
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
-        <LinearGradient
-          colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-          style={styles.header}
-        >
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
-          >
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Quotation Details</Text>
-          <View style={{ width: 40 }} />
-        </LinearGradient>
+        <PageHeader title={<>Quotation Details</>} onBack={() => navigation.goBack()} />
         <View style={[styles.loadingContainer, isDarkMode && styles.containerDark]}>
           <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#667eea'} />
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
@@ -258,24 +247,12 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
       />
 
       {/* ── Header ── */}
-      <LinearGradient
-        colors={isDarkMode ? ['#1a1a2e', '#16213e'] : ['#667eea', '#764ba2']}
-        style={styles.header}
-      >
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
-        >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Quotation Details</Text>
-        <TouchableOpacity
+      <PageHeader title={<>Quotation Details</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity
           onPress={onRefresh}
           style={[styles.headerBtn, isDarkMode && styles.headerBtnDark]}
         >
-          <Ionicons name="refresh-outline" size={22} color="#fff" />
-        </TouchableOpacity>
-      </LinearGradient>
+          <Ionicons name="refresh-outline" size={22} color={textColor} />
+        </TouchableOpacity></>} />
 
       <ScrollView
         contentContainerStyle={styles.content}

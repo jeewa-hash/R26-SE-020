@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -281,24 +282,12 @@ export default function NotificationsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <View style={styles.headerActions}>
-          {notifications.length > 0 && (
-            <>
-              <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.headerAction}>
+      <PageHeader title={<>Notifications</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity onPress={handleMarkAllAsRead} style={styles.headerAction}>
                 <Ionicons name="mail-open-outline" size={22} color="#667eea" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleDeleteAll} style={styles.headerAction}>
+<TouchableOpacity onPress={handleDeleteAll} style={styles.headerAction}>
                 <Ionicons name="trash-outline" size={22} color="#EF4444" />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
+              </TouchableOpacity></>} />
 
       {/* Tabs */}
       {notifications.length > 0 && (

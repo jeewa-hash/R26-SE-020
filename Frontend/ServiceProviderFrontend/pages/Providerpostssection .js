@@ -84,7 +84,7 @@ function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C, isBo
           resizeMode="cover"
         />
       ) : (
-        <View style={[styles.imagePlaceholder, { backgroundColor: isDark ? '#1e1b3a' : '#EFF6FF' }]}>
+        <View style={[styles.imagePlaceholder, { backgroundColor: isDark ? '#161C18' : '#F1F5F2' }]}>
           <MaterialIcons name="campaign" size={32} color={Colors.primary} />
           <Text style={[styles.placeholderText, { color: Colors.primary }]}>
             Service Advertisement
@@ -182,7 +182,7 @@ function PostCard({ post, onLike, onComment, onOptions, onBoost, isDark, C, isBo
 // ── Options Bottom Sheet ─────────────────────────────────────────
 
 function OptionsModal({ visible, onClose, onEdit, onDelete, isDark }) {
-  const bg = isDark ? '#1c1c1e' : '#fff';
+  const bg = isDark ? '#161C18' : '#fff';
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -191,8 +191,8 @@ function OptionsModal({ visible, onClose, onEdit, onDelete, isDark }) {
           <View style={styles.sheetHandle} />
 
           <TouchableOpacity style={styles.sheetOption} onPress={onEdit}>
-            <MaterialIcons name="edit" size={20} color="#2563EB" />
-            <Text style={[styles.sheetOptionText, { color: '#2563EB' }]}>Edit Post</Text>
+            <MaterialIcons name="edit" size={20} color="#15803D" />
+            <Text style={[styles.sheetOptionText, { color: '#15803D' }]}>Edit Post</Text>
           </TouchableOpacity>
 
           <View style={styles.sheetDivider} />
@@ -230,10 +230,10 @@ function BoostModal({ visible, onClose, onConfirm, isDark, isSubmitting }) {
   const [selected, setSelected] = useState(1);
   const [error, setError] = useState('');
 
-  const bg = isDark ? '#1c1c1e' : '#fff';
+  const bg = isDark ? '#161C18' : '#fff';
   const textColor = isDark ? '#F2F2F7' : '#111111';
   const subColor = isDark ? '#8E8E93' : '#6B7280';
-  const border = isDark ? '#2c2c2e' : '#E2E8F0';
+  const border = isDark ? '#303C33' : '#D8E8DC';
 
   const activeAmount = isCustom ? Number(customValue) : selected;
   const fee = calculatePreviewFee(activeAmount);
@@ -393,8 +393,8 @@ export default function ProviderPostsSection({ navigation, isDark }) {
   const [checkingPenalty, setCheckingPenalty] = useState(false);
 
   const C = isDark
-    ? { card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e' }
-    : { card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#E2E8F0' };
+    ? { card: '#161C18', text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33' }
+    : { card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#D8E8DC' };
 
   const handleNewPostPress = async () => {
     try {
@@ -418,19 +418,27 @@ export default function ProviderPostsSection({ navigation, isDark }) {
       }
 
       const adminUrl = CONFIG.ADMIN_SERVICE_URL || `http://${IP_ADDRESS || '192.168.1.38'}:5001`;
-      const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
-      if (res.ok) {
-        const statusData = await res.json();
-        const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
-        if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
-          setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
-          setShowPenaltyModal(true);
-          setCheckingPenalty(false);
-          return;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      try {
+        const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`, {
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const statusData = await res.json();
+          const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
+          if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
+            setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+            setShowPenaltyModal(true);
+            setCheckingPenalty(false);
+            return;
+          }
         }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (e) {
-      console.log('Error checking penalty status before posting:', e.message);
+      // Admin service optional or offline
     } finally {
       setCheckingPenalty(false);
     }
@@ -643,7 +651,7 @@ export default function ProviderPostsSection({ navigation, isDark }) {
         <Pressable
           style={[
             styles.penaltyModalContainer,
-            { backgroundColor: isDark ? '#1C192E' : '#FFFFFF', borderColor: isDark ? '#3D2A5C' : '#E2E8F0' },
+            { backgroundColor: isDark ? '#1C192E' : '#FFFFFF', borderColor: isDark ? '#3D2A5C' : '#D8E8DC' },
           ]}
           onPress={(e) => e.stopPropagation()}
         >
@@ -660,7 +668,7 @@ export default function ProviderPostsSection({ navigation, isDark }) {
             </Text>
           </View>
 
-          <Text style={[styles.penaltyModalTitle, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+          <Text style={[styles.penaltyModalTitle, { color: isDark ? '#FFFFFF' : '#0C0F0D' }]}>
             Posting Restricted
           </Text>
 
@@ -684,7 +692,7 @@ export default function ProviderPostsSection({ navigation, isDark }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.penaltyDismissBtn, { borderColor: isDark ? '#334155' : '#E2E8F0' }]}
+            style={[styles.penaltyDismissBtn, { borderColor: isDark ? '#303C33' : '#D8E8DC' }]}
             onPress={() => setShowPenaltyModal(false)}
             activeOpacity={0.7}
           >
@@ -706,17 +714,17 @@ export default function ProviderPostsSection({ navigation, isDark }) {
         </Text>
       </View>
       <TouchableOpacity
-        style={styles.newPostBtn}
+        style={[styles.newPostBtn, { backgroundColor: isDark ? '#86C99A' : Colors.primary }]}
         onPress={handleNewPostPress}
         activeOpacity={0.8}
         disabled={checkingPenalty}
       >
         {checkingPenalty ? (
-          <ActivityIndicator size="small" color="#fff" />
+          <ActivityIndicator size="small" color={isDark ? '#0C0F0D' : '#fff'} />
         ) : (
           <>
-            <MaterialIcons name="add" size={16} color="#fff" />
-            <Text style={styles.newPostBtnText}>New Post</Text>
+            <MaterialIcons name="add" size={17} color={isDark ? '#0C0F0D' : '#fff'} />
+            <Text style={[styles.newPostBtnText, { color: isDark ? '#0C0F0D' : '#fff' }]}>New Post</Text>
           </>
         )}
       </TouchableOpacity>
@@ -751,7 +759,7 @@ export default function ProviderPostsSection({ navigation, isDark }) {
             disabled={checkingPenalty}
           >
             {checkingPenalty ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={isDark ? '#0C0F0D' : '#fff'} />
             ) : (
               <Text style={styles.emptyBtnText}>Create Post</Text>
             )}
@@ -839,9 +847,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: Colors.primary,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   newPostBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   scrollContent: {
@@ -976,7 +985,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   sheetOptionText: { fontSize: 16, fontWeight: '600' },
-  sheetDivider: { height: 0.5, backgroundColor: '#E5E7EB' },
+  sheetDivider: { height: 0.5, backgroundColor: '#D8E8DC' },
   emptyBox: {
     alignItems: 'center',
     paddingVertical: 32,
@@ -1106,14 +1115,14 @@ const styles = StyleSheet.create({
   penaltySubmitBtn: {
     width: '100%',
     height: 48,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#166534',
     borderRadius: 14,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
     marginBottom: 10,
-    shadowColor: '#7C3AED',
+    shadowColor: '#166534',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,

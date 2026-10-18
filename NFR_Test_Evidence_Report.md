@@ -107,7 +107,7 @@ Administrative operations (e.g. Demand Forecast generation, provider account loc
 ## 🎓 7. How to Present this in Tomorrow's Viva Presentation
 
 1. **Slide 1: Non-Functional Architecture Overview**
-   - Highlight the **Microservices Decoupling** (`authService` on 4003, `adminService` on 5001, `Seeker_Service` on 6000).
+   - Highlight the **Microservices Decoupling** (`authService` on 4003, `adminService` on 5001, `Seeker_Service` on 6001).
    - State that all 5 key NFR pillars (**Security, Performance, Concurrency, Fault Tolerance, Auditability**) have been empirically verified.
 
 2. **Slide 2 / Live Demo: Live Benchmark Runner**

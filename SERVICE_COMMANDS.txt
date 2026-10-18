@@ -1,0 +1,173 @@
+LOCAL SERVICE COMMANDS (macOS / zsh)
+============================================================
+
+Run each service in a SEPARATE terminal.
+Stop: press Ctrl+C in that service terminal.
+Restart: repeat its daily startup commands below.
+Install packages only on first setup or when dependencies change.
+These commands start services; they do not train models.
+
+CONFIGURATION BEFORE STARTING
+-----------------------------
+Configure each backend .env with its database and service URLs.
+MongoDB and any configured external dependencies must be reachable.
+Use the same JWT_SECRET as authService for services validating its tokens.
+Do not generate different JWT secrets for each service.
+
+Provider ML prerequisite:
+In Provider_Service/ML_Engine/src/predictor.py, replace the Windows MODEL_DIR assignment with:
+MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "saved")
+Ensure trained model files exist in that saved folder.
+Set MONGO_URI in Provider_Service/ML_Engine/.env.
+
+Seeker image classifier prerequisite:
+Set JWT_SECRET and MONGO_URI in Seeker_Service/service-image-classifier/.env.
+Set ALGORITHM=HS256 if that is the algorithm used by authService.
+The reported startup error was caused by the missing JWT_SECRET.
+
+ML SERVICES
+============================================================
+
+Provider ML (port 5000)
+------------------------------------------------------------
+First setup:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Provider_Service/ML_Engine"
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install flask tensorflow numpy pillow matplotlib scikit-learn opencv-python python-dotenv pymongo requests PyJWT
+
+Daily start / restart:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Provider_Service/ML_Engine"
+source .venv/bin/activate
+python src/app.py
+
+Seeker text ML (port 5002)
+------------------------------------------------------------
+First setup:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Seeker_Service/Ml_Service"
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install flask flask-cors requests certifi PyJWT python-dotenv pymongo joblib scikit-learn numpy deep-translator
+
+Daily start / restart:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Seeker_Service/Ml_Service"
+source .venv/bin/activate
+python -m text_service.text_api
+
+Seeker image classifier (port 8000)
+------------------------------------------------------------
+First setup:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Seeker_Service/service-image-classifier"
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install tensorflow numpy matplotlib pillow fastapi uvicorn python-multipart requests PyJWT pymongo python-dotenv deep-translator
+
+Daily start / restart:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Seeker_Service/service-image-classifier"
+source .venv/bin/activate
+python -m uvicorn app:app --app-dir src --env-file .env --host 0.0.0.0 --port 8000
+
+Optional Seeker image API (port 5003)
+------------------------------------------------------------
+First setup:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Seeker_Service/Ml_Service"
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install flask flask-cors tensorflow pillow numpy pymongo python-dotenv deep-translator
+
+Daily start / restart:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Seeker_Service/Ml_Service"
+source .venv/bin/activate
+python -m uvicorn app:app --app-dir src --env-file .env --host 0.0.0.0 --port 8000
+
+Duration prediction ML (port 8001)
+------------------------------------------------------------
+First setup:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/ServiceCoordinationService/DurationMLService"
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+
+Daily start / restart:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/ServiceCoordinationService/DurationMLService"
+source .venv/bin/activate
+python -m uvicorn src.app:app --host 0.0.0.0 --port 8001 --reload
+
+Image classifier API docs: http://localhost:8000/docs
+Duration ML health: http://localhost:8001/health
+
+The optional Seeker image API uses 5003 to avoid Provider ML port 5000.
+Check backend .env service URLs match the ports used here.
+
+BACKEND SERVICES
+============================================================
+Start authentication and required ML services before exercising backend features.
+
+Authentication
+------------------------------------------------------------
+First setup:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/authService"
+npm install
+
+Daily start / restart:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/authService"
+npm start
+
+Provider backend
+------------------------------------------------------------
+First setup:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Provider_Service/Backend"
+npm install
+
+Daily start / restart:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Provider_Service/Backend"
+npm start
+
+Seeker backend
+------------------------------------------------------------
+First setup:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Seeker_Service"
+npm install
+
+Daily start / restart:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/Seeker_Service"
+npm start
+
+Coordination backend
+------------------------------------------------------------
+First setup:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/ServiceCoordinationService"
+npm install
+
+Daily start / restart:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/ServiceCoordinationService"
+npm start
+
+Admin backend
+------------------------------------------------------------
+First setup:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/adminService"
+npm install
+
+Daily start / restart:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/adminService"
+npm start
+
+API Gateway
+------------------------------------------------------------
+First setup:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/apiGateway"
+npm install
+
+Daily start / restart:
+cd "/Users/chaveensewni/Downloads/Research 2026/Repo/R26-SE-020/apiGateway"
+npm start
+
+NOTES
+------------------------------------------------------------
+Provider_Service itself has no npm start script; use Provider_Service/Backend.
+Backend ports come from their code and .env configuration.
+If a port is already occupied, stop the earlier process in its terminal with Ctrl+C.
+If a virtual environment is already active in the correct folder, rerun only the Python startup command.
+Use deactivate to leave a Python virtual environment after stopping a service.
+No services were started while preparing this guide.

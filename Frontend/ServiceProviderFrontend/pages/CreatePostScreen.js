@@ -1,11 +1,11 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { 
-  View, 
-  ScrollView, 
-  StyleSheet, 
-  TextInput, 
-  Alert, 
-  ActivityIndicator, 
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  Alert,
+  ActivityIndicator,
   TouchableOpacity,
   StatusBar,
   Dimensions,
@@ -16,15 +16,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { ThemeContext } from '../context/ThemeContext';
-import { CONFIG } from '../config';
+import { CONFIG, IP_ADDRESS } from '../config';
 
 const { width } = Dimensions.get('window');
 
 const TONES = [
-  { id: 'professional', icon: 'business-center', color: '#2563EB' },
+  { id: 'professional', icon: 'business-center', color: '#15803D' },
   { id: 'friendly', icon: 'sentiment-satisfied', color: '#3B82F6' },
   { id: 'urgent', icon: 'bolt', color: '#DC2626' },
-  { id: 'promotional', icon: 'campaign', color: '#7C3AED' },
+  { id: 'promotional', icon: 'campaign', color: '#166534' },
   { id: 'trustworthy', icon: 'verified', color: '#059669' },
 ];
 
@@ -58,51 +58,51 @@ export default function CreatePostScreen({ navigation }) {
 
   // Theme-based colors
   const C = isDark ? {
-    bg: '#0F172A',
-    card: '#1E293B',
-    cardBorder: '#334155',
+    bg: '#0C0F0D',
+    card: '#161C18',
+    cardBorder: '#303C33',
     text: '#F1F5F9',
     textSecondary: '#94A3B8',
     textMuted: '#64748B',
-    input: '#1E293B',
-    inputBorder: '#334155',
+    input: '#161C18',
+    inputBorder: '#303C33',
     primary: '#3B82F6',
     primaryLight: '#1E3A5F',
-    primaryDark: '#2563EB',
+    primaryDark: '#15803D',
     success: '#10B981',
     successLight: '#064E3B',
     warning: '#F59E0B',
     warningLight: '#78350F',
     danger: '#EF4444',
     dangerLight: '#7F1D1D',
-    border: '#334155',
+    border: '#303C33',
     white: '#FFFFFF',
     shadow: '#000000',
-    gradientStart: '#1E293B',
-    gradientEnd: '#0F172A',
+    gradientStart: '#161C18',
+    gradientEnd: '#0C0F0D',
   } : {
     bg: '#F0F4F8',
     card: '#FFFFFF',
-    cardBorder: '#E2E8F0',
-    text: '#1E293B',
+    cardBorder: '#D8E8DC',
+    text: '#161C18',
     textSecondary: '#475569',
     textMuted: '#94A3B8',
-    input: '#F8FAFC',
-    inputBorder: '#E2E8F0',
-    primary: '#2563EB',
+    input: '#F5FAF6',
+    inputBorder: '#D8E8DC',
+    primary: '#15803D',
     primaryLight: '#DBEAFE',
-    primaryDark: '#1E40AF',
+    primaryDark: '#14532D',
     success: '#10B981',
     successLight: '#D1FAE5',
     warning: '#F59E0B',
     warningLight: '#FEF3C7',
     danger: '#EF4444',
     dangerLight: '#FEE2E2',
-    border: '#E2E8F0',
+    border: '#D8E8DC',
     white: '#FFFFFF',
-    shadow: '#E2E8F0',
-    gradientStart: '#667eea',
-    gradientEnd: '#764ba2',
+    shadow: '#D8E8DC',
+    gradientStart: '#15803D',
+    gradientEnd: '#166534',
   };
 
   useEffect(() => {
@@ -110,7 +110,7 @@ export default function CreatePostScreen({ navigation }) {
       try {
         const token = await AsyncStorage.getItem('userToken');
         let userId = await AsyncStorage.getItem('userId');
-        
+
         if (!userId && token) {
           try {
             const parts = token.split('.');
@@ -127,25 +127,41 @@ export default function CreatePostScreen({ navigation }) {
 
         // Check penalty score & restrictions
         try {
-          const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'http://192.168.1.38:5001';
-          const statusRes = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`);
-          if (statusRes.ok) {
-            const statusData = await statusRes.json();
-            const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
-            if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
-              setPenaltyRestricted(true);
-              setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+          const adminUrl = CONFIG.ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 1500);
+          try {
+            const statusRes = await fetch(`${adminUrl}/api/inquiries/check-bookable/${userId}`, {
+              signal: controller.signal,
+            });
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              const score = typeof statusData.penaltyScore === 'number' ? statusData.penaltyScore : (statusData.activeMissedBookingsCount || 0);
+              if (score >= 3 || statusData.isRestricted || statusData.isBlocked) {
+                setPenaltyRestricted(true);
+                setPenaltyRatio(statusData.penaltyRatio || `${score}/3`);
+              }
             }
+          } finally {
+            clearTimeout(timeoutId);
           }
         } catch (e) {
-          console.log('Error checking penalty status in CreatePost:', e.message);
+          // Admin service optional or offline
         }
 
-        const res = await fetch(`${CONFIG.AUTH_SERVICE_URL}/profile`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
+        const authController = new AbortController();
+        const authTimeoutId = setTimeout(() => authController.abort(), 4000);
+        let res;
+        try {
+          res = await fetch(`${CONFIG.AUTH_SERVICE_URL}/profile`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            signal: authController.signal,
+          });
+        } finally {
+          clearTimeout(authTimeoutId);
+        }
         const data = await res.json();
-        
+
         if (data.provider) {
           let locationString = 'Not specified';
           if (data.provider.location) {
@@ -166,7 +182,7 @@ export default function CreatePostScreen({ navigation }) {
               }
             }
           }
-          
+
           setProviderInfo({
             providerId: userId || '',
             providerName: data.provider.name || 'Unknown',
@@ -195,7 +211,7 @@ export default function CreatePostScreen({ navigation }) {
     }
 
     if (!form.serviceLabel) return Alert.alert("Required", "Please enter the service performed.");
-    
+
     setLoading(true);
     setGeneratedBy(null);
     try {
@@ -325,11 +341,11 @@ export default function CreatePostScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: C.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Penalty Restriction Alert Banner */}
         {penaltyRestricted && (
-          <Surface style={[styles.penaltyAlertCard, { 
+          <Surface style={[styles.penaltyAlertCard, {
             backgroundColor: isDark ? C.dangerLight : '#FEF2F2',
             borderColor: C.danger,
           }]} elevation={2}>
@@ -359,7 +375,7 @@ export default function CreatePostScreen({ navigation }) {
 
         {/* Header Section */}
         <LinearGradient
-          colors={isDark ? ['#1E293B', '#0F172A'] : [C.gradientStart, C.gradientEnd]}
+          colors={isDark ? ['#161C18', '#0C0F0D'] : [C.gradientStart, C.gradientEnd]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
@@ -376,7 +392,7 @@ export default function CreatePostScreen({ navigation }) {
         </LinearGradient>
 
         {/* Provider Info Card */}
-        <Surface style={[styles.providerCard, { 
+        <Surface style={[styles.providerCard, {
           backgroundColor: C.card,
           borderColor: C.cardBorder,
         }]} elevation={2}>
@@ -406,13 +422,13 @@ export default function CreatePostScreen({ navigation }) {
         {/* Service Input Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: C.text }]}>Service Details</Text>
-          
+
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
               <MaterialIcons name="home-repair-service" size={16} color={C.primary} />
               <Text style={[styles.label, { color: C.text }]}>Service Done</Text>
             </View>
-            <View style={[styles.inputWrapper, { 
+            <View style={[styles.inputWrapper, {
               backgroundColor: C.input,
               borderColor: C.inputBorder,
             }]}>
@@ -438,7 +454,7 @@ export default function CreatePostScreen({ navigation }) {
                   onPress={() => setForm({...form, category: cat})}
                   style={[
                     styles.categoryChip,
-                    { 
+                    {
                       backgroundColor: form.category === cat ? C.primary : C.card,
                       borderColor: form.category === cat ? C.primary : C.cardBorder,
                     }
@@ -461,7 +477,7 @@ export default function CreatePostScreen({ navigation }) {
               <Text style={[styles.label, { color: C.text }]}>Tags</Text>
             </View>
             <View style={styles.tagInputRow}>
-              <View style={[styles.tagInputWrapper, { 
+              <View style={[styles.tagInputWrapper, {
                 backgroundColor: C.input,
                 borderColor: C.inputBorder,
               }]}>
@@ -506,17 +522,17 @@ export default function CreatePostScreen({ navigation }) {
                 onPress={() => setForm({...form, tone: tone.id})}
                 style={[
                   styles.toneCard,
-                  { 
+                  {
                     backgroundColor: form.tone === tone.id ? tone.color : C.card,
                     borderColor: form.tone === tone.id ? tone.color : C.cardBorder,
                   }
                 ]}
                 activeOpacity={0.8}
               >
-                <MaterialIcons 
-                  name={tone.icon} 
-                  size={24} 
-                  color={form.tone === tone.id ? C.white : tone.color} 
+                <MaterialIcons
+                  name={tone.icon}
+                  size={24}
+                  color={form.tone === tone.id ? C.white : tone.color}
                 />
                 <Text style={[
                   styles.toneText,
@@ -532,7 +548,7 @@ export default function CreatePostScreen({ navigation }) {
         {/* Additional Options */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: C.text }]}>Options</Text>
-          
+
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
               <MaterialIcons name="language" size={16} color={C.primary} />
@@ -545,7 +561,7 @@ export default function CreatePostScreen({ navigation }) {
                   onPress={() => setForm({...form, language: lang})}
                   style={[
                     styles.languageChip,
-                    { 
+                    {
                       backgroundColor: form.language === lang ? C.primary : C.card,
                       borderColor: form.language === lang ? C.primary : C.cardBorder,
                     }
@@ -567,7 +583,7 @@ export default function CreatePostScreen({ navigation }) {
               <MaterialIcons name="notes" size={16} color={C.primary} />
               <Text style={[styles.label, { color: C.text }]}>Additional Information</Text>
             </View>
-            <View style={[styles.inputWrapper, { 
+            <View style={[styles.inputWrapper, {
               backgroundColor: C.input,
               borderColor: C.inputBorder,
             }]}>
@@ -602,7 +618,7 @@ export default function CreatePostScreen({ navigation }) {
           onPress={handleGenerate}
           disabled={loading || penaltyRestricted}
           style={[
-            styles.generateButton, 
+            styles.generateButton,
             { backgroundColor: (loading || penaltyRestricted) ? C.textMuted : C.primary }
           ]}
           activeOpacity={0.8}
@@ -626,20 +642,20 @@ export default function CreatePostScreen({ navigation }) {
 
         {/* Result Card */}
         {result && (
-          <Surface style={[styles.resultCard, { 
+          <Surface style={[styles.resultCard, {
             backgroundColor: C.card,
             borderColor: C.cardBorder,
           }]} elevation={3}>
             <View style={styles.resultContent}>
               <View style={styles.resultHeader}>
                 <View style={styles.resultTitleContainer}>
-                  <View style={[styles.resultIconContainer, { 
-                    backgroundColor: generatedBy === 'fallback' ? C.warningLight : C.primaryLight 
+                  <View style={[styles.resultIconContainer, {
+                    backgroundColor: generatedBy === 'fallback' ? C.warningLight : C.primaryLight
                   }]}>
-                    <MaterialIcons 
-                      name={generatedBy === 'fallback' ? 'edit-note' : 'check-circle'} 
-                      size={20} 
-                      color={generatedBy === 'fallback' ? C.warning : C.primary} 
+                    <MaterialIcons
+                      name={generatedBy === 'fallback' ? 'edit-note' : 'check-circle'}
+                      size={20}
+                      color={generatedBy === 'fallback' ? C.warning : C.primary}
                     />
                   </View>
                   <View>
@@ -680,7 +696,7 @@ export default function CreatePostScreen({ navigation }) {
             </View>
           </Surface>
         )}
-        
+
         <View style={{ height: 30 }} />
       </ScrollView>
     </View>
@@ -688,7 +704,7 @@ export default function CreatePostScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     flex: 1,
   },
   scrollContent: {

@@ -2,6 +2,8 @@ import express from "express";
 
 import {
   createQuotation,
+  retryQuotationValidation,
+  syncQuotationRequestedTime,
   getProviderQuotations,
   getQuotationById,
   acceptQuotation,
@@ -16,6 +18,8 @@ import { checkPaymentSuspension } from "../middleware/checkPaymentSuspension.js"
 const router = express.Router();
 
 router.post("/", protect(["ServiceProvider"]), checkPaymentSuspension, createQuotation);
+router.post("/request/:requestId/requested-time", protect(["Seeker"]), syncQuotationRequestedTime);
+router.post("/:id/validate", protect(["ServiceProvider"]), retryQuotationValidation);
 router.get("/provider/me", protect(["ServiceProvider"]), getProviderQuotations);
 router.get("/seeker/me", protect(["Seeker"]), getSeekerQuotations); // Chaw: moved before /:id to avoid route conflict
 router.get("/session/:sessionId", getQuotationsBySession);

@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/profileOfProvider.js
 
 import React, { useState, useEffect } from 'react';
@@ -184,25 +185,7 @@ export default function ProfileOfProvider({ route, navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
       {/* Header */}
-      <View style={styles.topHeader}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="arrow-back" size={24} color="#1E293B" />
-        </TouchableOpacity>
-
-        <Text style={styles.topHeaderTitle}>Provider Profile</Text>
-
-        <TouchableOpacity
-          style={styles.headerActionBtn}
-          onPress={handleCallProvider}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="call-outline" size={22} color="#4F46E5" />
-        </TouchableOpacity>
-      </View>
+      <PageHeader title="Provider Profile" renderActions={({ textColor }) => <TouchableOpacity onPress={handleCallProvider} accessibilityLabel="Call provider" style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="call-outline" size={22} color={textColor} /></TouchableOpacity>} />
 
       <ScrollView
         style={styles.container}

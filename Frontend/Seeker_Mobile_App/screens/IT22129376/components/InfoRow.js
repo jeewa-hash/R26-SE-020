@@ -6,7 +6,7 @@ import { COLORS } from '../theme';
 export default function InfoRow({ icon, label, value, isDarkMode }) {
   return (
     <View style={styles.row}>
-      <View style={styles.iconBox}>
+      <View style={[styles.iconBox, isDarkMode && styles.iconBoxDark]}>
         <MaterialIcons name={icon} size={17} color={COLORS.primary} />
       </View>
       <View style={styles.textArea}>
@@ -32,7 +32,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#EEF2FF',
   },
+  iconBoxDark: { backgroundColor: COLORS.darkBorder },
   textArea: {
+    minWidth: 0,
     flex: 1,
   },
   label: {

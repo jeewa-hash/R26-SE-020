@@ -1,3 +1,4 @@
+import { getRequestQuotationById } from "../clients/seekerServiceClient.js";
 import Booking from "../models/Booking.js";
 import mongoose from "mongoose";
 import BidCoordination from "../models/BidCoordination.js";
@@ -495,6 +496,13 @@ export const createBookingFromCoordination = async (req, res) => {
         "BOOKING PROVIDER SNAPSHOT WARNING:",
         quotationError.message
       );
+    }
+
+    if (quotation?.workflowVersion === 2) {
+      const currentRequest = await getRequestQuotationById(coordination.externalRequestQuotationId);
+      if (currentRequest.rescheduleRequestedAt || startDate <= new Date() || (!selectedSuggestedSlot && new Date(currentRequest.preferredStartTime).getTime() !== startDate.getTime())) {
+        return res.status(409).json({ success: false, message: 'The requested time has changed or needs rescheduling. Wait for the provider to validate the current time before confirming.' });
+      }
     }
 
     const providerSnapshot = {

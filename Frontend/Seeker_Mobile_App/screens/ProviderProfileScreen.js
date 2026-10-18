@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 // screens/ProviderProfileScreen.js
 
 import React, { useState, useEffect } from 'react';
@@ -159,6 +160,7 @@ export default function ProviderProfileScreen({ route, navigation }) {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <PageHeader title="Provider Profile" />
         {/* Profile card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarSection}>
@@ -370,6 +372,12 @@ export default function ProviderProfileScreen({ route, navigation }) {
 ============================================================ */
 
 const styles = StyleSheet.create({
+  restrictionBanner: { backgroundColor: '#FEF3C7', borderColor: '#F59E0B', borderWidth: 1, borderRadius: 14, padding: 16, margin: 16 },
+  restrictionBannerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  restrictionBannerTitle: { flex: 1, color: '#92400E', fontSize: 15, fontWeight: '600' },
+  restrictionBannerText: { color: '#92400E', fontSize: 13, lineHeight: 19 },
+  quoteButtonLargeDisabled: { minHeight: 48, padding: 14, borderRadius: 14, backgroundColor: '#475569', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  quoteButtonTextLargeDisabled: { color: '#E2E8F0', fontSize: 15, fontWeight: '600' },
   safeArea: {
     flex: 1,
     backgroundColor: '#F8F9FC',

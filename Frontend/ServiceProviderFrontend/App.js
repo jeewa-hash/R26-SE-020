@@ -23,7 +23,7 @@ import {
 } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { PaperProvider } from 'react-native-paper';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 
 // Themes & Locales
@@ -31,6 +31,7 @@ import { LightTheme, DarkTheme } from './theme';
 import './locales';
 
 // Context Providers & Hooks
+import { BottomInsetContext } from './context/BottomInsetContext';
 import { ThemeProvider, ThemeContext } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { PortfolioProvider } from './context/PortfolioContext';
@@ -71,15 +72,32 @@ import ServiceFormScreen from './pages/ServiceFormScreen';import ProviderAvailab
 
 const Stack = createStackNavigator();
 
+// Keep navigation and all screens inside the device's usable area.
+const CONSUMED_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
+function AppSafeArea({ children, backgroundColor, bottomHandledByTabs }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ flex: 1, backgroundColor, paddingTop: insets.top, paddingBottom: bottomHandledByTabs ? 0 : insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }}>
+      <SafeAreaInsetsContext.Provider value={CONSUMED_INSETS}>
+        <BottomInsetContext.Provider value={bottomHandledByTabs ? insets.bottom : 0}>
+          {children}
+        </BottomInsetContext.Provider>
+      </SafeAreaInsetsContext.Provider>
+    </View>
+  );
+}
+
 // ─── App Content Wrapper (Connects ThemeContext to Navigation & Paper) ───
 function AppContent() {
   const themeContext = useContext(ThemeContext);
-  
+
   // Fallback to light/dark themes from ./theme if context theme properties aren't directly available
   const isDark = themeContext?.isDark ?? false;
   const theme = themeContext?.theme || (isDark ? DarkTheme : LightTheme);
 
   const [initialRoute, setInitialRoute] = useState(null);
+  const [activeRootRoute, setActiveRootRoute] = useState(null);
+  const [activeScreen, setActiveScreen] = useState(null);
   const [appLockEnabled, setAppLockEnabled] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [, setHasToken] = useState(false);
@@ -162,15 +180,25 @@ function AppContent() {
   if (!initialRoute) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#6366f1" />
+        <ActivityIndicator size="large" color="#15803D" />
       </View>
     );
   }
 
   return (
     <PaperProvider theme={theme}>
-      <View style={{ flex: 1 }}>
-        <NavigationContainer ref={navigationRef} theme={theme}>
+      <AppSafeArea
+        backgroundColor={theme.colors.background}
+        bottomHandledByTabs={(activeRootRoute || initialRoute) === 'Main' && !['ChatScreen', 'QuotationTemplate', 'InboxScreen'].includes(activeScreen)}
+      >
+        <NavigationContainer
+          ref={navigationRef}
+          theme={theme}
+          onStateChange={(state) => {
+            setActiveRootRoute(state?.routes[state.index]?.name);
+            setActiveScreen(navigationRef.getCurrentRoute()?.name);
+          }}
+        >
           <Stack.Navigator
             initialRouteName={initialRoute}
             screenOptions={{
@@ -229,7 +257,7 @@ function AppContent() {
             onPasswordFallback={handlePasswordFallback}
           />
         )}
-      </View>
+      </AppSafeArea>
     </PaperProvider>
   );
 }
@@ -332,7 +360,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(99, 102, 241, 0.97)',
+    backgroundColor: 'rgba(37, 99, 235, 0.97)',
     justify: 'center',
     alignItems: 'center',
     zIndex: 999,
@@ -376,5 +404,5 @@ const styles = StyleSheet.create({
     minWidth: 240,
     alignItems: 'center',
   },
-  passwordButtonText: { color: '#6366f1', fontSize: 15, fontWeight: '700' },
+  passwordButtonText: { color: '#15803D', fontSize: 15, fontWeight: '700' },
 });

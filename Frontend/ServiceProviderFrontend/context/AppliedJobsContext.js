@@ -1,5 +1,6 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getStoredProviderAuth, subscribeProviderSession } from '../pages/IT22129376/services/providerAuthStorage';
 import { JOB_STATUS } from '../constants/jobStatus';
 
 const AppliedJobsContext = createContext();
@@ -9,40 +10,51 @@ export function AppliedJobsProvider({ children }) {
   const [availablePosts, setAvailablePosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load data from storage on mount
+  const providerRef = useRef(null);
+  const loadVersion = useRef(0);
+
+  // Reload provider-owned data whenever the signed-in account changes.
   useEffect(() => {
-    loadData();
+    let active = true;
+    const unsubscribe = subscribeProviderSession((providerId) => {
+      if (active) loadData(providerId);
+    });
+    const version = loadVersion.current;
+    getStoredProviderAuth().then((auth) => {
+      if (active && version === loadVersion.current) loadData(auth.isLoggedIn ? auth.providerId : null);
+    });
+    return () => { active = false; loadVersion.current += 1; unsubscribe(); };
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (providerId) => {
+    const version = ++loadVersion.current;
+    providerRef.current = providerId;
+    setAppliedJobs([]);
+    setAvailablePosts([]);
+    setLoading(true);
     try {
-      const storedApplied = await AsyncStorage.getItem('appliedJobs');
-      const storedAvailable = await AsyncStorage.getItem('availablePosts');
-      
-      if (storedApplied) {
-        const savedApplications = JSON.parse(storedApplied);
-        // Remove applications created from the old feedData demo posts.
-        // Real seeker posts use MongoDB ObjectId values.
-        const realApplications = Array.isArray(savedApplications)
-          ? savedApplications.filter((job) => !['1', '2', '3', '4', '5'].includes(String(job.id)))
-          : [];
-        setAppliedJobs(realApplications);
-        if (realApplications.length !== savedApplications.length) {
-          await AsyncStorage.setItem('appliedJobs', JSON.stringify(realApplications));
-        }
-      }
-      if (storedAvailable) setAvailablePosts(JSON.parse(storedAvailable));
-      else setAvailablePosts([]);
+      if (!providerId) return;
+      const [storedApplied, storedAvailable] = await Promise.all([
+        AsyncStorage.getItem(`appliedJobs:${providerId}`),
+        AsyncStorage.getItem(`availablePosts:${providerId}`),
+      ]);
+      if (version !== loadVersion.current) return;
+      const savedApplications = storedApplied ? JSON.parse(storedApplied) : [];
+      setAppliedJobs(Array.isArray(savedApplications)
+        ? savedApplications.filter((job) => !['1', '2', '3', '4', '5'].includes(String(job.id))) : []);
+      const savedPosts = storedAvailable ? JSON.parse(storedAvailable) : [];
+      setAvailablePosts(Array.isArray(savedPosts) ? savedPosts : []);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   };
 
   const saveAppliedJobs = async (jobs) => {
     try {
-      await AsyncStorage.setItem('appliedJobs', JSON.stringify(jobs));
+      if (!providerRef.current) return;
+      await AsyncStorage.setItem(`appliedJobs:${providerRef.current}`, JSON.stringify(jobs));
     } catch (error) {
       console.error('Error saving applied jobs:', error);
     }
@@ -50,7 +62,8 @@ export function AppliedJobsProvider({ children }) {
 
   const saveAvailablePosts = async (posts) => {
     try {
-      await AsyncStorage.setItem('availablePosts', JSON.stringify(posts));
+      if (!providerRef.current) return;
+      await AsyncStorage.setItem(`availablePosts:${providerRef.current}`, JSON.stringify(posts));
     } catch (error) {
       console.error('Error saving available posts:', error);
     }
@@ -58,6 +71,7 @@ export function AppliedJobsProvider({ children }) {
 
   // Apply to a job - removes from available and adds to applied
   const applyToJob = (post) => {
+    if (!providerRef.current || loading) return false;
     const alreadyApplied = appliedJobs.find((j) => j.id === post.id);
     if (alreadyApplied) return false;
 

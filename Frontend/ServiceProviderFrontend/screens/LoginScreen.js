@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
 import { IP_ADDRESS } from '../config';
@@ -62,7 +62,7 @@ export default function LoginScreen({ navigation }) {
       await debugAuthStorage();
 
       navigation.replace('Main');
-      
+
     } catch (error) {
       const data = error.response?.data;
       const msg = data?.message || error.message || 'Something went wrong';
@@ -87,15 +87,15 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+    <View style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <MaterialIcons name="waves" size={40} color="#6366f1" />
+              <MaterialIcons name="waves" size={40} color="#15803D" />
             </View>
             <Text style={styles.title}>Work Wave</Text>
             <Text style={styles.subtitle}>Welcome back, provider!</Text>
@@ -106,9 +106,9 @@ export default function LoginScreen({ navigation }) {
               <Text style={styles.label}>Email Address</Text>
               <View style={styles.inputContainer}>
                 <MaterialIcons name="email" size={20} color="#9ca3af" style={styles.inputIcon} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="name@example.com" 
+                <TextInput
+                  style={styles.input}
+                  placeholder="name@example.com"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   value={email}
@@ -117,27 +117,27 @@ export default function LoginScreen({ navigation }) {
                 />
               </View>
             </View>
-            
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputContainer}>
                 <MaterialIcons name="lock" size={20} color="#9ca3af" style={styles.inputIcon} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="Enter your password" 
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your password"
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
                   placeholderTextColor="#9ca3af"
                 />
-                <TouchableOpacity 
-                  style={styles.eyeIcon} 
+                <TouchableOpacity
+                  style={styles.eyeIcon}
                   onPress={() => setShowPassword(!showPassword)}
                 >
-                  <MaterialIcons 
-                    name={showPassword ? 'visibility' : 'visibility-off'} 
-                    size={20} 
-                    color="#9ca3af" 
+                  <MaterialIcons
+                    name={showPassword ? 'visibility' : 'visibility-off'}
+                    size={20}
+                    color="#9ca3af"
                   />
                 </TouchableOpacity>
               </View>
@@ -146,9 +146,9 @@ export default function LoginScreen({ navigation }) {
             <TouchableOpacity style={styles.forgotPassword}>
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
-          
-            <TouchableOpacity 
-              style={[styles.button, loading && styles.buttonDisabled]} 
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={loading}
               activeOpacity={0.8}
@@ -169,7 +169,7 @@ export default function LoginScreen({ navigation }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -197,9 +197,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 28, 
-    fontWeight: 'bold', 
-    color: '#111827',
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#162C49',
   },
   subtitle: {
     fontSize: 16,
@@ -222,10 +222,10 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F5FAF6',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#D8E8DC',
   },
   inputIcon: {
     paddingLeft: 15,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 15,
     fontSize: 15,
-    color: '#111827',
+    color: '#162C49',
   },
   eyeIcon: {
     padding: 15,
@@ -244,32 +244,32 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   forgotPasswordText: {
-    color: '#6366f1',
+    color: '#15803D',
     fontWeight: '600',
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#6366f1',
+    backgroundColor: '#15803D',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#6366f1',
+    shadowColor: '#15803D',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
   buttonDisabled: {
-    backgroundColor: '#a5b4fc',
+    backgroundColor: '#86C99A',
   },
   buttonText: {
-    color: '#fff', 
-    fontSize: 16, 
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold'
   },
   footer: {
-    flexDirection: 'row', 
-    justifyContent: 'center', 
+    flexDirection: 'row',
+    justifyContent: 'center',
     marginTop: 32
   },
   footerText: {
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   link: {
-    color: '#6366f1', 
+    color: '#15803D',
     fontWeight: 'bold',
     fontSize: 15,
   }

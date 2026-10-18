@@ -17,12 +17,12 @@ import { CONFIG } from '../config';
 import { Colors } from '../theme';
 
 const CATEGORY_OPTIONS = [
-  { label: 'Plumbing', value: 'plumbing', group: 'plumbing', icon: 'plumbing', color: '#2563EB' },
+  { label: 'Plumbing', value: 'plumbing', group: 'plumbing', icon: 'plumbing', color: '#15803D' },
   { label: 'Electrical', value: 'electrical', group: 'electrical', icon: 'electrical-services', color: '#F59E0B' },
-  { label: 'Carpentry', value: 'carpentry', group: 'carpentry', icon: 'handyman', color: '#7C3AED' },
+  { label: 'Carpentry', value: 'carpentry', group: 'carpentry', icon: 'handyman', color: '#166534' },
   { label: 'Cleaning', value: 'cleaning', group: 'cleaning', icon: 'cleaning-services', color: '#059669' },
   { label: 'Painting', value: 'painting', group: 'painting', icon: 'format-paint', color: '#DC2626' },
-  { label: 'Roofing', value: 'roofing', group: 'roofing', icon: 'home-repair-service', color: '#0891B2' },
+  { label: 'Roofing', value: 'roofing', group: 'roofing', icon: 'home-repair-service', color: '#0284C7' },
   { label: 'Planting / Gardening', value: 'planting', group: 'planting', icon: 'local-florist', color: '#15803D' },
   { label: 'Home Service', value: 'home service', group: 'other', icon: 'home', color: '#6B7280' },
   { label: 'Other', value: 'other', group: 'other', icon: 'build', color: '#6B7280' },
@@ -61,8 +61,8 @@ export default function ServiceFormScreen({ navigation, route }) {
   });
 
   const C = isDark
-    ? { bg: '#0f0f0f', card: '#1c1c1e', text: '#F2F2F7', textSub: '#8E8E93', border: '#2c2c2e', inputBg: '#2c2c2e' }
-    : { bg: '#F8FAFC', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#E2E8F0', inputBg: '#FFFFFF' };
+    ? { bg: '#0C0F0D', card: '#161C18', text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33', inputBg: '#303C33' }
+    : { bg: '#F5FAF6', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#D8E8DC', inputBg: '#FFFFFF' };
 
   const selectedCategory = CATEGORY_OPTIONS.find((c) => c.value === form.category) || CATEGORY_OPTIONS[CATEGORY_OPTIONS.length - 2];
 

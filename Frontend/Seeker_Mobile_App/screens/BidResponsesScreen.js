@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState } from 'react';
 import {
   View,
@@ -96,7 +97,7 @@ export default function BidResponsesScreen() {
     ));
     setShowAcceptModal(false);
     Alert.alert(
-      "🎉 Bid Accepted!",
+      "Bid Accepted!",
       `${selectedResponse.providerName} will contact you shortly.`,
       [{ text: "OK", onPress: () => navigation.goBack() }]
     );
@@ -152,13 +153,7 @@ export default function BidResponsesScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bid Responses</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <PageHeader title={<>Bid Responses</>} onBack={() => navigation.goBack()} />
 
       {/* Simple Bid Info */}
       <View style={styles.bidInfoCard}>
@@ -197,7 +192,7 @@ export default function BidResponsesScreen() {
         {/* Active Responses */}
         {activeResponses.length > 0 && (
           <View>
-            <Text style={styles.sectionTitle}>📋 Available Bids ({activeResponses.length})</Text>
+            <Text style={styles.sectionTitle}>Available Bids ({activeResponses.length})</Text>
             {activeResponses.map((response) => (
               <View key={response.id} style={styles.responseCard}>
                 {/* Provider Header */}
@@ -256,7 +251,7 @@ export default function BidResponsesScreen() {
                   </View>
                 </TouchableOpacity>
 
-                <Text style={styles.responseTimeText}>🕐 Responded {response.responseTime}</Text>
+                <Text style={styles.responseTimeText}>Responded {response.responseTime}</Text>
 
                 {/* Action Buttons */}
                 <View style={styles.actionRow}>
@@ -295,7 +290,7 @@ export default function BidResponsesScreen() {
         {/* Accepted Responses */}
         {acceptedResponsesList.length > 0 && (
           <View style={styles.acceptedSection}>
-            <Text style={styles.sectionTitle}>✅ Accepted</Text>
+            <Text style={styles.sectionTitle}>Accepted</Text>
             {acceptedResponsesList.map((response) => (
               <View key={response.id} style={styles.acceptedCard}>
                 <Image source={{ uri: response.providerImage }} style={styles.acceptedAvatar} />
