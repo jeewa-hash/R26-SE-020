@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getStoredSeekerAuth, getUserIdFromJwt } from './IT22129376/services/seekerAuthStorage';
 import { API_BASE_URL } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
@@ -31,17 +31,20 @@ export default function FeedScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState(null);
   const [token, setToken] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
 
   // ─── Load user data ──────────────────────────────────────
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const storedToken = await AsyncStorage.getItem('userToken');
-        const storedUserId = await AsyncStorage.getItem('userId');
-        setToken(storedToken);
-        setUserId(storedUserId);
+        const auth = await getStoredSeekerAuth();
+        setToken(auth.token);
+        setUserId(getUserIdFromJwt(auth.token) || auth.seekerId);
       } catch (error) {
         console.log('Error loading user data:', error);
+      } finally {
+        setAuthReady(true);
       }
     };
     loadUserData();
@@ -49,10 +52,9 @@ export default function FeedScreen({ navigation }) {
 
   // ─── Fetch posts when userId is available ──────────────
   useEffect(() => {
+    if (!authReady) return;
     if (userId && token) {
       fetchPosts();
-    } else if (userId === null && token === null) {
-      // Still loading, do nothing
     } else {
       // No user logged in
       setLoading(false);
@@ -65,7 +67,7 @@ export default function FeedScreen({ navigation }) {
     });
 
     return unsubscribe;
-  }, [navigation, userId, token]);
+  }, [navigation, userId, token, authReady]);
 
   // ─── FETCH USER'S POSTS ──────────────────────────────────
   const fetchPosts = async () => {
@@ -76,6 +78,7 @@ export default function FeedScreen({ navigation }) {
 
     try {
       setLoading(true);
+      setFetchError(null);
 
       const response = await fetch(
         `${API_BASE_URL}/posts/user/${userId}`,
@@ -87,6 +90,9 @@ export default function FeedScreen({ navigation }) {
       );
 
       const data = await response.json();
+      if (!response.ok || !data.success || !Array.isArray(data.posts)) {
+        throw new Error(data.error || data.message || `Could not load posts (HTTP ${response.status}).`);
+      }
 
       if (data.success && Array.isArray(data.posts)) {
         const formattedPosts = data.posts.map((post) => ({
@@ -123,6 +129,7 @@ export default function FeedScreen({ navigation }) {
       }
     } catch (error) {
       console.log('Fetch Posts Error:', error);
+      setFetchError(error.message || 'Could not connect to the Seeker service.');
       setPosts([]);
     } finally {
       setLoading(false);
@@ -348,6 +355,17 @@ export default function FeedScreen({ navigation }) {
         }
         showsVerticalScrollIndicator={false}
       >
+        {fetchError && (
+          <View style={styles.centerContainer}>
+            <Text accessibilityRole="alert" style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
+              Unable to load your posts
+            </Text>
+            <Text style={[styles.emptySubtext, isDarkMode && styles.textMutedDark]}>{fetchError}</Text>
+            <TouchableOpacity onPress={fetchPosts} accessibilityRole="button" style={{ padding: 16 }}>
+              <Text style={{ color: '#667eea', fontWeight: '700' }}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {posts.map((post) => {
           const urgency = getUrgencyStyle(post.urgency);
 
@@ -532,7 +550,7 @@ export default function FeedScreen({ navigation }) {
         })}
 
         {/* EMPTY */}
-        {posts.length === 0 && (
+        {posts.length === 0 && !fetchError && (
           <View style={styles.emptyContainer}>
             <View
               style={[
