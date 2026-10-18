@@ -1,6 +1,5 @@
 import { getStoredSeekerAuth } from '../screens/IT22129376/services/seekerAuthStorage';
-import {IP_ADDRESS} from '../config';
-const COORDINATION_SERVICE_URL = `http://${IP_ADDRESS}:5010`;
+import { COORDINATION_SERVICE_URL } from '../config';
 
 const readJson = async (response) => {
   try { return await response.json(); } catch (error) { return {}; }

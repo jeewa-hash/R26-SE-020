@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: duration-ml
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: duration-ml
+
+  template:
+    metadata:
+      labels:
+        app: duration-ml
+
+    spec:
+      containers:
+        - name: duration-ml
+          image: 131160053053.dkr.ecr.ap-southeast-2.amazonaws.com/duration-ml:latest
+
+          ports:
+            - containerPort: 8001
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: duration-ml-service
+
+spec:
+  selector:
+    app: duration-ml
+
+  ports:
+    - protocol: TCP
+      port: 8001
+      targetPort: 8001
+
+  type: ClusterIP

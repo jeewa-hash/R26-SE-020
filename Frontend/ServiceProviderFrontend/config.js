@@ -1,6 +1,6 @@
 // Set EXPO_PUBLIC_API_HOST to your computer's LAN IP when testing on a
 // physical device (for example: 192.168.1.103). Android emulators use 10.0.2.2.
-export const IP_ADDRESS = process.env.EXPO_PUBLIC_API_HOST || '10.66.146.163'; //'192.168.56.1'; //'192.168.1.38' 169.254.230.160; '172.28.31.24'; 
+export const IP_ADDRESS = process.env.EXPO_PUBLIC_API_HOST || '192.168.8.100'; //'192.168.56.1'; //'192.168.1.38' 169.254.230.160; '172.28.31.24'; 
 
 export const CONFIG = {
   API_BASE_URL: `http://${IP_ADDRESS}:6000`,
@@ -13,7 +13,8 @@ export const CONFIG = {
   PROVIDER_SERVICE_URL: `http://${IP_ADDRESS}:3002`,
   PROVIDER_SERVICE_API_URL: `http://${IP_ADDRESS}:3002`,
   ML_SERVICE_URL: `http://${IP_ADDRESS}:5000`,
-  COORDINATION_SERVICE_URL: `http://${IP_ADDRESS}:5010`,
+  COORDINATION_SERVICE_URL: (process.env.EXPO_PUBLIC_COORDINATION_API_URL ||
+  'http://k8s-default-coordina-f35bbe8d02-1683340780.ap-southeast-2.elb.amazonaws.com').replace(/\/+$/, ''),
 };
 
 export const ADMIN_SERVICE_URL = CONFIG.ADMIN_SERVICE_URL;
