@@ -1,5 +1,7 @@
+import { fetchSeekerWithTimeout as fetch } from '../../utils/seekerHttp';
+import { buildSeekerSessions, seekerSessionGuidance } from '../../utils/seekerSessions';
 import PageHeader from '../../components/PageHeader';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -29,7 +31,7 @@ import { CONFIG } from '../../config';
 
 const SEEKER_SERVICE_URL = CONFIG.SEEKER_SERVICE_URL;
 
-const TABS = ['Active', 'Scheduled', 'Ongoing', 'History'];
+const TABS = ['All', 'Active', 'Scheduled', 'Ongoing', 'History'];
 
 const normalizeList = (data) => {
   if (Array.isArray(data)) return data;
@@ -67,62 +69,11 @@ const parseResponse = async (response) => {
   return data;
 };
 
-const getIdText = (value) => {
-  if (!value) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object') {
-    return value._id || value.id || value.$oid || '';
-  }
-  return String(value);
-};
 
-const getSessionId = (item) => {
-  return (
-    item?.sessionId ||
-    item?.externalSessionId ||
-    item?.serviceSessionId ||
-    item?.session?._id ||
-    item?.session?.id ||
-    item?.serviceSession?._id ||
-    item?._id ||
-    item?.id ||
-    ''
-  ).toString();
-};
 
-const getRequestId = (request) => {
-  return (
-    request?._id ||
-    request?.id ||
-    request?.requestQuotationId ||
-    request?.externalRequestQuotationId ||
-    ''
-  ).toString();
-};
 
-const getQuotationRequestId = (quotation) => {
-  return (
-    quotation?.externalRequestQuotationId ||
-    quotation?.requestQuotationId ||
-    quotation?.providerRequestId ||
-    quotation?.requestId ||
-    ''
-  ).toString();
-};
 
-const getQuotationId = (quotation) => {
-  return (
-    quotation?._id ||
-    quotation?.id ||
-    quotation?.quotationId ||
-    quotation?.externalQuotationId ||
-    ''
-  ).toString();
-};
 
-const getBookingStatus = (booking) => {
-  return String(booking?.bookingStatus || booking?.status || '').toUpperCase();
-};
 
 const getTitle = (session) => {
   return (
@@ -207,338 +158,20 @@ const formatCreatedDate = (value) => {
   });
 };
 
-const normalizeQuote = (quotation, requests = []) => {
-  const requestId = getQuotationRequestId(quotation);
-
-  const relatedRequest = requests.find((request) => getRequestId(request) === requestId);
-
-  const quoteId = getQuotationId(quotation);
-
-  const price =
-    quotation?.price ||
-    quotation?.quotedPrice ||
-    quotation?.finalAmount ||
-    quotation?.amount ||
-    0;
-
-  return {
-    ...quotation,
-    id: quoteId,
-    _id: quoteId,
-    externalQuotationId: quoteId,
-    externalRequestQuotationId: requestId,
-    externalSessionId: quotation?.externalSessionId || relatedRequest?.sessionId || getSessionId(quotation),
-    request: relatedRequest || null,
-    title:
-      quotation?.serviceSubcategory ||
-      quotation?.subcategory ||
-      relatedRequest?.detectedObject ||
-      relatedRequest?.serviceSubcategory ||
-      'Provider Quote',
-    category:
-      quotation?.serviceCategory ||
-      relatedRequest?.detectedCategory ||
-      relatedRequest?.serviceCategory ||
-      'General',
-    subcategory:
-      quotation?.serviceSubcategory ||
-      relatedRequest?.detectedObject ||
-      relatedRequest?.serviceSubcategory ||
-      'Service',
-    quotedPrice: price,
-    price,
-    providerName:
-      quotation?.providerSnapshot?.businessName ||
-      quotation?.providerSnapshot?.name ||
-      quotation?.provider?.businessName ||
-      quotation?.provider?.name ||
-      quotation?.providerName ||
-      quotation?.businessName ||
-      'Provider',
-    note: quotation?.notes || quotation?.note || 'Provider quotation received.',
-    status: quotation?.status || 'SENT',
-    coordinationDecision:
-      quotation?.coordinationStatus ||
-      quotation?.coordinationDecision ||
-      'NOT_CHECKED',
-    proposedStartTime: quotation?.proposedStartTime || quotation?.coordinatedStartTime,
-    estimatedDurationHours: quotation?.estimatedDurationHours || quotation?.durationHours,
-    serviceLocation:
-      relatedRequest?.serviceLocation ||
-      quotation?.serviceLocation ||
-      '',
-    preferredTimeLabel: relatedRequest?.preferredTimeLabel || '',
-  };
-};
 
 const fetchServiceSessions = async (seekerId) => {
   if (!seekerId) return [];
 
   const headers = await buildAuthHeaders();
 
-  const possibleUrls = [
-    `${SEEKER_SERVICE_URL}/service-sessions/seeker/${seekerId}`,
-    `${SEEKER_SERVICE_URL}/service-sessions/my`,
-    `${SEEKER_SERVICE_URL}/service-sessions`,
-    `${SEEKER_SERVICE_URL}/sessions/seeker/${seekerId}`,
-  ];
-
-  for (const url of possibleUrls) {
-    try {
-      console.log('Trying service sessions URL:', url);
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers,
-      });
-
-      const data = await parseResponse(response);
-      const sessions = normalizeList(data);
-
-      console.log('Service sessions loaded from:', url, sessions.length);
-
-      return sessions;
-    } catch (error) {
-      console.log('Service sessions URL failed:', url, error.message);
-    }
-  }
-
-  return [];
+  const response = await fetch(`${SEEKER_SERVICE_URL}/service-sessions/seeker/${seekerId}`, { headers });
+  return normalizeList(await parseResponse(response));
 };
 
-const findBookingForSession = (sessionId, bookings = []) => {
-  return bookings.find((booking) => {
-    const bookingSessionId = getSessionId(booking);
-
-    return String(bookingSessionId) === String(sessionId);
-  });
-};
-
-const buildGroupedSessions = ({ serviceSessions = [], requests = [], quotations = [], bookings = [] }) => {
-  const map = new Map();
-
-  serviceSessions.forEach((session) => {
-    const sessionId = getSessionId(session);
-
-    if (!sessionId) return;
-
-    map.set(sessionId, {
-      ...session,
-      sessionId,
-      requests: [],
-      quotations: [],
-      booking: null,
-      bookings: [],
-      createdAt: session?.createdAt || session?.created_at || new Date().toISOString(),
-    });
-  });
-
-  requests.forEach((request) => {
-    const sessionId = getSessionId(request) || getRequestId(request);
-
-    if (!sessionId) return;
-
-    const existing = map.get(sessionId) || {
-      sessionId,
-      requests: [],
-      quotations: [],
-      booking: null,
-      bookings: [],
-      createdAt: request?.createdAt || request?.created_at || new Date().toISOString(),
-    };
-
-    existing.requests.push(request);
-
-    existing.title = existing.title || request?.title || request?.detectedObject || request?.briefDescription;
-    existing.detectedCategory = existing.detectedCategory || request?.detectedCategory || request?.serviceCategory;
-    existing.detectedObject = existing.detectedObject || request?.detectedObject || request?.serviceSubcategory;
-    existing.serviceCategory = existing.serviceCategory || request?.serviceCategory;
-    existing.serviceSubcategory = existing.serviceSubcategory || request?.serviceSubcategory;
-    existing.briefDescription = existing.briefDescription || request?.briefDescription || request?.description;
-    existing.serviceLocation = existing.serviceLocation || request?.serviceLocation;
-    existing.location = existing.location || request?.location;
-    existing.preferredStartTime = existing.preferredStartTime || request?.preferredStartTime;
-    existing.preferredTimeLabel = existing.preferredTimeLabel || request?.preferredTimeLabel;
-    existing.status = existing.status || request?.status || 'REQUEST_SENT';
-    existing.createdAt = existing.createdAt || request?.createdAt || request?.created_at;
-
-    map.set(sessionId, existing);
-  });
-
-  quotations.forEach((quotation) => {
-    const sessionId = getSessionId(quotation);
-    const requestId = getQuotationRequestId(quotation);
-
-    const relatedRequest = requests.find((request) => getRequestId(request) === requestId);
-
-    const finalSessionId = sessionId || relatedRequest?.sessionId || requestId;
-
-    if (!finalSessionId) return;
-
-    const existing = map.get(finalSessionId) || {
-      sessionId: finalSessionId,
-      requests: relatedRequest ? [relatedRequest] : [],
-      quotations: [],
-      booking: null,
-      bookings: [],
-      createdAt: quotation?.createdAt || quotation?.created_at || new Date().toISOString(),
-    };
-
-    const normalizedQuote = normalizeQuote(quotation, requests);
-
-    existing.quotations.push(normalizedQuote);
-
-    existing.title = existing.title || relatedRequest?.detectedObject || normalizedQuote.title;
-    existing.detectedCategory = existing.detectedCategory || relatedRequest?.detectedCategory || normalizedQuote.category;
-    existing.detectedObject = existing.detectedObject || relatedRequest?.detectedObject || normalizedQuote.subcategory;
-    existing.serviceCategory = existing.serviceCategory || normalizedQuote.category;
-    existing.serviceSubcategory = existing.serviceSubcategory || normalizedQuote.subcategory;
-    existing.serviceLocation = existing.serviceLocation || relatedRequest?.serviceLocation || normalizedQuote.serviceLocation;
-    existing.preferredStartTime = existing.preferredStartTime || relatedRequest?.preferredStartTime || normalizedQuote.proposedStartTime;
-    existing.preferredTimeLabel = existing.preferredTimeLabel || relatedRequest?.preferredTimeLabel || normalizedQuote.preferredTimeLabel;
-    existing.status = existing.status || 'QUOTES_RECEIVED';
-
-    map.set(finalSessionId, existing);
-  });
-
-  bookings.forEach((booking) => {
-    const sessionId = getSessionId(booking);
-
-    if (!sessionId) return;
-
-    const existing = map.get(sessionId) || {
-      sessionId,
-      requests: [],
-      quotations: [],
-      booking: null,
-      bookings: [],
-      createdAt: booking?.createdAt || booking?.created_at || new Date().toISOString(),
-    };
-
-    existing.bookings = Array.isArray(existing.bookings) ? existing.bookings : [];
-    existing.bookings.push(booking);
-    existing.booking = existing.booking || booking;
-    existing.bookingStatus = booking?.bookingStatus || booking?.status;
-    existing.title = existing.title || booking?.serviceSubcategory || booking?.serviceCategory || 'Booked Service';
-    existing.detectedCategory = existing.detectedCategory || booking?.serviceCategory;
-    existing.detectedObject = existing.detectedObject || booking?.serviceSubcategory;
-    existing.serviceLocation = existing.serviceLocation || booking?.serviceLocation || booking?.location;
-    existing.preferredStartTime = existing.preferredStartTime || booking?.scheduledStartTime || booking?.startTime;
-    existing.status = existing.status || booking?.bookingStatus || booking?.status;
-
-    map.set(sessionId, existing);
-  });
-
-  return Array.from(map.values())
-    .map((session) => {
-      const sessionId = session.sessionId;
-      const booking = session.booking || findBookingForSession(sessionId, bookings);
-      const requestCount = session.requests?.length || 0;
-      const quoteCount = session.quotations?.length || 0;
-
-      return {
-        ...session,
-        booking,
-        requestedProvidersCount: requestCount,
-        quoteCount,
-        bookingCount: session.bookings?.length || (booking ? 1 : 0),
-      };
-    })
-    .sort((a, b) => {
-      const aTime = new Date(a.createdAt || a.updatedAt || 0).getTime();
-      const bTime = new Date(b.createdAt || b.updatedAt || 0).getTime();
-
-      return bTime - aTime;
-    });
-};
-
-const getSessionStatusMeta = (session) => {
-  const bookingStatus = getBookingStatus(session.booking || session);
-  const rawStatus = String(session?.status || '').toUpperCase();
-  const quoteCount = Number(session?.quoteCount || session?.quotations?.length || 0);
-  const requestCount = Number(session?.requestedProvidersCount || session?.requests?.length || 0);
-
-  if (bookingStatus === 'COMPLETED' || rawStatus === 'COMPLETED') {
-    return {
-      tab: 'History',
-      label: 'Completed',
-      message: 'Service completed',
-      tone: toneColors.success,
-      icon: 'checkmark-circle',
-    };
-  }
-
-  if (['CANCELLED', 'EXPIRED'].includes(bookingStatus) || ['CANCELLED', 'EXPIRED'].includes(rawStatus)) {
-    return {
-      tab: 'History',
-      label: bookingStatus === 'EXPIRED' ? 'Expired' : 'Cancelled',
-      message: bookingStatus === 'EXPIRED' ? 'This booking expired before it was started' : 'This service session was cancelled',
-      tone: toneColors.danger,
-      icon: 'close-circle',
-    };
-  }
-
-  if (
-    bookingStatus === 'IN_PROGRESS' ||
-    bookingStatus === 'ON_THE_WAY' ||
-    bookingStatus === 'DELAY_REPORTED' ||
-    rawStatus === 'IN_PROGRESS' ||
-    rawStatus === 'ONGOING'
-  ) {
-    return {
-      tab: 'Ongoing',
-      label: bookingStatus === 'DELAY_REPORTED' ? 'Delay Reported' : bookingStatus === 'ON_THE_WAY' ? 'On the Way' : 'Ongoing',
-      message: bookingStatus === 'ON_THE_WAY' ? 'Provider is travelling to your location' : 'Provider is working on this service',
-      tone: toneColors.warning,
-      icon: 'construct',
-    };
-  }
-
-  if (
-    bookingStatus === 'CONFIRMED' ||
-    bookingStatus === 'RESCHEDULE_REQUESTED' ||
-    bookingStatus === 'RESCHEDULING_REQUIRED' ||
-    bookingStatus === 'RESCHEDULED' ||
-    rawStatus === 'BOOKED' ||
-    rawStatus === 'SCHEDULED' ||
-    rawStatus === 'CONFIRMED'
-  ) {
-    return {
-      tab: 'Scheduled',
-      label: ['RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED'].includes(bookingStatus) ? 'Reschedule Pending' : bookingStatus === 'RESCHEDULED' ? 'Rescheduled' : 'Scheduled',
-      message: ['RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED'].includes(bookingStatus) ? 'A new schedule is awaiting review' : 'Booking confirmed',
-      tone: toneColors.info,
-      icon: 'calendar',
-    };
-  }
-
-  if (quoteCount > 0 || rawStatus === 'QUOTES_RECEIVED' || rawStatus === 'QUOTED') {
-    return {
-      tab: 'Active',
-      label: 'Quotes Received',
-      message: 'Tap to compare provider quotations',
-      tone: toneColors.info,
-      icon: 'document-text',
-    };
-  }
-
-  if (requestCount > 0 || rawStatus === 'REQUESTING_QUOTES' || rawStatus === 'REQUEST_SENT') {
-    return {
-      tab: 'Active',
-      label: 'Request Sent',
-      message: 'Waiting for provider quotations',
-      tone: toneColors.warning,
-      icon: 'send',
-    };
-  }
-
-  return {
-    tab: 'Active',
-    label: 'Session Created',
-    message: 'Service session created',
-    tone: toneColors.neutral,
-    icon: 'albums',
-  };
+const buildGroupedSessions = buildSeekerSessions;
+const getSessionStatusMeta = session => {
+  const guidance = seekerSessionGuidance(session);
+  return { ...guidance, tone: guidance.group === 'closed' ? toneColors.neutral : guidance.group === 'attention' ? toneColors.warning : toneColors.info, icon: guidance.target === 'booking' ? 'calendar-outline' : 'document-text-outline' };
 };
 
 function ServiceSessionsHeader({ isDarkMode, onBack }) {
@@ -550,40 +183,21 @@ function ServiceSessionsHeader({ isDarkMode, onBack }) {
 function SessionTabBar({ activeTab, onTabChange, counts, isDarkMode }) {
   return (
     <View style={[styles.tabWrapper, isDarkMode && styles.tabWrapperDark]}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabContent}
-      >
-        {TABS.map((tab) => {
-          const active = activeTab === tab;
-
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabContent}>
+        {TABS.map(tab => {
+          const selected = activeTab === tab;
           return (
             <TouchableOpacity
               key={tab}
-              style={[
-                styles.tab,
-                isDarkMode && styles.tabDark,
-                active && styles.tabActive,
-                active && isDarkMode && styles.tabActiveDark,
-              ]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              accessibilityLabel={`${tab} sessions, ${counts[tab] || 0}`}
               onPress={() => onTabChange(tab)}
-              activeOpacity={0.85}
+              style={[styles.tab, isDarkMode && styles.tabDark, selected && styles.tabActive, selected && isDarkMode && styles.tabActiveDark]}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  isDarkMode && styles.tabTextDark,
-                  active && styles.tabTextActive,
-                ]}
-              >
-                {tab}
-              </Text>
-
-              <View style={[styles.countPill, isDarkMode && styles.countPillDark, active && styles.countPillActive]}>
-                <Text style={[styles.countText, isDarkMode && styles.textMutedDark, active && styles.countTextActive]}>
-                  {counts[tab] || 0}
-                </Text>
+              <Text style={[styles.tabText, isDarkMode && styles.textMutedDark, selected && styles.tabTextActive]}>{tab}</Text>
+              <View style={[styles.countPill, isDarkMode && styles.countPillDark, selected && styles.countPillActive]}>
+                <Text style={[styles.countText, isDarkMode && styles.textMutedDark, selected && styles.countTextActive]}>{counts[tab] || 0}</Text>
               </View>
             </TouchableOpacity>
           );
@@ -620,7 +234,7 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
   const meta = getSessionStatusMeta(session);
   const providerCount = session?.requestedProvidersCount || session?.requests?.length || 0;
   const quoteCount = session?.quoteCount || session?.quotations?.length || 0;
-  const preferredTime = getPreferredTime(session);
+  const preferredTime = session.booking?.scheduledStartTime || getPreferredTime(session);
 
   return (
     <TouchableOpacity
@@ -635,7 +249,7 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
           </Text>
 
           <Text style={[styles.cardSubtitle, isDarkMode && styles.textMutedDark]}>
-            Service Session ID: {String(session.sessionId).slice(-8)}
+            Next: {meta.owner}
           </Text>
         </View>
 
@@ -650,6 +264,10 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
       <Text style={[styles.statusMessage, isDarkMode && styles.textMutedDark]}>
         {meta.message}
       </Text>
+      <View style={styles.progressRow}>{['Requested', 'Quoted', 'Booked', 'Completed'].map((label, index) => <View key={label} style={{ flex: 1 }}>
+        <View style={[styles.progressTrack, index <= meta.step && { backgroundColor: COLORS.primary }]} />
+        <Text style={[styles.progressLabel, isDarkMode && styles.textMutedDark]}>{label}</Text>
+      </View>)}</View>
 
       <View style={styles.chipRow}>
         <View style={[styles.chip, isDarkMode && styles.chipDark]}>
@@ -706,7 +324,7 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
         </Text>
 
         <View style={styles.openButton}>
-          <Text style={styles.openButtonText}>View</Text>
+          <Text style={styles.openButtonText}>{meta.action}</Text>
           <Ionicons name="chevron-forward" size={16} color="#fff" />
         </View>
       </View>
@@ -717,16 +335,21 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
 export default function SeekerServiceSessionsScreen({ navigation, embedded = false }) {
   const { isDarkMode } = useTheme();
 
-  const [activeTab, setActiveTab] = useState('Active');
+  const [activeTab, setActiveTab] = useState('All');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const [sessions, setSessions] = useState([]);
   const [seekerId, setSeekerId] = useState(null);
   const [error, setError] = useState(null);
+  const [lastChecked, setLastChecked] = useState(null);
+  const sourceCache = useRef({ serviceSessions: [], requests: [], quotations: [], bookings: [] });
+  const loadingRef = useRef(false);
+  const cacheOwner = useRef(null);
 
   const counts = useMemo(() => {
     const result = {
+      All: sessions.length,
       Active: 0,
       Scheduled: 0,
       Ongoing: 0,
@@ -744,11 +367,13 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
   const filteredSessions = useMemo(() => {
     return sessions.filter((session) => {
       const meta = getSessionStatusMeta(session);
-      return meta.tab === activeTab;
+      return activeTab === 'All' || meta.tab === activeTab;
     });
   }, [sessions, activeTab]);
 
   const loadSessions = async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     try {
       setError(null);
 
@@ -761,6 +386,11 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
         return;
       }
 
+      if (cacheOwner.current !== auth.seekerId) {
+        cacheOwner.current = auth.seekerId;
+        sourceCache.current = { serviceSessions: [], requests: [], quotations: [], bookings: [] };
+        setSessions([]);
+      }
       setSeekerId(auth.seekerId);
 
       const [serviceSessionsResult, requestsResult, quotationsResult, bookingsResult] =
@@ -771,49 +401,22 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
           getSeekerBookings(auth.seekerId),
         ]);
 
-      const realServiceSessions =
-        serviceSessionsResult.status === 'fulfilled'
-          ? serviceSessionsResult.value || []
-          : [];
-
-      const realRequests =
-        requestsResult.status === 'fulfilled'
-          ? requestsResult.value.requests || []
-          : [];
-
-      const realQuotations =
-        quotationsResult.status === 'fulfilled'
-          ? quotationsResult.value.quotations || []
-          : [];
-
-      const realBookings =
-        bookingsResult.status === 'fulfilled'
-          ? bookingsResult.value.bookings || []
-          : [];
-
-      const grouped = buildGroupedSessions({
-        serviceSessions: realServiceSessions,
-        requests: realRequests,
-        quotations: realQuotations,
-        bookings: realBookings,
+      const results = [serviceSessionsResult, requestsResult, quotationsResult, bookingsResult];
+      const keys = ['serviceSessions', 'requests', 'quotations', 'bookings'];
+      let failures = 0;
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value?.raw !== null) {
+          sourceCache.current[keys[index]] = index === 0 ? result.value : result.value[keys[index]] || [];
+        } else failures++;
       });
+      setSessions(buildGroupedSessions(sourceCache.current));
+      if (!failures) setLastChecked(new Date());
+      if (failures) setError('Some updates could not be loaded. Showing the latest available information. Pull down to retry.');
 
-      setSessions(grouped);
-
-      const allEmpty =
-        realServiceSessions.length === 0 &&
-        realRequests.length === 0 &&
-        realQuotations.length === 0 &&
-        realBookings.length === 0;
-
-      if (allEmpty) {
-        setError(null);
-      }
     } catch (err) {
-      console.log('Load service sessions error:', err);
       setError(err?.message || 'Failed to load service sessions.');
-      setSessions([]);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
       setRefreshing(false);
     }
@@ -823,6 +426,8 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
     useCallback(() => {
       setLoading(true);
       loadSessions();
+      const timer = setInterval(loadSessions, 30000);
+      return () => clearInterval(timer);
     }, [])
   );
 
@@ -841,7 +446,7 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
         </Text>
 
         <Text style={[styles.stateMessage, isDarkMode && styles.textMutedDark]}>
-          Fetching service sessions, requests, quotations and bookings from backend.
+          Checking your requests, quotations and bookings.
         </Text>
       </View>
     );
@@ -862,11 +467,6 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
           {error}
         </Text>
 
-        {seekerId ? (
-          <Text style={[styles.debugText, isDarkMode && styles.textMutedDark]}>
-            Current seekerId: {seekerId}
-          </Text>
-        ) : null}
 
         <TouchableOpacity
           style={styles.retryButton}
@@ -883,12 +483,12 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
   const renderSessions = () => {
     if (loading) return renderLoading();
 
-    if (error) return renderError();
+    if (error && !sessions.length) return renderError();
 
     if (!filteredSessions.length) {
       return (
         <EmptySessionState
-          title={`No ${activeTab.toLowerCase()} sessions`}
+          title={activeTab === 'All' ? 'No service sessions yet' : `No ${activeTab.toLowerCase()} sessions`}
           message="Your service sessions will appear here after you request quotations from providers."
           icon="assignment"
           isDarkMode={isDarkMode}
@@ -905,7 +505,7 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
             session={session}
             isDarkMode={isDarkMode}
             onPress={() =>
-              navigation.navigate('SeekerServiceSessionDetails', {
+              session.guidance.target === 'providers' ? navigation.navigate('ProvidersScreen') : navigation.navigate('SeekerServiceSessionDetails', {
                 session,
                 sessionId: session.sessionId,
               })
@@ -934,6 +534,8 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
 
       </>}
 
+      {lastChecked && <Text style={[styles.updatedText, isDarkMode && styles.textMutedDark]}>Updated {lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Pull down to refresh</Text>}
+      {error && sessions.length > 0 ? <Text accessibilityRole="alert" style={[styles.updatedText, isDarkMode && styles.textMutedDark]}>{error}</Text> : null}
       <SessionTabBar
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -956,6 +558,10 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
 }
 
 const styles = StyleSheet.create({
+  updatedText: { color: COLORS.muted, paddingHorizontal: 18, paddingTop: 10, fontSize: 12 },
+  progressRow: { flexDirection: 'row', gap: 7, marginTop: 12 },
+  progressTrack: { height: 4, borderRadius: 4, backgroundColor: '#DDE1EA', marginBottom: 6 },
+  progressLabel: { fontSize: 10, color: COLORS.muted },
   container: {
     flex: 1,
     backgroundColor: COLORS.bg,

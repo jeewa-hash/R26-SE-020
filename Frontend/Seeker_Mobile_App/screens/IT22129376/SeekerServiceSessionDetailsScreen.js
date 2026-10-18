@@ -1,3 +1,4 @@
+import { buildSeekerSessions, seekerSessionGuidance, recordId } from '../../utils/seekerSessions';
 import PageHeader from '../../components/PageHeader';
 import RequestedTimeModal from './components/RequestedTimeModal';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -211,7 +212,8 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   const [selectedQuoteId, setSelectedQuoteId] = useState(null);
   const [comparisonVisible, setComparisonVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [rescheduleVisible, setRescheduleVisible] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [rescheduleVisible, setRescheduleVisible] = useState(Boolean(route?.params?.showReschedule));
   const [rescheduleDate, setRescheduleDate] = useState(new Date(Date.now() + 24 * 60 * 60 * 1000));
   const [rescheduleNote, setRescheduleNote] = useState('');
   const [pickerMode, setPickerMode] = useState(null);
@@ -223,26 +225,24 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
       setRefreshing(true);
       const auth = await getStoredSeekerAuth();
       if (!auth?.seekerId) return;
-      const [requestResult, quoteResult, bookingResult] = await Promise.all([
-        getSeekerRequestQuotations(auth.seekerId),
-        getProviderQuotationsForSeeker(),
-        getSeekerBookings(auth.seekerId),
+      const results = await Promise.allSettled([
+        getSeekerRequestQuotations(auth.seekerId), getProviderQuotationsForSeeker(), getSeekerBookings(auth.seekerId),
       ]);
-      const allRequests = requestResult?.requests || [];
-      const requests = allRequests.filter((item) => getRecordSessionId(item) === String(sessionId));
-      const requestIds = new Set(requests.map(getRequestId));
-      const quotations = (quoteResult?.quotations || []).filter((item) => (
-        getRecordSessionId(item) === String(sessionId) || requestIds.has(getQuoteRequestId(item))
-      ));
-      const bookings = (bookingResult?.bookings || []).filter((item) => getRecordSessionId(item) === String(sessionId));
-      setSession((current) => ({
-        ...current,
-        sessionId,
-        requests,
-        quotations,
-        bookings,
-        booking: bookings[0] || current?.booking || null,
-      }));
+      const failed = results.some(r => r.status === 'rejected' || r.value?.raw === null);
+      setLoadError(failed ? 'Some updates are unavailable. Showing the latest information loaded; refresh before confirming a change.' : null);
+      setSession(current => {
+        const keys = ['requests', 'quotations', 'bookings'];
+        const sources = {};
+        results.forEach((result, i) => { sources[keys[i]] = result.status === 'fulfilled' && result.value?.raw !== null ? result.value[keys[i]] || [] : current[keys[i]] || []; });
+        const grouped = buildSeekerSessions(sources);
+        const knownRequests = new Set((current.requests || []).map(recordId));
+        const found = grouped.find(item => item.sessionId === String(sessionId) ||
+          (current.booking && item.bookings.some(b => recordId(b) === recordId(current.booking))) ||
+          item.requests.some(r => knownRequests.has(recordId(r))));
+        return found ? { ...current, ...found } : current;
+      });
+    } catch (error) {
+      setLoadError(error.message || 'Unable to refresh this session.');
     } finally {
       setRefreshing(false);
     }
@@ -252,6 +252,10 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   const requests = Array.isArray(session.requests) ? session.requests : [];
   const quotations = Array.isArray(session.quotations) ? session.quotations : [];
   const booking = session.booking || null;
+  const guidance = seekerSessionGuidance(session);
+  const canReschedule = booking && ['CONFIRMED', 'RESCHEDULED', 'ON_THE_WAY', 'IN_PROGRESS', 'DELAY_REPORTED', 'RESCHEDULING_REQUIRED'].includes(String(booking.bookingStatus || booking.status).toUpperCase());
+  const canSelectQuote = quote => !booking && !loadError && !['REJECTED', 'CANCELLED', 'EXPIRED'].includes(String(quote.status).toUpperCase()) && quote.coordinationId && ['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus || quote.coordinationDecision);
+  const openBooking = () => navigation.navigate(guidance.tab === 'History' ? 'IT22129376JobHistoryDetails' : 'IT22129376ScheduledJobDetails', guidance.tab === 'History' ? { job: booking } : { booking });
 
   const sortedQuotes = useMemo(() => {
     return [...quotations].sort((a, b) => Number(getQuotePrice(a)) - Number(getQuotePrice(b)));
@@ -276,7 +280,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   };
 
   const handleSmartReviewQuote = (quote) => {
-    if (!quote.coordinationId || !['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus)) {
+    if (!canSelectQuote(quote)) {
       const message = 'This offer is not ready for confirmation. The provider must finish validation or ask you to choose a new time.';
       if (Platform.OS === 'web') window.alert(message); else Alert.alert('Offer pending', message);
       return;
@@ -286,7 +290,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
 
   const submitReschedule = async () => {
     const quote = sortedQuotes.find((item) => String(item?.status || '').toUpperCase() === 'ACCEPTED') || sortedQuotes[0];
-    if (!booking?._id && !booking?.id) {
+    if (!canReschedule || (!booking?._id && !booking?.id)) {
       Alert.alert('Booking required', 'A reschedule suggestion can be sent after a booking is confirmed.');
       return;
     }
@@ -337,7 +341,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
 
       <DetailsHeader
         isDarkMode={isDarkMode}
-        title="Request Details"
+        title="Service Session"
         subtitle="Service session, provider requests and quotations"
       />
 
@@ -349,6 +353,13 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadRelatedData} />}
       >
+        {loadError ? <Text accessibilityRole="alert" style={[styles.emptyText, isDarkMode && styles.textMutedDark]}>{loadError}</Text> : null}
+        <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
+          <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>{guidance.title}</Text>
+          <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Next: {guidance.owner}</Text>
+          <Text style={[styles.descriptionText, isDarkMode && styles.textMutedDark]}>{guidance.message}</Text>
+          {booking ? <TouchableOpacity style={styles.compareButton} onPress={openBooking}><Text style={styles.compareButtonText}>{guidance.action}</Text></TouchableOpacity> : null}
+        </View>
         <View style={[styles.summaryCard, isDarkMode && styles.sectionCardDark]}>
           <Text style={[styles.mainTitle, isDarkMode && styles.textDark]} numberOfLines={2}>
             {getTitle(session)}
@@ -433,7 +444,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                   <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>
                     Requested start: {formatDateTime(request.preferredStartTime)}
                   </Text>
-                  {request.rescheduleRequestedAt ? <>
+                  {!booking && request.rescheduleRequestedAt && ['pending', 'quoted'].includes(String(request.status).toLowerCase()) ? <>
                     <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Provider requested a new time: {request.rescheduleReason}</Text>
                     <TouchableOpacity onPress={() => setTimeRequest(request)} style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark]}><Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>Choose New Date & Time</Text></TouchableOpacity>
                   </> : null}
@@ -524,7 +535,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                   <View style={[styles.quoteFooter, isDarkMode && styles.quoteFooterDark]}>
                     <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
                       <Text style={[styles.statusText, { color: tone.text }]}>
-                        {quote?.coordinationDecision || quote?.coordinationStatus || quote?.status || 'SENT'}
+                        {['REJECTED', 'EXPIRED', 'CANCELLED'].includes(String(quote.status).toUpperCase()) ? 'Offer closed' : String(quote.status).toUpperCase() === 'ACCEPTED' ? 'Price accepted' : canSelectQuote(quote) ? 'Ready to review' : 'Availability pending'}
                       </Text>
                     </View>
 
@@ -536,13 +547,13 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                     accessibilityState={{ checked: selectedQuoteId === quoteId(quote) }}
                     accessibilityLabel={`Select quotation from ${getProviderNameFromQuote(quote)}`}
                     style={styles.selectionButton}
-                    onPress={() => setSelectedQuoteId(quoteId(quote))}
+                    disabled={!canSelectQuote(quote)} onPress={() => setSelectedQuoteId(quoteId(quote))}
                   >
                     <Ionicons name={selectedQuoteId === quoteId(quote) ? 'radio-button-on' : 'radio-button-off'} size={22} color={COLORS.primary} />
                     <Text style={[styles.quoteMetaText, isDarkMode && styles.textDark]}>{selectedQuoteId === quoteId(quote) ? 'Selected for review' : 'Select this quotation'}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark]} onPress={() => handleSmartReviewQuote(quote)}>
-                    <Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>Select & Continue to Confirmation</Text>
+                  <TouchableOpacity disabled={!canSelectQuote(quote)} style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark, !canSelectQuote(quote) && { opacity: 0.5 }]} onPress={() => handleSmartReviewQuote(quote)}>
+                    <Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>{booking ? 'Booking already linked' : canSelectQuote(quote) ? 'Review & Confirm Booking' : 'Awaiting availability / offer closed'}</Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
               );
@@ -566,7 +577,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           {comparisonVisible && canCompare ? (
             <ScrollView horizontal style={{ marginTop: 16 }}>
               {sortedQuotes.map((quote) => (
-                <TouchableOpacity key={quoteId(quote)} style={[styles.comparisonColumn, isDarkMode && styles.quoteCardDark, selectedQuoteId === quoteId(quote) && styles.selectedColumn]} onPress={() => setSelectedQuoteId(quoteId(quote))} accessibilityRole="radio" accessibilityState={{ checked: selectedQuoteId === quoteId(quote) }}>
+                <TouchableOpacity key={quoteId(quote)} style={[styles.comparisonColumn, isDarkMode && styles.quoteCardDark, selectedQuoteId === quoteId(quote) && styles.selectedColumn]} disabled={!canSelectQuote(quote)} onPress={() => setSelectedQuoteId(quoteId(quote))} accessibilityRole="radio" accessibilityState={{ checked: selectedQuoteId === quoteId(quote) }}>
                   <Text style={[styles.quoteProvider, isDarkMode && styles.textDark]}>{getProviderNameFromQuote(quote)}</Text>
                   <Text style={[styles.quoteMetaText, isDarkMode && styles.textDark]}>{formatMoney(getQuotePrice(quote))}</Text>
                   <Text style={[styles.quoteNote, isDarkMode && styles.textMutedDark]}>Proposed start: {formatDateTime(quote.proposedStartTime)}</Text>
@@ -577,7 +588,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
               ))}
             </ScrollView>
           ) : null}
-          {selectedQuote ? (
+          {selectedQuote && canSelectQuote(selectedQuote) ? (
             <TouchableOpacity style={styles.compareButton} onPress={() => handleSmartReviewQuote(selectedQuote)}>
               <Text style={styles.compareButtonText}>Continue with Selected Quotation</Text>
             </TouchableOpacity>
@@ -614,10 +625,10 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           </SectionCard>
         ) : null}
 
-        <TouchableOpacity style={[styles.rescheduleButton, !booking && styles.compareButtonDisabled]} onPress={() => booking ? setRescheduleVisible(true) : Alert.alert('Booking required', 'A confirmed booking is required before suggesting a reschedule.')}>
+        {canReschedule ? <TouchableOpacity style={styles.rescheduleButton} onPress={() => setRescheduleVisible(true)}>
           <Ionicons name="calendar-outline" size={19} color="#fff" />
-          <Text style={styles.compareButtonText}>Suggest Reschedule</Text>
-        </TouchableOpacity>
+          <Text style={styles.compareButtonText}>Suggest a Different Time</Text>
+        </TouchableOpacity> : null}
 
         <View style={{ height: 110 }} />
       </ScrollView>
