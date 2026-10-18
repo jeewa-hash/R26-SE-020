@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-AUTH_API_URL = os.getenv("AUTH_API_URL", "http://localhost:4003/")
+AUTH_API_URL = os.getenv("AUTH_API_URL", "https://r26-auth-service.onrender.com").rstrip("/")
 
 def get_current_user(token: str) -> dict:
     try:

@@ -2,9 +2,9 @@ import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL } from '../config';
 
-const API_URL = `http://${IP_ADDRESS}:4003`;
+const API_URL = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
 
 export default function HomeScreen({ navigation }) {
   const [unreadCount, setUnreadCount] = useState(0);
