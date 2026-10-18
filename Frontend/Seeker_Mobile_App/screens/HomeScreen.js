@@ -31,7 +31,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import { useNotification } from '../context/NotificationContext';
-import { AUTH_SERVICE_URL, API_BASE_URL, CONFIG, IP_ADDRESS, IMAGE_CLASSIFIER_URL } from '../config';
+import { AUTH_SERVICE_URL, API_BASE_URL, CONFIG, IP_ADDRESS, IMAGE_CLASSIFIER_URL, TEXT_MODEL_URL } from '../config';
 import {
   getBookingEndDate,
   getBookingStartDate,
@@ -727,7 +727,7 @@ export default function HomeScreen() {
       }
 
       const appLanguage = language === 'si' ? 'si' : 'en';
-      const url = `http://${IP_ADDRESS}:5002/text-predict`;
+      const url = `${TEXT_MODEL_URL}/text-predict`;
 
       const response = await fetch(url, {
         method: 'POST',

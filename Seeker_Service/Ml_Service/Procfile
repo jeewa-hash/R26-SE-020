@@ -1,0 +1,1 @@
+web: gunicorn --workers 1 --threads 4 --timeout 120 text_service.text_api:app
