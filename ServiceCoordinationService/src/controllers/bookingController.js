@@ -1,5 +1,5 @@
 import { getRequestQuotationById } from "../clients/seekerServiceClient.js";
-import Booking from "../models/Booking.js";
+import Booking, { notifyBookingLifecycle } from "../models/Booking.js";
 import mongoose from "mongoose";
 import BidCoordination from "../models/BidCoordination.js";
 import BidPriceEvaluation from "../models/BidPriceEvaluation.js";
@@ -45,18 +45,21 @@ const getBookingStartDate = (booking) => {
 
 const expireMissedBookings = async (ownerQuery = {}) => {
   const cutoff = addMinutes(new Date(), -START_WINDOW_MINUTES);
-  await Booking.updateMany(
-    {
-      ...ownerQuery,
-      bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
-      scheduledStartTime: { $ne: null, $lt: cutoff },
-      actualStartTime: null,
-    },
-    {
-      $set: { bookingStatus: "EXPIRED", expiredAt: new Date() },
-      $push: { timeline: { status: "EXPIRED", message: "Booking expired because it was not started within 45 minutes", at: new Date() } },
-    }
-  );
+  const missedQuery = {
+    ...ownerQuery,
+    bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
+    scheduledStartTime: { $ne: null, $lt: cutoff },
+    actualStartTime: null,
+  };
+  const candidates = await Booking.find(missedQuery).select('_id');
+  for (const candidate of candidates) {
+    // Keep the state predicate on the write so a job started concurrently cannot expire.
+    const expired = await Booking.findOneAndUpdate({ ...missedQuery, _id: candidate._id }, {
+      $set: { bookingStatus: 'EXPIRED', expiredAt: new Date() },
+      $push: { timeline: { status: 'EXPIRED', message: 'Booking expired because it was not started within 45 minutes', at: new Date() } },
+    }, { new: true });
+    if (expired) await notifyBookingLifecycle(expired, 'EXPIRED');
+  }
   const fallbackCandidates = await Booking.find({
     ...ownerQuery,
     bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },

@@ -196,11 +196,12 @@ export default function NotificationScreen({ navigation }) {
   // Real-time WebSocket setup with system tray notifications
   const setupSocketConnection = async () => {
     try {
-      const { providerId: userId } = await getStoredProviderAuth();
+      const { providerId: userId, token } = await getStoredProviderAuth();
       if (!userId) return;
 
       socketRef.current = io(API_URL, {
         transports: ['websocket'],
+        auth: { token },
         reconnection: true,
       });
 
@@ -239,6 +240,8 @@ export default function NotificationScreen({ navigation }) {
 
   const resolveCategory = (type) => {
     if (!type) return 'admin';
+    type = type.toLowerCase();
+    if (type.includes('quote') || type.includes('request')) return 'orders';
     if (
       type.includes('inquiry') ||
       type.includes('account') ||
@@ -419,7 +422,13 @@ export default function NotificationScreen({ navigation }) {
   const handleNotificationPress = (item) => {
     if (!item.isRead) markAsRead(item._id);
 
-    if (item.type === 'inquiry_rejected' || item.type === 'inquiry_approved') {
+    if (item.metadata?.bookingId) {
+      navigation.navigate('IT22129376ProviderJobDetails', { bookingId: item.metadata.bookingId });
+    } else if (item.metadata?.quotationId) {
+      navigation.navigate('IT22129376ProviderQuotationDetails', { quotationId: item.metadata.quotationId });
+    } else if (item.metadata?.providerRequestId) {
+      navigation.navigate('IT22129376ProviderRequestDetails', { requestId: item.metadata.providerRequestId });
+    } else if (item.type === 'inquiry_rejected' || item.type === 'inquiry_approved') {
       navigation.navigate('SubmitInquiry');
     } else if (item.category === 'messages' && item.chatId) {
       navigation.navigate('ChatScreen', { chatId: item.chatId });

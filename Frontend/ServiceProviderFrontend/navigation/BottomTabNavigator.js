@@ -217,6 +217,7 @@ export default function BottomTabNavigator() {
         if (!socketRef.current) {
           socketRef.current = io(API_URL, {
             transports: ['websocket'],
+        auth: { token },
             reconnection: true,
           });
 
@@ -455,10 +456,10 @@ export default function BottomTabNavigator() {
 
                     setActiveAlertBanner(null);
 
-                    if (isDemandAlert) {
-                      navigation.navigate('Notifications');
+                    if (activeAlertBanner.type === 'inquiry_approved' || activeAlertBanner.type === 'inquiry_rejected') {
+                      navigation.navigate('HomeTab', { screen: 'SubmitInquiry' });
                     } else {
-                      navigation.navigate('SubmitInquiry');
+                      navigation.navigate('HomeTab', { screen: 'Notifications' });
                     }
                   }}
                 >

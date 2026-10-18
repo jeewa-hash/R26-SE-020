@@ -54,7 +54,7 @@ function Layout() {
     fetchNotifications();
 
     // Socket.io Implementation
-    const socket = io(AUTH_SERVICE_URL);
+    const socket = io(AUTH_SERVICE_URL, { auth: { token: localStorage.getItem('adminToken') } });
 
     socket.on('connect', () => {
       console.log('Connected to socket server');

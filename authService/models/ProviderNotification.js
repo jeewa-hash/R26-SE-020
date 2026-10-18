@@ -6,6 +6,9 @@ const ProviderNotificationSchema = new mongoose.Schema({
     ref: 'Provider',
     required: true,
   },
+  eventId: { type: String, unique: true, sparse: true },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  category: { type: String, default: 'orders' },
   title: {
     type: String,
     required: true,

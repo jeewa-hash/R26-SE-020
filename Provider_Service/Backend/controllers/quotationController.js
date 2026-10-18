@@ -1,3 +1,4 @@
+import { publishLifecycleNotification } from '../utils/lifecycleNotifications.js';
 import mongoose from "mongoose";
 import Quotation from "../models/Quotation.js";
 import Notification from "../models/Notification.js";
@@ -119,6 +120,8 @@ export const createQuotation = async (req, res) => {
         externalSessionId: externalSessionId, // Chaw: include session reference in notification metadata
       },
     });
+
+    await publishLifecycleNotification({ recipientId: String(seekerId), role: 'Seeker', eventId: `quotation:${quotation._id}:sent`, type: 'quote', title: notification.title, message: notification.message, metadata: { quotationId: String(quotation._id), providerRequestId: String(providerRequestId) } });
 
     // 3. Emit Real-time Socket Event to Seeker
     const io = req.app.get("io");
@@ -321,6 +324,7 @@ export const acceptQuotation = async (req, res) => {
       metadata: { quotationId: quotation._id },
     });
 
+    await publishLifecycleNotification({ recipientId: String(quotation.providerId), role: 'ServiceProvider', eventId: `quotation:${quotation._id}:accepted`, type: 'quote', title: notification.title, message: notification.message, metadata: { quotationId: String(quotation._id) } });
     const io = req.app.get("io");
     if (io) {
       sendRealtimeNotification(io, quotation.providerId, notification);

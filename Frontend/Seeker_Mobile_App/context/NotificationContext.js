@@ -10,7 +10,7 @@ const NotificationContext = createContext();
 
 export const useNotification = () => useContext(NotificationContext);
 
-const NOTIFICATION_SOCKET_URL = PROVIDER_SERVICE_URL;
+const NOTIFICATION_SOCKET_URL = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
 const QUOTATIONS_URL = `${PROVIDER_SERVICE_URL}/api/provider/quotations/seeker/me`;
 const AUTH_NOTIFICATIONS_URL = AUTH_SERVICE_URL
   ? `${AUTH_SERVICE_URL}/seeker/notifications`
@@ -176,7 +176,8 @@ export const NotificationProvider = ({ children }) => {
         // quiet fail
       }
 
-      const all = [...quoteNotifs, ...authNotifs].sort(
+      const persistedQuotes = new Set(authNotifs.map(n => String(n.metadata?.quotationId || '')));
+      const all = [...quoteNotifs.filter(n => !persistedQuotes.has(String(n.quoteId))), ...authNotifs].sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
       );
 
@@ -214,11 +215,18 @@ export const NotificationProvider = ({ children }) => {
   // ─────────────────────────────────────────────────────────────
   useEffect(() => {
     let activeSocket = null;
+    let disposed = false;
+    let socketToken = null;
 
     const setupSocket = async () => {
       try {
         const token = await AsyncStorage.getItem('userToken');
-        if (!token) return;
+        if (disposed || token === socketToken) return;
+        activeSocket?.disconnect();
+        socketToken = token;
+        if (!token) { setNotifications([]); setUnreadCount(0); return; }
+        initialLoadRef.current = true;
+        seenNotifsRef.current = new Set();
 
         activeSocket = io(NOTIFICATION_SOCKET_URL, {
           transports: ['websocket'],
@@ -226,14 +234,15 @@ export const NotificationProvider = ({ children }) => {
         });
 
         activeSocket.on('connect', () => {
-          console.log('✅ Notification socket connected');
+          syncNotifications(false);
         });
 
         // Real-time notification event handler
         activeSocket.on('notification', (notif) => {
-          console.log('🔔 Real-time notification received:', notif);
+
 
           const notifId = notif._id || `socket_${Date.now()}`;
+          if (seenNotifsRef.current.has(notifId)) return;
           seenNotifsRef.current.add(notifId);
           saveSeenIds();
 
@@ -266,10 +275,12 @@ export const NotificationProvider = ({ children }) => {
 
     // Periodic polling backup (every 15s)
     const interval = setInterval(() => {
+      setupSocket();
       syncNotifications(true);
     }, 15000);
 
     return () => {
+      disposed = true;
       clearInterval(interval);
       if (activeSocket) {
         activeSocket.disconnect();
@@ -293,6 +304,11 @@ export const NotificationProvider = ({ children }) => {
       }
     }
 
+    if (!String(id).startsWith('quote_')) {
+      const token = await AsyncStorage.getItem('userToken');
+      const response = await fetch(`${AUTH_NOTIFICATIONS_URL}/${id}/read`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) return;
+    }
     setNotifications((prev) =>
       prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
     );
@@ -302,7 +318,13 @@ export const NotificationProvider = ({ children }) => {
     });
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    const token = await AsyncStorage.getItem('userToken');
+    const response = await fetch(`${AUTH_NOTIFICATIONS_URL}/read-all`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) return;
+    const quoteIds = notifications.filter(n => String(n._id).startsWith('quote_')).map(n => n._id);
+    const previous = JSON.parse(await AsyncStorage.getItem(READ_QUOTES_KEY) || '[]');
+    await AsyncStorage.setItem(READ_QUOTES_KEY, JSON.stringify([...new Set([...previous, ...quoteIds])]));
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     setUnreadCount(0);
   };

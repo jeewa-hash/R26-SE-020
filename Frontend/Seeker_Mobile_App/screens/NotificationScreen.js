@@ -30,6 +30,7 @@ const READ_QUOTES_KEY = 'readQuotes';
 export default function NotificationScreen({ navigation }) {
   const { isDarkMode } = useTheme();
   const {
+    notifications: liveNotifications,
     markAsRead: markHomeNotificationAsRead,
     markAllAsRead: markAllHomeNotificationsAsRead,
   } = useNotification();
@@ -43,6 +44,8 @@ export default function NotificationScreen({ navigation }) {
     const intervalId = setInterval(() => fetchAllNotifications(false), 15000);
     return () => clearInterval(intervalId);
   }, []);
+
+  useEffect(() => { fetchAllNotifications(false); }, [liveNotifications]);
 
   // ========== Helper functions for persistent read status ==========
   const getReadQuoteIds = async () => {
@@ -129,7 +132,8 @@ export default function NotificationScreen({ navigation }) {
       }
 
       // 3. Merge and sort (newest first)
-      const combined = [...authNotifications, ...quoteNotifications].sort(
+      const persistedQuotes = new Set(authNotifications.map(n => String(n.metadata?.quotationId || '')));
+      const combined = [...authNotifications, ...quoteNotifications.filter(n => !persistedQuotes.has(String(n.quoteId)))].sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
       );
       setNotifications(combined);
@@ -273,10 +277,12 @@ export default function NotificationScreen({ navigation }) {
         ]}
         onPress={() => {
           if (!item.isRead) markAsRead(item._id);
-          if (item.type === 'quote') {
-            if (item.providerRequestId) {
+          if (item.metadata?.bookingId) {
+            navigation.navigate('BookingsScreen');
+          } else if (item.type === 'quote') {
+            if (item.providerRequestId || item.metadata?.providerRequestId) {
               navigation.navigate('RequestQuotationDetails', {
-                requestId: item.providerRequestId,
+                requestId: item.providerRequestId || item.metadata?.providerRequestId,
                 request: null,
                 providerId: item.providerId,
                 quoteId: item.quoteId,

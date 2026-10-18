@@ -20,7 +20,7 @@ export default function ProviderRequestDetailsScreen({ route, navigation }) {
   const [request, setRequest] = useState(route?.params?.request || {});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const requestId = idOf(route?.params?.request?._id || route?.params?.request?.id);
+  const requestId = idOf(route?.params?.requestId || route?.params?.request?._id || route?.params?.request?.id);
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try { if (!requestId) throw new Error('Request ID is missing.'); setRequest(await getProviderRequestById(requestId)); }
