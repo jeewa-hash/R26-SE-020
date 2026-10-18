@@ -75,7 +75,15 @@ def health_check():
 
 # PROVIDER SERVICE CONFIGURATION
 
-PROVIDER_SERVICE_URL = "http://localhost:5000/portfolio/all-providers"
+ML_SERVICE_URL = os.getenv(
+    "ML_SERVICE_URL",
+    "https://r26-se-020-production-faf9.up.railway.app",
+).rstrip("/")
+PROVIDER_SERVICE_URL = f"{ML_SERVICE_URL}/portfolio/all-providers"
+AUTH_PROVIDER_LIST_URL = os.getenv(
+    "AUTH_PROVIDER_LIST_URL",
+    "https://r26-auth-service.onrender.com/providers",
+)
 INQUIRY_SERVICE_URL = os.getenv("INQUIRY_SERVICE_URL", "http://localhost:5001")
 SEEKER_SERVICE_URL = os.getenv("SEEKER_SERVICE_URL", "http://localhost:6000")
 
@@ -391,17 +399,23 @@ def get_provider_keywords(provider, portfolio):
 
 # GET ALL PROVIDERS
 def get_all_providers():
-    try:
-        response = requests.get(PROVIDER_SERVICE_URL, timeout=10)
-        print("[Provider Service]", response.status_code)
-        if response.status_code != 200:
-            return []
-        data = response.json()
-        providers = data.get("providers", [])
-        return providers
-    except Exception as err:
-        print("[Provider Service] Error:", str(err))
-        return []
+    for url in (PROVIDER_SERVICE_URL, AUTH_PROVIDER_LIST_URL):
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            providers = data.get("providers", []) if isinstance(data, dict) else data
+            if isinstance(providers, list) and providers:
+                normalized = [
+                    item if isinstance(item, dict) and isinstance(item.get("provider"), dict)
+                    else {"provider": item, "portfolio": {}}
+                    for item in providers
+                ]
+                print(f"[Provider Service] Loaded {len(normalized)} provider(s) from {url}")
+                return normalized
+        except (requests.RequestException, ValueError) as error:
+            print(f"[Provider Service] {url}: {error}")
+    return []
 
 # CATEGORY MATCHING (UPDATED)
 def category_matches(requested_category, provider, portfolio):

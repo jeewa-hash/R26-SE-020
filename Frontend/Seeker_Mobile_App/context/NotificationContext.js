@@ -3,15 +3,14 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import io from 'socket.io-client';
 import Toast from 'react-native-toast-message';
-import { IP_ADDRESS, AUTH_SERVICE_URL } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL, PROVIDER_SERVICE_URL } from '../config';
 import { navigate } from '../utils/navigationService';
 
 const NotificationContext = createContext();
 
 export const useNotification = () => useContext(NotificationContext);
 
-const NOTIFICATION_SOCKET_URL = `http://${IP_ADDRESS}:3002`;
-const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:3002`;
+const NOTIFICATION_SOCKET_URL = PROVIDER_SERVICE_URL;
 const QUOTATIONS_URL = `${PROVIDER_SERVICE_URL}/api/provider/quotations/seeker/me`;
 const AUTH_NOTIFICATIONS_URL = AUTH_SERVICE_URL
   ? `${AUTH_SERVICE_URL}/seeker/notifications`

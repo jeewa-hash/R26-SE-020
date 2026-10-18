@@ -313,11 +313,12 @@ def get_all_providers_with_portfolio():
                 "providers": []
             }), 200
 
-        db = get_db()
-
-        portfolio_items = list(
-            db.portfolio_items.find({})
-        )
+        try:
+            db = get_db()
+            portfolio_items = list(db.portfolio_items.find({}))
+        except Exception as error:
+            print("[Get All Providers] Portfolio metadata unavailable:", str(error))
+            portfolio_items = []
 
         portfolio_by_provider = {}
 

@@ -55,7 +55,7 @@ export const createRequestQuotation = async (req, res) => {
 
     if (mongoose.Types.ObjectId.isValid(adLookupId)) {
       try {
-        const providerServiceUrl = (process.env.PROVIDER_SERVICE_URL || "http://127.0.0.1:3002").replace(/\/$/, "");
+        const providerServiceUrl = (process.env.PROVIDER_SERVICE_URL || "https://r26-se-020-production.up.railway.app").replace(/\/$/, "");
         const adResponse = await axios.get(`${providerServiceUrl}/api/provider/ads/${adLookupId}`, { timeout: 3000 });
         const maybePost = adResponse.data?.data || adResponse.data?.post || adResponse.data;
         if (maybePost?._id && maybePost?.providerId) {
@@ -497,7 +497,8 @@ export const deleteRequestQuotation = async (req, res) => {
 export const getProviderRecommendations = async (req, res) => {
   try {
     const { seekerId } = req.params;
-    const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:4003";
+    const AUTH_SERVICE_URL =
+      process.env.AUTH_SERVICE_URL || "https://r26-auth-service.onrender.com";
 
     if (!seekerId) {
       return res.status(400).json({

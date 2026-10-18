@@ -18,11 +18,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { API_BASE_URL } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 
 export default function FeedScreen({ navigation }) {
   const { isDarkMode } = useTheme();

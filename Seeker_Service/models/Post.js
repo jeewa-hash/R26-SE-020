@@ -47,6 +47,12 @@ const postSchema = new mongoose.Schema(
       required: true,
     },
 
+    language: {
+      type: String,
+      enum: ["en", "si"],
+      default: "en",
+    },
+
     image: {
       type: String,
       default: null,

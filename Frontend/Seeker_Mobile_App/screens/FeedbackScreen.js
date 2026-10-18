@@ -17,10 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
-
-// Uses LAN IP from config.js for real device support
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
+import { IP_ADDRESS, API_BASE_URL, ML_SERVICE_URL } from '../config';
 
 const COORDINATION_API_BASE_URL = `http://${IP_ADDRESS}:5010`;
 
@@ -67,7 +64,7 @@ export default function FeedbackScreen({ navigation, route }) {
 
             // Try to fetch actual names from Provider Service
             try {
-               const providerUrl = API_BASE_URL.replace('6000', '5000') + '/portfolio/all-providers';
+               const providerUrl = `${ML_SERVICE_URL}/portfolio/all-providers`;
                const provRes = await fetch(providerUrl);
                const provData = await provRes.json();
                if (provData.success) {
