@@ -23,14 +23,7 @@ import { evaluateCoordinationFeasibility } from "../services/coordinationFeasibi
 import { validateProviderSchedule } from "../services/scheduleValidationService.js";
 import { estimateServiceDuration } from "../services/durationEstimationService.js";
 
-const toScheduleParts = (value) => {
-  const date = new Date(value);
-  const pad = (part) => String(part).padStart(2, "0");
-  return {
-    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
-  };
-};
+import { toScheduleParts } from "../utils/timeUtils.js";
 
 export const validateQuotationSchedule = async (req, res) => {
   try {
@@ -45,11 +38,6 @@ export const validateQuotationSchedule = async (req, res) => {
     const predicted = Number(prediction?.predictedDurationMins);
     const duration = Number.isFinite(predicted) && predicted > 0 ? predicted : estimateServiceDuration({ serviceCategory: payload.serviceCategory, serviceSubcategory: payload.serviceType, taskName: payload.taskName, urgency: request.urgencyLevel }).averageDurationHours * 60;
     const schedule = await evaluateBidSchedule({ providerId: req.user.id, proposedStartTime: start, preferredStartTime: start, preferredEndTime: request.preferredEndTime, predictedDurationMins: duration, bufferMinutes: 30 });
-    // A daily slot cannot represent work crossing midnight.
-    if (schedule.requiredWindowStart.toDateString() !== schedule.requiredWindowEnd.toDateString()) {
-      schedule.conflictDetected = true;
-      schedule.conflictReason = 'The requested work extends beyond this working day. Ask the seeker for an earlier start.';
-    }
     if (schedule.conflictDetected) return res.status(409).json({ code: 'RESCHEDULE_REQUIRED', message: schedule.conflictReason, schedule });
     return res.json({ success: true, schedule });
   } catch (error) {
@@ -576,6 +564,9 @@ export const selectSuggestedSlot = async (req, res) => {
       const selectedEnd = new Date(selectedStart.getTime() + (selectedDurationHours * 60 + Number(scheduleEvaluation.bufferMinutes || 0)) * 60000);
       const startParts = toScheduleParts(selectedStart);
       const endParts = toScheduleParts(selectedEnd);
+      if (startParts.date !== endParts.date) {
+        return res.status(409).json({ success: false, message: "Selected work extends beyond this working day." });
+      }
       const validation = await validateProviderSchedule({
         providerId: coordination.providerId,
         requestedDate: startParts.date,

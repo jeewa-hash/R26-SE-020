@@ -79,7 +79,7 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 3500) => {
   }
 };
 
-const requestFirstSuccess = async ({ urls, paths, options = {}, label }) => {
+const requestFirstSuccess = async ({ urls, paths, options = {}, label, timeoutMs = 3500 }) => {
   let lastError = null;
   const headers = await buildAuthHeaders();
 
@@ -93,7 +93,7 @@ const requestFirstSuccess = async ({ urls, paths, options = {}, label }) => {
             ...headers,
             ...(options.headers || {}),
           },
-        });
+        }, timeoutMs);
         const data = await readJson(response);
         if (response.ok) {
           return data;
@@ -261,6 +261,9 @@ export const submitProviderQuotation = async (payload) => {
       body: JSON.stringify(payload),
     },
     label: 'submit quotation',
+    // Creation waits for the availability preflight (30s) and coordination
+    // validation (60s), in addition to fetching the seeker request (10s).
+    timeoutMs: 120000,
   });
   return { ...(responsePayload?.data || responsePayload), message: responsePayload?.message, validationPending: responsePayload?.validationPending };
 };
