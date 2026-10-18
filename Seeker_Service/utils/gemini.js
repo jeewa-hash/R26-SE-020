@@ -63,7 +63,7 @@ export const analyzeImageWithGemini = async (
 
   try {
     const draft = await requestGeminiJson(generationPrompt, imageBase64);
-    const reviewPrompt = `Review and refine this draft using only SOURCE_DATA and the attached image as evidence. Remove unsupported claims, resolve contradictions in favor of SOURCE_DATA, preserve every supplied detail, and do not add facts from retrieved history. Return only JSON with title, description, category, tags (array), and urgency (low|medium|high).\nSOURCE_DATA:\n${sourceBlock}\nDRAFT_TO_REVIEW:\n${JSON.stringify(draft)}`;
+    const reviewPrompt = `Review and refine this draft using only SOURCE_DATA and the attached image as evidence. Remove unsupported claims, resolve contradictions in favor of SOURCE_DATA, preserve every supplied detail, and do not add facts from retrieved history. ${languageInstruction} Return only JSON with title, description, category, tags (array), and urgency (low|medium|high).\nSOURCE_DATA:\n${sourceBlock}\nDRAFT_TO_REVIEW:\n${JSON.stringify(draft)}`;
 
     try {
       const reviewed = await requestGeminiJson(reviewPrompt, imageBase64);

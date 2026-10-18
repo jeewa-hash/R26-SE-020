@@ -1,6 +1,7 @@
 import express from "express";
 
 import { upload } from "../middleware/upload.js";
+import { authMiddleware } from "../middleware/auth.js";
 
 import {
   getPosts,
@@ -67,6 +68,7 @@ router.post(
 
 router.post(
   "/publish",
+  authMiddleware,
   publishPost
 );
 

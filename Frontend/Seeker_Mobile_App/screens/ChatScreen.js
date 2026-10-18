@@ -19,7 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import axios from 'axios';
-import { API_BASE_URL, PROVIDER_API_BASE, AUTH_SERVICE_URL } from '../config';
+import { API_BASE_URL, ML_SERVICE_URL, AUTH_SERVICE_URL } from '../config';
 
 export default function ChatScreen() {
   const navigation = useNavigation();
@@ -78,7 +78,7 @@ export default function ChatScreen() {
       if (!chatPartnerId || userName || providerName) return;
 
       try {
-        const response = await axios.get(`${PROVIDER_API_BASE}/portfolio/all-providers`);
+        const response = await axios.get(`${ML_SERVICE_URL}/portfolio/all-providers`);
         const providerItem = (response.data?.providers || []).find(
           (item) => String(item?.provider?.id) === String(chatPartnerId)
         );

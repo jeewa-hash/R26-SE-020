@@ -8,8 +8,11 @@ import axios from "axios";
 // AUTH SERVICE URL
 // =======================================================
 
-const AUTH_SERVICE_URL =
-  process.env.AUTH_SERVICE_URL || "https://r26-auth-service.onrender.com";
+const AUTH_SERVICE_URL = (
+  process.env.AUTH_SERVICE_URL || "https://r26-auth-service.onrender.com"
+)
+  .replace(/\/+$/, "")
+  .replace(/\/seeker$/i, "");
 
 
 // =======================================================
@@ -17,27 +20,34 @@ const AUTH_SERVICE_URL =
 // =======================================================
 
 const getUserById = async (userId, role = "seeker") => {
-  try {
-    const lowerRole = String(role || "seeker").toLowerCase();
-    const path =
-      lowerRole === "serviceprovider" || lowerRole === "provider"
-        ? `provider/user/${userId}`
-        : `seeker/user/${userId}`;
+  const lowerRole = String(role || "seeker").toLowerCase();
+  const path =
+    lowerRole === "serviceprovider" || lowerRole === "provider"
+      ? `provider/user/${userId}`
+      : `seeker/user/${userId}`;
 
+  try {
     const response = await axios.get(`${AUTH_SERVICE_URL}/${path}`);
     return response.data;
   } catch (error) {
+    const altPath =
+      lowerRole === "seeker"
+        ? `provider/user/${userId}`
+        : `seeker/user/${userId}`;
+
     try {
-      const altPath =
-        lowerRole === "seeker"
-          ? `provider/user/${userId}`
-          : `seeker/user/${userId}`;
       const fallback = await axios.get(`${AUTH_SERVICE_URL}/${altPath}`);
       return fallback.data;
-    } catch (_) {
+    } catch (fallbackError) {
       console.error(
         "AUTH SERVICE ERROR:",
-        error.response?.data || error.message
+        {
+          authServiceUrl: AUTH_SERVICE_URL,
+          primaryStatus: error.response?.status,
+          primaryError: error.response?.data || error.message,
+          fallbackStatus: fallbackError.response?.status,
+          fallbackError: fallbackError.response?.data || fallbackError.message,
+        }
       );
       return null;
     }
@@ -409,32 +419,28 @@ export const publishPost = async (req, res) => {
       category,
       tags,
       urgency,
-      userId,
-      seekerId,
+      language,
       location,
       preferredSchedule,
     } = req.body;
 
-    const actualId = seekerId || userId;
+    const actualId = req.user?.id;
 
     if (!actualId) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        error: "Seeker ID is required",
+        error: "Authenticated seeker ID is required",
       });
     }
 
-    // Check whether user exists
-    const user = await getUserById(actualId);
-
-    if (!user) {
-      return res.status(404).json({
+    if (String(req.user.role).toLowerCase() !== "seeker") {
+      return res.status(403).json({
         success: false,
-        error: "User not found in Auth Service",
+        error: "Only seekers can publish posts",
       });
     }
 
-    const userInfo = buildUserInfo(user, actualId);
+    const userInfo = buildUserInfo(req.user, actualId);
 
     const posterEmbed = {
       name: userInfo.name,
@@ -453,6 +459,7 @@ export const publishPost = async (req, res) => {
       category,
       tags,
       urgency,
+      language: language || "en",
       location: typeof location === "string" ? { address: location } : location,
       preferredSchedule: preferredSchedule || {},
     });
@@ -506,6 +513,10 @@ export const updatePost = async (req, res) => {
 
     if (req.body.description !== undefined) {
       post.description = req.body.description;
+    }
+
+    if (req.body.language !== undefined) {
+      post.language = req.body.language;
     }
 
     if (req.body.category !== undefined) {

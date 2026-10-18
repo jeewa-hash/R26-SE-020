@@ -18,7 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AUTH_SERVICE_URL, PROVIDER_API_BASE, API_BASE_URL } from '../config';
+import { AUTH_SERVICE_URL, ML_SERVICE_URL, API_BASE_URL } from '../config';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import axios from 'axios';
@@ -151,7 +151,7 @@ export default function PostResponsesScreen({ navigation, route }) {
 
         if (!userData) {
           try {
-            const portfolioRes = await axios.get(`${PROVIDER_API_BASE}/portfolio/all-providers`);
+            const portfolioRes = await axios.get(`${ML_SERVICE_URL}/portfolio/all-providers`);
             if (portfolioRes.data.success) {
               const providers = portfolioRes.data.providers || [];
               const found = providers.find((p) => p.provider?.id === providerId);

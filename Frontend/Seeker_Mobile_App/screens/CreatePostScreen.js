@@ -101,6 +101,7 @@ export default function CreatePostScreen() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [postLanguage, setPostLanguage] = useState(language || 'en');
   const [serviceLocation, setServiceLocation] = useState('');
   const [urgency, setUrgency] = useState('');
   const [requiredDate, setRequiredDate] = useState('');
@@ -126,6 +127,8 @@ export default function CreatePostScreen() {
 
   // AI Preview
   const [previewData, setPreviewData] = useState(null);
+  const [previewVersions, setPreviewVersions] = useState({});
+  const [translationTarget, setTranslationTarget] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [activeField, setActiveField] = useState(null);
 
@@ -188,6 +191,7 @@ export default function CreatePostScreen() {
       setEditPostId(postData._id || postData.id);
       setTitle(postData.title || '');
       setDescription(postData.description || '');
+      setPostLanguage(postData.language || language || 'en');
       setServiceLocation(postData.location?.address || '');
       setUrgency(postData.urgency || 'medium');
       setRequiredDate(postData.preferredSchedule?.date || '');
@@ -198,7 +202,7 @@ export default function CreatePostScreen() {
         setOriginalImagePath(postData.image);
       }
 
-      setPreviewData({
+      const savedPreview = {
         image: postData.image || null,
         title: postData.title || '',
         description: postData.description || '',
@@ -207,24 +211,28 @@ export default function CreatePostScreen() {
         tags: Array.isArray(postData.tags) ? postData.tags : [],
         location: postData.location?.address || '',
         requiredDate: postData.preferredSchedule?.date || '',
-      });
+      };
+      setPreviewData(savedPreview);
+      setPreviewVersions({ [postData.language || language || 'en']: savedPreview });
     }
-  }, [route.params]);
+  }, [route.params, language]);
 
   // Pick Image
   const pickImage = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(
-          isSi ? 'අවසර අවශ්‍යයි' : 'Permission Required',
-          isSi ? 'ඡායාරූප තේරීමට ගැලරිය වෙත අවසර ලබා දෙන්න.' : 'Gallery access is required.'
-        );
-        return;
+      if (Platform.OS !== 'android') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            isSi ? 'අවසර අවශ්‍යයි' : 'Permission Required',
+            isSi ? 'ඡායාරූප තේරීමට ගැලරිය වෙත අවසර ලබා දෙන්න.' : 'Gallery access is required.'
+          );
+          return;
+        }
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -257,6 +265,25 @@ export default function CreatePostScreen() {
           isSi
             ? 'වත්මන් ස්ථානය ලබා ගැනීමට Location අවසරය ලබා දෙන්න.'
             : 'Please grant location permission to detect your current position.'
+        );
+        return;
+      }
+
+      let servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled && Platform.OS === 'android') {
+        try {
+          await Location.enableNetworkProviderAsync();
+          servicesEnabled = await Location.hasServicesEnabledAsync();
+        } catch {
+          servicesEnabled = false;
+        }
+      }
+      if (!servicesEnabled) {
+        Alert.alert(
+          isSi ? 'ස්ථාන සේවා අක්‍රියයි' : 'Location Services Off',
+          isSi
+            ? 'ඔබගේ උපාංගයේ Location සේවා සක්‍රිය කරන්න, නැතහොත් සිතියමෙන් ස්ථානයක් තෝරන්න.'
+            : 'Turn on Location Services in your device settings, or choose a location on the map.'
         );
         return;
       }
@@ -307,7 +334,9 @@ export default function CreatePostScreen() {
       console.error('LOCATION ERROR:', error);
       Alert.alert(
         isSi ? 'දෝෂයකි' : 'Error',
-        isSi ? 'වත්මන් ස්ථානය ලබා ගැනීමට නොහැකි විය.' : 'Could not detect current location.'
+        isSi
+          ? 'වත්මන් ස්ථානය ලබා ගැනීමට නොහැකි විය. Location සේවා සක්‍රිය කරන්න, නැතහොත් සිතියමෙන් ස්ථානයක් තෝරන්න.'
+          : 'Could not detect your current location. Check that Location Services are on, or choose a location on the map.'
       );
     } finally {
       setLocatingGPS(false);
@@ -371,7 +400,7 @@ export default function CreatePostScreen() {
   };
 
   // Generate AI Preview
-  const generatePreview = async () => {
+  const generatePreview = async (targetLanguage = postLanguage, includeImage = true) => {
     if (!title.trim() && !description.trim() && !selectedImage) {
       Alert.alert(
         isSi ? 'විස්තර ඇතුළත් කරන්න' : 'Add Details',
@@ -416,7 +445,7 @@ export default function CreatePostScreen() {
 
     try {
       const formData = new FormData();
-      if (selectedImage) {
+      if (selectedImage && includeImage) {
         formData.append('image', {
           uri: selectedImage,
           type: 'image/jpeg',
@@ -426,7 +455,7 @@ export default function CreatePostScreen() {
 
       formData.append('title', title || '');
       formData.append('description', description || '');
-      formData.append('language', language || 'en');
+      formData.append('language', targetLanguage);
       formData.append('location', resolvedLocation);
       formData.append('urgency', resolvedUrgency);
       formData.append('requiredDate', resolvedDate);
@@ -453,11 +482,14 @@ export default function CreatePostScreen() {
       if (response.ok && data.success && data.preview) {
         const enhancedPreview = {
           ...data.preview,
+          image: data.preview.image || previewData?.image || null,
           location: resolvedLocation,
           urgency: resolvedUrgency,
           requiredDate: resolvedDate,
         };
         setPreviewData(enhancedPreview);
+        setPreviewVersions((previous) => ({ ...previous, [targetLanguage]: enhancedPreview }));
+        setPostLanguage(targetLanguage);
         if (data.preview.title) setTitle(data.preview.title);
         if (data.preview.description) setDescription(data.preview.description);
         setPreviewVisible(true);
@@ -472,6 +504,24 @@ export default function CreatePostScreen() {
       Alert.alert(isSi ? 'සම්බන්ධතා දෝෂයකි' : 'Network Error', error.message);
     } finally {
       setPreviewLoading(false);
+    }
+  };
+
+  const selectPreviewLanguage = async (targetLanguage) => {
+    const existingPreview = previewVersions[targetLanguage];
+    if (existingPreview) {
+      setPostLanguage(targetLanguage);
+      setPreviewData(existingPreview);
+      setTitle(existingPreview.title || '');
+      setDescription(existingPreview.description || '');
+      return;
+    }
+
+    setTranslationTarget(targetLanguage);
+    try {
+      await generatePreview(targetLanguage, false);
+    } finally {
+      setTranslationTarget(null);
     }
   };
 
@@ -509,6 +559,15 @@ export default function CreatePostScreen() {
       return;
     }
 
+    const token = await AsyncStorage.getItem('userToken');
+    if (!token) {
+      Alert.alert(
+        isSi ? 'ලොග් වීම අවශ්‍යයි' : 'Login Required',
+        isSi ? 'කරුණාකර නැවත ලොග් වන්න.' : 'Your login session expired. Please log in again.'
+      );
+      return;
+    }
+
     const seekerId = loggedUser.userId;
     let finalImagePath = null;
 
@@ -525,6 +584,7 @@ export default function CreatePostScreen() {
     const payload = {
       title: title.trim(),
       description: description.trim(),
+      language: postLanguage,
       image: finalImagePath,
       category: previewData?.category || 'General',
       tags: Array.isArray(previewData?.tags) ? previewData.tags : [],
@@ -557,6 +617,7 @@ export default function CreatePostScreen() {
         method,
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -602,6 +663,11 @@ export default function CreatePostScreen() {
     { key: 'medium', label: isSi ? 'සාමාන්‍ය' : 'Standard', icon: 'time-outline', color: '#6366F1' },
     { key: 'high', label: isSi ? 'හදිසි' : 'Urgent', icon: 'flash-outline', color: '#F59E0B' },
     { key: 'emergency', label: isSi ? 'ඉතා හදිසි' : 'Emergency', icon: 'flame-outline', color: '#EF4444' },
+  ];
+
+  const postLanguageOptions = [
+    { key: 'en', label: 'English' },
+    { key: 'si', label: 'සිංහල' },
   ];
 
   return (
@@ -734,6 +800,7 @@ export default function CreatePostScreen() {
                 />
               </View>
             </View>
+
           </View>
 
           {/* Card 2: Requirements (Location, Date & Urgency) */}
@@ -1022,7 +1089,7 @@ export default function CreatePostScreen() {
             {/* 1. Generate AI Preview Button */}
             <TouchableOpacity
               style={styles.previewActionBtn}
-              onPress={generatePreview}
+              onPress={() => generatePreview()}
               disabled={previewLoading || loading}
               activeOpacity={0.85}
             >
@@ -1105,6 +1172,52 @@ export default function CreatePostScreen() {
               <TouchableOpacity onPress={() => setPreviewVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="close-circle" size={24} color={isDarkMode ? '#94A3B8' : '#94A3AF'} />
               </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.languagePreviewHint, isDarkMode && styles.textMutedDark]}>
+              {isSi
+                ? 'භාෂාවක් තෝරන්න. තවම සකස් කර නැති භාෂාව තෝරාගත් විට පරිවර්තනය වේ.'
+                : 'Choose a language. The other version will be translated when selected.'}
+            </Text>
+            <View style={styles.languageOptions}>
+              {postLanguageOptions.map((option) => {
+                const isSelected = postLanguage === option.key;
+                const hasPreview = Boolean(previewVersions[option.key]);
+                const buttonLabel = hasPreview
+                  ? option.label
+                  : option.key === 'si'
+                  ? (isSi ? 'සිංහලට පරිවර්තනය' : 'Translate to Sinhala')
+                  : (isSi ? 'ඉංග්‍රීසියට පරිවර්තනය' : 'Translate to English');
+                return (
+                  <TouchableOpacity
+                    key={option.key}
+                    onPress={() => selectPreviewLanguage(option.key)}
+                    disabled={previewLoading}
+                    style={[
+                      styles.languageOption,
+                      isDarkMode && styles.urgencyPillDark,
+                      isSelected && (isDarkMode ? styles.languageOptionSelectedDark : styles.languageOptionSelected),
+                    ]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: isSelected, disabled: previewLoading }}
+                    activeOpacity={0.75}
+                  >
+                    {previewLoading && translationTarget === option.key ? (
+                      <ActivityIndicator size="small" color={isDarkMode ? '#A5B4FC' : '#4338CA'} />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.urgencyPillText,
+                          isDarkMode && styles.textDark,
+                          isSelected && (isDarkMode ? styles.languageOptionTextSelectedDark : styles.languageOptionTextSelected),
+                        ]}
+                      >
+                        {buttonLabel}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
@@ -1580,6 +1693,39 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: '#94A3B8',
     fontWeight: '400',
+  },
+
+  languageOptions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  languageOption: {
+    flex: 1,
+    minHeight: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
+  },
+  languageOptionSelected: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#4F46E5',
+    borderWidth: 1.5,
+  },
+  languageOptionSelectedDark: {
+    backgroundColor: 'rgba(99, 102, 241, 0.18)',
+    borderColor: '#818CF8',
+    borderWidth: 1.5,
+  },
+  languageOptionTextSelected: {
+    color: '#4338CA',
+    fontWeight: '700',
+  },
+  languageOptionTextSelectedDark: {
+    color: '#A5B4FC',
   },
 
   // Urgency Pills Grid

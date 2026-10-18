@@ -54,7 +54,7 @@ export const createRequestQuotation = async (req, res) => {
 
     if (mongoose.Types.ObjectId.isValid(adLookupId)) {
       try {
-        const providerServiceUrl = (process.env.PROVIDER_SERVICE_URL || "http://127.0.0.1:3002").replace(/\/$/, "");
+        const providerServiceUrl = (process.env.PROVIDER_SERVICE_URL || "https://r26-se-020-production.up.railway.app").replace(/\/$/, "");
         const adResponse = await axios.get(`${providerServiceUrl}/api/provider/ads/${adLookupId}`, { timeout: 3000 });
         const maybePost = adResponse.data?.data || adResponse.data?.post || adResponse.data;
         if (maybePost?._id && maybePost?.providerId) {

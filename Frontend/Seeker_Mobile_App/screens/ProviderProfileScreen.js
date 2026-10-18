@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CONFIG, API_BASE_URL } from '../config';
+import { CONFIG, API_BASE_URL, IP_ADDRESS } from '../config';
 import { useAuth } from '../context/AuthContext';
 import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
 

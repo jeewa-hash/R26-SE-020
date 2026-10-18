@@ -10,7 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import axios from 'axios';
-import { PROVIDER_API_BASE, AUTH_SERVICE_URL } from '../config';
+import { ML_SERVICE_URL, AUTH_SERVICE_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ChatListScreen() {
@@ -61,7 +61,7 @@ export default function ChatListScreen() {
         }
 
         // Fetch from portfolio endpoint (which returns provider data including profileImage)
-        const url = `${PROVIDER_API_BASE}/portfolio/all-providers`;
+        const url = `${ML_SERVICE_URL}/portfolio/all-providers`;
         console.log(`📡 Fetching ${url}`);
         const res = await axios.get(url);
 

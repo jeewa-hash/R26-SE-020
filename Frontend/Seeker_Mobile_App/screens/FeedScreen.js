@@ -20,7 +20,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import BottomNav from '../components/BottomNav';
-import { IP_ADDRESS, API_BASE_URL as SEEKER_API_BASE_URL } from '../config';
+import {
+  API_BASE_URL as SEEKER_API_BASE_URL,
+  PROVIDER_SERVICE_URL,
+} from '../config';
 import { useTheme } from '../hooks/useTheme';
 import { LanguageContext } from '../context/LanguageContext';
 import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
@@ -28,8 +31,7 @@ import RequestQuotationModal from './IT22129376/components/RequestQuotationModal
 // ======================================================
 // API BASE URLS
 // ======================================================
-const hostIp = IP_ADDRESS || '10.0.2.2';
-const API_BASE_URL = `http://${hostIp}:3002`;
+const API_BASE_URL = PROVIDER_SERVICE_URL;
 const QUOTATION_API_URL = `${SEEKER_API_BASE_URL}/request-quotations`;
 
 // ======================================================
