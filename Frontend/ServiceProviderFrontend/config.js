@@ -1,6 +1,6 @@
 // Set EXPO_PUBLIC_API_HOST to your computer's LAN IP when testing on a
 // physical device (for example: 192.168.1.103). Android emulators use 10.0.2.2.
-export const IP_ADDRESS = process.env.EXPO_PUBLIC_API_HOST || '192.168.1.4'; //'192.168.56.1'; //'192.168.1.38' 169.254.230.160; '172.28.31.24'; 
+export const IP_ADDRESS = process.env.EXPO_PUBLIC_API_HOST || '192.168.8.100'; //'192.168.56.1'; //'192.168.1.38' 169.254.230.160; '172.28.31.24'; 
 
 export const CONFIG = {
   API_BASE_URL: `http://${IP_ADDRESS}:6000`,
