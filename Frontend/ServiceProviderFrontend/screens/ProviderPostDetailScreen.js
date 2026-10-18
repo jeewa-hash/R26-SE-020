@@ -175,7 +175,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
     [post]
   );
   const appliedCount = Number(post.appliedCount ?? (post.applicants?.length ?? 0));
-  const alreadyApplied = isApplied(postId || post.id);
+  const alreadyApplied = post.hasApplied === true || isApplied(postId || post.id);
   const ownerMatch =
     viewerId &&
     post &&
@@ -223,13 +223,19 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
           },
           body: JSON.stringify(payload),
         });
-        if (res.ok) result = await res.json();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || data?.message || `HTTP ${res.status}`);
+        result = data;
       }
 
-      const newCount = Number(result?.appliedCount ?? (appliedCount + 1));
+      if (!result || result.success === false) {
+        throw new Error(result?.error || result?.message || 'Application was not saved.');
+      }
+      const newCount = Number(result.appliedCount ?? (appliedCount + 1));
       setPost((prev) => ({
         ...prev,
         appliedCount: newCount,
+        hasApplied: true,
       }));
       applyToJob({
         ...post,

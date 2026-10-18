@@ -28,7 +28,6 @@ const PROVIDER_URLS = uniqueUrls([
 
 const COORDINATION_URLS = uniqueUrls([
   CONFIG?.COORDINATION_SERVICE_URL,
-  `http://${IP_ADDRESS}:5010`,
 ]);
 
 export const normalizeArrayResponse = (payload) => {
