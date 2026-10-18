@@ -48,3 +48,35 @@ test('web confirmations run callbacks only after confirmation; nested navigation
   context.helpers.openProviderTab(child,'Bookings',{tab:'Quotes'});
   assert.equal(destination[0],'Main'); assert.equal(destination[1].screen,'Bookings'); assert.equal(destination[1].params.tab,'Quotes');
 });
+
+const loadSessions = () => import('data:text/javascript,' + encodeURIComponent(fs.readFileSync(path.join(root, 'utils/providerSessions.js'), 'utf8')));
+test('one service session joins request, quote and booking without duplicate cards', async () => {
+  const { buildProviderSessions } = await loadSessions();
+  const rows = buildProviderSessions([{_id:'r',sessionId:'session-1',status:'quoted'}], [{_id:'q',providerRequestId:'r',status:'ACCEPTED'}], [{_id:'b',externalQuotationId:'q',bookingStatus:'CONFIRMED'}]);
+  assert.equal(rows.length,1); assert.equal(rows[0].guidance.kind,'booking'); assert.equal(rows[0].guidance.group,'booked');
+  assert.equal(rows[0].guidance.step,2);
+});
+test('accepted quotation is waiting, never a confirmed booking', async () => {
+  const { sessionGuidance } = await loadSessions();
+  const state = sessionGuidance({quotation:{status:'ACCEPTED'}});
+  assert.equal(state.kind,'quotation'); assert.equal(state.group,'waiting'); assert.equal(state.step,1); assert.equal(state.owner,'Seeker');
+});
+test('reschedule waiting, validation attention and completed sessions explain the next owner', async () => {
+  const { sessionGuidance } = await loadSessions();
+  assert.equal(sessionGuidance({request:{status:'pending',rescheduleRequestedAt:'now'}}).owner,'Seeker');
+  const conflict = sessionGuidance({quotation:{status:'SENT',coordinationStatus:'RESCHEDULE_REQUIRED'}});
+  assert.equal(conflict.owner,'You'); assert.equal(conflict.group,'attention');
+  const done = sessionGuidance({booking:{bookingStatus:'COMPLETED'}});
+  assert.equal(done.group,'closed'); assert.equal(done.step,3); assert.equal(done.owner,'No action');
+});
+test('unrelated requests sharing a post are separate; repeated booking snapshots are deduplicated', async () => {
+  const { buildProviderSessions } = await loadSessions();
+  const sessions = buildProviderSessions([{_id:'r1',postId:'p'},{_id:'r2',postId:'p'}],[],[{_id:'b',bookingStatus:'CONFIRMED'},{_id:'b',bookingStatus:'IN_PROGRESS',updatedAt:'2026-10-18'}]);
+  assert.equal(sessions.length,3); assert.equal(sessions.filter(s=>s.booking).length,1);
+  assert.equal(sessions.find(s=>s.booking).guidance.group,'working');
+});
+test('action-needed sessions sort before waiting and history', async () => {
+  const { buildProviderSessions } = await loadSessions();
+  const sessions = buildProviderSessions([{_id:'new',status:'pending'}],[{_id:'q',status:'ACCEPTED'}],[{_id:'b',bookingStatus:'COMPLETED'}]);
+  assert.deepEqual(sessions.map(s=>s.guidance.group),['attention','waiting','closed']);
+});

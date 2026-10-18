@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { ThemeContext } from '../context/ThemeContext';
 import { confirm, notify, openProviderInbox } from '../utils/providerFlowUi';
+import { buildProviderSessions, sessionGuidance } from '../utils/providerSessions';
 import { canQuoteRequest } from '../utils/providerFlowState';
 import HeaderSection from '../components/HeaderSection';
 import { getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
@@ -36,7 +37,7 @@ import {
   isOngoingBooking,
 } from '../services/providerFlowApi';
 
-const TABS = ['Ongoing', 'Requests', 'Quotes', 'Scheduled', 'History'];
+const TABS = ['Sessions', 'Ongoing', 'Requests', 'Quotes', 'Scheduled', 'History'];
 
 const dateKey = (date) => date.toISOString().slice(0, 10);
 
@@ -103,10 +104,10 @@ const getReminderText = (booking) => {
   if (!start) return '';
   const minutesUntilStart = (start.getTime() - Date.now()) / 60000;
   if (minutesUntilStart >= 0 && minutesUntilStart <= 15) {
-    return 'Your job starts in 15 minutes. Please confirm readiness or report a delay.';
+    return 'Your job starts within 15 minutes. Open the booking to confirm readiness and check the start window.';
   }
   if (minutesUntilStart < 0) {
-    return 'This job is scheduled to start now. Please start the job or report a delay.';
+    return 'The scheduled start time has passed. Open the booking to check whether it can still be started.';
   }
   return '';
 };
@@ -122,7 +123,7 @@ export default function ProviderCalendarScreen({ navigation, route }) {
     soft: isDark ? '#273449' : '#F1F5F9',
   };
   const [providerId, setProviderId] = useState(null);
-  const [activeTab, setActiveTab] = useState('Ongoing');
+  const [activeTab, setActiveTab] = useState('Sessions');
   const [updating, setUpdating] = useState(false);
   useEffect(() => { if (TABS.includes(route?.params?.tab)) setActiveTab(route.params.tab); }, [route?.params?.tab]);
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
@@ -133,6 +134,9 @@ export default function ProviderCalendarScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [sessionFilter, setSessionFilter] = useState('All');
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const sessions = useMemo(() => buildProviderSessions(requests, quotations, [...bookings, ...ongoingBookings]), [requests, quotations, bookings, ongoingBookings]);
 
   const dates = useMemo(() => nextSevenDays(), []);
 
@@ -140,23 +144,28 @@ export default function ProviderCalendarScreen({ navigation, route }) {
     try {
       setError('');
       let failedRequests = 0;
+      const failed = {};
       const [requestRows, quotationRows, bookingRows, ongoingRows] = await Promise.all([
         getProviderRequests(id).catch((error) => {
+          failed.requests = true;
           failedRequests += 1;
           console.log('Provider requests load failed:', error?.message);
           return [];
         }),
         getProviderQuotations().catch((error) => {
+          failed.quotations = true;
           failedRequests += 1;
           console.log('Provider quotations load failed:', error?.message);
           return [];
         }),
         getProviderBookings(id).catch((error) => {
+          failed.bookings = true;
           failedRequests += 1;
           console.log('Provider jobs load failed:', error?.message);
           return [];
         }),
         getProviderOngoingBookings(id).catch((error) => {
+          failed.ongoing = true;
           failedRequests += 1;
           console.log('Provider ongoing load failed:', error?.message);
           return [];
@@ -175,10 +184,11 @@ export default function ProviderCalendarScreen({ navigation, route }) {
         setError(failedRequests === 4 ? 'Unable to load your jobs. Please try again.' : 'Some requests, quotations or bookings could not be loaded. Refresh to retry.');
       }
 
-      setRequests(myRequests);
-      setQuotations(myQuotations);
-      setBookings(myBookings);
-      setOngoingBookings(myOngoing);
+      if (!failed.requests) setRequests(myRequests);
+      if (!failed.quotations) setQuotations(myQuotations);
+      if (!failed.bookings) setBookings(myBookings);
+      if (!failed.ongoing || !failed.bookings) setOngoingBookings(myOngoing);
+      setLastUpdated(new Date());
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -220,8 +230,8 @@ export default function ProviderCalendarScreen({ navigation, route }) {
   }, [bookings]);
 
   const pendingRequests = useMemo(() => {
-    return requests.filter((item) => String(item?.status || '').toLowerCase() === 'pending');
-  }, [requests]);
+    return requests.filter((item) => String(item?.status || '').toLowerCase() === 'pending' && !quotations.some(quote => idsEqual(quote.providerRequestId, item._id || item.id) || (item.sessionId && quote.externalSessionId && item.sessionId === quote.externalSessionId)));
+  }, [requests, quotations]);
 
   const submitQuote = (request) => {
     navigation.navigate('IT22129376ProviderQuotationForm', { request });
@@ -260,6 +270,45 @@ export default function ProviderCalendarScreen({ navigation, route }) {
     navigation.navigate('IT22129376ProviderJobDetails', { booking });
   };
 
+  const renderGuidance = guidance => (
+    <View style={[styles.guidance, { backgroundColor: C.soft }]}>
+      <Text style={[styles.guidanceTitle, { color: C.text }]}>{guidance.title}</Text>
+      <Text style={[styles.guidanceOwner, { color: guidance.owner === 'You' ? '#15803D' : C.muted }]}>Next: {guidance.owner}</Text>
+      <Text style={[styles.guidanceMessage, { color: C.muted }]}>{guidance.message}</Text>
+    </View>
+  );
+  const openSession = session => {
+    if (session.booking) return openBooking(session.booking);
+    if (session.quotation) return navigation.navigate('IT22129376ProviderQuotationDetails', { quotation: session.quotation });
+    navigation.navigate('IT22129376ProviderRequestDetails', { request: session.request });
+  };
+  const renderSessions = () => {
+    const filters = { All: null, 'Needs you': 'attention', 'Waiting for seeker': 'waiting', Booked: 'booked', 'In progress': 'working', Closed: 'closed' };
+    const visible = sessions.filter(session => !filters[sessionFilter] || session.guidance.group === filters[sessionFilter]);
+    return <>
+      <Text style={[styles.sectionTitle, { color: C.text }]}>Your service sessions</Text>
+      <Text style={[styles.summaryText, { color: C.muted }]}>Each card follows one service from request to completion. Accepted quotations still need a confirmed booking.</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 16 }}>
+        {Object.entries(filters).map(([label, group]) => <TouchableOpacity key={label} accessibilityRole="button" accessibilityState={{ selected: sessionFilter === label }} onPress={() => setSessionFilter(label)} style={[styles.tabPill, { backgroundColor: sessionFilter === label ? '#166534' : C.soft }]}><Text style={[styles.tabText, { color: sessionFilter === label ? '#fff' : C.text }]}>{label} ({group ? sessions.filter(session => session.guidance.group === group).length : sessions.length})</Text></TouchableOpacity>)}
+      </ScrollView>
+      {visible.length === 0 ? renderEmpty('layers-outline', sessionFilter === 'All' ? 'No service sessions yet' : `No sessions: ${sessionFilter.toLowerCase()}`, sessionFilter === 'All' ? 'Apply to a service post on Home. When a seeker requests your quotation, its progress will appear here.' : 'Choose another filter to see your other sessions.') : visible.map(session => {
+        const row = session.request || session.booking || session.quotation;
+        const start = session.booking ? getBookingStartDate(session.booking) : new Date(session.quotation?.proposedStartTime || session.request?.preferredStartTime || '');
+        return <View key={session.key} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
+          <Text style={[styles.cardTitle, { color: C.text }]}>{getHumanServiceTitle(row)}</Text>
+          <Text style={[styles.cardSubText, { color: C.muted }]}>{getHumanSeekerName(session.booking || row)}</Text>
+          <View style={styles.stageRow}>{['Requested', 'Quoted', 'Booked', 'Completed'].map((label, index) => <View key={label} style={styles.stageItem}><View style={[styles.stageLine, { backgroundColor: index <= session.guidance.step ? '#15803D' : C.border }]} /><Text style={{ color: index <= session.guidance.step ? '#15803D' : C.muted, fontSize: 11 }}>{label}</Text></View>)}</View>
+          {renderGuidance(session.guidance)}
+          <Text style={[styles.detailText, { color: C.muted, marginTop: 12 }]}>{session.booking ? 'Scheduled' : 'Requested'}: {start && Number.isFinite(start.getTime()) ? start.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Time not selected'}</Text>
+          <Text style={[styles.detailText, { color: C.muted }]}>{getHumanLocation(session.booking || row)}</Text>
+          {session.booking || session.quotation ? <Text style={[styles.detailText, { color: C.text }]}>{formatMoney(session.booking?.finalAmount || session.quotation?.price)}</Text> : null}
+          <TouchableOpacity style={styles.fullPrimaryButton} onPress={() => openSession(session)}><Text style={styles.primaryButtonText}>{session.guidance.action}</Text></TouchableOpacity>
+          {session.request && session.guidance.kind !== 'request' ? <TouchableOpacity style={styles.fullSecondaryButton} onPress={() => navigation.navigate('IT22129376ProviderRequestDetails', { request: session.request })}><Text style={styles.secondaryButtonText}>Original Request</Text></TouchableOpacity> : null}
+        </View>;
+      })}
+    </>;
+  };
+
   const renderStatusBadge = (status) => {
     const colors = getStatusStyle(status);
     return (
@@ -278,6 +327,7 @@ export default function ProviderCalendarScreen({ navigation, route }) {
 
     return (
       <View key={getBookingId(booking)} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
+        {renderGuidance(sessionGuidance({ booking }))}
         {reminder ? (
           <View style={styles.reminderBanner}>
             <Ionicons name="notifications-outline" size={16} color="#B45309" />
@@ -383,6 +433,7 @@ export default function ProviderCalendarScreen({ navigation, route }) {
           <Text style={[styles.detailText, { color: C.muted }]}>Budget: {formatMoney(request.seekerBudgetAmount)}</Text>
         </View>
       ) : null}
+      {renderGuidance(sessionGuidance({ request }))}
       <TouchableOpacity disabled={!canQuoteRequest(request)} style={[styles.fullPrimaryButton, !canQuoteRequest(request) && { opacity: .5 }]} onPress={() => submitQuote(request)}>
         <Text style={styles.primaryButtonText}>{request.rescheduleRequestedAt ? 'Waiting for New Time' : 'Submit Quotation'}</Text>
       </TouchableOpacity>
@@ -407,6 +458,7 @@ export default function ProviderCalendarScreen({ navigation, route }) {
         </View>
         {hourly ? <Text style={[styles.detailText, { color: C.muted }]}>Rate: LKR {Math.round(hourly).toLocaleString()}/hr</Text> : null}
         {quotation?.notes ? <Text style={[styles.detailText, { color: C.muted }]}>Note: {quotation.notes}</Text> : null}
+        {renderGuidance(sessionGuidance({ quotation, request: requests.find(request => idsEqual(request._id || request.id, quotation.providerRequestId)) }))}
         {quotation?.coordinationStatus ? <Text style={[styles.detailText, { color: C.muted }]}>Availability: {statusLabel(quotation.coordinationStatus)}</Text> : null}
         <TouchableOpacity style={styles.fullPrimaryButton} onPress={() => navigation.navigate('IT22129376ProviderQuotationDetails', { quotation })}><Text style={styles.primaryButtonText}>View Quotation & Next Steps</Text></TouchableOpacity>
       </View>
@@ -457,9 +509,10 @@ export default function ProviderCalendarScreen({ navigation, route }) {
   };
 
   const scheduledBookings = bookings.filter(booking => ['CONFIRMED', 'RESCHEDULED', 'RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED'].includes(getBookingStatus(booking)));
-  const tabCounts = { Ongoing: ongoingBookings.length, Requests: pendingRequests.length, Quotes: quotations.length, Scheduled: scheduledBookings.length, History: historyBookings.length };
+  const tabCounts = { Sessions: sessions.length, Ongoing: ongoingBookings.length, Requests: pendingRequests.length, Quotes: quotations.length, Scheduled: scheduledBookings.length, History: historyBookings.length };
 
   const renderBody = () => {
+    if (activeTab === 'Sessions') return renderSessions();
     if (activeTab === 'Scheduled') return scheduledBookings.length ? scheduledBookings.map(booking => renderBookingCard(booking, true)) : renderEmpty('calendar-outline', 'No scheduled jobs.', 'Confirmed bookings will appear here.');
     if (activeTab === 'Ongoing') {
       return ongoingBookings.length === 0
@@ -493,9 +546,10 @@ export default function ProviderCalendarScreen({ navigation, route }) {
         <View style={[styles.header, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
           <View style={styles.headerTextWrap}>
             <Text style={[styles.headerTitle, { color: C.text }]}>My Jobs</Text>
-            <Text style={[styles.headerSubtitle, { color: C.muted }]}>Requests, quotes and ongoing work</Text>
+            <Text style={[styles.headerSubtitle, { color: C.muted }]}>See what happens next for every service</Text>
+            {lastUpdated ? <Text style={[styles.headerSubtitle, { color: C.muted }]}>Last checked {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Refresh for new decisions</Text> : null}
           </View>
-          <TouchableOpacity style={[styles.refreshButton, { backgroundColor: C.soft }]} onPress={onRefresh}>
+          <TouchableOpacity style={[styles.refreshButton, { backgroundColor: C.soft }]} disabled={refreshing || loading} accessibilityLabel="Refresh all job statuses" onPress={onRefresh}>
             <Ionicons name="refresh" size={20} color="#166534" />
           </TouchableOpacity>
         </View>
@@ -506,7 +560,7 @@ export default function ProviderCalendarScreen({ navigation, route }) {
               const active = activeTab === tab;
               return (
                 <TouchableOpacity key={tab} style={[styles.tabPill, { backgroundColor: C.soft }, active && styles.tabPillActive]} onPress={() => setActiveTab(tab)}>
-                  <Text style={[styles.tabText, { color: C.muted }, active && styles.tabTextActive]}>{tab} ({tabCounts[tab]})</Text>
+                  <Text style={[styles.tabText, { color: C.muted }, active && styles.tabTextActive]}>{{ Sessions: 'Sessions', Ongoing: 'Active Jobs', Requests: 'New Requests', Quotes: 'Quotations', Scheduled: 'Upcoming', History: 'History' }[tab]} ({tabCounts[tab]})</Text>
                 </TouchableOpacity>
               );
             })}
@@ -533,6 +587,8 @@ export default function ProviderCalendarScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  guidance: { padding: 12, borderRadius: 12, marginTop: 12 }, guidanceTitle: { fontSize: 15, fontWeight: '700' }, guidanceOwner: { fontSize: 12, fontWeight: '700', marginTop: 5 }, guidanceMessage: { fontSize: 13, lineHeight: 19, marginTop: 5 },
+  stageRow: { flexDirection: 'row', gap: 6, marginTop: 16, marginBottom: 4 }, stageItem: { flex: 1, gap: 5 }, stageLine: { height: 4, borderRadius: 3 },
   container: { flex: 1, minHeight: 0, backgroundColor: '#F5FAF6' },
   header: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 0.5 },
   headerTextWrap: { flex: 1 },

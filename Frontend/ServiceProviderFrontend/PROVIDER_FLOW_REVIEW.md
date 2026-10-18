@@ -37,3 +37,9 @@ Use provider and seeker accounts connected to the same services/database.
 10. Cancel a web confirmation: no mutation. Disconnect a service and refresh: show retry while retaining successful sections.
 
 These live steps require running backends, matching JWT configuration and two accounts; they have not been executed automatically. Backend permissions, time windows, expiry and availability remain authoritative.
+
+## Session overview
+
+My Jobs now defaults to Sessions: requests, quotations and bookings are joined by explicit request/quotation/session identifiers into one service card. Stages show Requested → Quoted → Booked → Completed. Every card explains its current state, next actor (provider/seeker/review/no action), and primary destination. Filters show Needs you, Waiting for seeker, Booked, In progress and Closed. Action-needed sessions are listed first; accepted quotations remain waiting until a booking exists. Original detail tabs remain available with the same guidance. A last-checked timestamp and refresh explain freshness; status is refreshed on screen focus, not streamed live. Partial failures retain previously loaded data with an error banner.
+
+Review these transitions with provider and seeker accounts: new request → saved quotation awaiting validation → validated offer waiting for seeker → accepted offer awaiting booking → confirmed booking → on the way → in progress → completed. Also check reschedule waits, conflicts and cancelled/expired sessions. Each session should appear once, while unrelated requests sharing a post remain separate. A new request should disappear from New Requests once its quotation is loaded. Switching detail tabs must not alter backend status.
