@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS, API_BASE_URL, ML_SERVICE_URL } from '../config';
+import { IP_ADDRESS, API_BASE_URL, ML_SERVICE_URL, COORDINATION_SERVICE_URL } from '../config';
 
 const COORDINATION_API_BASE_URL = COORDINATION_SERVICE_URL;
 
