@@ -17,12 +17,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, COORDINATION_SERVICE_URL } from '../config';
 
 // Uses LAN IP from config.js for real device support
 const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
 
-const COORDINATION_API_BASE_URL = `http://${IP_ADDRESS}:5010`;
+const COORDINATION_API_BASE_URL = COORDINATION_SERVICE_URL;
 
 export default function FeedbackScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();

@@ -19,7 +19,13 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
+// Expo web defaults to port 8081. Native clients do not require CORS.
+const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS ||
+  "http://localhost:8081,http://127.0.0.1:8081")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+app.use(cors({ origin: corsOrigins }));
 app.use(express.json());
 
 connectDB();

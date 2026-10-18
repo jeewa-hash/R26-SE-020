@@ -20,8 +20,11 @@ export const TEXT_MODEL_URL = `http://${IP_ADDRESS}:5002`;
 export const CONFIG = {
     API_BASE_URL: `http://${IP_ADDRESS}:5002`,
     SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6000`,
-    COORDINATION_SERVICE_URL: `http://${IP_ADDRESS}:5010`,
+    COORDINATION_SERVICE_URL: (process.env.EXPO_PUBLIC_COORDINATION_API_URL ||
+  'http://k8s-default-coordina-f35bbe8d02-1683340780.ap-southeast-2.elb.amazonaws.com').replace(/\/+$/, ''),
     PROVIDER_SERVICE_API_URL: `http://${IP_ADDRESS}:5000`,
     IMAGE_CLASSIFIER_URL,
     TEXT_MODEL_URL,
 };
+
+export const COORDINATION_SERVICE_URL = CONFIG.COORDINATION_SERVICE_URL;
