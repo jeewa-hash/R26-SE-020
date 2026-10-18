@@ -14,7 +14,8 @@ export const AUTH_SERVICE_URL = 'https://r26-auth-service.onrender.com';
 // Hosted image diagnosis service (FastAPI). Keep this as the service root;
 // screens append /predict and /flow/next for their respective requests.
 export const IMAGE_CLASSIFIER_URL = 'https://elegant-forgiveness-production-00a1.up.railway.app';
-export const TEXT_MODEL_URL = `http://${IP_ADDRESS}:5002`;
+export const TEXT_MODEL_URL =
+    process.env.EXPO_PUBLIC_TEXT_MODEL_URL || `http://${IP_ADDRESS}:5002`;
 
 export const PROVIDER_SERVICE_URL =
     process.env.EXPO_PUBLIC_PROVIDER_SERVICE_URL ||

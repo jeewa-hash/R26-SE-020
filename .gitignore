@@ -42,6 +42,9 @@ data/*.csv.bak
 *.joblib
 !adminService/ml_service/models/demand_model.pkl
 !adminService/ml_service/models/encoders.pkl
+!Seeker_Service/Ml_Service/models/text_vectorizer.joblib
+!Seeker_Service/Ml_Service/models/text_service_model.joblib
+!Seeker_Service/Ml_Service/models/text_subservice_model.joblib
 
 # ==================== Environment & Secrets ====================
 .env
