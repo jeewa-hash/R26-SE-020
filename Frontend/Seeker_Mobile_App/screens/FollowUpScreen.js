@@ -513,6 +513,7 @@ const response = await fetch(endpoint, {
       userAnswers,
       finalDecision,
       initialMessage,
+      source,
     });
   };
 

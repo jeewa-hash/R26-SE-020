@@ -7,6 +7,7 @@ import React, {
   useContext,
   useEffect,
 } from 'react';
+import axios from 'axios';
 import {
   View,
   Text,
@@ -348,8 +349,15 @@ export default function CreatePostScreen() {
     const { coordinate } = event.nativeEvent;
     if (!coordinate) return;
     setMapMarker(coordinate);
+    const coordinateFallback = `${coordinate.latitude.toFixed(4)}, ${coordinate.longitude.toFixed(4)}`;
 
     try {
+      const permission = await Location.getForegroundPermissionsAsync();
+      if (!permission.granted) {
+        setTempLocationAddress(coordinateFallback);
+        return;
+      }
+
       const [address] = await Location.reverseGeocodeAsync({
         latitude: coordinate.latitude,
         longitude: coordinate.longitude,
@@ -360,14 +368,13 @@ export default function CreatePostScreen() {
           address.city || address.subregion,
           address.region || address.district,
         ].filter(Boolean);
-        const formatted = parts.join(', ') || `${coordinate.latitude.toFixed(4)}, ${coordinate.longitude.toFixed(4)}`;
+        const formatted = parts.join(', ') || coordinateFallback;
         setTempLocationAddress(formatted);
       } else {
-        setTempLocationAddress(`${coordinate.latitude.toFixed(4)}, ${coordinate.longitude.toFixed(4)}`);
+        setTempLocationAddress(coordinateFallback);
       }
     } catch (err) {
-      console.error('REVERSE GEOCODE ERROR:', err);
-      setTempLocationAddress(`${coordinate.latitude.toFixed(4)}, ${coordinate.longitude.toFixed(4)}`);
+      setTempLocationAddress(coordinateFallback);
     }
   };
 
@@ -446,7 +453,11 @@ export default function CreatePostScreen() {
 
     try {
       const formData = new FormData();
-      if (selectedImage && includeImage) {
+      if (
+        selectedImage &&
+        includeImage &&
+        !/^https?:\/\//i.test(selectedImage)
+      ) {
         formData.append('image', {
           uri: selectedImage,
           type: 'image/jpeg',
@@ -466,21 +477,25 @@ export default function CreatePostScreen() {
         formData.append('userId', loggedUser.userId);
       }
 
-      const response = await fetch(`${API_BASE_URL}/posts/preview`, {
-        method: 'POST',
-        body: formData,
+      const response = await axios.post(`${API_BASE_URL}/posts/preview`, formData, {
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'multipart/form-data',
+        },
+        validateStatus: () => true,
       });
 
-      const rawText = await response.text();
       let data;
       try {
-        data = JSON.parse(rawText);
+        data = typeof response.data === 'string'
+          ? JSON.parse(response.data)
+          : response.data || {};
       } catch {
         Alert.alert(isSi ? 'දෝෂයකි' : 'Server Error', 'Backend returned invalid JSON.');
         return;
       }
 
-      if (response.ok && data.success && data.preview) {
+      if (response.status >= 200 && response.status < 300 && data.success && data.preview) {
         const enhancedPreview = {
           ...data.preview,
           image: data.preview.image || previewData?.image || null,
@@ -876,7 +891,7 @@ export default function CreatePostScreen() {
                   isDarkMode && styles.textInputBoxDark,
                   formErrors.date && styles.inputBoxError,
                 ]}
-                onPress={() => setShowRequiredDatePicker(true)}
+                onPress={() => setShowRequiredDatePicker((visible) => !visible)}
                 activeOpacity={0.75}
               >
                 <View style={styles.dateBtnLeft}>
@@ -897,8 +912,10 @@ export default function CreatePostScreen() {
                   mode="date"
                   minimumDate={new Date()}
                   onChange={(event, selectedDate) => {
-                    if (Platform.OS === 'android') setShowRequiredDatePicker(false);
-                    if (selectedDate) {
+                    if (Platform.OS !== 'ios' || event.type === 'dismissed') {
+                      setShowRequiredDatePicker(false);
+                    }
+                    if (event.type === 'set' && selectedDate) {
                       setRequiredDate(formatDateForPost(selectedDate));
                       if (formErrors.date) setFormErrors((prev) => ({ ...prev, date: null }));
                     }

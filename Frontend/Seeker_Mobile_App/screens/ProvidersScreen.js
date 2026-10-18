@@ -9,11 +9,12 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
+  ActivityIndicator,
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CONFIG, API_BASE_URL } from "../config";
+import { CONFIG, API_BASE_URL, PROVIDER_LIST_URL } from "../config";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../hooks/useTheme";
 import RequestQuotationModal from "./IT22129376/components/RequestQuotationModal";
@@ -23,11 +24,51 @@ import RequestQuotationModal from "./IT22129376/components/RequestQuotationModal
 // --------------------------------------------------------------
 const QUOTATION_API_URL = `${API_BASE_URL}/request-quotations`;
 
+const normalizeProviderTerm = (value) => String(value || '')
+  .toLowerCase()
+  .replace(/&/g, ' and ')
+  .replace(/[_/+-]/g, ' ')
+  .replace(/[^a-z0-9\s]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const imageCategoryAliases = {
+  electrical: ['electrical', 'electrician', 'electric', 'wiring', 'appliance'],
+  plumbing: ['plumbing', 'plumber', 'pipe', 'water', 'drain', 'tap'],
+  furniture: ['furniture', 'carpentry', 'carpenter', 'woodwork', 'upholstery'],
+  cleaning: ['cleaning', 'cleaner', 'house clean', 'home clean'],
+  gardening: ['garden', 'grass', 'lawn', 'landscape', 'plant', 'yard'],
+  childcare: ['child care', 'childcare', 'baby', 'babysitting', 'nanny'],
+};
+
+const matchesImageCategory = (item, categories) => {
+  const provider = item?.provider || {};
+  const portfolio = item?.portfolio || {};
+  const terms = [
+    provider.category,
+    ...(Array.isArray(portfolio.categories) ? portfolio.categories : []),
+    ...(Array.isArray(portfolio.labels) ? portfolio.labels : []),
+    ...(Array.isArray(portfolio.specific_labels) ? portfolio.specific_labels : []),
+    ...(Array.isArray(portfolio.tags) ? portfolio.tags : []),
+  ].map(normalizeProviderTerm).filter(Boolean);
+  const haystack = terms.join(' ');
+  const aliases = Object.entries(imageCategoryAliases).find(([category]) =>
+    categories.some((term) => normalizeProviderTerm(term).includes(category))
+  )?.[1];
+
+  if (aliases) return aliases.some((alias) => haystack.includes(alias));
+  return categories.some((category) => {
+    const normalized = normalizeProviderTerm(category);
+    return normalized && (haystack.includes(normalized) || normalized.includes(haystack));
+  });
+};
+
 export default function ProvidersScreen({ route, navigation }) {
   const {
     userAnswers = [],
     finalDecision = null,
     initialMessage = "",
+    source = "text",
   } = route.params || {};
 
   const { isDarkMode } = useTheme();
@@ -37,6 +78,8 @@ export default function ProvidersScreen({ route, navigation }) {
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [quotationModalVisible, setQuotationModalVisible] = useState(false);
   const [requestedProviderIds, setRequestedProviderIds] = useState(new Set());
+  const [imageFallbackProviders, setImageFallbackProviders] = useState([]);
+  const [imageFallbackLoading, setImageFallbackLoading] = useState(false);
 
   const summary = finalDecision?.summary || finalDecision || {};
   const sessionId = summary.session_id || finalDecision?.session_id || null;
@@ -91,7 +134,64 @@ export default function ProvidersScreen({ route, navigation }) {
    */
   const providerMatching = summary.provider_matching || {};
   const rawProviders = providerMatching.providers || [];
-  const providers = rawProviders.filter((item) => {
+  const imageCategories = [
+    summary.detected_category,
+    summary.detected_object,
+    providerMatching.criteria?.service_category,
+  ].filter(Boolean);
+
+  useEffect(() => {
+    if (source !== 'image' || rawProviders.length > 0 || imageCategories.length === 0) {
+      setImageFallbackProviders([]);
+      setImageFallbackLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+    setImageFallbackLoading(true);
+
+    const fetchImageMatches = async () => {
+      try {
+        const response = await fetch(PROVIDER_LIST_URL);
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || data.error || `Provider lookup failed (${response.status})`);
+        }
+
+        const matches = (Array.isArray(data.providers) ? data.providers : [])
+          .filter((item) => {
+            const provider = item?.provider || {};
+            return Boolean(provider.id || provider._id) &&
+              provider.isVerified !== false &&
+              !provider.isBlocked &&
+              !provider.isRejected &&
+              !provider.isSuspended &&
+              matchesImageCategory(item, imageCategories);
+          })
+          .map((item) => ({
+            ...item,
+            match: { ...(item.match || {}), category_match: true },
+          }));
+
+        if (active) setImageFallbackProviders(matches);
+      } catch (error) {
+        console.warn('IMAGE PROVIDER FALLBACK ERROR:', error.message);
+        if (active) setImageFallbackProviders([]);
+      } finally {
+        if (active) setImageFallbackLoading(false);
+      }
+    };
+
+    fetchImageMatches();
+    return () => {
+      active = false;
+    };
+  }, [source, finalDecision, rawProviders.length]);
+
+  const providersToDisplay = source === 'image' && rawProviders.length === 0
+    ? imageFallbackProviders
+    : rawProviders;
+  const providers = providersToDisplay.filter((item) => {
     const p = item?.provider || item || {};
     if (p.isBlocked || p.isSuspended || p.isRejected) return false;
     if (p.isVerified === false) return false;
@@ -99,7 +199,9 @@ export default function ProvidersScreen({ route, navigation }) {
     return true;
   });
   const totalMatchedProviders =
-    providerMatching.total_matched_providers ?? providers.length;
+    source === 'image' && rawProviders.length === 0
+      ? providers.length
+      : providerMatching.total_matched_providers ?? providers.length;
 
   /*
    * ==========================================================
@@ -283,13 +385,24 @@ export default function ProvidersScreen({ route, navigation }) {
         {/* PROVIDER LIST */}
         {providers.length === 0 ? (
           <View style={styles.noProvidersContainer}>
-            <Ionicons name="search-outline" size={50} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
-            <Text style={[styles.noProvidersTitle, isDarkMode && { color: "#F9FAFB" }]}>
-              No providers found
-            </Text>
-            <Text style={[styles.noProvidersText, isDarkMode && { color: "#9CA3AF" }]}>
-              We couldn't find a matching provider for your requirements.
-            </Text>
+            {imageFallbackLoading ? (
+              <>
+                <ActivityIndicator size="large" color="#6366F1" />
+                <Text style={[styles.noProvidersText, isDarkMode && { color: "#9CA3AF" }]}>
+                  Finding providers for the detected service...
+                </Text>
+              </>
+            ) : (
+              <>
+                <Ionicons name="search-outline" size={50} color={isDarkMode ? "#6B7280" : "#9CA3AF"} />
+                <Text style={[styles.noProvidersTitle, isDarkMode && { color: "#F9FAFB" }]}>
+                  No providers found
+                </Text>
+                <Text style={[styles.noProvidersText, isDarkMode && { color: "#9CA3AF" }]}>
+                  We couldn't find a matching provider for your requirements.
+                </Text>
+              </>
+            )}
           </View>
         ) : (
           providers.map((item, index) => {
