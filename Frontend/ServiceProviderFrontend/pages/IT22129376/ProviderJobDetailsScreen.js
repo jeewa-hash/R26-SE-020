@@ -33,7 +33,6 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
 
   const loadBooking = useCallback(async () => {
     const { token, providerId } = await getStoredProviderAuth();
-    console.log('LOGGED PROVIDER ID:', providerId);
     if (!token || !providerId || !bookingId) {
       setError('Unable to load data right now. Please check your connection and try again.');
       return;

@@ -104,13 +104,11 @@ const firstSuccess = async (candidates) => {
     const { url, options = {}, auth = true } = candidate;
 
     try {
-      console.log('Trying Provider Flow API:', url);
 
       const data = auth
         ? await requestJson(url, options)
         : await requestJsonNoAuth(url, options);
 
-      console.log('Provider Flow API success:', url);
 
       return {
         data,
@@ -243,8 +241,6 @@ export const getProviderRequests = async (providerId) => {
 
   const requests = filterForProvider(rawRequests, providerId);
 
-  console.log('Provider requests raw count:', rawRequests.length);
-  console.log('Provider requests filtered count:', requests.length);
 
   return {
     raw: data,

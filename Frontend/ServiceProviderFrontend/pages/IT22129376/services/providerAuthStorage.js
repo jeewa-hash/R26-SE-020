@@ -196,7 +196,6 @@ export const getStoredProviderAuth = async () => {
       ['providerId', String(jwtUserId)],
       ['userId', String(jwtUserId)],
     ]);
-    console.log('Provider auth normalized from token');
   }
 
   const role =
@@ -207,11 +206,6 @@ export const getStoredProviderAuth = async () => {
     storedCurrentUser?.role ||
     'ServiceProvider';
 
-  console.log('STORED PROVIDER AUTH:', {
-    providerId,
-    role,
-    hasToken: Boolean(token),
-  });
 
   return {
     token,

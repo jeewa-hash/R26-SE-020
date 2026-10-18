@@ -166,14 +166,6 @@ export default function ProviderCalendarScreen({ navigation }) {
         ? ongoingRows.filter((item) => matchesProvider(item, id))
         : myBookings.filter(isOngoingBooking);
 
-      console.log('Provider requests raw count:', requestRows.length);
-      console.log('Provider requests filtered count:', myRequests.length);
-      console.log('Provider quotations raw count:', quotationRows.length);
-      console.log('Provider quotations filtered count:', myQuotations.length);
-      console.log('Provider bookings raw count:', bookingRows.length);
-      console.log('Provider bookings filtered count:', myBookings.length);
-      console.log('Provider ongoing raw count:', ongoingRows.length);
-      console.log('Provider ongoing filtered count:', myOngoing.length);
 
       if (failedRequests === 4) {
         setError('Unable to load data right now. Please check your connection and try again.');
@@ -192,7 +184,6 @@ export default function ProviderCalendarScreen({ navigation }) {
   const initialize = useCallback(async () => {
     setLoading(true);
     const { token, providerId: id, role } = await getStoredProviderAuth();
-    console.log('LOGGED PROVIDER ID:', id);
     if (!token || !id || !String(role || '').toLowerCase().includes('provider')) {
       setLoading(false);
       Alert.alert('Login Required', 'Provider ID not found. Please login again.');
