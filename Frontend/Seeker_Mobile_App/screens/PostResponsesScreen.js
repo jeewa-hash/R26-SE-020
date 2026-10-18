@@ -32,6 +32,9 @@ export default function PostResponsesScreen({ navigation, route }) {
   const { postId, post } = route.params || {};
 
   const [responses, setResponses] = useState([]);
+  const [quoteRequests, setQuoteRequests] = useState({});
+  const [requestsReady, setRequestsReady] = useState(false);
+  const [requestStatusError, setRequestStatusError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [token, setToken] = useState(null);
