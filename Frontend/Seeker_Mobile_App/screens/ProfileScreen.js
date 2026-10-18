@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect, useContext } from 'react';
 
 import {
@@ -52,31 +53,9 @@ const getLocationString = (userObj, isSi) => {
 
 const getMenuItems = (isSi) => [
   {
-    id: 'myposts',
-    title: isSi ? 'මගේ පළ කිරීම්' : 'My Posts',
-    subtitle: isSi ? 'ඔබ පළ කළ ඉල්ලීම්' : 'Your posted service requests',
-    icon: 'newspaper',
-    iconType: 'ion',
-    color: '#06B6D4',
-    screen: 'MyPostsScreen',
-  },
-  {
-    id: 'serviceSessions',
-    title: isSi ? 'මගේ සේවා සැසි' : 'My Service Sessions',
-    subtitle: isSi ? 'සේවා ඉල්ලීම් සහ මිල ගණන්' : 'Requests, quotations & service sessions',
-    icon: 'assignment',
-    iconType: 'material',
-    color: '#4F46E5',
-    screen: 'SeekerServiceSessions',
-  },
-  {
-    id: 'calendar',
-    title: isSi ? 'දින දර්ශනය' : 'Calendar',
-    subtitle: isSi ? 'මාසික සහ සතිපතා සේවා සැලසුම්' : 'Month, week & agenda views',
-    icon: 'calendar',
-    iconType: 'ion',
-    color: '#6366F1',
-    screen: 'SeekerCalendar',
+    id: 'myservices', title: isSi ? 'මගේ සේවා' : 'My Services',
+    subtitle: isSi ? 'ඉල්ලීම්, මිල ගණන් සහ දින දර්ශනය' : 'Requests, quotations, posts & calendar',
+    icon: 'assignment', iconType: 'material', color: '#4F46E5', screen: 'SeekerServices',
   },
   {
     id: 'history',
@@ -96,6 +75,8 @@ const getMenuItems = (isSi) => [
     color: '#F59E0B',
     screen: 'StarPointsScreen',
   },
+  { id: 'appearance', title: isSi ? 'පෙනුම' : 'Appearance', subtitle: isSi ? 'ආලෝක සහ අඳුරු තේමා වෙනස් කරන්න' : 'Switch between light and dark mode', icon: 'moon-outline', iconType: 'ion', color: '#64748B' },
+  { id: 'help', title: isSi ? 'උදව්' : 'Help & Support', subtitle: isSi ? 'උදව් ලබාගන්න' : 'Find answers and get help', icon: 'help-circle-outline', iconType: 'ion', color: '#06B6D4', screen: 'HelpScreen' },
   {
     id: 'language',
     title: isSi ? 'භාෂාව වෙනස් කරන්න' : 'Change Language',
@@ -134,7 +115,6 @@ export default function ProfileScreen() {
     email: user?.email || '',
     phone: user?.phone || user?.telephone || '',
     location: getLocationString(user, isSi),
-    memberSince: isSi ? '2024 ජනවාරි' : 'January 2024',
     avatar: getProfileImage(user?.profilePicture || user?.profileImage || user?.avatar),
   });
 
@@ -262,6 +242,7 @@ export default function ProfileScreen() {
         backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
       />
 
+      <PageHeader title={isSi ? 'ගිණුම' : 'Account'} subtitle={isSi ? 'ඔබේ පැතිකඩ සහ මනාප' : 'Your profile, preferences and support'} showBack={false} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -315,7 +296,7 @@ export default function ProfileScreen() {
             <TouchableOpacity
               key={item.id}
               style={[styles.menuItem, isDarkMode && styles.menuItemDark]}
-              onPress={() => handleMenuPress(item.screen)}
+              onPress={() => item.id === 'appearance' ? toggleTheme() : handleMenuPress(item.screen)}
               activeOpacity={0.7}
             >
               <View style={[styles.menuIcon, { backgroundColor: `${item.color}15` }]}>

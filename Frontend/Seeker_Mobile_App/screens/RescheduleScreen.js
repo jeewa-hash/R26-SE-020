@@ -1,3 +1,4 @@
+import { createSeekerRescheduleSuggestion } from './IT22129376/services/myJobsApi';
 import PageHeader from '../components/PageHeader';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Platform, StatusBar } from 'react-native';
@@ -9,8 +10,9 @@ import { useTheme } from '../hooks/useTheme';
 
 export default function RescheduleScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();
-  const booking = route.params?.booking || { title: "Service Booking", provider: "Service Provider" };
-  const [date, setDate] = useState(new Date());
+  const booking = route.params?.booking || {};
+  const [date, setDate] = useState(new Date(Date.now() + 86400000));
+  const [submitting, setSubmitting] = useState(false);
   const [time, setTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -25,18 +27,26 @@ export default function RescheduleScreen({ navigation, route }) {
     if (selectedTime) setTime(selectedTime);
   };
 
-  const handleReschedule = () => {
-    Alert.alert(
-      "Reschedule Request",
-      `Would you like to reschedule ${booking.title} to ${date.toLocaleDateString()} at ${time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Confirm", onPress: () => {
-          Alert.alert("Success", "Reschedule request sent to provider");
-          navigation.goBack();
-        }}
-      ]
-    );
+  const notify = (title, message) => Platform.OS === 'web' ? window.alert(`${title}\n\n${message}`) : Alert.alert(title, message);
+  const handleReschedule = async () => {
+    if (submitting) return;
+    const bookingId = booking._id || booking.id || booking.bookingId;
+    const start = new Date(date);
+    start.setHours(time.getHours(), time.getMinutes(), 0, 0);
+    if (!bookingId) return notify('Booking required', 'Open a confirmed booking before suggesting a new time.');
+    if (start <= new Date()) return notify('Choose a future time', 'The suggested start must be in the future.');
+    const send = async () => {
+      setSubmitting(true);
+      try {
+        await createSeekerRescheduleSuggestion({ bookingId, sessionId: booking.externalSessionId || booking.sessionId, quotationId: booking.externalQuotationId, requestedStartTime: start.toISOString(), note: 'Seeker suggested a different service time.' });
+        notify('Suggestion sent', 'The provider must review this request. Your booking time has not changed yet.');
+        navigation.goBack();
+      } catch (error) { notify('Unable to send suggestion', error.message || 'Please try again.'); }
+      finally { setSubmitting(false); }
+    };
+    const message = `Suggest ${start.toLocaleString()} for this booking? The current booking time remains until the change is confirmed.`;
+    if (Platform.OS === 'web') { if (window.confirm(message)) await send(); }
+    else Alert.alert('Suggest a new time', message, [{ text: 'Cancel', style: 'cancel' }, { text: 'Send Suggestion', onPress: send }]);
   };
 
   const formatDate = (date) => {
@@ -172,7 +182,7 @@ export default function RescheduleScreen({ navigation, route }) {
         </View>
 
         {/* Submit Button */}
-        <TouchableOpacity style={styles.rescheduleButton} onPress={handleReschedule} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.rescheduleButton} disabled={submitting || !(booking._id || booking.id || booking.bookingId)} onPress={handleReschedule} activeOpacity={0.9}>
           <LinearGradient
             colors={['#667eea', '#764ba2']}
             start={{ x: 0, y: 0 }}
@@ -180,7 +190,7 @@ export default function RescheduleScreen({ navigation, route }) {
             style={styles.rescheduleGradient}
           >
             <Ionicons name="refresh-outline" size={20} color="#fff" />
-            <Text style={styles.rescheduleButtonText}>Request Reschedule</Text>
+            <Text style={styles.rescheduleButtonText}>{submitting ? 'Sending…' : 'Send Reschedule Suggestion'}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>

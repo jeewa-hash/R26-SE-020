@@ -4,7 +4,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-AUTH_API_URL = os.getenv("AUTH_API_URL", "http://localhost:4003/")
+AUTH_API_URL = (
+    os.getenv("AUTH_API_URL")
+    or os.getenv("AUTH_SERVICE_URL")
+    or "https://r26-auth-service.onrender.com"
+).rstrip("/")
 AUTH_PROVIDER_LIST_FALLBACK_URL = os.getenv(
     "AUTH_PROVIDER_LIST_FALLBACK_URL",
     "https://r26-auth-service.onrender.com/providers",

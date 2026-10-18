@@ -62,7 +62,7 @@ export default function MyBidsScreen({ navigation }) {
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: '#667eea15' }]}>
-            <Ionicons name="gavel" size={20} color="#667eea" />
+            <Ionicons name="hammer" size={20} color="#667eea" />
           </View>
           <Text style={styles.statNumber}>{userBids.length}</Text>
           <Text style={styles.statLabel}>Total Bids</Text>
@@ -186,7 +186,7 @@ export default function MyBidsScreen({ navigation }) {
         {userBids.length === 0 && (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIcon}>
-              <Ionicons name="gavel-outline" size={50} color="#D1D5DB" />
+              <Ionicons name="hammer-outline" size={50} color="#D1D5DB" />
             </View>
             <Text style={styles.emptyText}>No Bids Yet</Text>
             <Text style={styles.emptySubtext}>Create your first bid to get quotes from professionals</Text>

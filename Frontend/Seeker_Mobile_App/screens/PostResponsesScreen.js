@@ -1,3 +1,6 @@
+import useRequestedQuotations from '../hooks/useRequestedQuotations';
+import { resolvePostImageUrl } from '../utils/postMedia';
+import { showRequestSent } from '../utils/seekerFeedback';
 import PageHeader from '../components/PageHeader';
 // screens/PostResponsesScreen.js
 
@@ -43,6 +46,9 @@ export default function PostResponsesScreen({ navigation, route }) {
 
   const { createOrGetChat } = useChat();
 
+  const { checking: checkingRequests, isRequested, markRequested } = useRequestedQuotations();
+  const quoteSessionId = post?.sessionId || `POST-${postId}`;
+  const responseProviderId = item => item?.providerId?._id || item?.providerId || item?.applicantId?._id || item?.applicantId;
   const [quoteModalVisible, setQuoteModalVisible] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [quoteNotes, setQuoteNotes] = useState('');
@@ -248,9 +254,7 @@ export default function PostResponsesScreen({ navigation, route }) {
       const postUrgency = post?.urgency || '';
       let postImageUrl = null;
       if (post?.image) {
-        postImageUrl = post.image.startsWith('http')
-          ? post.image
-          : `${API_BASE_URL}/${post.image.replace(/\\/g, '/')}`;
+        postImageUrl = resolvePostImageUrl(post.image, API_BASE_URL);
       }
 
       const initialMessage = `Hi! I would like to discuss this service request with you.`;
@@ -278,6 +282,7 @@ export default function PostResponsesScreen({ navigation, route }) {
 
   // ─── REQUEST QUOTATION MODAL ─────────────────────────────
   const handleOpenQuoteModal = (provider) => {
+    if (checkingRequests || isRequested(responseProviderId(provider), quoteSessionId)) return;
     setSelectedProvider(provider);
     setQuoteNotes(post?.description ? `Regarding: ${post.title}\n${post.description}` : 'I would like to request a quote for my service post.');
     setQuoteLocation(
@@ -335,12 +340,13 @@ export default function PostResponsesScreen({ navigation, route }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.quoteButton]}
+            style={[styles.actionButton, styles.quoteButton, (checkingRequests || isRequested(responseProviderId(item), quoteSessionId)) && { opacity: 0.55 }]}
+            disabled={checkingRequests || isRequested(responseProviderId(item), quoteSessionId)}
             onPress={() => handleOpenQuoteModal(item)}
             activeOpacity={0.8}
           >
             <Ionicons name="document-text-outline" size={16} color="#fff" />
-            <Text style={styles.actionButtonText}>Request Quote</Text>
+            <Text style={styles.actionButtonText}>{isRequested(responseProviderId(item), quoteSessionId) ? 'Requested' : checkingRequests ? 'Checking…' : 'Request Quote'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -368,11 +374,7 @@ export default function PostResponsesScreen({ navigation, route }) {
   }
 
   // ─── POST IMAGE URL ───────────────────────────────────────
-  const postImageUrl = post?.image
-    ? post.image.startsWith('http')
-      ? post.image
-      : `${API_BASE_URL}/${post.image.replace(/\\/g, '/')}`
-    : null;
+  const postImageUrl = resolvePostImageUrl(post?.image, API_BASE_URL);
 
   const urgency = getUrgencyStyle(post?.urgency);
   const locationString =
@@ -545,13 +547,12 @@ export default function PostResponsesScreen({ navigation, route }) {
         }
         defaultUrgency={post?.urgencyLevel || post?.urgency || 'Normal'}
         onClose={() => setQuoteModalVisible(false)}
+        onAlreadyRequested={() => { markRequested(responseProviderId(selectedProvider), quoteSessionId); setQuoteModalVisible(false); }}
         onSuccess={() => {
+          markRequested(responseProviderId(selectedProvider), quoteSessionId);
           setQuoteModalVisible(false);
           setSelectedProvider(null);
-          Alert.alert(
-            'Request Sent',
-            'Quotation request sent successfully. You can track provider responses in My Jobs.'
-          );
+          showRequestSent(navigation);
         }}
       />
     </SafeAreaView>

@@ -24,3 +24,15 @@ Sign in on two devices as the matching provider and seeker. Walk through a reque
 Run automated checks with `node --test authService/test/lifecycleNotifications.test.cjs Frontend/ServiceProviderFrontend/tests/providerFlow.test.cjs`.
 
 The auth socket now requires a login JWT and only joins its verified user's room (or the admin room for an admin). Deploy updated clients with the server. Existing chat sockets in other services are unchanged.
+
+## Seeker navigation cross-check
+
+The seeker inbox, Home badge and My Services badge now share one notification store. The inbox no longer sends its own duplicate read mutations. Inbox rows and toast banners use the same destinations: booking alerts open the exact session by booking ID; quotation/time-change alerts open the session linked to their provider request. Tapping a toast also marks it read. A new alert refreshes an already open detail screen.
+
+Quote fallback notifications share a popup identity with their persisted quotation alert, so polling and sockets do not announce the same offer twice. Read/clear state is account-scoped, repeated read actions cannot decrement unread counts twice, and clearing the inbox suppresses old synthetic quotation entries. Partial fetch failures retain previously loaded sources and show an inline retry message. Background push and durable backend delivery retries remain outside this implementation.
+
+Local configuration audit: the four backend `.env` files had no `NOTIFICATION_SERVICE_SECRET`; `Seeker_Service` also had no `AUTH_SERVICE_URL`. No secrets or deployment settings were changed. Hosted deployments must be checked independently; local files do not establish hosted configuration.
+
+After configuring and restarting, test with a provider and seeker account: send a quotation, receive it with the inbox closed, tap the banner, confirm the exact session opens and both badges decrement once. Repeat with delay, reschedule and completion. Disconnect/reconnect the seeker and confirm history recovers without repeated popups. Mark all read, refresh, clear, refresh, then sign out and sign in as another seeker to verify isolation. No live account notifications were sent by the automated checks.
+
+Checks: `node --test Frontend/Seeker_Mobile_App/tests/*.test.cjs authService/test/lifecycleNotifications.test.cjs`.

@@ -1,3 +1,4 @@
+import { showRequestSent } from '../utils/seekerFeedback';
 import PageHeader from '../components/PageHeader';
 // screens/ProviderProfileScreen.js
 
@@ -323,12 +324,8 @@ export default function ProviderProfileScreen({ route, navigation }) {
           ) : isRequested ? (
             <TouchableOpacity
               style={styles.quoteButtonLargeRequested}
-              onPress={() =>
-                Alert.alert(
-                  'Quotation Requested',
-                  `You have already sent a quotation request to ${providerName}. Only 1 quotation request is allowed per provider for this service requirement.`
-                )
-              }
+              disabled
+              accessibilityState={{ disabled: true }}
             >
               <Ionicons name="checkmark-circle" size={20} color="#10B981" />
               <Text style={styles.quoteButtonTextLargeRequested}>Requested</Text>
@@ -353,14 +350,12 @@ export default function ProviderProfileScreen({ route, navigation }) {
         defaultLocation={finalDecision?.summary?.provider_matching?.criteria?.service_location || ''}
         defaultUrgency={finalDecision?.summary?.urgency_level || 'Normal'}
         onClose={() => setQuotationModalVisible(false)}
+        onAlreadyRequested={() => { setIsRequested(true); setQuotationModalVisible(false); onQuotationRequested?.(providerId); }}
         onSuccess={() => {
           setQuotationModalVisible(false);
           setIsRequested(true);
           onQuotationRequested?.(providerId);
-          Alert.alert(
-            'Request sent',
-            'Quotation request sent successfully. You can track provider responses in My Jobs.'
-          );
+          showRequestSent(navigation);
         }}
       />
     </SafeAreaView>

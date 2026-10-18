@@ -14,7 +14,10 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
-import * as Notifications from 'expo-notifications';
+import { isRunningInExpoGo } from 'expo';
+
+// Expo Go uses the existing in-app socket banners. Load native notifications only in a standalone/development build.
+const Notifications = Platform.OS !== 'web' && !isRunningInExpoGo() ? require('expo-notifications') : null;
 import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { ThemeContext } from '../context/ThemeContext';
 import { getStoredProviderAuth } from './IT22129376/services/providerAuthStorage';
@@ -24,9 +27,10 @@ const ADMIN_API_URL = ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
 
 // Configure foreground system notification behavior safely
 try {
-  Notifications.setNotificationHandler({
+  Notifications?.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
     }),
@@ -154,6 +158,7 @@ export default function NotificationScreen({ navigation }) {
 
   // Request system notification permissions & set Android Notification Channel safely
   const registerForPushNotificationsAsync = async () => {
+    if (!Notifications) return;
     try {
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
@@ -178,6 +183,7 @@ export default function NotificationScreen({ navigation }) {
 
   // Helper to trigger system notification popups in phone's top bar
   const triggerSystemNotification = async (title, body, data = {}) => {
+    if (!Notifications) return;
     try {
       await Notifications.scheduleNotificationAsync({
         content: {

@@ -1,3 +1,4 @@
+import { resolvePostImageUrl } from '../utils/postMedia';
 import PageHeader from '../components/PageHeader';
 // screens/FeedScreen.js
 
@@ -270,7 +271,7 @@ export default function FeedScreen({ navigation }) {
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
 
-        <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
+        <PageHeader title={<>My Posts</>} onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('SeekerServices')} renderActions={({ textColor }) => <><TouchableOpacity
             onPress={() => navigation.navigate('CreatePostScreen')}
           >
             <Ionicons name="add-circle" size={28} color={textColor} />
@@ -301,7 +302,7 @@ export default function FeedScreen({ navigation }) {
           backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
         />
 
-        <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
+        <PageHeader title={<>My Posts</>} onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('SeekerServices')} renderActions={({ textColor }) => <><TouchableOpacity
             onPress={() => navigation.navigate('CreatePostScreen')}
           >
             <Ionicons name="add-circle" size={28} color={textColor} />
@@ -336,7 +337,7 @@ export default function FeedScreen({ navigation }) {
       />
 
       {/* HEADER */}
-      <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
+      <PageHeader title={<>My Posts</>} onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('SeekerServices')} renderActions={({ textColor }) => <><TouchableOpacity
           onPress={() => navigation.navigate('CreatePostScreen')}
         >
           <Ionicons name="add-circle" size={28} color={textColor} />
@@ -369,11 +370,7 @@ export default function FeedScreen({ navigation }) {
         {posts.map((post) => {
           const urgency = getUrgencyStyle(post.urgency);
 
-          const imageUrl = post.image
-            ? post.image.startsWith('http')
-              ? post.image
-              : `${API_BASE_URL}/${post.image.replace(/\\/g, '/')}`
-            : null;
+          const imageUrl = resolvePostImageUrl(post.image, API_BASE_URL);
 
           return (
             <View

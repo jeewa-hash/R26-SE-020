@@ -1,7 +1,9 @@
+import { useChat } from '../../context/ChatContext';
+import { openProviderConversation } from '../../utils/seekerChat';
 import { buildSeekerSessions, seekerSessionGuidance, recordId } from '../../utils/seekerSessions';
 import PageHeader from '../../components/PageHeader';
 import RequestedTimeModal from './components/RequestedTimeModal';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,11 +28,11 @@ import { useTheme } from '../../hooks/useTheme';
 import { COLORS, toneColors } from './theme';
 import { getStoredSeekerAuth } from './services/seekerAuthStorage';
 import {
-  createSeekerRescheduleSuggestion,
   getProviderQuotationsForSeeker,
   getSeekerBookings,
   getSeekerRequestQuotations,
-} from './services/myJobsApi';
+} from './services/seekerSessionApi';
+import { createSeekerRescheduleSuggestion } from './services/myJobsApi';
 
 const getRecordSessionId = (item) => String(
   item?.sessionId || item?.externalSessionId || item?.serviceSessionId || ''
@@ -128,6 +130,8 @@ const getProviderNameFromQuote = (quote) => {
     quote?.provider?.businessName ||
     quote?.provider?.name ||
     quote?.provider?.fullName ||
+    quote?.providerId?.businessName ||
+    quote?.providerId?.name ||
     'Provider'
   );
 };
@@ -205,6 +209,8 @@ function SectionCard({ title, icon, count, children, isDarkMode }) {
 
 export default function SeekerServiceSessionDetailsScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();
+  const { createOrGetChat } = useChat();
+  const [openingChat, setOpeningChat] = useState(false);
   const initialSession = route?.params?.session || {};
   const sessionId = route?.params?.sessionId || initialSession?.sessionId;
   const [timeRequest, setTimeRequest] = useState(null);
@@ -218,6 +224,12 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   const [rescheduleNote, setRescheduleNote] = useState('');
   const [pickerMode, setPickerMode] = useState(null);
   const [submittingReschedule, setSubmittingReschedule] = useState(false);
+
+  useEffect(() => {
+    setSession(route?.params?.session || {});
+    setSelectedQuoteId(null);
+    setComparisonVisible(false);
+  }, [sessionId, route?.params?.notificationId]);
 
   const loadRelatedData = useCallback(async () => {
     if (!sessionId) return;
@@ -246,7 +258,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
     } finally {
       setRefreshing(false);
     }
-  }, [sessionId]);
+  }, [sessionId, route?.params?.notificationId]);
 
   useFocusEffect(useCallback(() => { loadRelatedData(); }, [loadRelatedData]));
   const requests = Array.isArray(session.requests) ? session.requests : [];
@@ -321,10 +333,21 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
     }
   };
 
+  const contactProvider = async () => {
+    if (openingChat || !booking) return;
+    setOpeningChat(true);
+    try {
+      const auth = await getStoredSeekerAuth();
+      await openProviderConversation({ navigation, createOrGetChat, seekerId: auth.seekerId, providerId: booking.providerId, providerName: booking.providerSnapshot?.name || booking.providerSnapshot?.businessName });
+    } catch (error) { if (Platform.OS === 'web') window.alert(error.message); else Alert.alert('Unable to open chat', error.message); }
+    finally { setOpeningChat(false); }
+  };
+
   const handleOpenQuote = (quote) => {
     navigation.navigate('IT22129376QuoteDetails', {
       quote,
       quotationId: quote?._id || quote?.id || quote?.externalQuotationId,
+      bookingLinked: Boolean(booking),
       sessionId: session.sessionId,
     });
   };
@@ -358,7 +381,10 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>{guidance.title}</Text>
           <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Next: {guidance.owner}</Text>
           <Text style={[styles.descriptionText, isDarkMode && styles.textMutedDark]}>{guidance.message}</Text>
-          {booking ? <TouchableOpacity style={styles.compareButton} onPress={openBooking}><Text style={styles.compareButtonText}>{guidance.action}</Text></TouchableOpacity> : null}
+          {booking ? <>
+            <TouchableOpacity style={styles.compareButton} onPress={openBooking}><Text style={styles.compareButtonText}>{guidance.action}</Text></TouchableOpacity>
+            {booking.providerId && <TouchableOpacity disabled={openingChat} style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark]} onPress={contactProvider}><Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>{openingChat ? 'Opening conversation…' : 'Message Provider'}</Text></TouchableOpacity>}
+          </> : null}
         </View>
         <View style={[styles.summaryCard, isDarkMode && styles.sectionCardDark]}>
           <Text style={[styles.mainTitle, isDarkMode && styles.textDark]} numberOfLines={2}>

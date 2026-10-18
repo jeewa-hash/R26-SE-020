@@ -25,7 +25,7 @@ import {
   getSeekerRequestQuotations,
   getProviderQuotationsForSeeker,
   getSeekerBookings,
-} from './services/myJobsApi';
+} from './services/seekerSessionApi';
 
 import { CONFIG } from '../../config';
 
@@ -207,7 +207,7 @@ function SessionTabBar({ activeTab, onTabChange, counts, isDarkMode }) {
   );
 }
 
-function EmptySessionState({ title, message, icon, isDarkMode, onRefresh }) {
+function EmptySessionState({ title, message, icon, isDarkMode, onRefresh, onStart }) {
   return (
     <View style={[styles.stateCard, isDarkMode && styles.stateCardDark]}>
       <View style={styles.emptyIconBox}>
@@ -222,9 +222,9 @@ function EmptySessionState({ title, message, icon, isDarkMode, onRefresh }) {
         {message}
       </Text>
 
-      <TouchableOpacity style={styles.retryButton} onPress={onRefresh} activeOpacity={0.85}>
-        <Ionicons name="refresh" size={18} color="#fff" />
-        <Text style={styles.retryButtonText}>Refresh</Text>
+      <TouchableOpacity style={styles.retryButton} onPress={onStart || onRefresh} activeOpacity={0.85}>
+        <Ionicons name={onStart ? "search" : "refresh"} size={18} color="#fff" />
+        <Text style={styles.retryButtonText}>{onStart ? 'Find a Service' : 'Refresh'}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -493,6 +493,7 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
           icon="assignment"
           isDarkMode={isDarkMode}
           onRefresh={onRefresh}
+          onStart={!sessions.length ? () => navigation.navigate('FindService') : undefined}
         />
       );
     }
@@ -505,7 +506,7 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
             session={session}
             isDarkMode={isDarkMode}
             onPress={() =>
-              session.guidance.target === 'providers' ? navigation.navigate('ProvidersScreen') : navigation.navigate('SeekerServiceSessionDetails', {
+              session.guidance.target === 'providers' ? navigation.navigate('FindService') : navigation.navigate('SeekerServiceSessionDetails', {
                 session,
                 sessionId: session.sessionId,
               })
@@ -528,7 +529,7 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
       />
 
       <ServiceSessionsHeader
-        onBack={() => navigation.navigate('ProfileScreen')}
+        onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('SeekerServices')}
         isDarkMode={isDarkMode}
       />
 

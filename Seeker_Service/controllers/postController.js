@@ -1,3 +1,4 @@
+import { publicImagePath, storedImageFile } from '../utils/uploadPaths.js';
 import Post from "../models/Post.js";
 import { analyzeImageWithGemini } from "../utils/gemini.js";
 import fs from "fs";
@@ -383,7 +384,7 @@ export const previewPost = async (req, res) => {
         description:
           aiData.description || description,
 
-        image: req.file?.path || null,
+        image: publicImagePath(req.file),
 
         category:
           aiData.category || "General",
@@ -600,9 +601,9 @@ export const deletePost = async (req, res) => {
 
     if (
       post.image &&
-      fs.existsSync(post.image)
+      storedImageFile(post.image) && fs.existsSync(storedImageFile(post.image))
     ) {
-      fs.unlinkSync(post.image);
+      fs.unlinkSync(storedImageFile(post.image));
     }
 
     await Post.findByIdAndDelete(
