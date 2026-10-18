@@ -741,6 +741,21 @@ export default function HomeScreen() {
         }),
       });
 
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const responseBody = await response.text();
+        console.error('Text service returned a non-JSON response:', {
+          url,
+          status: response.status,
+          body: responseBody.slice(0, 200),
+        });
+        Alert.alert(
+          'Text Service Error',
+          `The text service returned an invalid response (HTTP ${response.status}). Check the text model URL in your hosting settings and rebuild the app.`
+        );
+        return;
+      }
+
       if (response.status === 401) {
         Alert.alert('Session Expired', 'Please log in again.');
         return;
