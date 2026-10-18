@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coordination-service
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: coordination-service
+
+  template:
+    metadata:
+      labels:
+        app: coordination-service
+
+    spec:
+      containers:
+        - name: coordination-service
+
+          image: 131160053053.dkr.ecr.ap-southeast-2.amazonaws.com/coordination-service:latest
+
+          ports:
+            - containerPort: 5010
+
+          env:
+            - name: PORT
+              value: "5010"
+
+            - name: NODE_ENV
+              value: "production"
+
+            # ML service inside Kubernetes
+            - name: ML_SERVICE_URL
+              value: "http://duration-ml-service:8001"
+
+            # Keep temporarily for compatibility with any older code
+            - name: ML_SERVICE_BASE_URL
+              value: "http://duration-ml-service:8001"
+
+            - name: SERVICE_COORDINATION_SERVICE
+              value: "http://coordination-service:5010/coordination"
+
+            - name: ROUTING_TIMEOUT_MS
+              value: "5000"
+
+            - name: MIN_SCHEDULING_BUFFER_MINS
+              value: "15"
+
+            - name: ML_SERVICE_TIMEOUT_MS
+              value: "5000"
+
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: coordination-secrets
+                  key: MONGO_URI
+
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: coordination-secrets
+                  key: JWT_SECRET
+
+            - name: GOOGLE_MAPS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: coordination-secrets
+                  key: GOOGLE_MAPS_API_KEY
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5010
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5010
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: coordination-service
+
+spec:
+  selector:
+    app: coordination-service
+
+  ports:
+    - protocol: TCP
+      port: 5010
+      targetPort: 5010
+
+  type: ClusterIP
