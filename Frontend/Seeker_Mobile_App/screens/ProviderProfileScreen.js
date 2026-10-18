@@ -13,15 +13,56 @@ import {
   StatusBar,
   Dimensions,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CONFIG, API_BASE_URL, IP_ADDRESS } from '../config';
+import { API_BASE_URL, AUTH_SERVICE_URL, IP_ADDRESS, ML_SERVICE_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../hooks/useTheme';
 import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
 
 const { width } = Dimensions.get('window');
 const QUOTATION_API_URL = `${API_BASE_URL}/request-quotations`;
+
+// ─────────────────────────────────────────────────────────────
+// Palette
+// ─────────────────────────────────────────────────────────────
+const P = {
+  indigo: '#4F46E5',
+  indigoDeep: '#4338CA',
+  indigoSoft: '#EEF2FF',
+  indigoSoftDark: '#1E1B4B',
+  indigoLight: '#A5B4FC',
+  emerald: '#10B981',
+  emeraldDark: '#059669',
+  emeraldSoft: '#ECFDF5',
+  emeraldSoftDark: '#064E3B',
+  emeraldLight: '#34D399',
+  amber: '#F59E0B',
+  amberDark: '#92400E',
+  amberLight: '#FCD34D',
+  amberVeryLight: '#FDE68A',
+  amberSoft: '#FEF3C7',
+  amberSoftDark: '#78350F',
+  rose: '#EF4444',
+  roseDark: '#991B1B',
+  roseSoft: '#FEF2F2',
+  roseSoftDark: '#7F1D1D',
+  roseLight: '#FCA5A5',
+  slate900: '#0F172A',
+  slate800: '#1E293B',
+  slate700: '#334155',
+  slate600: '#475569',
+  slate500: '#64748B',
+  slate400: '#94A3B8',
+  slate300: '#CBD5E1',
+  slate200: '#E2E8F0',
+  slate100: '#F1F5F9',
+  slate50: '#F8FAFC',
+  white: '#FFFFFF',
+};
 
 export default function ProviderProfileScreen({ route, navigation }) {
   const {
@@ -31,6 +72,7 @@ export default function ProviderProfileScreen({ route, navigation }) {
     onQuotationRequested,
   } = route.params || {};
   const { user } = useAuth();
+  const { isDarkMode } = useTheme();
 
   const provider = providerItem?.provider || {};
   const providerId = provider.id || provider._id;
@@ -128,7 +170,7 @@ export default function ProviderProfileScreen({ route, navigation }) {
     if (!profileImage) return null;
     const normalized = profileImage.replace(/\\/g, '/');
     if (normalized.startsWith('http')) return normalized;
-    return `${CONFIG.API_BASE_URL}/${normalized}`;
+    return `${AUTH_SERVICE_URL}/${normalized.replace(/^\/+/, '')}`;
   };
 
   const imageUrl = getProfileImage(provider.profileImage);
@@ -142,11 +184,58 @@ export default function ProviderProfileScreen({ route, navigation }) {
   const specificLabels = portfolio.specific_labels || [];
   const portfolioImages = portfolio.images || [];
 
-  /*
-   * ==========================================================
-   * REQUEST QUOTATION
-   * ==========================================================
-   */
+  // ─────────────────────────────────────────────────────────────
+  // REAL rating — no hardcoded fallback
+  // ─────────────────────────────────────────────────────────────
+  const getProviderRating = (p) => {
+    if (!p) return { value: null, count: 0 };
+    const direct = p.rating ?? p.averageRating ?? p.avgRating ?? p.ratingAverage;
+    const count =
+      p.reviewCount ?? p.totalReviews ?? p.reviewsCount ?? p.totalRatings ?? 0;
+
+    if (direct == null && Array.isArray(p.reviews) && p.reviews.length > 0) {
+      const nums = p.reviews
+        .map((r) => Number(r?.rating ?? r?.stars ?? r?.score))
+        .filter((n) => Number.isFinite(n));
+      if (nums.length > 0) {
+        const avg = nums.reduce((a, b) => a + b, 0) / nums.length;
+        return { value: avg, count: nums.length };
+      }
+    }
+
+    const num = Number(direct);
+    if (!Number.isFinite(num) || num <= 0) {
+      return { value: null, count: Number(count) || 0 };
+    }
+    return { value: num, count: Number(count) || 0 };
+  };
+
+  const renderRating = () => {
+    const { value, count } = getProviderRating(provider);
+    if (value == null) return null;
+
+    const rounded = Math.round(value * 2) / 2;
+    const full = Math.floor(rounded);
+    const half = rounded - full >= 0.5;
+
+    return (
+      <View style={styles.ratingRow}>
+        {[0, 1, 2, 3, 4].map((i) => {
+          const name =
+            i < full ? 'star' : i === full && half ? 'star-half' : 'star-outline';
+          return <Ionicons key={i} name={name} size={16} color={P.amber} />;
+        })}
+        <Text style={[styles.ratingValue, isDarkMode && { color: P.slate200 }]}>
+          {value.toFixed(1)}
+        </Text>
+        {count > 0 && (
+          <Text style={[styles.ratingCount, isDarkMode && { color: P.slate400 }]}>
+            ({count})
+          </Text>
+        )}
+      </View>
+    );
+  };
 
   const handleChat = () => {
     Alert.alert('Chat', `Start a conversation with ${providerName}?`, [
@@ -156,194 +245,603 @@ export default function ProviderProfileScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={[styles.safeArea, isDarkMode && styles.safeAreaDark]}>
+      <StatusBar
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+        backgroundColor={isDarkMode ? P.slate900 : P.slate50}
+      />
 
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.container, isDarkMode && { backgroundColor: P.slate900 }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <PageHeader title="Provider Profile" />
-        {/* Profile card */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatarSection}>
-            {imageUrl ? (
-              <Image source={{ uri: imageUrl }} style={styles.avatar} />
-            ) : (
-              <View style={styles.defaultAvatar}>
-                <Ionicons name="person" size={50} color="#6366F1" />
-              </View>
-            )}
-            <View style={styles.verificationBadge}>
-              <Ionicons
-                name={isVerified ? 'checkmark-circle' : 'close-circle'}
-                size={24}
-                color={isVerified ? '#10B981' : '#EF4444'}
-              />
-              <Text style={[styles.verificationText, { color: isVerified ? '#065F46' : '#991B1B' }]}>
-                {isVerified ? 'Verified' : 'Unverified'}
-              </Text>
+
+        {/* ── Hero profile card ── */}
+        <View style={[styles.heroCard, isDarkMode && styles.heroCardDark]}>
+          <LinearGradient
+            colors={isDarkMode ? [P.indigoSoftDark, '#312E81'] : [P.indigo, P.indigoDeep]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroBanner}
+          >
+            <View style={styles.heroDeco1} />
+            <View style={styles.heroDeco2} />
+          </LinearGradient>
+
+          <View style={styles.avatarWrap}>
+            <View
+              style={[
+                styles.avatarRing,
+                isDarkMode && { backgroundColor: P.slate800, borderColor: P.slate700 },
+              ]}
+            >
+              {imageUrl ? (
+                <Image source={{ uri: imageUrl }} style={styles.avatar} />
+              ) : (
+                <View
+                  style={[
+                    styles.defaultAvatar,
+                    isDarkMode && { backgroundColor: P.indigoSoftDark },
+                  ]}
+                >
+                  <Ionicons
+                    name="person"
+                    size={46}
+                    color={isDarkMode ? P.indigoLight : P.indigo}
+                  />
+                </View>
+              )}
             </View>
           </View>
 
-          <Text style={styles.providerName}>{providerName}</Text>
-          <View style={styles.categoryRow}>
-            <Ionicons name="briefcase-outline" size={16} color="#6B7280" />
-            <Text style={styles.categoryText}>{category}</Text>
+          <View style={styles.heroContent}>
+            <Text
+              style={[styles.providerName, isDarkMode && { color: P.white }]}
+              numberOfLines={2}
+            >
+              {providerName}
+            </Text>
+
+            <View
+              style={[
+                styles.verifiedPill,
+                {
+                  backgroundColor: isVerified
+                    ? (isDarkMode ? P.emeraldSoftDark : P.emeraldSoft)
+                    : (isDarkMode ? P.roseSoftDark : P.roseSoft),
+                  borderColor: isVerified ? P.emerald : P.rose,
+                },
+              ]}
+            >
+              <Ionicons
+                name={isVerified ? 'shield-checkmark' : 'shield-outline'}
+                size={14}
+                color={isVerified ? P.emerald : P.rose}
+              />
+              <Text
+                style={[
+                  styles.verifiedPillText,
+                  {
+                    color: isVerified
+                      ? (isDarkMode ? P.emeraldLight : P.emeraldDark)
+                      : (isDarkMode ? P.roseLight : P.roseDark),
+                  },
+                ]}
+              >
+                {isVerified ? 'Verified Provider' : 'Unverified Provider'}
+              </Text>
+            </View>
+
+            {renderRating()}
           </View>
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={16} color="#6B7280" />
-            <Text style={styles.locationText}>{district}</Text>
+
+          {/* Info strip */}
+          <View
+            style={[
+              styles.infoStrip,
+              isDarkMode && { borderColor: P.slate700, backgroundColor: P.slate800 },
+            ]}
+          >
+            <View style={styles.infoCol}>
+              <View
+                style={[styles.infoIcon, isDarkMode && { backgroundColor: P.indigoSoftDark }]}
+              >
+                <Ionicons
+                  name="briefcase"
+                  size={16}
+                  color={isDarkMode ? P.indigoLight : P.indigo}
+                />
+              </View>
+              <Text style={[styles.infoLabel, isDarkMode && { color: P.slate400 }]}>
+                Category
+              </Text>
+              <Text
+                style={[styles.infoValue, isDarkMode && { color: P.white }]}
+                numberOfLines={1}
+              >
+                {category}
+              </Text>
+            </View>
+
+            <View
+              style={[styles.infoDivider, isDarkMode && { backgroundColor: P.slate700 }]}
+            />
+
+            <View style={styles.infoCol}>
+              <View
+                style={[styles.infoIcon, isDarkMode && { backgroundColor: P.indigoSoftDark }]}
+              >
+                <Ionicons
+                  name="location"
+                  size={16}
+                  color={isDarkMode ? P.indigoLight : P.indigo}
+                />
+              </View>
+              <Text style={[styles.infoLabel, isDarkMode && { color: P.slate400 }]}>
+                Location
+              </Text>
+              <Text
+                style={[styles.infoValue, isDarkMode && { color: P.white }]}
+                numberOfLines={1}
+              >
+                {district}
+              </Text>
+            </View>
+
+            <View
+              style={[styles.infoDivider, isDarkMode && { backgroundColor: P.slate700 }]}
+            />
+
+            <View style={styles.infoCol}>
+              <View
+                style={[styles.infoIcon, isDarkMode && { backgroundColor: P.indigoSoftDark }]}
+              >
+                <Ionicons
+                  name="images"
+                  size={16}
+                  color={isDarkMode ? P.indigoLight : P.indigo}
+                />
+              </View>
+              <Text style={[styles.infoLabel, isDarkMode && { color: P.slate400 }]}>
+                Portfolio
+              </Text>
+              <Text style={[styles.infoValue, isDarkMode && { color: P.white }]}>
+                {totalImages > 0
+                  ? `${totalImages} photo${totalImages > 1 ? 's' : ''}`
+                  : 'None'}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Penalty / Account Restriction Alert Banner */}
+        {/* ── Restriction alert ── */}
         {restrictionInfo.isRestricted && (
-          <View style={styles.restrictionBanner}>
-            <View style={styles.restrictionBannerHeader}>
-              <Ionicons name="alert-circle" size={22} color="#DC2626" />
-              <Text style={styles.restrictionBannerTitle}>
-                Provider Temporarily Unavailable ({restrictionInfo.penaltyRatio})
-              </Text>
+          <View
+            style={[
+              styles.restrictionBanner,
+              isDarkMode && { backgroundColor: P.amberSoftDark, borderColor: P.amber },
+            ]}
+          >
+            <View style={styles.restrictionHeader}>
+              <View
+                style={[
+                  styles.restrictionIconBadge,
+                  isDarkMode && { backgroundColor: 'rgba(245,158,11,0.25)' },
+                ]}
+              >
+                <Ionicons name="alert-circle" size={22} color={P.amber} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={[styles.restrictionTitle, isDarkMode && { color: P.amberLight }]}
+                >
+                  Provider Temporarily Unavailable
+                </Text>
+                <Text
+                  style={[styles.restrictionSub, isDarkMode && { color: P.amber }]}
+                >
+                  Penalty score: {restrictionInfo.penaltyRatio}
+                </Text>
+              </View>
             </View>
-            <Text style={styles.restrictionBannerText}>
-              This service provider is currently restricted from accepting new quotations and bookings due to penalty points limit reached ({restrictionInfo.penaltyRatio}) or pending account verification.
-              {'\n\n'}
-              Please select another active verified professional for your requirement.
+            <Text
+              style={[styles.restrictionText, isDarkMode && { color: P.amberVeryLight }]}
+            >
+              This provider is restricted from accepting new quotations and bookings due to
+              penalty points limit reached or pending verification.{'\n\n'}
+              Please choose another active, verified professional for your requirement.
             </Text>
           </View>
         )}
 
-        {/* Contact */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Contact Information</Text>
-          <View style={styles.contactRow}>
-            <Ionicons name="mail-outline" size={20} color="#6366F1" />
-            <Text style={styles.contactText}>{email}</Text>
+        {/* ── Contact Information ── */}
+        <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
+          <View style={styles.sectionHeader}>
+            <View
+              style={[
+                styles.sectionIconBadge,
+                isDarkMode && { backgroundColor: P.indigoSoftDark },
+              ]}
+            >
+              <Ionicons
+                name="call"
+                size={16}
+                color={isDarkMode ? P.indigoLight : P.indigo}
+              />
+            </View>
+            <Text style={[styles.sectionTitle, isDarkMode && { color: P.white }]}>
+              Contact Information
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.contactRow,
+              isDarkMode && { backgroundColor: P.slate900, borderColor: P.slate700 },
+            ]}
+          >
+            <View
+              style={[
+                styles.contactIconWrap,
+                isDarkMode && { backgroundColor: P.indigoSoftDark },
+              ]}
+            >
+              <Ionicons
+                name="mail"
+                size={16}
+                color={isDarkMode ? P.indigoLight : P.slate600}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.contactLabel, isDarkMode && { color: P.slate400 }]}>
+                Email
+              </Text>
+              <Text
+                style={[styles.contactValue, isDarkMode && { color: P.slate200 }]}
+                numberOfLines={1}
+              >
+                {email}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Match details */}
+        {/* ── Match details ── */}
         {Object.keys(match).length > 0 && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Match Details</Text>
-            <View style={styles.matchChips}>
+          <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
+            <View style={styles.sectionHeader}>
+              <View
+                style={[
+                  styles.sectionIconBadge,
+                  isDarkMode && { backgroundColor: P.indigoSoftDark },
+                ]}
+              >
+                <Ionicons
+                  name="sparkles"
+                  size={16}
+                  color={isDarkMode ? P.indigoLight : P.indigo}
+                />
+              </View>
+              <Text style={[styles.sectionTitle, isDarkMode && { color: P.white }]}>
+                Match Details
+              </Text>
+            </View>
+
+            <View style={styles.tagContainer}>
               {match.category_match && (
-                <View style={styles.matchChip}>
-                  <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                  <Text style={styles.matchChipText}>Category match</Text>
+                <View
+                  style={[
+                    styles.matchChip,
+                    isDarkMode && { backgroundColor: P.emeraldSoftDark },
+                  ]}
+                >
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={14}
+                    color={isDarkMode ? P.emeraldLight : P.emerald}
+                  />
+                  <Text
+                    style={[
+                      styles.matchChipText,
+                      isDarkMode && { color: P.emeraldLight },
+                    ]}
+                  >
+                    Category match
+                  </Text>
                 </View>
               )}
               {match.district_match && (
-                <View style={styles.matchChip}>
-                  <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                  <Text style={styles.matchChipText}>Location match</Text>
+                <View
+                  style={[
+                    styles.matchChip,
+                    isDarkMode && { backgroundColor: P.emeraldSoftDark },
+                  ]}
+                >
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={14}
+                    color={isDarkMode ? P.emeraldLight : P.emerald}
+                  />
+                  <Text
+                    style={[
+                      styles.matchChipText,
+                      isDarkMode && { color: P.emeraldLight },
+                    ]}
+                  >
+                    Location match
+                  </Text>
                 </View>
               )}
               {match.priority && (
-                <View style={[styles.matchChip, styles.priorityChip]}>
-                  <Text style={styles.priorityChipText}>Priority: {match.priority}</Text>
+                <View
+                  style={[
+                    styles.priorityChip,
+                    isDarkMode && { backgroundColor: P.indigoSoftDark },
+                  ]}
+                >
+                  <Ionicons
+                    name="flash"
+                    size={12}
+                    color={isDarkMode ? P.indigoLight : P.indigo}
+                  />
+                  <Text
+                    style={[
+                      styles.priorityChipText,
+                      isDarkMode && { color: P.indigoLight },
+                    ]}
+                  >
+                    {match.priority} priority
+                  </Text>
                 </View>
               )}
             </View>
           </View>
         )}
 
-        {/* Portfolio categories */}
+        {/* ── Portfolio Categories ── */}
         {categories.length > 0 && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Portfolio Categories</Text>
+          <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
+            <View style={styles.sectionHeader}>
+              <View
+                style={[
+                  styles.sectionIconBadge,
+                  isDarkMode && { backgroundColor: P.indigoSoftDark },
+                ]}
+              >
+                <Ionicons
+                  name="albums"
+                  size={16}
+                  color={isDarkMode ? P.indigoLight : P.indigo}
+                />
+              </View>
+              <Text style={[styles.sectionTitle, isDarkMode && { color: P.white }]}>
+                Portfolio Categories
+              </Text>
+            </View>
             <View style={styles.tagContainer}>
               {categories.map((cat, idx) => (
-                <View key={idx} style={styles.tag}>
-                  <Text style={styles.tagText}>{cat}</Text>
+                <View
+                  key={idx}
+                  style={[styles.tag, isDarkMode && { backgroundColor: P.slate700 }]}
+                >
+                  <Text style={[styles.tagText, isDarkMode && { color: P.slate200 }]}>
+                    {cat}
+                  </Text>
                 </View>
               ))}
             </View>
           </View>
         )}
 
-        {/* Specializations */}
+        {/* ── Specializations ── */}
         {specificLabels.length > 0 && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Specializations</Text>
+          <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
+            <View style={styles.sectionHeader}>
+              <View
+                style={[
+                  styles.sectionIconBadge,
+                  isDarkMode && { backgroundColor: P.indigoSoftDark },
+                ]}
+              >
+                <Ionicons
+                  name="ribbon"
+                  size={16}
+                  color={isDarkMode ? P.indigoLight : P.indigo}
+                />
+              </View>
+              <Text style={[styles.sectionTitle, isDarkMode && { color: P.white }]}>
+                Specializations
+              </Text>
+            </View>
             <View style={styles.tagContainer}>
               {specificLabels.map((label, idx) => (
-                <View key={idx} style={[styles.tag, styles.specialTag]}>
-                  <Text style={styles.specialTagText}>{label}</Text>
+                <View
+                  key={idx}
+                  style={[
+                    styles.tag,
+                    styles.specialTag,
+                    isDarkMode && { backgroundColor: P.indigoSoftDark },
+                  ]}
+                >
+                  <Text
+                    style={[styles.specialTagText, isDarkMode && { color: P.indigoLight }]}
+                  >
+                    {label}
+                  </Text>
                 </View>
               ))}
             </View>
           </View>
         )}
 
-        {/* Portfolio images */}
+        {/* ── Portfolio images ── */}
         {totalImages > 0 && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>
-              Portfolio ({totalImages} image{totalImages > 1 ? 's' : ''})
-            </Text>
+          <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
+            <View style={styles.sectionHeader}>
+              <View
+                style={[
+                  styles.sectionIconBadge,
+                  isDarkMode && { backgroundColor: P.indigoSoftDark },
+                ]}
+              >
+                <Ionicons
+                  name="images"
+                  size={16}
+                  color={isDarkMode ? P.indigoLight : P.indigo}
+                />
+              </View>
+              <Text style={[styles.sectionTitle, isDarkMode && { color: P.white }]}>
+                Portfolio ({totalImages} image{totalImages > 1 ? 's' : ''})
+              </Text>
+            </View>
+
             {portfolioImages.length > 0 ? (
               <View style={styles.imageGrid}>
                 {portfolioImages.map((img, idx) => (
                   <Image
                     key={idx}
-                    source={{ uri: `${CONFIG.API_BASE_URL}/${img}` }}
-                    style={styles.portfolioImage}
+                    source={{
+                      uri: img.startsWith('http')
+                        ? img
+                        : `${ML_SERVICE_URL}/${img.replace(/^\/+/, '')}`,
+                    }}
+                    style={[
+                      styles.portfolioImage,
+                      isDarkMode && { backgroundColor: P.slate700 },
+                    ]}
                   />
                 ))}
               </View>
             ) : (
-              <View style={styles.placeholderImages}>
-                <Ionicons name="images-outline" size={40} color="#9CA3AF" />
-                <Text style={styles.placeholderText}>Images not available</Text>
+              <View
+                style={[
+                  styles.placeholderImages,
+                  isDarkMode && { backgroundColor: P.slate900, borderColor: P.slate700 },
+                ]}
+              >
+                <Ionicons
+                  name="images-outline"
+                  size={36}
+                  color={isDarkMode ? P.slate600 : P.slate400}
+                />
+                <Text
+                  style={[styles.placeholderText, isDarkMode && { color: P.slate500 }]}
+                >
+                  Images not available
+                </Text>
               </View>
             )}
           </View>
         )}
 
-        {/* Action buttons */}
+        {/* ── Action buttons ── */}
         <View style={styles.actionContainer}>
-          <TouchableOpacity style={styles.chatButtonLarge} onPress={handleChat}>
-            <Ionicons name="chatbubble-outline" size={20} color="#fff" />
-            <Text style={styles.chatButtonTextLarge}>Chat</Text>
+          <TouchableOpacity
+            style={styles.chatButtonWrap}
+            onPress={handleChat}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={
+                isDarkMode ? [P.indigoLight, P.indigo] : [P.indigo, P.indigoDeep]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.chatButtonGradient}
+            >
+              <Ionicons name="chatbubble-ellipses" size={20} color={P.white} />
+              <Text style={styles.chatButtonText}>Chat</Text>
+            </LinearGradient>
           </TouchableOpacity>
 
           {restrictionInfo.isRestricted ? (
             <TouchableOpacity
-              style={styles.quoteButtonLargeDisabled}
+              style={[styles.quoteButtonDisabled, isDarkMode && { backgroundColor: P.slate700 }]}
               onPress={() =>
                 Alert.alert(
                   'Provider Unavailable',
-                  `This service provider cannot accept new quotation requests at this time due to penalty score (${restrictionInfo.penaltyRatio || '3/3'}). Please choose another professional.`
+                  `This provider cannot accept new quotation requests at this time due to penalty score (${restrictionInfo.penaltyRatio || '3/3'}). Please choose another professional.`
                 )
               }
               activeOpacity={0.7}
             >
-              <Ionicons name="ban-outline" size={20} color="#94A3B8" />
-              <Text style={styles.quoteButtonTextLargeDisabled}>Unavailable</Text>
+              <Ionicons
+                name="ban-outline"
+                size={20}
+                color={isDarkMode ? P.slate400 : P.slate500}
+              />
+              <Text
+                style={[
+                  styles.quoteButtonTextDisabled,
+                  isDarkMode && { color: P.slate400 },
+                ]}
+              >
+                Unavailable
+              </Text>
             </TouchableOpacity>
           ) : isRequested ? (
             <TouchableOpacity
-              style={styles.quoteButtonLargeRequested}
+              style={[
+                styles.quoteButtonRequested,
+                isDarkMode && {
+                  backgroundColor: P.emeraldSoftDark,
+                  borderColor: P.emerald,
+                },
+              ]}
               onPress={() =>
                 Alert.alert(
                   'Quotation Requested',
                   `You have already sent a quotation request to ${providerName}. Only 1 quotation request is allowed per provider for this service requirement.`
                 )
               }
+              activeOpacity={0.85}
             >
-              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-              <Text style={styles.quoteButtonTextLargeRequested}>Requested</Text>
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={isDarkMode ? P.emeraldLight : P.emerald}
+              />
+              <Text
+                style={[
+                  styles.quoteButtonTextRequested,
+                  isDarkMode && { color: P.emeraldLight },
+                ]}
+              >
+                Requested
+              </Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={styles.quoteButtonLarge}
+              style={[
+                styles.quoteButton,
+                isDarkMode && {
+                  backgroundColor: P.indigoSoftDark,
+                  borderColor: P.indigo,
+                },
+              ]}
               onPress={() => setQuotationModalVisible(true)}
+              activeOpacity={0.85}
             >
-              <Ionicons name="document-text-outline" size={20} color="#6366F1" />
-              <Text style={styles.quoteButtonTextLarge}>Get Quote</Text>
+              <Ionicons
+                name="document-text"
+                size={20}
+                color={isDarkMode ? P.indigoLight : P.indigo}
+              />
+              <Text
+                style={[
+                  styles.quoteButtonText,
+                  isDarkMode && { color: P.indigoLight },
+                ]}
+              >
+                Get Quote
+              </Text>
             </TouchableOpacity>
           )}
         </View>
       </ScrollView>
+
       <RequestQuotationModal
         visible={quotationModalVisible}
         provider={provider}
@@ -370,271 +868,382 @@ export default function ProviderProfileScreen({ route, navigation }) {
 /* ============================================================
    STYLES
 ============================================================ */
-
 const styles = StyleSheet.create({
-  restrictionBanner: { backgroundColor: '#FEF3C7', borderColor: '#F59E0B', borderWidth: 1, borderRadius: 14, padding: 16, margin: 16 },
-  restrictionBannerHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  restrictionBannerTitle: { flex: 1, color: '#92400E', fontSize: 15, fontWeight: '600' },
-  restrictionBannerText: { color: '#92400E', fontSize: 13, lineHeight: 19 },
-  quoteButtonLargeDisabled: { minHeight: 48, padding: 14, borderRadius: 14, backgroundColor: '#475569', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  quoteButtonTextLargeDisabled: { color: '#E2E8F0', fontSize: 15, fontWeight: '600' },
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F8F9FC',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  profileCard: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 20,
-    alignItems: 'center',
+  safeArea: { flex: 1, backgroundColor: P.slate50 },
+  safeAreaDark: { backgroundColor: P.slate900 },
+
+  container: { flex: 1, backgroundColor: P.slate50 },
+  scrollContent: { padding: 16, paddingBottom: 32 },
+
+  // ── Hero ──
+  heroCard: {
+    backgroundColor: P.white,
+    borderRadius: 22,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: P.slate200,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#64748B',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+      },
+      android: { elevation: 4 },
+    }),
   },
-  avatarSection: {
-    position: 'relative',
-    marginBottom: 12,
+  heroCardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
+  heroBanner: { height: 110, overflow: 'hidden', position: 'relative' },
+  heroDeco1: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    top: -90,
+    right: -50,
   },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    borderColor: '#6366F1',
+  heroDeco2: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    bottom: -60,
+    left: -20,
   },
+
+  avatarWrap: { alignItems: 'center', marginTop: -52 },
+  avatarRing: {
+    padding: 5,
+    borderRadius: 62,
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+      },
+      android: { elevation: 4 },
+    }),
+  },
+  avatar: { width: 104, height: 104, borderRadius: 52 },
   defaultAvatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#EEF2FF',
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    backgroundColor: P.indigoSoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  verificationBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: -10,
-    flexDirection: 'row',
+
+  heroContent: {
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  verificationText: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 4,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+    gap: 10,
   },
   providerName: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 8,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.4,
+    textAlign: 'center',
   },
-  categoryRow: {
+  verifiedPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
-  },
-  categoryText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginLeft: 6,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  locationText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginLeft: 6,
-  },
-  sectionCard: {
-    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
+    borderWidth: 1,
+    gap: 5,
+  },
+  verifiedPillText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.2 },
+
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ratingValue: { fontSize: 13, fontWeight: '800', color: P.slate800, marginLeft: 6 },
+  ratingCount: { fontSize: 12, fontWeight: '600', color: P.slate500 },
+
+  // Info strip
+  infoStrip: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderColor: P.slate100,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    backgroundColor: P.slate50,
+  },
+  infoCol: { flex: 1, alignItems: 'center', gap: 4 },
+  infoIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: P.indigoSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  infoLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: P.slate500,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  infoValue: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: P.slate900,
+    textAlign: 'center',
+    paddingHorizontal: 4,
+  },
+  infoDivider: { width: 1, backgroundColor: P.slate200, marginVertical: 6 },
+
+  // ── Restriction banner ──
+  restrictionBanner: {
+    backgroundColor: P.amberSoft,
+    borderColor: P.amber,
+    borderWidth: 1,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+  },
+  restrictionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 10,
+  },
+  restrictionIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245,158,11,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restrictionTitle: {
+    color: P.amberDark,
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  restrictionSub: {
+    color: P.amberDark,
+    fontSize: 12.5,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  restrictionText: {
+    color: P.amberDark,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '500',
+  },
+
+  // ── Section cards ──
+  sectionCard: {
+    backgroundColor: P.white,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#64748B',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  sectionCardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  sectionIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: P.indigoSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 12,
+    fontSize: 15,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.2,
   },
+
+  // Contact
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: P.slate50,
+    borderWidth: 1,
+    borderColor: P.slate100,
   },
-  contactText: {
-    fontSize: 14,
-    color: '#374151',
-    marginLeft: 12,
+  contactIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: P.indigoSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  matchChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  contactLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: P.slate500,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 2,
   },
+  contactValue: { fontSize: 14, fontWeight: '700', color: P.slate800 },
+
+  // Tags
+  tagContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   matchChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: P.emeraldSoft,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 20,
+    gap: 5,
   },
-  matchChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#059669',
-    marginLeft: 4,
-  },
+  matchChipText: { fontSize: 12, fontWeight: '700', color: P.emeraldDark },
   priorityChip: {
-    backgroundColor: '#EEF2FF',
-  },
-  priorityChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6366F1',
-  },
-  tagContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tag: {
-    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    backgroundColor: P.indigoSoft,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
+    borderRadius: 20,
+    gap: 5,
+  },
+  priorityChipText: { fontSize: 12, fontWeight: '800', color: P.indigo },
+  tag: {
+    backgroundColor: P.slate100,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 20,
   },
-  tagText: {
-    fontSize: 12,
-    color: '#4B5563',
-  },
-  specialTag: {
-    backgroundColor: '#EEF2FF',
-  },
-  specialTagText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6366F1',
-  },
-  imageGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
-  },
+  tagText: { fontSize: 12.5, fontWeight: '600', color: P.slate600 },
+  specialTag: { backgroundColor: P.indigoSoft },
+  specialTagText: { fontSize: 12.5, fontWeight: '700', color: P.indigo },
+
+  // Portfolio grid
+  imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   portfolioImage: {
     width: (width - 64) / 3,
     height: (width - 64) / 3,
     borderRadius: 12,
+    backgroundColor: P.slate100,
     resizeMode: 'cover',
   },
   placeholderImages: {
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 24,
+    gap: 8,
+    borderRadius: 12,
+    backgroundColor: P.slate50,
+    borderWidth: 1,
+    borderColor: P.slate100,
+    borderStyle: 'dashed',
   },
-  placeholderText: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginTop: 8,
-  },
+  placeholderText: { fontSize: 13, color: P.slate400, fontWeight: '600' },
+
+  // Actions
   actionContainer: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 8,
   },
-  chatButtonLarge: {
+  chatButtonWrap: {
+    flex: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: P.indigo,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+    }),
+  },
+  chatButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    gap: 8,
+  },
+  chatButtonText: { fontSize: 15, fontWeight: '800', color: P.white },
+
+  quoteButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#6366F1',
-    paddingVertical: 14,
+    backgroundColor: P.indigoSoft,
+    paddingVertical: 15,
     borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: P.indigo,
     gap: 8,
   },
-  chatButtonTextLarge: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  quoteButtonLarge: {
+  quoteButtonText: { fontSize: 15, fontWeight: '800', color: P.indigo },
+
+  quoteButtonRequested: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EEF2FF',
-    paddingVertical: 14,
+    backgroundColor: P.emeraldSoft,
+    paddingVertical: 15,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#6366F1',
+    borderWidth: 1.5,
+    borderColor: P.emerald,
     gap: 8,
   },
-  quoteButtonTextLarge: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6366F1',
+  quoteButtonTextRequested: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: P.emeraldDark,
   },
-  quoteButtonLargeRequested: {
+
+  quoteButtonDisabled: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingVertical: 14,
+    backgroundColor: P.slate200,
+    paddingVertical: 15,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#10B981',
     gap: 8,
   },
-  quoteButtonTextLargeRequested: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  disabledButton: {
-    opacity: 0.6,
+  quoteButtonTextDisabled: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: P.slate500,
   },
 });

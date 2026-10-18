@@ -17,6 +17,7 @@ import VerifyOTPScreen from './screens/VerifyOTPScreen';
 import HomeScreen from './screens/HomeScreen';
 import FollowUpScreen from './screens/FollowUpScreen';
 import ProvidersScreen from './screens/ProvidersScreen';
+import CategoryProvidersScreen from './screens/CategoryProvidersScreen';
 import FeedScreen from './screens/FeedScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import CreatePostScreen from './screens/CreatePostScreen';
@@ -154,6 +155,12 @@ function AppNavigator({ initialRouteName }) {
       <Stack.Screen
         name="ProvidersScreen"
         component={ProvidersScreen}
+        options={{ headerShown: false }}
+      />
+
+      <Stack.Screen
+        name="CategoryProvidersScreen"
+        component={CategoryProvidersScreen}
         options={{ headerShown: false }}
       />
 

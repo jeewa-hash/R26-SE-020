@@ -1,4 +1,5 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
+import axios from 'axios';
 import {
   View,
   Text,
@@ -50,6 +51,22 @@ if (
 }
 
 const { width } = Dimensions.get('window');
+
+const P = {
+  indigo: '#4F46E5',
+  indigoDeep: '#4338CA',
+  indigoLight: '#A5B4FC',
+  amber: '#F59E0B',
+  slate900: '#0F172A',
+  slate800: '#1E293B',
+  slate700: '#334155',
+  slate500: '#64748B',
+  slate400: '#94A3B8',
+  slate200: '#E2E8F0',
+  slate100: '#F1F5F9',
+  slate50: '#F8FAFC',
+  white: '#FFFFFF',
+};
 
 const CATEGORIES = [
   {
@@ -105,6 +122,9 @@ const getAvatarGradient = (char) => {
   return AVATAR_GRADIENTS[code % AVATAR_GRADIENTS.length];
 };
 
+// ============================================================
+// Slideshow (unchanged logic; kept same behavior)
+// ============================================================
 const Slideshow = ({ isDarkMode }) => {
   const navigation = useNavigation();
   const flatListRef = useRef();
@@ -215,11 +235,7 @@ const Slideshow = ({ isDarkMode }) => {
             );
             setSlides(onlyVerified);
           } else {
-            // Default seasonal data if completely offline
-            const defaultMock = getSlideshowData().map((s) => ({
-              ...s,
-              isMock: true,
-            }));
+            const defaultMock = getSlideshowData().map((s) => ({ ...s, isMock: true }));
             setSlides(defaultMock);
           }
           setLoading(false);
@@ -240,7 +256,6 @@ const Slideshow = ({ isDarkMode }) => {
     };
   }, []);
 
-  // Automatic slide interval
   useEffect(() => {
     if (slides.length <= 1) return;
 
@@ -248,17 +263,13 @@ const Slideshow = ({ isDarkMode }) => {
       if (flatListRef.current && slides.length > 0) {
         const nextIndex = (currentIndex + 1) % slides.length;
         setCurrentIndex(nextIndex);
-        flatListRef.current.scrollToIndex({
-          index: nextIndex,
-          animated: true,
-        });
+        flatListRef.current.scrollToIndex({ index: nextIndex, animated: true });
       }
     }, 4500);
 
     return () => clearInterval(interval);
   }, [currentIndex, slides.length]);
 
-  // Navigate directly to profileOfProvider
   const handleNavigateToProvider = (item) => {
     if (item.isMock) {
       navigation.navigate('SeasonalDemandsScreen');
@@ -342,7 +353,6 @@ const Slideshow = ({ isDarkMode }) => {
           colors={['rgba(0,0,0,0.2)', 'rgba(15,23,42,0.92)']}
           style={styles.slideOverlay}
         >
-          {/* Top Recommendation Tag & Rating */}
           <View style={styles.slideHeaderRow}>
             <View style={styles.slideTagPill}>
               <Text style={styles.slideTagText}>
@@ -367,7 +377,6 @@ const Slideshow = ({ isDarkMode }) => {
             </View>
           </View>
 
-          {/* Provider Details */}
           <View style={styles.slideContent}>
             <View style={styles.slideProviderRow}>
               {hasValidImage ? (
@@ -443,6 +452,9 @@ const Slideshow = ({ isDarkMode }) => {
   );
 };
 
+// ============================================================
+// ServiceCard (unchanged logic)
+// ============================================================
 const ServiceCard = ({
   category,
   expanded,
@@ -491,7 +503,7 @@ const ServiceCard = ({
           <MaterialIcons
             name={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
             size={24}
-            color={isDarkMode ? '#818cf8' : '#4F46E5'}
+            color={isDarkMode ? P.indigoLight : P.indigo}
           />
         </View>
       </TouchableOpacity>
@@ -502,7 +514,7 @@ const ServiceCard = ({
             <TouchableOpacity
               key={index}
               style={[styles.subThumbnail, isDarkMode && styles.subThumbnailDark]}
-              onPress={() => onSubPress(category.subcategories[index] || sub)}
+              onPress={() => onSubPress(category.subcategories[index] || sub, category.title)}
               activeOpacity={0.8}
             >
               <View style={[styles.subIconCircle, { backgroundColor: `${category.color}15` }]}>
@@ -522,7 +534,7 @@ const ServiceCard = ({
               onPress={onImageUpload}
             >
               <LinearGradient
-                colors={isDarkMode ? ['#6366f1', '#4f46e5'] : ['#4F46E5', '#7C3AED']}
+                colors={isDarkMode ? [P.indigoLight, P.indigo] : [P.indigo, '#7C3AED']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientButton}
@@ -540,13 +552,19 @@ const ServiceCard = ({
   );
 };
 
+// ============================================================
+// HomeScreen
+// ============================================================
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { language, changeLanguage } = useContext(LanguageContext) || { language: 'en' };
   const isSi = language === 'si';
   const { isDarkMode, toggleTheme } = useTheme();
   const { unreadCount } = useChat();
-  const { unreadCount: notificationUnreadCount } = useNotification();
+  const {
+    unreadCount: notificationUnreadCount,
+    syncNotifications,
+  } = useNotification();
 
   const [expandedId, setExpandedId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -581,9 +599,10 @@ export default function HomeScreen() {
 
   useFocusEffect(React.useCallback(() => {
     loadLiveSummary(true);
+    syncNotifications(false);
     const interval = setInterval(() => loadLiveSummary(false), 30000);
     return () => clearInterval(interval);
-  }, [loadLiveSummary]));
+  }, [loadLiveSummary, syncNotifications]));
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
@@ -630,17 +649,17 @@ export default function HomeScreen() {
         <View style={styles.liveInnerSection}>
           <View style={styles.liveInnerHeader}>
             <Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>
-              {traveling 
-                ? (isSi ? 'සේවකයා පැමිණෙමින් සිටී' : 'Provider On the Way') 
-                : kind === 'current' 
-                  ? (isSi ? 'ක්‍රියාකාරී සේවාව' : 'In Progress Booking') 
+              {traveling
+                ? (isSi ? 'සේවකයා පැමිණෙමින් සිටී' : 'Provider On the Way')
+                : kind === 'current'
+                  ? (isSi ? 'ක්‍රියාකාරී සේවාව' : 'In Progress Booking')
                   : (isSi ? 'මීළඟ සේවාව' : 'Next Booking')}
             </Text>
             <Text style={[styles.liveInnerStatus, { color }]}>
-              {traveling 
-                ? (isSi ? 'සේවකයා ඔබ වෙත ගමන් කරයි' : 'Provider is travelling to you') 
-                : kind === 'current' 
-                  ? (delayed ? (isSi ? 'ප්‍රමාදයක් වාර්තා කර ඇත' : 'Provider reported a delay') : (isSi ? 'සේවාව සිදු වෙමින් පවතී' : 'Service in progress')) 
+              {traveling
+                ? (isSi ? 'සේවකයා ඔබ වෙත ගමන් කරයි' : 'Provider is travelling to you')
+                : kind === 'current'
+                  ? (delayed ? (isSi ? 'ප්‍රමාදයක් වාර්තා කර ඇත' : 'Provider reported a delay') : (isSi ? 'සේවාව සිදු වෙමින් පවතී' : 'Service in progress'))
                   : (soon ? (isSi ? `ළඟදීම · ${getTimeRemainingLabel(start)}` : `Starting soon · ${getTimeRemainingLabel(start)}`) : getTimeRemainingLabel(start))}
             </Text>
           </View>
@@ -692,8 +711,8 @@ export default function HomeScreen() {
   const handleChatPress = () => navigation.navigate('ChatListScreen');
   const handleNotifications = () => navigation.navigate('NotificationScreen');
 
-  const handleSubCategoryPress = (subcategory) => {
-    Alert.alert('Service Selected', `${subcategory} service will be available soon`);
+  const handleSubCategoryPress = (subcategory, parentCategory) => {
+    navigation.navigate('CategoryProvidersScreen', { category: subcategory, parentCategory });
   };
 
   const handleSearch = async () => {
@@ -768,40 +787,39 @@ export default function HomeScreen() {
 
       if (result.canceled) return;
 
-      const imageUri = result.assets[0].uri;
+      const imageAsset = result.assets[0];
       const formData = new FormData();
-
       formData.append('file', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'photo.jpg',
+        uri: imageAsset.uri,
+        name: imageAsset.fileName || 'service-image.jpg',
+        type: imageAsset.mimeType || 'image/jpeg',
       });
-
       formData.append('app_lan', language === 'si' ? 'si' : 'en');
 
-      const response = await fetch(`${IMAGE_CLASSIFIER_URL}/predict`, {
-        method: 'POST',
-        body: formData,
+      const uploadResponse = await axios.post(`${IMAGE_CLASSIFIER_URL}/predict`, formData, {
         headers: {
           Accept: 'application/json',
           Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
         },
+        validateStatus: () => true,
       });
 
-      if (response.status === 401) {
+      if (uploadResponse.status === 401) {
         Alert.alert('Session Expired', 'Please log in again.');
         return;
       }
 
-      const responseText = await response.text();
       let data = {};
       try {
-        data = responseText ? JSON.parse(responseText) : {};
+        data = typeof uploadResponse.data === 'string'
+          ? JSON.parse(uploadResponse.data)
+          : uploadResponse.data || {};
       } catch {
-        throw new Error(`Image classifier returned an invalid response (${response.status}).`);
+        throw new Error(`Image classifier returned an invalid response (${uploadResponse.status}).`);
       }
-      if (!response.ok) {
-        throw new Error(data.detail || data.message || `Image classifier returned HTTP ${response.status}.`);
+      if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
+        throw new Error(data.detail || data.message || `Image classifier returned HTTP ${uploadResponse.status}.`);
       }
 
       if (data.session_id) {
@@ -841,19 +859,26 @@ export default function HomeScreen() {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isDarkMode ? '#0f1121' : '#667eea'}
+        backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep}
       />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#667eea" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={P.indigo}
+          />
+        }
       >
+        {/* ── Gradient header ── */}
         <LinearGradient
           colors={
             isDarkMode
-              ? ['#0f1121', '#1a1a2e', '#16213e']
-              : ['#4338CA', '#4F46E5', '#6366F1']
+              ? [P.slate900, '#1a1a2e', '#16213e']
+              : [P.indigoDeep, P.indigo, '#6366F1']
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -868,7 +893,6 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.headerActionsPill}>
-              {/* Language Switch Button */}
               <TouchableOpacity
                 style={styles.langBadgeBtn}
                 onPress={toggleLanguage}
@@ -880,7 +904,11 @@ export default function HomeScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.headerIconBtn} onPress={handleChatPress}>
-                <Ionicons name="chatbubble-ellipses-outline" size={22} color="#444" />
+                <Ionicons
+                  name="chatbubble-ellipses-outline"
+                  size={20}
+                  color={isDarkMode ? P.indigoLight : P.indigo}
+                />
                 {totalUnreadMessages > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>
@@ -891,7 +919,11 @@ export default function HomeScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.headerIconBtn} onPress={handleNotifications}>
-                <Ionicons name="notifications-outline" size={22} color="#444" />
+                <Ionicons
+                  name="notifications-outline"
+                  size={20}
+                  color={isDarkMode ? P.indigoLight : P.indigo}
+                />
                 {notificationUnreadCount > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>
@@ -908,14 +940,15 @@ export default function HomeScreen() {
               >
                 <Ionicons
                   name={isDarkMode ? 'moon' : 'sunny'}
-                  size={22}
-                  color={isDarkMode ? '#818cf8' : '#F59E0B'}
+                  size={20}
+                  color={isDarkMode ? P.indigoLight : P.amber}
                 />
               </TouchableOpacity>
             </View>
           </View>
         </LinearGradient>
 
+        {/* ── Search ── */}
         <View style={styles.searchWrapper}>
           <View
             style={[
@@ -927,12 +960,16 @@ export default function HomeScreen() {
             <Feather
               name="search"
               size={20}
-              color={isDarkMode ? '#818cf8' : '#4F46E5'}
+              color={isDarkMode ? P.indigoLight : P.indigo}
             />
 
             <TextInput
-              placeholder={isSi ? 'සේවාවක් සොයන්න (උදා: ජලනල, විදුලි)...' : (t('search_placeholder') || 'Search for any service...')}
-              placeholderTextColor={isDarkMode ? '#6B7280' : '#94A3B8'}
+              placeholder={
+                isSi
+                  ? 'සේවාවක් සොයන්න (උදා: ජලනල, විදුලි)...'
+                  : (t('search_placeholder') || 'Search for any service...')
+              }
+              placeholderTextColor={isDarkMode ? P.slate500 : P.slate400}
               style={[styles.searchInput, isDarkMode && styles.textDark]}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -950,7 +987,7 @@ export default function HomeScreen() {
                 <Feather
                   name="x"
                   size={18}
-                  color={isDarkMode ? '#6B7280' : '#999'}
+                  color={isDarkMode ? P.slate500 : P.slate400}
                 />
               </TouchableOpacity>
             )}
@@ -962,7 +999,7 @@ export default function HomeScreen() {
               <Feather
                 name="sliders"
                 size={20}
-                color={isDarkMode ? '#818cf8' : '#4F46E5'}
+                color={isDarkMode ? P.indigoLight : P.indigo}
               />
             </TouchableOpacity>
           </View>
@@ -978,93 +1015,67 @@ export default function HomeScreen() {
                 <Text style={styles.filterChipTextActive}>{isSi ? 'ලඟම' : 'Nearby'}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? 'ඉහළ ඇගයීම්' : 'Top Rated'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? 'අඩුම මිල' : 'Lowest Price'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? 'දැන් ලබාගත හැක' : 'Available Now'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? '24/7 සහාය' : '24/7 Support'}
-                </Text>
-              </TouchableOpacity>
+              {[
+                { en: 'Top Rated', si: 'ඉහළ ඇගයීම්' },
+                { en: 'Lowest Price', si: 'අඩුම මිල' },
+                { en: 'Available Now', si: 'දැන් ලබාගත හැක' },
+                { en: '24/7 Support', si: '24/7 සහාය' },
+              ].map((chip, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.filterChip, isDarkMode && styles.filterChipDark]}
+                >
+                  <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
+                    {isSi ? chip.si : chip.en}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           )}
         </View>
 
-        {/* 4 Big Visual Quick Action Cards for High Accessibility & Clarity */}
+        {/* ── Quick action cards (2 only — My Orders removed) ── */}
         <View style={styles.quickGridContainer}>
           <TouchableOpacity
             style={[styles.quickCard, isDarkMode && styles.quickCardDark]}
             onPress={handleImageUpload}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
             <LinearGradient
               colors={['#FF6B6B', '#EE5253']}
               style={styles.quickIconCircle}
             >
-              <MaterialIcons name="photo-camera" size={24} color="#fff" />
+              <MaterialIcons name="photo-camera" size={26} color="#fff" />
             </LinearGradient>
             <Text style={[styles.quickCardTitle, isDarkMode && styles.textDark]}>
               {isSi ? 'කැඩුණු දේ' : 'Photo Repair'}
             </Text>
             <Text style={[styles.quickCardSub, isDarkMode && styles.textMutedDark]}>
-              {isSi ? 'ඡායාරූපයෙන්' : 'Snap photo'}
+              {isSi ? 'ඡායාරූපයෙන් සොයන්න' : 'Snap a photo'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.quickCard, isDarkMode && styles.quickCardDark]}
             onPress={handleCreatePress}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
             <LinearGradient
               colors={['#059669', '#10B981']}
               style={styles.quickIconCircle}
             >
-              <MaterialIcons name="post-add" size={24} color="#fff" />
+              <MaterialIcons name="post-add" size={26} color="#fff" />
             </LinearGradient>
             <Text style={[styles.quickCardTitle, isDarkMode && styles.textDark]}>
               {isSi ? 'වැඩක් දාන්න' : 'Post Job'}
             </Text>
             <Text style={[styles.quickCardSub, isDarkMode && styles.textMutedDark]}>
-              {isSi ? 'මිල ගණන්' : 'Free quotes'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.quickCard, isDarkMode && styles.quickCardDark]}
-            onPress={() => navigation.navigate('BookingsScreen')}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#D97706', '#F59E0B']}
-              style={styles.quickIconCircle}
-            >
-              <MaterialIcons name="event-note" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={[styles.quickCardTitle, isDarkMode && styles.textDark]}>
-              {isSi ? 'මගේ ඇණවුම්' : 'My Orders'}
-            </Text>
-            <Text style={[styles.quickCardSub, isDarkMode && styles.textMutedDark]}>
-              {isSi ? 'තත්ත්වය' : 'Track status'}
+              {isSi ? 'මිල ගණන් ලබාගන්න' : 'Get free quotes'}
             </Text>
           </TouchableOpacity>
         </View>
 
+        {/* ── Bidding banner ── */}
         <TouchableOpacity onPress={handleImageUpload} activeOpacity={0.9}>
           <LinearGradient
             colors={['#FF6B6B', '#FF8E53']}
@@ -1074,7 +1085,7 @@ export default function HomeScreen() {
           >
             <View style={styles.biddingContent}>
               <View style={styles.biddingIconContainer}>
-                <MaterialIcons name="photo-camera" size={30} color="#fff" />
+                <MaterialIcons name="photo-camera" size={26} color="#fff" />
               </View>
 
               <View style={styles.biddingTextContainer}>
@@ -1087,16 +1098,13 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.biddingArrow}>
-                <Feather
-                  name="arrow-right"
-                  size={20}
-                  color="#fff"
-                />
+                <Feather name="arrow-right" size={20} color="#fff" />
               </View>
             </View>
           </LinearGradient>
         </TouchableOpacity>
 
+        {/* ── Live booking ── */}
         <View style={styles.liveSection}>
           <Text style={[styles.liveSectionTitle, isDarkMode && styles.textDark]}>
             {isSi ? 'ක්‍රියාකාරී සේවා තත්ත්වය' : 'Live Booking Status'}
@@ -1106,6 +1114,7 @@ export default function HomeScreen() {
 
         <Slideshow isDarkMode={isDarkMode} />
 
+        {/* ── All Services header ── */}
         <View style={styles.sectionHeader}>
           <View>
             <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
@@ -1121,11 +1130,10 @@ export default function HomeScreen() {
             <Text style={[styles.seeAllText, isDarkMode && styles.seeAllTextDark]}>
               {isSi ? 'සියල්ල' : (t('home_see_all') || 'See All')}
             </Text>
-
             <Feather
               name="arrow-right"
               size={14}
-              color={isDarkMode ? '#818cf8' : '#4F46E5'}
+              color={isDarkMode ? P.indigoLight : P.indigo}
             />
           </TouchableOpacity>
         </View>
@@ -1149,140 +1157,125 @@ export default function HomeScreen() {
   );
 }
 
+// ============================================================
+// STYLES
+// ============================================================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  containerDark: {
-    backgroundColor: '#0f1121',
-  },
-  scrollContent: {
-    paddingBottom: 80,
-  },
-  liveSection: { paddingHorizontal: 20, paddingTop: 18 },
-  liveSectionTitle: { fontSize: 19, fontWeight: '600', color: '#111827', marginBottom: 12 },
-  liveStateCard: { minHeight: 105, borderRadius: 18, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', padding: 16, gap: 9 },
-  liveCardDark: { backgroundColor: '#1a1a2e', borderColor: '#30304A' },
-  liveStateText: { color: '#6B7280', fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  liveRetry: { color: '#667eea', fontWeight: '800' },
-  liveBookingCard: { borderRadius: 18, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFF', padding: 16 },
-  liveInnerSection: { paddingVertical: 2 },
-  liveInnerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 7 },
-  liveInnerLabel: { color: '#111827', fontSize: 14, fontWeight: '600' },
-  liveInnerStatus: { fontSize: 12, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
-  liveDivider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 15 },
-  liveDividerDark: { backgroundColor: '#30304A' },
-  liveStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
-  liveStatusTitle: { fontSize: 14, fontWeight: '600', textTransform: 'uppercase' },
-  liveServiceTitle: { color: '#111827', fontSize: 18, fontWeight: '500', marginBottom: 8 },
-  liveDetail: { color: '#6B7280', fontSize: 13, lineHeight: 20 },
-  liveEmptyText: { marginTop: 8 },
-  liveRemaining: { fontSize: 13, fontWeight: '800', marginTop: 6 },
-  liveDetailsButton: { alignSelf: 'flex-start', borderRadius: 11, paddingHorizontal: 16, paddingVertical: 10, marginTop: 14 },
-  liveDetailsButtonText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
+  container: { flex: 1, backgroundColor: P.slate50 },
+  containerDark: { backgroundColor: P.slate900 },
+  scrollContent: { paddingBottom: 80 },
 
+  // ── Live booking ──
+  liveSection: { paddingHorizontal: 20, paddingTop: 20 },
+  liveSectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.3,
+    marginBottom: 12,
+  },
+  liveStateCard: {
+    minHeight: 105,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    backgroundColor: P.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 9,
+  },
+  liveCardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
+  liveStateText: { color: P.slate500, fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  liveRetry: { color: P.indigo, fontWeight: '800' },
+  liveBookingCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    backgroundColor: P.white,
+    padding: 16,
+  },
+  liveInnerSection: { paddingVertical: 2 },
+  liveInnerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 7,
+  },
+  liveInnerLabel: { color: P.slate900, fontSize: 14, fontWeight: '700' },
+  liveInnerStatus: { fontSize: 12, fontWeight: '600', flexShrink: 1, textAlign: 'right' },
+  liveDivider: { height: 1, backgroundColor: P.slate100, marginVertical: 15 },
+  liveDividerDark: { backgroundColor: P.slate700 },
+  liveServiceTitle: { color: P.slate900, fontSize: 17, fontWeight: '700', marginBottom: 8 },
+  liveDetail: { color: P.slate500, fontSize: 13, lineHeight: 20 },
+  liveEmptyText: { marginTop: 8 },
+  liveDetailsButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 11,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginTop: 14,
+  },
+  liveDetailsButtonText: { color: P.white, fontSize: 13, fontWeight: '700' },
+
+  // ── Header ──
   headerGradient: {
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     paddingBottom: 36,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 12 : (Platform.OS === 'ios' ? 48 : 20),
+    paddingTop:
+      Platform.OS === 'android'
+        ? (StatusBar.currentHeight || 28) + 12
+        : Platform.OS === 'ios'
+        ? 48
+        : 20,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  brandArea: {
-    flex: 1,
-    justifyContent: 'center',
-  },
+  brandArea: { flex: 1, justifyContent: 'center' },
   appName: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#fff',
+    color: P.white,
     letterSpacing: -0.8,
   },
   appTagline: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.88)',
+    color: 'rgba(255,255,255,0.85)',
     marginTop: 2,
     fontWeight: '500',
   },
   headerActionsPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: P.white,
     borderRadius: 22,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 6,
+    gap: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+      },
+      android: { elevation: 6 },
+    }),
   },
   langBadgeBtn: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: P.indigoSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  langBadgeText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#4338CA',
-  },
-  quickGridContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginTop: 18,
-    gap: 10,
-  },
-  quickCard: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  quickCardDark: {
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
-  },
-  quickIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  quickCardTitle: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#0F172A',
-    textAlign: 'center',
-  },
-  quickCardSub: {
-    fontSize: 9.5,
-    color: '#64748B',
-    marginTop: 1.5,
-    textAlign: 'center',
-  },
+  langBadgeText: { fontSize: 11.5, fontWeight: '800', color: P.indigoDeep },
   headerIconBtn: {
     position: 'relative',
     width: 30,
@@ -1295,7 +1288,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -5,
     right: -5,
-    backgroundColor: '#EF4444',
+    backgroundColor: P.rose,
     borderRadius: 9,
     minWidth: 17,
     height: 17,
@@ -1303,105 +1296,141 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 1.5,
-    borderColor: '#fff',
+    borderColor: P.white,
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '800',
-  },
+  badgeText: { color: P.white, fontSize: 9, fontWeight: '800' },
 
-  searchWrapper: {
-    paddingHorizontal: 20,
-    marginTop: -20,
-  },
+  // ── Search ──
+  searchWrapper: { paddingHorizontal: 20, marginTop: -20 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: P.white,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
     gap: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: { elevation: 5 },
+    }),
   },
   searchContainerDark: {
-    backgroundColor: '#1a1a2e',
-    borderColor: '#2d3561',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
+    backgroundColor: P.slate800,
+    borderWidth: 1,
+    borderColor: P.slate700,
   },
   searchContainerFocused: {
+    borderWidth: 1,
+    borderColor: 'rgba(79, 70, 229, 0.25)',
     shadowOpacity: 0.15,
     shadowRadius: 15,
-    borderWidth: 1,
-    borderColor: '#667eea20',
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#333',
+    color: P.slate900,
     paddingVertical: 0,
   },
-  clearBtn: {
-    padding: 2,
-  },
+  clearBtn: { padding: 2 },
   filterIcon: {
     paddingLeft: 8,
     borderLeftWidth: 1,
-    borderLeftColor: '#E5E7EB',
+    borderLeftColor: P.slate200,
   },
-  filterIconDark: {
-    borderLeftColor: '#2d3561',
-  },
-  filterChips: {
-    marginTop: 12,
-  },
-  filterChipsContent: {
-    paddingRight: 20,
-  },
+  filterIconDark: { borderLeftColor: P.slate700 },
+  filterChips: { marginTop: 12 },
+  filterChipsContent: { paddingRight: 20 },
   filterChip: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: P.slate100,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
   },
-  filterChipDark: {
-    backgroundColor: '#242f4d',
-  },
+  filterChipDark: { backgroundColor: P.slate800 },
   filterChipActive: {
-    backgroundColor: '#667eea',
+    backgroundColor: P.indigo,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
   },
-  filterChipText: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
+  filterChipText: { fontSize: 13, color: P.slate600, fontWeight: '600' },
+  filterChipTextActive: { fontSize: 13, color: P.white, fontWeight: '700' },
+
+  // ── Quick cards (2 only) ──
+  quickGridContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginTop: 20,
+    gap: 12,
   },
-  filterChipTextActive: {
-    fontSize: 13,
-    color: '#fff',
+  quickCard: {
+    flex: 1,
+    backgroundColor: P.white,
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: P.slate200,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  quickCardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
+  quickIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  quickCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: P.slate900,
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  quickCardSub: {
+    fontSize: 11.5,
+    color: P.slate500,
+    marginTop: 3,
+    textAlign: 'center',
     fontWeight: '500',
   },
 
+  // ── Bidding banner ──
   biddingBanner: {
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#FF6B6B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FF6B6B',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+      },
+      android: { elevation: 5 },
+    }),
   },
   biddingContent: {
     flexDirection: 'row',
@@ -1413,36 +1442,24 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#ffffff30',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  biddingTextContainer: {
-    flex: 1,
-  },
-  biddingTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 2,
-  },
-  biddingSubtitle: {
-    fontSize: 12,
-    color: '#ffffffCC',
-  },
+  biddingTextContainer: { flex: 1 },
+  biddingTitle: { fontSize: 16, fontWeight: '800', color: P.white, marginBottom: 2 },
+  biddingSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
   biddingArrow: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#ffffff20',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  slideshowContainer: {
-    marginTop: 20,
-    marginBottom: 10,
-  },
+  // ── Slideshow ──
+  slideshowContainer: { marginTop: 22, marginBottom: 10 },
   slideCard: {
     width: width - 32,
     height: 195,
@@ -1450,21 +1467,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     backgroundColor: '#1e1b4b',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.15,
-    shadowRadius: 14,
-    elevation: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.15,
+        shadowRadius: 14,
+      },
+      android: { elevation: 6 },
+    }),
   },
-  slideCardDark: {
-    backgroundColor: '#0f1123',
-    borderColor: '#3730a3',
-    borderWidth: 1,
-  },
-  slideImage: {
-    width: '100%',
-    height: '100%',
-  },
+  slideCardDark: { backgroundColor: '#0f1123', borderColor: '#3730a3', borderWidth: 1 },
+  slideImage: { width: '100%', height: '100%' },
   slideOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -1488,11 +1502,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
   },
-  slideTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#fff',
-  },
+  slideTagText: { fontSize: 11, fontWeight: '700', color: P.white },
   slideVerifiedPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1504,11 +1514,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(16,185,129,0.45)',
   },
-  slideVerifiedText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#10B981',
-  },
+  slideVerifiedText: { fontSize: 11, fontWeight: '700', color: P.emeraldLight },
   slideRatingPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1520,38 +1526,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
   },
-  slideRatingText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#FBBF24',
-  },
-  slideContent: {
-    marginBottom: 4,
-  },
-  slideProviderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 10,
-  },
+  slideRatingText: { fontSize: 11.5, fontWeight: '800', color: '#FBBF24' },
+  slideContent: { marginBottom: 4 },
+  slideProviderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   slideAvatarThumb: {
     width: 44,
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: P.white,
   },
-  slideWatermarkWrap: {
-    position: 'absolute',
-    right: 15,
-    top: 5,
-    opacity: 0.18,
-  },
-  slideWatermarkInitial: {
-    fontSize: 140,
-    fontWeight: '900',
-    color: '#ffffff',
-  },
+  slideWatermarkWrap: { position: 'absolute', right: 15, top: 5, opacity: 0.18 },
+  slideWatermarkInitial: { fontSize: 140, fontWeight: '900', color: P.white },
   slideAvatarFallback: {
     width: 44,
     height: 44,
@@ -1559,43 +1545,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: P.white,
   },
-  slideAvatarInitial: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  slideTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 2,
-  },
-  slideSubtitle: {
-    fontSize: 12,
-    color: '#E2E8F0',
-    fontWeight: '500',
-  },
+  slideAvatarInitial: { fontSize: 20, fontWeight: '800', color: P.white },
+  slideTitle: { fontSize: 17, fontWeight: '800', color: P.white, marginBottom: 2 },
+  slideSubtitle: { fontSize: 12, color: '#E2E8F0', fontWeight: '500' },
   slideButton: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.4)',
   },
-  slideButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#fff',
-  },
+  slideButtonText: { fontSize: 12, fontWeight: '800', color: P.white },
   dotContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -1606,14 +1570,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: P.slate300,
     marginHorizontal: 4,
   },
-  activeDot: {
-    width: 20,
-    backgroundColor: '#667eea',
-  },
+  activeDot: { width: 20, backgroundColor: P.indigo },
 
+  // ── Section header ──
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1624,62 +1586,38 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#1a1a2e',
-    letterSpacing: -0.3,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.4,
     marginBottom: 4,
   },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: '#999',
-  },
-  seeAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  seeAllText: {
-    color: '#667eea',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  seeAllTextDark: {
-    color: '#818cf8',
-  },
+  sectionSubtitle: { fontSize: 13, color: P.slate500, fontWeight: '500' },
+  seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  seeAllText: { color: P.indigo, fontSize: 13, fontWeight: '700' },
+  seeAllTextDark: { color: P.indigoLight },
 
+  // ── Accordion ──
   accordionContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: P.white,
     borderRadius: 16,
     marginHorizontal: 20,
     marginBottom: 12,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  accordionContainerDark: {
-    backgroundColor: '#16213e',
-    borderColor: '#2d3561',
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 4,
+    borderColor: P.slate200,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+      },
+      android: { elevation: 3 },
+    }),
   },
-  mainCategory: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  mainCategoryLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 14,
-  },
+  accordionContainerDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
+  mainCategory: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  mainCategoryLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 14 },
   iconBoxGradient: {
     width: 44,
     height: 44,
@@ -1689,41 +1627,33 @@ const styles = StyleSheet.create({
   },
   mainTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1a1a2e',
+    fontWeight: '700',
+    color: P.slate900,
     marginBottom: 2,
+    letterSpacing: -0.2,
   },
-  subtitleCount: {
-    fontSize: 11,
-    color: '#999',
-  },
+  subtitleCount: { fontSize: 11.5, color: P.slate500, fontWeight: '500' },
   expandIcon: {
     padding: 4,
     borderRadius: 12,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: P.slate100,
   },
-  expandIconDark: {
-    backgroundColor: '#242f4d',
-  },
-  expandIconActive: {
-    backgroundColor: '#667eea15',
-  },
+  expandIconDark: { backgroundColor: P.slate700 },
+  expandIconActive: { backgroundColor: P.indigoSoft },
   subGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginTop: 16,
     borderTopWidth: 1,
-    borderColor: '#E8ECF0',
+    borderColor: P.slate100,
     paddingTop: 16,
     justifyContent: 'space-between',
     gap: 10,
   },
-  subGridDark: {
-    borderColor: '#2d3561',
-  },
+  subGridDark: { borderColor: P.slate700 },
   subThumbnail: {
     width: (width - 104) / 2,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: P.slate50,
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderRadius: 12,
@@ -1731,13 +1661,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E8ECF0',
+    borderColor: P.slate200,
     gap: 8,
   },
-  subThumbnailDark: {
-    backgroundColor: '#1a1a2e',
-    borderColor: '#2d3561',
-  },
+  subThumbnailDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
   subIconCircle: {
     width: 28,
     height: 28,
@@ -1745,11 +1672,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  subText: {
-    fontSize: 12,
-    color: '#555',
-    fontWeight: '500',
-  },
+  subText: { fontSize: 12, color: P.slate700, fontWeight: '600' },
   specialUploadBtn: {
     width: '100%',
     marginTop: 8,
@@ -1763,16 +1686,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  uploadText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 13,
-  },
+  uploadText: { color: P.white, fontWeight: '700', fontSize: 13 },
 
-  textDark: {
-    color: '#F8FAFC',
-  },
-  textMutedDark: {
-    color: '#94A3B8',
-  },
+  // ── Utility ──
+  textDark: { color: P.slate50 },
+  textMutedDark: { color: P.slate400 },
 });

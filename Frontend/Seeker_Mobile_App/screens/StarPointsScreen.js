@@ -20,6 +20,63 @@ import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 import { API_BASE_URL } from '../config';
 
+// ─────────────────────────────────────────────────────────────
+// Palette
+// ─────────────────────────────────────────────────────────────
+const P = {
+  indigo: '#4F46E5',
+  indigoDeep: '#4338CA',
+  indigoSoft: '#EEF2FF',
+  indigoSoftDark: '#1E1B4B',
+  indigoLight: '#A5B4FC',
+  emerald: '#10B981',
+  emeraldDark: '#059669',
+  emeraldSoft: '#ECFDF5',
+  emeraldSoftDark: '#064E3B',
+  emeraldLight: '#34D399',
+  amber: '#F59E0B',
+  amberDeep: '#D97706',
+  amberLight: '#FBBF24',
+  amberSoft: '#FEF3C7',
+  amberSoftDark: '#78350F',
+  rose: '#EF4444',
+  roseSoft: '#FEF2F2',
+  roseSoftDark: '#7F1D1D',
+  roseLight: '#FCA5A5',
+  slate900: '#0F172A',
+  slate800: '#1E293B',
+  slate700: '#334155',
+  slate600: '#475569',
+  slate500: '#64748B',
+  slate400: '#94A3B8',
+  slate300: '#CBD5E1',
+  slate200: '#E2E8F0',
+  slate100: '#F1F5F9',
+  slate50: '#F8FAFC',
+  white: '#FFFFFF',
+};
+
+// Tier thresholds (same as your original data)
+const TIERS = [
+  { key: 'silver', points: 500, label: 'Silver' },
+  { key: 'gold', points: 1000, label: 'Gold' },
+  { key: 'platinum', points: 2000, label: 'Platinum' },
+  { key: 'diamond', points: 5000, label: 'Diamond' },
+];
+
+const REWARD_GATE = 1500; // existing next-reward threshold
+
+const getTierInfo = (points) => {
+  // Current tier = highest threshold achieved
+  let current = null;
+  let next = null;
+  for (const tier of TIERS) {
+    if (points >= tier.points) current = tier;
+    else if (!next) next = tier;
+  }
+  return { current, next };
+};
+
 export default function StarPointsScreen({ navigation }) {
   const { isDarkMode } = useTheme();
   const [balance, setBalance] = useState({ balance: 0, lifetimeEarned: 0, lifetimeSpent: 0 });
@@ -76,110 +133,324 @@ export default function StarPointsScreen({ navigation }) {
     .filter((transaction) => transaction.type === 'SPEND' && new Date(transaction.createdAt) >= startOfMonth)
     .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0));
 
-  const getPointsToNextReward = () => {
-    const nextReward = 1500;
-    return Math.max(0, nextReward - totalPoints);
-  };
+  const getPointsToNextReward = () => Math.max(0, REWARD_GATE - totalPoints);
+
+  const { current: currentTier, next: nextTier } = getTierInfo(totalPoints);
+
+  // Progress bar tied to real next tier (falls back to reward gate)
+  const progressTarget = nextTier?.points ?? REWARD_GATE;
+  const progressPct = Math.max(0, Math.min((totalPoints / progressTarget) * 100, 100));
+
+  const memberLabel = currentTier
+    ? `${currentTier.label} Member`
+    : 'Starter';
 
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
-        barStyle={isDarkMode ? "light-content" : "dark-content"}
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"}
+        barStyle="light-content"
+        backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep}
       />
 
-      {/* Header */}
-      <PageHeader title={<>Star Points</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity style={styles.helpButton}>
-          <Ionicons name="help-circle-outline" size={24} color={textColor} />
-        </TouchableOpacity></>} />
+      <PageHeader
+        title={<>Star Points</>}
+        onBack={() => navigation.goBack()}
+        renderActions={({ textColor }) => (
+          <TouchableOpacity
+            style={[
+              styles.headerActionBtn,
+              isDarkMode && { backgroundColor: P.slate800 },
+            ]}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="help-circle-outline" size={22} color={textColor} />
+          </TouchableOpacity>
+        )}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadRewards(true)} />}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadRewards(true)}
+            tintColor={P.amber}
+          />
+        }
       >
-        {/* Points Card */}
-        <LinearGradient
-          colors={['#FBBF24', '#F59E0B']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.pointsCard}
-        >
-          <View style={styles.pointsHeader}>
-            <View style={styles.pointsIconContainer}>
-              <Ionicons name="star" size={32} color="#fff" />
-            </View>
-            <View style={styles.pointsLevel}>
-              <Text style={styles.pointsLevelText}>Gold Member</Text>
-            </View>
-          </View>
-          {loading ? <ActivityIndicator size="large" color="#fff" style={styles.pointsLoader} /> : <Text style={styles.pointsAmount}>{totalPoints}</Text>}
-          <Text style={styles.pointsLabel}>Total Star Points</Text>
-          <View style={styles.nextRewardContainer}>
-            <Text style={styles.nextRewardText}>
-              {getPointsToNextReward()} points to next reward
-            </Text>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${Math.min((totalPoints / 1500) * 100, 100)}%` }]} />
-            </View>
-          </View>
-        </LinearGradient>
+        {/* ── Points hero card ── */}
+        <View style={styles.pointsCardWrap}>
+          <LinearGradient
+            colors={[P.amberLight, P.amber, P.amberDeep]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.pointsCard}
+          >
+            {/* Decorative orbs */}
+            <View style={styles.orb1} />
+            <View style={styles.orb2} />
 
-        {/* Stats Row */}
-        <View style={[styles.statsContainer, isDarkMode && styles.statsContainerDark]}>
-          <View style={styles.statItem}>
-            <View style={[styles.statIcon, { backgroundColor: '#10B98115' }]}>
-              <Ionicons name="arrow-up" size={20} color="#10B981" />
+            <View style={styles.pointsHeader}>
+              <View style={styles.pointsIconWrap}>
+                <Ionicons name="star" size={28} color={P.white} />
+              </View>
+              <View style={styles.levelPill}>
+                <Ionicons name="ribbon" size={12} color={P.white} />
+                <Text style={styles.levelPillText}>{memberLabel}</Text>
+              </View>
             </View>
-            <Text style={[styles.statValue, isDarkMode && styles.textDark]}>+{monthlyEarned}</Text>
-            <Text style={[styles.statLabel, isDarkMode && styles.textMutedDark]}>Earned This Month</Text>
+
+            {loading ? (
+              <ActivityIndicator size="large" color={P.white} style={styles.pointsLoader} />
+            ) : (
+              <Text style={styles.pointsAmount}>{totalPoints.toLocaleString()}</Text>
+            )}
+
+            <Text style={styles.pointsLabel}>Total Star Points</Text>
+
+            <View style={styles.nextRewardBox}>
+              <View style={styles.nextRewardHeader}>
+                <Text style={styles.nextRewardText}>
+                  {getPointsToNextReward() > 0
+                    ? `${getPointsToNextReward()} pts to next reward`
+                    : 'Reward unlocked'}
+                </Text>
+                {nextTier && (
+                  <Text style={styles.nextRewardTarget}>{nextTier.label}</Text>
+                )}
+              </View>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+              </View>
+              <Text style={styles.progressHelper}>
+                {Math.min(totalPoints, progressTarget).toLocaleString()} / {progressTarget.toLocaleString()} pts
+              </Text>
+            </View>
+          </LinearGradient>
+        </View>
+
+        {/* ── Error message ── */}
+        {error ? (
+          <View
+            style={[
+              styles.errorCard,
+              isDarkMode && { backgroundColor: P.roseSoftDark, borderColor: P.rose },
+            ]}
+          >
+            <Ionicons name="alert-circle" size={20} color={P.rose} />
+            <Text
+              style={[styles.errorText, isDarkMode && { color: P.roseLight }]}
+              numberOfLines={3}
+            >
+              {error}
+            </Text>
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={() => loadRewards(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="refresh" size={14} color={P.white} />
+              <Text style={styles.retryText}>Retry</Text>
+            </TouchableOpacity>
           </View>
-          <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
+        ) : null}
+
+        {/* ── Stats row ── */}
+        <View style={styles.statsSectionLabel}>
+          <Text style={[styles.sectionLabel, isDarkMode && { color: P.slate400 }]}>
+            THIS MONTH
+          </Text>
+        </View>
+
+        <View
+          style={[
+            styles.statsContainer,
+            isDarkMode && { backgroundColor: P.slate800, borderColor: P.slate700 },
+          ]}
+        >
           <View style={styles.statItem}>
-            <View style={[styles.statIcon, { backgroundColor: '#EF444415' }]}>
-              <Ionicons name="arrow-down" size={20} color="#EF4444" />
+            <View
+              style={[
+                styles.statIcon,
+                { backgroundColor: isDarkMode ? P.emeraldSoftDark : P.emeraldSoft },
+              ]}
+            >
+              <Ionicons
+                name="arrow-up"
+                size={18}
+                color={isDarkMode ? P.emeraldLight : P.emerald}
+              />
             </View>
-            <Text style={[styles.statValue, isDarkMode && styles.textDark]}>-{monthlyRedeemed}</Text>
-            <Text style={[styles.statLabel, isDarkMode && styles.textMutedDark]}>Redeemed This Month</Text>
+            <Text style={[styles.statValue, isDarkMode && { color: P.white }]}>
+              +{monthlyEarned}
+            </Text>
+            <Text style={[styles.statLabel, isDarkMode && { color: P.slate400 }]}>
+              Earned
+            </Text>
           </View>
-          <View style={[styles.statDivider, isDarkMode && styles.statDividerDark]} />
+
+          <View
+            style={[styles.statDivider, isDarkMode && { backgroundColor: P.slate700 }]}
+          />
+
           <View style={styles.statItem}>
-            <View style={[styles.statIcon, { backgroundColor: '#667eea15' }]}>
-              <Ionicons name="gift" size={20} color="#667eea" />
+            <View
+              style={[
+                styles.statIcon,
+                { backgroundColor: isDarkMode ? P.roseSoftDark : P.roseSoft },
+              ]}
+            >
+              <Ionicons
+                name="arrow-down"
+                size={18}
+                color={isDarkMode ? P.roseLight : P.rose}
+              />
             </View>
-            <Text style={[styles.statValue, isDarkMode && styles.textDark]}>{balance.lifetimeEarned}</Text>
-            <Text style={[styles.statLabel, isDarkMode && styles.textMutedDark]}>Lifetime Earned</Text>
+            <Text style={[styles.statValue, isDarkMode && { color: P.white }]}>
+              -{monthlyRedeemed}
+            </Text>
+            <Text style={[styles.statLabel, isDarkMode && { color: P.slate400 }]}>
+              Redeemed
+            </Text>
+          </View>
+
+          <View
+            style={[styles.statDivider, isDarkMode && { backgroundColor: P.slate700 }]}
+          />
+
+          <View style={styles.statItem}>
+            <View
+              style={[
+                styles.statIcon,
+                { backgroundColor: isDarkMode ? P.indigoSoftDark : P.indigoSoft },
+              ]}
+            >
+              <Ionicons
+                name="gift"
+                size={18}
+                color={isDarkMode ? P.indigoLight : P.indigo}
+              />
+            </View>
+            <Text style={[styles.statValue, isDarkMode && { color: P.white }]}>
+              {balance.lifetimeEarned}
+            </Text>
+            <Text style={[styles.statLabel, isDarkMode && { color: P.slate400 }]}>
+              Lifetime
+            </Text>
           </View>
         </View>
 
-        {/* Reward Tiers */}
-        <View style={styles.tiersContainer}>
-          <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Reward Tiers</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tiersScroll}>
-            <View style={[styles.tierCard, totalPoints >= 500 && styles.tierCardActive, isDarkMode && styles.tierCardDark]}>
-              <Ionicons name="star" size={24} color={totalPoints >= 500 ? "#FBBF24" : (isDarkMode ? "#4B5563" : "#D1D5DB")} />
-              <Text style={[styles.tierPoints, isDarkMode && styles.textDark]}>500 pts</Text>
-              <Text style={[styles.tierName, isDarkMode && styles.textMutedDark]}>Silver</Text>
-            </View>
-            <View style={[styles.tierCard, totalPoints >= 1000 && styles.tierCardActive, isDarkMode && styles.tierCardDark]}>
-              <Ionicons name="star" size={24} color={totalPoints >= 1000 ? "#FBBF24" : (isDarkMode ? "#4B5563" : "#D1D5DB")} />
-              <Text style={[styles.tierPoints, isDarkMode && styles.textDark]}>1000 pts</Text>
-              <Text style={[styles.tierName, isDarkMode && styles.textMutedDark]}>Gold</Text>
-            </View>
-            <View style={[styles.tierCard, totalPoints >= 2000 && styles.tierCardActive, isDarkMode && styles.tierCardDark]}>
-              <Ionicons name="star" size={24} color={totalPoints >= 2000 ? "#FBBF24" : (isDarkMode ? "#4B5563" : "#D1D5DB")} />
-              <Text style={[styles.tierPoints, isDarkMode && styles.textDark]}>2000 pts</Text>
-              <Text style={[styles.tierName, isDarkMode && styles.textMutedDark]}>Platinum</Text>
-            </View>
-            <View style={[styles.tierCard, totalPoints >= 5000 && styles.tierCardActive, isDarkMode && styles.tierCardDark]}>
-              <Ionicons name="star" size={24} color={totalPoints >= 5000 ? "#FBBF24" : (isDarkMode ? "#4B5563" : "#D1D5DB")} />
-              <Text style={[styles.tierPoints, isDarkMode && styles.textDark]}>5000 pts</Text>
-              <Text style={[styles.tierName, isDarkMode && styles.textMutedDark]}>Diamond</Text>
-            </View>
+        {/* ── Reward tiers ── */}
+        <View style={styles.tiersSection}>
+          <View style={styles.tiersHeader}>
+            <Text style={[styles.sectionTitle, isDarkMode && { color: P.white }]}>
+              Reward Tiers
+            </Text>
+            <Text style={[styles.sectionHint, isDarkMode && { color: P.slate400 }]}>
+              Earn more to unlock
+            </Text>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.tiersScroll}
+            contentContainerStyle={styles.tiersScrollContent}
+          >
+            {TIERS.map((tier) => {
+              const unlocked = totalPoints >= tier.points;
+              const isCurrent = currentTier?.key === tier.key;
+              const progress = Math.min(100, (totalPoints / tier.points) * 100);
+
+              return (
+                <View
+                  key={tier.key}
+                  style={[
+                    styles.tierCard,
+                    unlocked && styles.tierCardUnlocked,
+                    isCurrent && styles.tierCardCurrent,
+                    isDarkMode && {
+                      backgroundColor: P.slate800,
+                      borderColor: unlocked ? P.amber : P.slate700,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.tierIconWrap,
+                      {
+                        backgroundColor: unlocked
+                          ? isDarkMode
+                            ? P.amberSoftDark
+                            : P.amberSoft
+                          : isDarkMode
+                          ? P.slate900
+                          : P.slate100,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={unlocked ? 'star' : 'star-outline'}
+                      size={22}
+                      color={
+                        unlocked
+                          ? P.amber
+                          : isDarkMode
+                          ? P.slate500
+                          : P.slate400
+                      }
+                    />
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.tierPoints,
+                      isDarkMode && { color: P.white },
+                      !unlocked && isDarkMode && { color: P.slate400 },
+                    ]}
+                  >
+                    {tier.points.toLocaleString()}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.tierName,
+                      isDarkMode && { color: P.slate400 },
+                    ]}
+                  >
+                    {tier.label}
+                  </Text>
+
+                  {/* Per-tier mini progress bar */}
+                  <View
+                    style={[
+                      styles.tierProgressBg,
+                      isDarkMode && { backgroundColor: P.slate700 },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.tierProgressFill,
+                        {
+                          width: `${progress}%`,
+                          backgroundColor: unlocked ? P.amber : P.slate400,
+                        },
+                      ]}
+                    />
+                  </View>
+
+                  {isCurrent && (
+                    <View style={styles.currentPill}>
+                      <Text style={styles.currentPillText}>Current</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </ScrollView>
         </View>
 
-        {/* Spacer at the bottom (no transaction history) */}
-        <View style={{ height: 80 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
 
       <BottomNav />
@@ -187,209 +458,348 @@ export default function StarPointsScreen({ navigation }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  containerDark: {
-    backgroundColor: '#1a1a2e',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
-  },
-  backButton: {
+  container: { flex: 1, backgroundColor: P.slate50 },
+  containerDark: { backgroundColor: P.slate900 },
+  scrollContent: { paddingTop: 8, paddingBottom: 20 },
+
+  headerActionBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#ffffff20',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  helpButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff20',
     justifyContent: 'center',
-    alignItems: 'center',
+  },
+
+  // ── Points hero ──
+  pointsCardWrap: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 20,
   },
   pointsCard: {
-    marginHorizontal: 16,
-    marginTop: 20,
     borderRadius: 24,
     padding: 24,
-    shadowColor: '#FBBF24',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: P.amber,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+      },
+      android: { elevation: 8 },
+    }),
   },
+  orb1: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    top: -110,
+    right: -60,
+  },
+  orb2: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    bottom: -80,
+    left: -30,
+  },
+
   pointsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  pointsIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#ffffff30',
-    justifyContent: 'center',
+  pointsIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.22)',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  pointsLevel: {
-    backgroundColor: '#ffffff30',
+  levelPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.22)',
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
-  pointsLevelText: {
+  levelPillText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#fff',
+    fontWeight: '800',
+    color: P.white,
+    letterSpacing: 0.2,
   },
+
   pointsAmount: {
     fontSize: 56,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 8,
+    fontWeight: '900',
+    color: P.white,
     textAlign: 'center',
+    letterSpacing: -2,
+    marginBottom: 4,
   },
-  pointsLoader: {
-    height: 76,
-  },
+  pointsLoader: { height: 76 },
   pointsLabel: {
-    fontSize: 14,
-    color: '#ffffffcc',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
     textAlign: 'center',
-    marginBottom: 16,
+    fontWeight: '600',
+    marginBottom: 20,
+    letterSpacing: 0.3,
   },
-  nextRewardContainer: {
-    marginTop: 8,
+
+  nextRewardBox: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  nextRewardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   nextRewardText: {
-    fontSize: 12,
-    color: '#ffffffcc',
-    textAlign: 'center',
-    marginBottom: 8,
+    fontSize: 12.5,
+    color: P.white,
+    fontWeight: '700',
+  },
+  nextRewardTarget: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   progressBar: {
-    height: 6,
-    backgroundColor: '#ffffff30',
-    borderRadius: 3,
+    height: 8,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 3,
+    backgroundColor: P.white,
+    borderRadius: 4,
+  },
+  progressHelper: {
+    fontSize: 10.5,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
+    textAlign: 'right',
+    marginTop: 6,
+    letterSpacing: 0.2,
+  },
+
+  // ── Error ──
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: P.roseSoft,
+    borderWidth: 1,
+    borderColor: P.rose,
+    borderRadius: 14,
+    padding: 14,
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#991B1B',
+    lineHeight: 18,
+  },
+  retryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: P.rose,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  retryText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: P.white,
+  },
+
+  // ── Stats ──
+  statsSectionLabel: {
+    paddingHorizontal: 22,
+    marginBottom: 8,
+  },
+  sectionLabel: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: P.slate500,
+    letterSpacing: 0.8,
   },
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: P.white,
     marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#64748B',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+      },
+      android: { elevation: 2 },
+    }),
   },
-  statsContainerDark: {
-    backgroundColor: '#16213e',
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
+  statItem: { flex: 1, alignItems: 'center', gap: 4 },
   statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.3,
   },
   statLabel: {
     fontSize: 11,
-    color: '#6B7280',
-    textAlign: 'center',
+    color: P.slate500,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   statDivider: {
     width: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: P.slate200,
+    marginVertical: 8,
   },
-  statDividerDark: {
-    backgroundColor: '#2d3561',
-  },
-  tiersContainer: {
+
+  // ── Tiers ──
+  tiersSection: {
     marginTop: 24,
-    paddingHorizontal: 16,
+  },
+  tiersHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+    marginBottom: 14,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 16,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.3,
   },
-  tiersScroll: {
-    flexDirection: 'row',
+  sectionHint: {
+    fontSize: 12,
+    color: P.slate500,
+    fontWeight: '600',
+  },
+  tiersScroll: { flexDirection: 'row' },
+  tiersScrollContent: {
+    paddingHorizontal: 16,
+    gap: 10,
   },
   tierCard: {
-    width: 100,
-    backgroundColor: '#fff',
-    padding: 16,
+    width: 130,
+    backgroundColor: P.white,
+    padding: 14,
     borderRadius: 16,
     alignItems: 'center',
-    marginRight: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#64748B',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
   },
-  tierCardDark: {
-    backgroundColor: '#16213e',
+  tierCardUnlocked: {
+    borderColor: P.amber,
+    borderWidth: 1.5,
   },
-  tierCardActive: {
+  tierCardCurrent: {
+    borderColor: P.amber,
     borderWidth: 2,
-    borderColor: '#FBBF24',
+  },
+  tierIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
   tierPoints: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginTop: 8,
+    fontSize: 15,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.3,
   },
   tierName: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
+    fontSize: 11.5,
+    color: P.slate500,
+    fontWeight: '600',
+    marginTop: 2,
+    letterSpacing: 0.2,
   },
-  textDark: {
-    color: '#fff',
+  tierProgressBg: {
+    width: '100%',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: P.slate100,
+    marginTop: 10,
+    overflow: 'hidden',
   },
-  textMutedDark: {
-    color: '#9CA3AF',
+  tierProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  currentPill: {
+    marginTop: 8,
+    backgroundColor: P.amber,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  currentPillText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: P.white,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
 });
