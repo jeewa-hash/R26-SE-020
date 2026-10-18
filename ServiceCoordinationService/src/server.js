@@ -37,6 +37,13 @@ app.get("/health", (req, res) => {
   });
 });
 
+app.get("/", (req, res) => {
+  res.status(200).json({
+    service: "Service Coordination Service",
+    status: "healthy",
+  });
+});
+
 app.use("/requests", providerRequestRoutes);
 app.use("/bookings", bookingRoutes);
 app.use("/availability", providerAvailabilityRoutes);
