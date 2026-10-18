@@ -1,3 +1,4 @@
+import { fetchProviderWithTimeout as fetchWithTimeout, PROVIDER_REQUEST_TIMEOUT_MS } from '../utils/providerHttp';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking, Platform } from 'react-native';
 import {
@@ -68,18 +69,9 @@ const readJson = async (response) => {
   }
 };
 
-const fetchWithTimeout = async (url, options = {}, timeoutMs = 3500) => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-};
 
-const requestFirstSuccess = async ({ urls, paths, options = {}, label, timeoutMs = 3500 }) => {
+
+const requestFirstSuccess = async ({ urls, paths, options = {}, label, timeoutMs = PROVIDER_REQUEST_TIMEOUT_MS }) => {
   let lastError = null;
   const headers = await buildAuthHeaders();
 
@@ -99,9 +91,12 @@ const requestFirstSuccess = async ({ urls, paths, options = {}, label, timeoutMs
           return data;
         }
         const message = data?.message || data?.error || `HTTP ${response.status}`;
-        lastError = new Error(message);
+        const error = new Error(message);
+        error.status = response.status;
+        // A missing compatibility route must not hide a timeout or server failure.
+        if (!lastError || response.status !== 404) lastError = error;
       } catch (error) {
-        lastError = error;
+        if (!lastError || error.status !== 404) lastError = error;
       }
     }
   }
@@ -132,18 +127,21 @@ export const getProviderQuotations = async () => {
   return normalizeArrayResponse(payload);
 };
 
-export const getProviderBookings = async (providerId) => {
-  const payload = await requestFirstSuccess({
-    urls: COORDINATION_URLS,
-    paths: [
-      '/bookings/provider/me',
-      `/bookings/provider/${providerId}`,
-      '/calendar/provider/me',
-      `/calendar/provider/${providerId}`,
-    ],
-    label: 'provider bookings',
-  });
-  return normalizeArrayResponse(payload);
+// Share simultaneous booking reads across Home/My Jobs; do not cache completed reads.
+const bookingReads = new Map();
+export const getProviderBookings = (providerId) => {
+  const key = String(providerId || 'me');
+  if (bookingReads.has(key)) return bookingReads.get(key);
+  const read = (async () => {
+    const payload = await requestFirstSuccess({
+      urls: COORDINATION_URLS,
+      paths: ['/bookings/provider/me', ...(providerId ? [`/bookings/provider/${providerId}`] : [])],
+      label: 'provider bookings',
+    });
+    return normalizeArrayResponse(payload);
+  })().finally(() => bookingReads.delete(key));
+  bookingReads.set(key, read);
+  return read;
 };
 
 export const getProviderBookingById = async (bookingId) => {
@@ -156,22 +154,9 @@ export const getProviderBookingById = async (bookingId) => {
   return payload?.data || payload?.booking || payload;
 };
 
-export const getProviderOngoingBookings = async (providerId) => {
-  try {
-    const payload = await requestFirstSuccess({
-      urls: COORDINATION_URLS,
-      paths: [
-        '/bookings/provider/me/ongoing',
-        `/bookings/provider/${providerId}/ongoing`,
-      ],
-      label: 'provider ongoing bookings',
-    });
-    return normalizeArrayResponse(payload);
-  } catch (error) {
-    const all = await getProviderBookings(providerId);
-    return all.filter(isOngoingBooking);
-  }
-};
+// The full booking list is authoritative; avoid an extra /ongoing request.
+export const getProviderOngoingBookings = async (providerId) =>
+  (await getProviderBookings(providerId)).filter(isOngoingBooking);
 
 export const getProviderLiveSummary = async (providerId) => {
   if (!providerId) throw new Error('Provider ID is required.');
@@ -275,10 +260,10 @@ export const getBookingStatus = (booking) => String(booking?.bookingStatus || 'C
 export const isOngoingBooking = (booking) => {
   const status = getBookingStatus(booking);
   if (status === 'ON_THE_WAY' || status === 'IN_PROGRESS' || status === 'DELAY_REPORTED') return true;
-  if (status !== 'CONFIRMED') return false;
+  if (!['CONFIRMED', 'RESCHEDULED'].includes(status)) return false;
 
   const start = getBookingStartDate(booking);
-  if (!start) return false;
+  if (!start) return true;
 
   const now = new Date();
   const next24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);

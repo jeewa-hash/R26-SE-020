@@ -1,3 +1,5 @@
+import { getProviderBookings as loadProviderBookings } from '../../../services/providerFlowApi';
+import { fetchProviderWithTimeout as fetchWithTimeout, PROVIDER_REQUEST_TIMEOUT_MS } from '../../../utils/providerHttp';
 // pages/IT22129376/services/providerFlowApi.js
 import {
   IP_ADDRESS,
@@ -54,19 +56,7 @@ const parseResponse = async (response) => {
   return data;
 };
 
-const fetchWithTimeout = async (url, options = {}, timeoutMs = 4000) => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-};
+
 
 const requestJson = async (url, options = {}) => {
   const headers = await buildAuthHeaders();
@@ -116,7 +106,7 @@ const firstSuccess = async (candidates) => {
       };
     } catch (error) {
       lastError = error;
-      console.log('Provider Flow API failed:', url, error?.message);
+
     }
   }
 
@@ -282,48 +272,8 @@ export const getProviderQuotations = async (providerId = null) => {
 };
 
 export const getProviderJobs = async (providerId = null) => {
-  // 1. /bookings/provider/me (authenticated)
-  // 2. /bookings/provider/:providerId (unauthenticated / fallback)
-  // 3. /calendar/provider/me (authenticated)
-  const candidates = [
-    ...COORDINATION_URLS.map((base) => ({
-      url: `${base}/bookings/provider/me`,
-      auth: true,
-    })),
-
-    ...(providerId
-      ? COORDINATION_URLS.map((base) => ({
-          url: `${base}/bookings/provider/${providerId}`,
-          auth: false,
-        }))
-      : []),
-
-    ...COORDINATION_URLS.map((base) => ({
-      url: `${base}/calendar/provider/me`,
-      auth: true,
-    })),
-  ];
-
-  const { data, usedUrl } = await firstSuccess(candidates);
-
-  const rawJobs = normalizeList(data, [
-    'bookings',
-    'calendar',
-    'jobs',
-    'providerBookings',
-    'data',
-  ]);
-
-  const jobs = providerId ? filterForProvider(rawJobs, providerId) : rawJobs;
-
-  return {
-    raw: data,
-    usedUrl,
-    rawList: rawJobs,
-    jobs,
-    rawCount: rawJobs.length,
-    filteredCount: jobs.length,
-  };
+  const jobs = await loadProviderBookings(providerId);
+  return { raw: jobs, rawList: jobs, jobs, rawCount: jobs.length, filteredCount: jobs.length };
 };
 
 export const getProviderMissedInquiries = async () => {

@@ -80,3 +80,27 @@ test('action-needed sessions sort before waiting and history', async () => {
   const sessions = buildProviderSessions([{_id:'new',status:'pending'}],[{_id:'q',status:'ACCEPTED'}],[{_id:'b',bookingStatus:'COMPLETED'}]);
   assert.deepEqual(sessions.map(s=>s.guidance.group),['attention','waiting','closed']);
 });
+
+test('native cancellation caused by a timeout becomes a useful retry message', async () => {
+  const http = await import('data:text/javascript,' + encodeURIComponent(fs.readFileSync(path.join(root,'utils/providerHttp.js'),'utf8')));
+  assert.equal(http.PROVIDER_REQUEST_TIMEOUT_MS,15000);
+  const previous = global.fetch;
+  global.fetch = async (_, options) => new Promise((resolve,reject) => {
+    options.signal.addEventListener('abort', () => reject(new Error('FetchRequestCanceledException')));
+  });
+  try { await assert.rejects(http.fetchProviderWithTimeout('http://test',{},10), error => error.code === 'REQUEST_TIMEOUT' && /backend is running/.test(error.message)); }
+  finally { global.fetch = previous; }
+});
+
+test('simultaneous bookings and ongoing reads share one request without /ongoing', async () => {
+  let source=fs.readFileSync(path.join(root,'services/providerFlowApi.js'),'utf8').replace(/import[\s\S]*?from ['"][^'"]+['"];?/g,'');
+  source = `const CONFIG={COORDINATION_SERVICE_URL:'http://coordination',SEEKER_SERVICE_URL:'http://seeker',PROVIDER_SERVICE_API_URL:'http://provider'}; const IP_ADDRESS='test'; const PROVIDER_REQUEST_TIMEOUT_MS=15000; const AsyncStorage={getItem:async()=>null}; const Linking={}; const Platform={OS:'web'}; const fetchWithTimeout=(...args)=>globalThis.__providerFetch(...args);\n` + source;
+  let calls=0;
+  global.__providerFetch=async url=>{calls++;assert.equal(url,'http://coordination/bookings/provider/me');return {ok:true,json:async()=>({data:[{_id:'b',bookingStatus:'IN_PROGRESS'}]})};};
+  try {
+    const api=await import('data:text/javascript,'+encodeURIComponent(source));
+    const [all,active]=await Promise.all([api.getProviderBookings('p'),api.getProviderOngoingBookings('p')]);
+    assert.equal(calls,1);assert.equal(all.length,1);assert.equal(active.length,1);
+    await api.getProviderBookings('p');assert.equal(calls,2); // refresh is not a stale cache
+  } finally {delete global.__providerFetch;}
+});

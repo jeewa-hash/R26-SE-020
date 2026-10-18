@@ -280,7 +280,6 @@ export default function NewsFeedScreen() {
         throw new Error('Provider authentication required');
       }
 
-      console.log('LOGGED PROVIDER ID:', auth.providerId);
 
       const results = await Promise.allSettled([
         getProviderRequests(auth.providerId),
@@ -998,7 +997,6 @@ export default function NewsFeedScreen() {
 
   // Navigate to Applied Jobs Screen
   const handleViewMoreApplied = () => {
-    console.log('Navigating to AppliedJobs...'); // Debug log
     // Try different navigation approaches
     try {
       // Try root navigation first

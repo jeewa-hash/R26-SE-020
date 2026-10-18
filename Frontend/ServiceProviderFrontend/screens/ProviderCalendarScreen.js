@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -135,6 +137,7 @@ export default function ProviderCalendarScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [sessionFilter, setSessionFilter] = useState('All');
+  const [filterVisible, setFilterVisible] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const sessions = useMemo(() => buildProviderSessions(requests, quotations, [...bookings, ...ongoingBookings]), [requests, quotations, bookings, ongoingBookings]);
 
@@ -286,11 +289,36 @@ export default function ProviderCalendarScreen({ navigation, route }) {
     const filters = { All: null, 'Needs you': 'attention', 'Waiting for seeker': 'waiting', Booked: 'booked', 'In progress': 'working', Closed: 'closed' };
     const visible = sessions.filter(session => !filters[sessionFilter] || session.guidance.group === filters[sessionFilter]);
     return <>
-      <Text style={[styles.sectionTitle, { color: C.text }]}>Your service sessions</Text>
-      <Text style={[styles.summaryText, { color: C.muted }]}>Each card follows one service from request to completion. Accepted quotations still need a confirmed booking.</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 16 }}>
-        {Object.entries(filters).map(([label, group]) => <TouchableOpacity key={label} accessibilityRole="button" accessibilityState={{ selected: sessionFilter === label }} onPress={() => setSessionFilter(label)} style={[styles.tabPill, { backgroundColor: sessionFilter === label ? '#166534' : C.soft }]}><Text style={[styles.tabText, { color: sessionFilter === label ? '#fff' : C.text }]}>{label} ({group ? sessions.filter(session => session.guidance.group === group).length : sessions.length})</Text></TouchableOpacity>)}
-      </ScrollView>
+      <View style={styles.filterToolbar}>
+        <Text style={{ color: C.muted, fontSize: 13 }}>{visible.length} {visible.length === 1 ? 'session' : 'sessions'}</Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Filter sessions. Showing ${sessionFilter}`} accessibilityState={{ expanded: filterVisible }} onPress={() => setFilterVisible(true)} style={[styles.filterSelector, { backgroundColor: C.card, borderColor: C.border }]}>
+          <Ionicons name="options-outline" size={17} color={C.text} />
+          <Text style={{ color: C.text, fontSize: 13, fontWeight: '600' }}>Show: {sessionFilter === 'All' ? 'All sessions' : sessionFilter}</Text>
+          <Ionicons name="chevron-down" size={15} color={C.muted} />
+        </TouchableOpacity>
+      </View>
+      <Modal visible={filterVisible} transparent animationType="slide" onRequestClose={() => setFilterVisible(false)}>
+        <View style={styles.filterOverlay}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close session filters" onPress={() => setFilterVisible(false)} style={StyleSheet.absoluteFillObject} />
+          <View accessibilityViewIsModal style={[styles.filterSheet, { backgroundColor: C.card, borderColor: C.border }]}>
+            <View style={styles.filterSheetHeader}>
+              <Text accessibilityRole="header" style={{ color: C.text, fontSize: 19, fontWeight: '700' }}>Show sessions</Text>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close filters" style={{ padding: 10 }} onPress={() => setFilterVisible(false)}><Ionicons name="close" size={22} color={C.text} /></TouchableOpacity>
+            </View>
+            <ScrollView>
+              {Object.entries(filters).map(([label, group]) => {
+                const selected = sessionFilter === label;
+                const count = group ? sessions.filter(session => session.guidance.group === group).length : sessions.length;
+                return <TouchableOpacity key={label} accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={() => { setSessionFilter(label); setFilterVisible(false); }} style={[styles.filterOption, { borderBottomColor: C.border }]}>
+                  <Ionicons name={selected ? 'radio-button-on' : 'radio-button-off'} size={22} color={selected ? '#15803D' : C.muted} />
+                  <Text style={{ flex: 1, color: C.text, fontSize: 15, fontWeight: selected ? '700' : '400' }}>{label === 'All' ? 'All sessions' : label}</Text>
+                  <Text style={{ color: C.muted }}>{count}</Text>
+                </TouchableOpacity>;
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
       {visible.length === 0 ? renderEmpty('layers-outline', sessionFilter === 'All' ? 'No service sessions yet' : `No sessions: ${sessionFilter.toLowerCase()}`, sessionFilter === 'All' ? 'Apply to a service post on Home. When a seeker requests your quotation, its progress will appear here.' : 'Choose another filter to see your other sessions.') : visible.map(session => {
         const row = session.request || session.booking || session.quotation;
         const start = session.booking ? getBookingStartDate(session.booking) : new Date(session.quotation?.proposedStartTime || session.request?.preferredStartTime || '');
@@ -587,6 +615,12 @@ export default function ProviderCalendarScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  filterToolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16 },
+  filterSelector: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
+  filterOverlay: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
+  filterSheet: { width: '100%', maxWidth: 560, maxHeight: '75%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36, borderWidth: 1 },
+  filterSheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  filterOption: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth },
   guidance: { padding: 12, borderRadius: 12, marginTop: 12 }, guidanceTitle: { fontSize: 15, fontWeight: '700' }, guidanceOwner: { fontSize: 12, fontWeight: '700', marginTop: 5 }, guidanceMessage: { fontSize: 13, lineHeight: 19, marginTop: 5 },
   stageRow: { flexDirection: 'row', gap: 6, marginTop: 16, marginBottom: 4 }, stageItem: { flex: 1, gap: 5 }, stageLine: { height: 4, borderRadius: 3 },
   container: { flex: 1, minHeight: 0, backgroundColor: '#F5FAF6' },
