@@ -208,15 +208,6 @@ export const checkBidCoordination = async ({
   return parseResponse(response);
 };
 
-export const getBidCoordination = async (coordinationId) => {
-  const headers = await buildAuthHeaders();
-  const response = await fetchSeekerWithTimeout(
-    `${SERVICE_COORDINATION_SERVICE_URL}/bid-coordinations/${coordinationId}`,
-    { method: 'GET', headers }
-  );
-  return parseResponse(response);
-};
-
 export const selectSuggestedSlot = async (coordinationId, slotId) => {
   const headers = await buildAuthHeaders();
 

@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
 import ScreenShell from './ScreenShell';
 import ActionButton from './components/ActionButton';
 import InfoRow from './components/InfoRow';
 import EmptyJobsState from './components/EmptyJobsState';
-import { createBookingFromCoordination, getBidCoordination } from './services/myJobsApi';
+import { createBookingFromCoordination } from './services/myJobsApi';
 import { COLORS } from './theme';
 import { formatCurrency, formatDateTime, formatDuration } from './utils/dateTimeFormatter';
 import { useTheme } from '../../hooks/useTheme';
@@ -21,7 +21,6 @@ export default function ConfirmJobScreen({ route, navigation }) {
   const { isDarkMode } = useTheme();
   const quote = route.params?.quote;
   const [loading, setLoading] = useState(false);
-  const confirming = useRef(false);
 
   if (!quote?.coordinationId || !['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus || quote.coordinationDecision)) {
     return (
@@ -42,28 +41,9 @@ export default function ConfirmJobScreen({ route, navigation }) {
   const finalEnd = quote.selectedSlot?.endTime || quote.coordinatedEndTime;
 
   const confirmJob = async () => {
-    if (confirming.current) return;
-    confirming.current = true;
     setLoading(true);
 
     try {
-      // Quotation snapshots can outlive a newer coordination check.
-      const response = await getBidCoordination(quote.coordinationId);
-      const payload = response.data || response;
-      const current = payload.coordination;
-      if (!current || !['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(current.finalDecision) ||
-          current.status !== 'ready_for_seeker_review' || payload.scheduleEvaluation?.conflictDetected) {
-        navigation.replace('IT22129376CoordinationReview', { quote: {
-          ...quote,
-          coordinationStatus: current?.finalDecision || 'NOT_CHECKED',
-          coordinationDecision: current?.finalDecision || 'NOT_CHECKED',
-          scheduleEvaluation: payload.scheduleEvaluation,
-          priceEvaluation: payload.priceEvaluation,
-          suggestedSlots: payload.suggestedSlots || [],
-        } });
-        notify('Schedule needs review', 'Availability has changed. Review the latest schedule before confirming.');
-        return;
-      }
       const result = await createBookingFromCoordination(quote.coordinationId);
       const booking = result?.data?.booking || result?.booking || result?.data || result;
 
@@ -76,7 +56,6 @@ export default function ConfirmJobScreen({ route, navigation }) {
     } catch (error) {
       notify('Booking Failed', error.message || 'Please try again.');
     } finally {
-      confirming.current = false;
       setLoading(false);
     }
   };

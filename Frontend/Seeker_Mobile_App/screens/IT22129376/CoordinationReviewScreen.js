@@ -62,7 +62,6 @@ export default function CoordinationReviewScreen({ route, navigation }) {
       setQuote((prev) => ({
         ...prev,
         coordinationId: coordination?._id || payload.coordinationId || prev.coordinationId,
-        coordinationStatus: coordination?.finalDecision || payload.finalDecision || 'NOT_CHECKED',
         coordinationDecision: coordination?.finalDecision || payload.finalDecision || prev.coordinationDecision,
         priceEvaluation: payload.priceEvaluation || coordination?.priceEvaluation || prev.priceEvaluation,
         scheduleEvaluation: payload.scheduleEvaluation || coordination?.scheduleEvaluation || prev.scheduleEvaluation,
