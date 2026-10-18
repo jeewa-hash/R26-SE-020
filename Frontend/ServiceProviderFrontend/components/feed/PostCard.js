@@ -118,7 +118,7 @@ export default function PostCard({ post, onApply, applying }) {
   const { isApplied, getJobStatus } = useAppliedJobs();
 
   const postId = post?._id || post?.id;
-  const applied = isApplied(postId);
+  const applied = post?.hasApplied === true || isApplied(postId);
   const statusKey = getJobStatus(postId);
   const status = statusKey ? Object.values(JOB_STATUS).find((s) => s.key === statusKey) : null;
   const categoryColor = CATEGORY_COLORS[post?.category] || Colors.primary;

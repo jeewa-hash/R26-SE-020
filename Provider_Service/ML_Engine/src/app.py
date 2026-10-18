@@ -54,6 +54,20 @@ except Exception as e:
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
 
+@app.route("/", methods=["GET"])
+def root():
+    return jsonify({
+        "status": "online",
+        "service": "Provider ML Engine",
+        "endpoints": {
+            "health": "/health",
+            "services": "/services",
+            "predict": "/predict [POST]",
+            "portfolio_categories": "/portfolio/categories [GET]"
+        }
+    }), 200
+
+
 @app.route("/uploads/<path:filename>", methods=["GET"])
 def serve_upload(filename):
     """Serve uploaded portfolio images statically."""

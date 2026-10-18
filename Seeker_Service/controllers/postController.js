@@ -90,10 +90,17 @@ const sanitizePost = (postObj, { viewerId, ownerId }) => {
     !!ownerId &&
     String(viewerId) === String(ownerId);
 
-  if (isOwner) return postObj;
+  const application = viewerId && (postObj.appliedBy || []).find(
+    (entry) => String(entry.applicantId) === String(viewerId)
+  );
+  const viewerState = {
+    hasApplied: Boolean(application),
+    appliedAt: application?.createdAt || null,
+  };
+  if (isOwner) return { ...postObj, ...viewerState };
 
   const { appliedBy, ...rest } = postObj;
-  return rest;
+  return { ...rest, ...viewerState };
 };
 
 // =======================================================

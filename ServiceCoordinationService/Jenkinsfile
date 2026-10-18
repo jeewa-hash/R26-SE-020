@@ -1,0 +1,146 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = 'ap-southeast-2'
+        AWS_ACCOUNT_ID = '131160053053'
+
+        ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+        DURATION_ML_REPO = "${ECR_REGISTRY}/duration-ml"
+        COORDINATION_REPO = "${ECR_REGISTRY}/coordination-service"
+
+        EKS_CLUSTER = 'delay-aware-eks'
+        K8S_NAMESPACE = 'default'
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Prepare Image Tag') {
+            steps {
+                script {
+                    env.IMAGE_TAG = sh(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Using image tag: ${env.IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Validate Coordination Service') {
+            steps {
+                dir('ServiceCoordinationService') {
+                    sh '''
+                        node --check src/server.js
+                        node --check src/controllers/providerRequestController.js
+                    '''
+                }
+            }
+        }
+
+        stage('Login to ECR') {
+            steps {
+                sh '''
+                    aws ecr get-login-password --region ${AWS_REGION} | \
+                    docker login \
+                    --username AWS \
+                    --password-stdin ${ECR_REGISTRY}
+                '''
+            }
+        }
+
+        stage('Build Duration ML') {
+            steps {
+                dir('ServiceCoordinationService') {
+                    sh '''
+                        docker build \
+                        --platform linux/amd64 \
+                        -t ${DURATION_ML_REPO}:${IMAGE_TAG} \
+                        ./DurationMLService
+                    '''
+                }
+            }
+        }
+
+        stage('Build Coordination Service') {
+            steps {
+                dir('ServiceCoordinationService') {
+                    sh '''
+                        docker build \
+                        --platform linux/amd64 \
+                        -t ${COORDINATION_REPO}:${IMAGE_TAG} \
+                        .
+                    '''
+                }
+            }
+        }
+
+        stage('Push Images') {
+            steps {
+                sh '''
+                    docker push ${DURATION_ML_REPO}:${IMAGE_TAG}
+                    docker push ${COORDINATION_REPO}:${IMAGE_TAG}
+                '''
+            }
+        }
+
+        stage('Deploy Duration ML') {
+            steps {
+                sh '''
+                    kubectl set image \
+                    deployment/duration-ml \
+                    duration-ml=${DURATION_ML_REPO}:${IMAGE_TAG} \
+                    -n ${K8S_NAMESPACE}
+
+                    kubectl rollout status \
+                    deployment/duration-ml \
+                    -n ${K8S_NAMESPACE} \
+                    --timeout=180s
+                '''
+            }
+        }
+
+        stage('Deploy Coordination Service') {
+            steps {
+                sh '''
+                    kubectl set image \
+                    deployment/coordination-service \
+                    coordination-service=${COORDINATION_REPO}:${IMAGE_TAG} \
+                    -n ${K8S_NAMESPACE}
+
+                    kubectl rollout status \
+                    deployment/coordination-service \
+                    -n ${K8S_NAMESPACE} \
+                    --timeout=180s
+                '''
+            }
+        }
+
+        stage('Verify Deployments') {
+            steps {
+                sh '''
+                    kubectl get deployments -n ${K8S_NAMESPACE}
+                    kubectl get pods -n ${K8S_NAMESPACE}
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment completed successfully with image tag: ${IMAGE_TAG}"
+        }
+
+        failure {
+            echo "Pipeline failed. Check the failed stage above."
+        }
+    }
+}
