@@ -20,6 +20,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { CATEGORIES, CATEGORY_COLORS } from '../constants/feedData';
 import { JOB_STATUS } from '../constants/jobStatus';
 import { useAppliedJobs } from '../context/AppliedJobsContext';
+import { confirm, notify } from '../utils/providerFlowUi';
 import { CONFIG } from '../config';
 import PostCard from '../components/feed/PostCard';
 import AnnouncementSlideshow from '../components/feed/AnnouncementSlideshow';
@@ -98,7 +99,7 @@ function AppliedJobsView({ isDark, onViewMore, appliedJobs }) {
     <View style={[styles.appliedList, { backgroundColor: C.bg }]}>
       {displayJobs.map((job) => {
         const status = Object.values(JOB_STATUS).find((s) => s.key === job.status) || JOB_STATUS.PENDING;
-        const initials = job.customer ? job.customer.split(' ').map((n) => n[0]).join('').toUpperCase() : 'U';
+        const initials = String(job.customer || job.user?.name || job.poster?.name || 'Seeker').split(' ').map((n) => n[0]).join('').toUpperCase();
         const appliedDate = new Date(job.appliedAt).toLocaleDateString('en-US', {
           day: 'numeric',
           month: 'short',
@@ -132,16 +133,16 @@ function AppliedJobsView({ isDark, onViewMore, appliedJobs }) {
                 </View>
 
                 <View style={styles.appliedMeta}>
-                  <Text style={[styles.appliedName, { color: C.text }]}>{job.customer}</Text>
+                  <Text style={[styles.appliedName, { color: C.text }]}>{job.customer || job.user?.name || job.poster?.name || 'Seeker'}</Text>
 
                   <View style={styles.appliedMetaRow}>
                     <MaterialIcons name="location-on" size={11} color="#9CA3AF" />
 
                     <Text style={styles.appliedLocation}>
                       {typeof job.location === 'object'
-                        ? job.location.address ||
-                          job.location.city ||
-                          job.location.district ||
+                        ? job.location?.address ||
+                          job.location?.city ||
+                          job.location?.district ||
                           'Unknown location'
                         : job.location || 'Unknown location'}
                     </Text>
@@ -368,7 +369,13 @@ export default function NewsFeedScreen() {
     });
   };
 
-  const runLiveAction = async (booking, action, payload = {}) => {
+  const runLiveAction = async (booking, action, payload = {}, confirmed = false) => {
+    if (liveUpdating) return;
+    if (!confirmed && ['start', 'complete', 'on-the-way'].includes(action)) {
+      const titles = { start: 'Start Job', complete: 'Complete Job', 'on-the-way': 'On My Way' };
+      confirm(titles[action], `Confirm this update for ${getHumanServiceTitle(booking)}?`, () => runLiveAction(booking, action, payload, true));
+      return;
+    }
     try {
       setLiveUpdating(true);
 
@@ -381,13 +388,13 @@ export default function NewsFeedScreen() {
         complete: 'Job completed successfully.',
       };
 
-      Alert.alert('Success', messages[action] || 'Job updated successfully.');
+      notify('Success', messages[action] || 'Job updated successfully.');
 
       setDelayBooking(null);
 
       await Promise.all([loadLiveSummary(false), loadProviderSummary()]);
     } catch (error) {
-      Alert.alert('Update Failed', 'Unable to update this job right now. Please try again.');
+      notify('Update Failed', error?.message || 'Unable to update this job right now. Please try again.');
     } finally {
       setLiveUpdating(false);
     }

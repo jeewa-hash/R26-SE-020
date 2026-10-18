@@ -431,3 +431,20 @@ export const openLocationInMaps = async ({ latitude, longitude, address, label }
   else await Linking.openURL(url);
   return true;
 };
+
+export const getProviderRequestById = async (id) => {
+  const result = await requestFirstSuccess({ urls: SEEKER_URLS, paths: [`/request-quotations/${id}`], label: 'request details' });
+  return result?.request || result?.data || result;
+};
+export const getProviderQuotationById = async (id) => {
+  const result = await requestFirstSuccess({ urls: PROVIDER_URLS, paths: [`/api/provider/quotations/${id}`], label: 'quotation details' });
+  return result?.data || result?.quotation || result;
+};
+export const retryProviderQuotation = async (id) => requestFirstSuccess({
+  urls: PROVIDER_URLS, paths: [`/api/provider/quotations/${id}/validate`],
+  options: { method: 'POST' }, label: 'quotation validation', timeoutMs: 90000,
+});
+export const askSeekerToReschedule = async (id, reason) => requestFirstSuccess({
+  urls: SEEKER_URLS, paths: [`/request-quotations/${id}/reschedule-request`],
+  options: { method: 'PATCH', body: JSON.stringify({ reason }) }, label: 'request a new time',
+});

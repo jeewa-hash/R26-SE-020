@@ -516,8 +516,8 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.applyNow, alreadyApplied && { backgroundColor: '#10B981' }, applying && { opacity: 0.8 }]}
-            onPress={openApply}
-            disabled={alreadyApplied || applying}
+            onPress={() => alreadyApplied ? navigation.navigate('AppliedJobs') : openApply()}
+            disabled={applying}
             activeOpacity={0.85}
           >
             {applying ? (
@@ -526,7 +526,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
               <Ionicons name={alreadyApplied ? 'checkmark-circle' : 'paper-plane'} size={22} color="#fff" />
             )}
             <Text style={styles.applyNowText}>
-              {alreadyApplied ? '✓ You Applied' : applying ? 'Submitting...' : "I'm Available"}
+              {alreadyApplied ? 'View Application' : applying ? 'Submitting...' : "I'm Available"}
             </Text>
           </TouchableOpacity>
         </View>

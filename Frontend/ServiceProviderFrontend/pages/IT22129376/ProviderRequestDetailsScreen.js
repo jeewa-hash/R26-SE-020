@@ -1,5 +1,9 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { getProviderRequestById } from '../../services/providerFlowApi';
+import { canQuoteRequest, idOf } from '../../utils/providerFlowState';
+import { openProviderTab, openProviderChat } from '../../utils/providerFlowUi';
 import { Ionicons } from '@expo/vector-icons';
 import { getHumanLocation, getHumanSeekerName, getHumanServiceTitle, openLocationInMaps, statusLabel } from '../../services/providerFlowApi';
 import ProviderPageHeader from '../../components/ProviderPageHeader';
@@ -13,15 +17,27 @@ const clean = (value, fallback = 'Not provided') => {
 export default function ProviderRequestDetailsScreen({ route, navigation }) {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
   const C = { bg: isDark ? '#0C0F0D' : '#F5FAF6', card: isDark ? '#161C18' : '#FFFFFF', text: isDark ? '#F5FAF6' : '#161C18', muted: isDark ? '#94A3B8' : '#4B5563', border: isDark ? '#303C33' : '#D8E8DC' };
-  const request = route?.params?.request || {};
+  const [request, setRequest] = useState(route?.params?.request || {});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const requestId = idOf(route?.params?.request?._id || route?.params?.request?.id);
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try { if (!requestId) throw new Error('Request ID is missing.'); setRequest(await getProviderRequestById(requestId)); }
+    catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  }, [requestId]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
   const requestStatus = String(request?.status || 'pending').toLowerCase();
-  const duration = request?.seekerEstimatedDurationHours || request?.estimatedDurationHours;
+  const formatTime = value => value && Number.isFinite(new Date(value).getTime()) ? new Date(value).toLocaleString() : 'Not selected';
   const budget = Number(request?.seekerBudgetAmount || request?.budget || 0);
 
   return (
     <View style={[styles.container, { backgroundColor: C.bg }]}>
       <ProviderPageHeader navigation={navigation} title="Request Details" subtitle="Review the customer's service request" />
       <ScrollView contentContainerStyle={styles.content}>
+        {error ? <Text accessibilityRole="alert" style={{ color: '#DC2626' }}>{error}</Text> : null}
+        <TouchableOpacity onPress={load} disabled={loading}><Text style={{ color: '#15803D', padding: 12 }}>{loading ? 'Refreshing…' : 'Refresh Request'}</Text></TouchableOpacity>
         <View style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
           <Text style={[styles.title, { color: C.text }]}>{getHumanServiceTitle(request)}</Text>
           <Text style={styles.status}>{statusLabel(requestStatus)}</Text>
@@ -33,17 +49,20 @@ export default function ProviderRequestDetailsScreen({ route, navigation }) {
           {Number(request?.estimatedTravelTimeMins) > 0 ? <Text style={[styles.row, { color: C.muted }]}>Estimated travel time: {Math.round(request.estimatedTravelTimeMins)} mins</Text> : null}
           {Number(request?.distanceFromPreviousBookingKm) > 0 ? <Text style={[styles.row, { color: C.muted }]}>Distance: {Number(request.distanceFromPreviousBookingKm).toFixed(1)} km</Text> : null}
           <Text style={[styles.row, { color: C.muted }]}>Preferred time: {clean(request?.preferredTimeLabel)}</Text>
-          <Text style={[styles.row, { color: C.muted }]}>Preferred start: {clean(request?.preferredStartTime || request?.requestedStartTime)}</Text>
-          <Text style={[styles.row, { color: C.muted }]}>Preferred end: {clean(request?.preferredEndTime || request?.requestedEndTime)}</Text>
-          <Text style={[styles.row, { color: C.muted }]}>Estimated duration: {duration ? `${duration} hour(s)` : 'Not provided'}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Preferred start: {formatTime(request?.preferredStartTime || request?.requestedStartTime)}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Preferred end: {formatTime(request?.preferredEndTime || request?.requestedEndTime)}</Text>
+          <Text style={[styles.row, { color: C.muted }]}>Task duration is calculated during availability validation.</Text>
           <Text style={[styles.row, { color: C.muted }]}>Budget: {budget ? `LKR ${budget.toLocaleString()}` : 'Not provided'}</Text>
           <Text style={[styles.row, { color: C.muted }]}>Urgency: {clean(request?.urgencyLevel || request?.urgency)}</Text>
           <Text style={[styles.description, { color: C.text, backgroundColor: C.bg }]}>{clean(request?.briefDescription || request?.description, 'No description provided.')}</Text>
-          {requestStatus === 'pending' ? (
-            <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('IT22129376ProviderQuotationForm', { request })}>
+          {canQuoteRequest(request) && !error ? (
+            <TouchableOpacity disabled={loading} style={[styles.button, loading && { opacity: .5 }]} onPress={() => navigation.navigate('IT22129376ProviderQuotationForm', { request })}>
               <Text style={styles.buttonText}>Send Quotation</Text>
             </TouchableOpacity>
-          ) : null}
+          ) : <Text style={[styles.row, { color: C.muted }]}>{request.rescheduleRequestedAt ? 'Waiting for the seeker to choose a new time.' : 'This request is no longer awaiting a quotation.'}</Text>}
+          {request.seekerId ? <TouchableOpacity style={styles.mapButton} onPress={() => openProviderChat(navigation, request.seekerId, getHumanSeekerName(request))}><Text style={styles.mapButtonText}>Message Seeker</Text></TouchableOpacity> : null}
+          {request.postId ? <TouchableOpacity style={styles.mapButton} onPress={() => navigation.navigate('ProviderPostDetail', { post: { _id: idOf(request.postId) } })}><Text style={styles.mapButtonText}>View Original Post</Text></TouchableOpacity> : null}
+          <TouchableOpacity style={styles.button} onPress={() => openProviderTab(navigation, 'Bookings', { tab: 'Quotes' })}><Text style={styles.buttonText}>View My Quotations</Text></TouchableOpacity>
         </View>
       </ScrollView>
     </View>

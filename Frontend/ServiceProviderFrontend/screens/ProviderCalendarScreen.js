@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { ThemeContext } from '../context/ThemeContext';
+import { confirm, notify, openProviderInbox } from '../utils/providerFlowUi';
+import { canQuoteRequest } from '../utils/providerFlowState';
 import HeaderSection from '../components/HeaderSection';
 import { getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 import {
@@ -109,7 +111,7 @@ const getReminderText = (booking) => {
   return '';
 };
 
-export default function ProviderCalendarScreen({ navigation }) {
+export default function ProviderCalendarScreen({ navigation, route }) {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
   const C = {
     bg: isDark ? '#0C0F0D' : '#F5FAF6',
@@ -121,6 +123,8 @@ export default function ProviderCalendarScreen({ navigation }) {
   };
   const [providerId, setProviderId] = useState(null);
   const [activeTab, setActiveTab] = useState('Ongoing');
+  const [updating, setUpdating] = useState(false);
+  useEffect(() => { if (TABS.includes(route?.params?.tab)) setActiveTab(route.params.tab); }, [route?.params?.tab]);
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
   const [requests, setRequests] = useState([]);
   const [quotations, setQuotations] = useState([]);
@@ -167,8 +171,8 @@ export default function ProviderCalendarScreen({ navigation }) {
         : myBookings.filter(isOngoingBooking);
 
 
-      if (failedRequests === 4) {
-        setError('Unable to load data right now. Please check your connection and try again.');
+      if (failedRequests > 0) {
+        setError(failedRequests === 4 ? 'Unable to load your jobs. Please try again.' : 'Some requests, quotations or bookings could not be loaded. Refresh to retry.');
       }
 
       setRequests(myRequests);
@@ -224,6 +228,8 @@ export default function ProviderCalendarScreen({ navigation }) {
   };
 
   const updateBooking = async (booking, action, body = {}) => {
+    if (updating) return;
+    setUpdating(true);
     try {
       const bookingId = getBookingId(booking);
       if (!bookingId) {
@@ -238,43 +244,17 @@ export default function ProviderCalendarScreen({ navigation }) {
         'report-delay': 'Delay reported successfully.',
         complete: 'Job completed successfully.',
       };
-      Alert.alert('Success', messages[action] || 'Job updated successfully.');
+      notify('Success', messages[action] || 'Job updated successfully.');
       await loadProviderFlow(providerId);
+      if (action === 'complete') setActiveTab('History');
     } catch (error) {
-      Alert.alert('Update Failed', error?.message || 'Unable to update this job right now. Please try again.');
-    }
+      notify('Update Failed', error?.message || 'Unable to update this job right now. Please try again.');
+    } finally { setUpdating(false); }
   };
 
-  const confirmStart = (booking) => {
-    Alert.alert('Start Job', 'Start this job now?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Start', onPress: () => updateBooking(booking, 'start') },
-    ]);
-  };
-
-  const confirmDelay = (booking) => {
-    Alert.alert(
-      'Report Delay',
-      'Report a 30 minute delay for this job? You can edit this from backend later if needed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Report',
-          onPress: () => updateBooking(booking, 'report-delay', {
-            delayReason: 'Provider needs additional time',
-            extraTimeMinutes: 30,
-          }),
-        },
-      ]
-    );
-  };
-
-  const confirmComplete = (booking) => {
-    Alert.alert('Complete Job', 'Mark this job as completed?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Complete', onPress: () => updateBooking(booking, 'complete') },
-    ]);
-  };
+  const confirmStart = booking => confirm('Start Job', 'Start this job now?', () => updateBooking(booking, 'start'));
+  const confirmDelay = booking => openBooking(booking);
+  const confirmComplete = booking => confirm('Complete Job', 'Mark this job as completed?', () => updateBooking(booking, 'complete'));
 
   const openBooking = (booking) => {
     navigation.navigate('IT22129376ProviderJobDetails', { booking });
@@ -350,12 +330,12 @@ export default function ProviderCalendarScreen({ navigation }) {
               <Text style={styles.secondaryButtonText}>View Job</Text>
             </TouchableOpacity>
             {['CONFIRMED', 'RESCHEDULED'].includes(status) ? (
-              <TouchableOpacity style={styles.primaryButton} onPress={() => confirmStart(booking)}>
+              <TouchableOpacity style={styles.primaryButton} disabled={updating} onPress={() => confirmStart(booking)}>
                 <Text style={styles.primaryButtonText}>Start</Text>
               </TouchableOpacity>
             ) : null}
             {status === 'ON_THE_WAY' ? (
-              <TouchableOpacity style={styles.primaryButton} onPress={() => confirmStart(booking)}>
+              <TouchableOpacity style={styles.primaryButton} disabled={updating} onPress={() => confirmStart(booking)}>
                 <Text style={styles.primaryButtonText}>Start</Text>
               </TouchableOpacity>
             ) : null}
@@ -364,18 +344,18 @@ export default function ProviderCalendarScreen({ navigation }) {
                 <TouchableOpacity style={styles.warningButton} onPress={() => confirmDelay(booking)}>
                   <Text style={styles.warningButtonText}>Delay</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.successButton} onPress={() => confirmComplete(booking)}>
+                <TouchableOpacity style={styles.successButton} disabled={updating} onPress={() => confirmComplete(booking)}>
                   <Text style={styles.successButtonText}>Complete</Text>
                 </TouchableOpacity>
               </>
             ) : null}
             {status === 'DELAY_REPORTED' ? (
-              <TouchableOpacity style={styles.successButton} onPress={() => confirmComplete(booking)}>
+              <TouchableOpacity style={styles.successButton} disabled={updating} onPress={() => confirmComplete(booking)}>
                 <Text style={styles.successButtonText}>Complete</Text>
               </TouchableOpacity>
             ) : null}
           </View>
-        ) : null}
+        ) : <TouchableOpacity style={styles.fullSecondaryButton} onPress={() => openBooking(booking)}><Text style={styles.secondaryButtonText}>View Job Details</Text></TouchableOpacity>}
       </View>
     );
   };
@@ -403,8 +383,8 @@ export default function ProviderCalendarScreen({ navigation }) {
           <Text style={[styles.detailText, { color: C.muted }]}>Budget: {formatMoney(request.seekerBudgetAmount)}</Text>
         </View>
       ) : null}
-      <TouchableOpacity style={styles.fullPrimaryButton} onPress={() => submitQuote(request)}>
-        <Text style={styles.primaryButtonText}>Submit Quotation</Text>
+      <TouchableOpacity disabled={!canQuoteRequest(request)} style={[styles.fullPrimaryButton, !canQuoteRequest(request) && { opacity: .5 }]} onPress={() => submitQuote(request)}>
+        <Text style={styles.primaryButtonText}>{request.rescheduleRequestedAt ? 'Waiting for New Time' : 'Submit Quotation'}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.fullSecondaryButton} onPress={() => navigation.navigate('IT22129376ProviderRequestDetails', { request })}>
         <Text style={styles.secondaryButtonText}>View Details</Text>
@@ -428,6 +408,7 @@ export default function ProviderCalendarScreen({ navigation }) {
         {hourly ? <Text style={[styles.detailText, { color: C.muted }]}>Rate: LKR {Math.round(hourly).toLocaleString()}/hr</Text> : null}
         {quotation?.notes ? <Text style={[styles.detailText, { color: C.muted }]}>Note: {quotation.notes}</Text> : null}
         {quotation?.coordinationStatus ? <Text style={[styles.detailText, { color: C.muted }]}>Availability: {statusLabel(quotation.coordinationStatus)}</Text> : null}
+        <TouchableOpacity style={styles.fullPrimaryButton} onPress={() => navigation.navigate('IT22129376ProviderQuotationDetails', { quotation })}><Text style={styles.primaryButtonText}>View Quotation & Next Steps</Text></TouchableOpacity>
       </View>
     );
   };
@@ -508,7 +489,7 @@ export default function ProviderCalendarScreen({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         )}
       >
-        <HeaderSection navigation={navigation} onInboxPress={() => navigation.navigate('InboxScreen')} />
+        <HeaderSection navigation={navigation} onInboxPress={() => openProviderInbox(navigation)} />
         <View style={[styles.header, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
           <View style={styles.headerTextWrap}>
             <Text style={[styles.headerTitle, { color: C.text }]}>My Jobs</Text>
@@ -538,12 +519,13 @@ export default function ProviderCalendarScreen({ navigation }) {
               <ActivityIndicator size="large" color="#15803D" />
               <Text style={[styles.loadingText, { color: C.muted }]}>Loading provider jobs...</Text>
             </View>
-          ) : error ? (
-            <View style={[styles.emptyContainer, { backgroundColor: C.card, borderColor: C.border }]}>
-              <Ionicons name="cloud-offline-outline" size={46} color="#9CA3AF" />
-              <Text style={[styles.emptyTitle, { color: C.text }]}>{error}</Text>
-            </View>
-          ) : renderBody()}
+          ) : <>
+            {error ? <View style={[styles.emptyContainer, { backgroundColor: C.card, borderColor: C.border }]}>
+              <Text accessibilityRole="alert" style={[styles.emptyTitle, { color: C.text }]}>{error}</Text>
+              <TouchableOpacity style={styles.fullPrimaryButton} onPress={onRefresh}><Text style={styles.primaryButtonText}>Retry Loading</Text></TouchableOpacity>
+            </View> : null}
+            {renderBody()}
+          </>}
         </View>
       </ScrollView>
     </View>

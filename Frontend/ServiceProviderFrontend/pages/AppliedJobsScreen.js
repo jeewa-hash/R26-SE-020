@@ -15,6 +15,8 @@ import { useTranslation } from 'react-i18next';
 import { useAppliedJobs } from '../context/AppliedJobsContext';
 import { ThemeContext } from '../context/ThemeContext';
 import { JOB_STATUS } from '../constants/jobStatus';
+import ProviderPageHeader from '../components/ProviderPageHeader';
+import { openProviderTab } from '../utils/providerFlowUi';
 import { CATEGORY_COLORS } from '../constants/feedData';
 
 const { width } = Dimensions.get('window');
@@ -28,10 +30,10 @@ const STATUS_FILTERS = [
   { key: 'expired', label: 'Expired', icon: 'timer-off', color: '#6B7280' },
 ];
 
-export default function AppliedJobsScreen() {
+export default function AppliedJobsScreen({ navigation }) {
   const { isDark } = useContext(ThemeContext) || {};
   const { t } = useTranslation();
-  const { appliedJobs, getJobsByStatus, updateJobStatus, cancelApplication, getStatusCounts } = useAppliedJobs();
+  const { appliedJobs, getJobsByStatus, getStatusCounts } = useAppliedJobs();
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -63,9 +65,8 @@ export default function AppliedJobsScreen() {
   const statusCounts = getStatusCounts();
 
   const filteredJobs = getJobsByStatus(selectedStatus).filter((job) =>
-    job.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    job.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    job.location.toLowerCase().includes(searchQuery.toLowerCase())
+    [job.customer || job.user?.name || job.poster?.name, job.category || job.detectedCategory, job.title, typeof job.location === 'object' ? job.location?.address : job.location]
+      .some(value => String(value || '').toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   if (appliedJobs.length === 0) {
@@ -79,6 +80,8 @@ export default function AppliedJobsScreen() {
         <Text style={[styles.emptyStateText, { color: C.textSub }]}>
           Browse available jobs and apply to get started
         </Text>
+        <TouchableOpacity style={styles.connectButton} onPress={() => openProviderTab(navigation, 'HomeTab', { screen: 'NewsFeedMain' })}><Text style={styles.connectButtonText}>Browse Jobs</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.similarJobsButton} onPress={() => navigation.goBack()}><Text style={styles.similarJobsButtonText}>Back</Text></TouchableOpacity>
       </View>
     );
   }
@@ -90,6 +93,7 @@ export default function AppliedJobsScreen() {
       showsVerticalScrollIndicator={false}
     >
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <ProviderPageHeader navigation={navigation} title="Applied Jobs" subtitle="Applications, quotation requests and next steps" />
       {/* Search Bar */}
       <View style={styles.searchWrapper}>
         <View style={[styles.searchContainer, { backgroundColor: C.searchBg, borderColor: C.searchBorder }]}>
@@ -181,7 +185,7 @@ export default function AppliedJobsScreen() {
           const status =
             Object.values(JOB_STATUS).find((s) => s.key === job.status) || JOB_STATUS.PENDING;
           const categoryColor = CATEGORY_COLORS[job.category] || '#166534';
-          const initials = job.customer
+          const initials = String(job.customer || job.user?.name || job.poster?.name || 'Seeker')
             .split(' ')
             .map((n) => n[0])
             .join('')
@@ -201,14 +205,14 @@ export default function AppliedJobsScreen() {
                   </View>
 
                   <View style={styles.appliedInfo}>
-                    <Text style={[styles.appliedName, { color: C.text }]}>{job.customer}</Text>
+                    <Text style={[styles.appliedName, { color: C.text }]}>{job.customer || job.user?.name || job.poster?.name || 'Seeker'}</Text>
                     <View style={styles.appliedMeta}>
                       <MaterialIcons name="location-on" size={12} color={C.textSub} />
                       <Text style={[styles.appliedMetaText, { color: C.textSub }]}>
                         {typeof job.location === 'object'
-                          ? job.location.address ||
-                            job.location.city ||
-                            job.location.district ||
+                          ? job.location?.address ||
+                            job.location?.city ||
+                            job.location?.district ||
                             'Unknown location'
                           : job.location || 'Unknown location'}
                       </Text>
@@ -254,33 +258,15 @@ export default function AppliedJobsScreen() {
                   </View>
                 </View>
 
-                {/* Action Buttons based on status */}
-                {job.status === 'selected' && (
-                  <TouchableOpacity style={styles.connectButton}>
-                    <MaterialIcons name="chat" size={16} color="#FFFFFF" />
-                    <Text style={styles.connectButtonText}>Message Client</Text>
-                  </TouchableOpacity>
-                )}
-
-                {job.status === 'pending' && (
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => Alert.alert('Cancel application?', 'This application will be removed from your applied jobs.', [
-                      { text: 'Keep', style: 'cancel' },
-                      { text: 'Cancel application', style: 'destructive', onPress: () => cancelApplication(job.id) },
-                    ])}
-                  >
-                    <MaterialIcons name="close" size={16} color="#FFFFFF" />
-                    <Text style={styles.cancelButtonText}>Cancel Application</Text>
-                  </TouchableOpacity>
-                )}
-
-                {job.status === 'rejected' && (
-                  <TouchableOpacity style={styles.similarJobsButton}>
-                    <MaterialIcons name="search" size={16} color="#FFFFFF" />
-                    <Text style={styles.similarJobsButtonText}>Find Similar Jobs</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity style={styles.connectButton} onPress={() => navigation.navigate('ProviderPostDetail', { post: { ...job, _id: job._id || job.id } })}>
+                  <MaterialIcons name="visibility" size={16} color="#FFFFFF" />
+                  <Text style={styles.connectButtonText}>View Post</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.similarJobsButton} onPress={() => openProviderTab(navigation, 'Bookings', { tab: 'Requests' })}>
+                  <MaterialIcons name="receipt" size={16} color="#FFFFFF" />
+                  <Text style={styles.similarJobsButtonText}>View Quotation Requests</Text>
+                </TouchableOpacity>
+                <Text style={{ color: C.textSub, marginTop: 10 }}>After you apply, the seeker can request your quotation. Track requests and bookings in My Jobs.</Text>
               </View>
             </View>
           );
