@@ -15,7 +15,8 @@ export const AUTH_SERVICE_URL = 'https://r26-auth-service.onrender.com';
 // screens append /predict and /flow/next for their respective requests.
 export const IMAGE_CLASSIFIER_URL = 'https://elegant-forgiveness-production-00a1.up.railway.app';
 export const TEXT_MODEL_URL =
-    process.env.EXPO_PUBLIC_TEXT_MODEL_URL || `http://${IP_ADDRESS}:5002`;
+    process.env.EXPO_PUBLIC_TEXT_MODEL_URL ||
+    'https://extraordinary-communication-production-6db2.up.railway.app';
 
 export const PROVIDER_SERVICE_URL =
     process.env.EXPO_PUBLIC_PROVIDER_SERVICE_URL ||
