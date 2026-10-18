@@ -37,10 +37,12 @@ pipeline {
 
         stage('Validate Coordination Service') {
             steps {
-                sh '''
-                    node --check src/server.js
-                    node --check src/controllers/providerRequestController.js
-                '''
+                dir('ServiceCoordinationService') {
+                    sh '''
+                        node --check src/server.js
+                        node --check src/controllers/providerRequestController.js
+                    '''
+                }
             }
         }
 
@@ -57,23 +59,27 @@ pipeline {
 
         stage('Build Duration ML') {
             steps {
-                sh '''
-                    docker build \
-                    --platform linux/amd64 \
-                    -t ${DURATION_ML_REPO}:${IMAGE_TAG} \
-                    ./DurationMLService
-                '''
+                dir('ServiceCoordinationService') {
+                    sh '''
+                        docker build \
+                        --platform linux/amd64 \
+                        -t ${DURATION_ML_REPO}:${IMAGE_TAG} \
+                        ./DurationMLService
+                    '''
+                }
             }
         }
 
         stage('Build Coordination Service') {
             steps {
-                sh '''
-                    docker build \
-                    --platform linux/amd64 \
-                    -t ${COORDINATION_REPO}:${IMAGE_TAG} \
-                    .
-                '''
+                dir('ServiceCoordinationService') {
+                    sh '''
+                        docker build \
+                        --platform linux/amd64 \
+                        -t ${COORDINATION_REPO}:${IMAGE_TAG} \
+                        .
+                    '''
+                }
             }
         }
 
