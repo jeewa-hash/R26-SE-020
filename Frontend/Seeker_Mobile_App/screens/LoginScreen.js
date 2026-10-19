@@ -91,7 +91,8 @@ export default function LoginScreen({ navigation }) {
           password,
         },
         {
-          timeout: 10000,
+          // Render free services can take about a minute to wake after idling.
+          timeout: 90000,
           headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
@@ -156,7 +157,7 @@ export default function LoginScreen({ navigation }) {
     } catch (error) {
       console.error('LOGIN ERROR:', error.response?.data || error.message);
 
-      if (error.response?.data?.notVerified) {
+      if (error.response?.data?.requiresOTP || error.response?.data?.notVerified) {
         Alert.alert(
           isSi ? 'ඊමේල් තහවුරු කර නැත' : 'Email Not Verified',
           isSi

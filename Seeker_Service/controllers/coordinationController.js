@@ -36,3 +36,25 @@ export const getSeekerBookingHistory = async (req, res) => {
       });
   }
 };
+
+export const reconcileSeekerBookingRewards = async (req, res) => {
+  try {
+    const response = await axios.post(
+      `${coordinationBaseUrl()}/bookings/seeker/me/rewards/reconcile`,
+      {},
+      {
+        headers: { Authorization: req.headers.authorization },
+        timeout: 30000,
+      }
+    );
+
+    return res.status(response.status).json(response.data);
+  } catch (error) {
+    return res
+      .status(error.response?.status || 502)
+      .json(error.response?.data || {
+        success: false,
+        message: "Unable to reconcile completed booking rewards.",
+      });
+  }
+};

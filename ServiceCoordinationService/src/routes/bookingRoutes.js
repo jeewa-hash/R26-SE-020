@@ -11,6 +11,7 @@ import {
   markBookingOnTheWay,
   startBooking,
   completeBooking,
+  reconcileCompletedBookingRewards,
   reportBookingDelay,
   cancelBooking,
   getProviderMissedInquiries,
@@ -49,6 +50,7 @@ router.put("/:bookingId/start", protect(["ServiceProvider"]), startBooking);
 router.put("/:bookingId/report-delay", protect(["ServiceProvider"]), reportBookingDelay);
 router.put("/:bookingId/cancel", protect(["ServiceProvider", "Seeker", "Admin"]), cancelBooking);
 router.put("/:bookingId/complete", protect(["ServiceProvider", "Seeker"]), completeBooking);
+router.post("/seeker/me/rewards/reconcile", protect(["Seeker"]), reconcileCompletedBookingRewards);
 router.get("/:bookingId", protect(["ServiceProvider", "Seeker", "Admin"]), getBookingById);
 
 export default router;

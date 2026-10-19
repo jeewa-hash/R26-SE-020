@@ -398,9 +398,9 @@ export default function App() {
 
   useEffect(() => {
     const bootstrapLanguage = async () => {
-      await loadLanguage();
-
       try {
+        await loadLanguage();
+
         const token = await AsyncStorage.getItem('userToken');
         const role = await AsyncStorage.getItem('userRole');
 
@@ -412,9 +412,9 @@ export default function App() {
       } catch (err) {
         console.log('Error bootstrapping auth:', err);
         setInitialRouteName('Login');
+      } finally {
+        setBootstrapped(true);
       }
-
-      setBootstrapped(true);
     };
 
     bootstrapLanguage();
