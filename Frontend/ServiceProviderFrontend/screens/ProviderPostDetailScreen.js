@@ -43,8 +43,10 @@ const getInitials = (name) => {
 
 const resolveImage = (post, fallback) => {
   if (!post) return fallback;
-  const raw = post.postImage || post.image;
+  const rawValue = post.postImage || post.image;
+  const raw = typeof rawValue === 'object' ? rawValue?.url : rawValue;
   if (!raw) return fallback;
+  if (typeof raw !== 'string') return fallback;
   if (raw.startsWith('http')) return raw;
   return `${CONFIG.SEEKER_SERVICE_URL}/${String(raw).replace(/\\/g, '/')}`;
 };
@@ -69,7 +71,7 @@ const resolvePosterAvatar = (p) => {
     p.user?.profileImage ||
     p.user?.avatar ||
     null;
-  if (!raw) return null;
+  if (!raw || typeof raw !== 'string') return null;
   if (raw.startsWith('http')) return raw;
   if (raw.startsWith('data:')) return raw;
   return `${CONFIG.AUTH_SERVICE_URL}/${String(raw).replace(/\\/g, '/')}`;
@@ -421,10 +423,13 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
               {post.applicants && post.applicants.length > 0 ? (
                 post.applicants.map((a, idx) => {
                   const aName = a.name || 'Applicant';
-                  const aAvatar = a.profilePicture
-                    ? (a.profilePicture.startsWith('http') || a.profilePicture.startsWith('data:'))
-                      ? a.profilePicture
-                      : `${CONFIG.AUTH_SERVICE_URL}/${String(a.profilePicture).replace(/\\/g, '/')}`
+                  const avatarValue = typeof a.profilePicture === 'object'
+                    ? a.profilePicture?.url
+                    : a.profilePicture;
+                  const aAvatar = typeof avatarValue === 'string'
+                    ? (avatarValue.startsWith('http') || avatarValue.startsWith('data:'))
+                      ? avatarValue
+                      : `${CONFIG.AUTH_SERVICE_URL}/${avatarValue.replace(/\\/g, '/')}`
                     : null;
                   const avColor = getAvatarColor(aName);
                   return (

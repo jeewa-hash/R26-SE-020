@@ -92,4 +92,22 @@ export default {
   portfolio: 'පෝට්ෆෝලියෝ',
   reviews: 'පරිශීලක සමාලෝචන',
   language: 'භාෂාව',
+
+  // Posts Section
+  myPosts: 'මගේ දැන්වීම්',
+  newPost: 'නව දැන්වීමක්',
+  allPosts: 'මගේ සියලු දැන්වීම්',
+  showAll: 'සියල්ල බලන්න',
+  boostAd: 'ප්‍රමුඛතාව ඉහළ නංවන්න',
+  boostAgain: 'නැවත ප්‍රමුඛතාව නංවන්න',
+  boosted: 'ප්‍රමුඛතාව කළ',
+  editPost: 'දැන්වීම සංස්කරණය',
+  deletePost: 'දැන්වීම මකන්න',
+  likedBy: 'කැමති වූවන්',
+  advertisements: 'දැන්වීම්',
+  noPostsYet: 'තවම දැන්වීම් නැත',
+  createFirstPost: 'වැඩි ගනුදෙනුකරුවන් ආකර්ෂණය කර ගැනීමට ඔබේ පළමු දැන්වීම සාදන්න',
+  recentlyCreated: 'මෑතකදී සාදන ලද',
+  mostBoosted: 'වැඩිම ප්‍රමුඛතාව',
+  searchPosts: 'දැන්වීම් සොයන්න...',
 };

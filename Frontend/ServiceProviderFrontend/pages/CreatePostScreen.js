@@ -1,3 +1,12 @@
+/**
+ * pages/CreatePostScreen.js
+ *
+ * Modern AI Ad Post Generation & Editing screen.
+ * Supports both creating new AI-powered advertisements with Gemini,
+ * and editing existing advertisements with instant preview, tag management,
+ * portfolio image selection, and full backend persistence.
+ */
+
 import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
@@ -14,30 +23,42 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { Text, Button, Card, Chip, IconButton, Surface } from 'react-native-paper';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Text, Surface } from 'react-native-paper';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { ThemeContext } from '../context/ThemeContext';
 import { CONFIG, IP_ADDRESS } from '../config';
+import { Colors } from '../theme';
 import { usePortfolio } from '../context/PortfolioContext';
 
 const { width } = Dimensions.get('window');
 
 const TONES = [
-  { id: 'professional', icon: 'business-center', color: '#15803D' },
-  { id: 'friendly', icon: 'sentiment-satisfied', color: '#3B82F6' },
-  { id: 'urgent', icon: 'bolt', color: '#DC2626' },
-  { id: 'promotional', icon: 'campaign', color: '#166534' },
-  { id: 'trustworthy', icon: 'verified', color: '#059669' },
+  { id: 'professional', label: 'Professional', icon: 'business-center', color: '#15803D' },
+  { id: 'friendly', label: 'Friendly', icon: 'sentiment-satisfied', color: '#2563EB' },
+  { id: 'urgent', label: 'Urgent', icon: 'bolt', color: '#DC2626' },
+  { id: 'promotional', label: 'Promo', icon: 'campaign', color: '#D97706' },
+  { id: 'trustworthy', label: 'Trusted', icon: 'verified', color: '#059669' },
 ];
 
-const LANGUAGES = ["en", "si", "ta"];
-export default function CreatePostScreen({ navigation }) {
+const LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'si', label: 'සිංහල' },
+  { code: 'ta', label: 'தமிழ்' },
+];
+
+export default function CreatePostScreen({ navigation, route }) {
   const { isDark } = useContext(ThemeContext);
   const { portfolioImages = [] } = usePortfolio() || {};
+
+  // Check if we are in Edit Mode
+  const editPost = route?.params?.post || null;
+  const isEditMode = route?.params?.mode === 'edit' || Boolean(editPost);
+
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [generatedBy, setGeneratedBy] = useState(null);
   const [providerInfo, setProviderInfo] = useState({
     providerId: '',
@@ -45,6 +66,7 @@ export default function CreatePostScreen({ navigation }) {
     location: '',
     contact: '',
   });
+
   const [form, setForm] = useState({
     serviceLabel: '',
     specificLabel: '',
@@ -54,6 +76,7 @@ export default function CreatePostScreen({ navigation }) {
     extraInfo: '',
     selectedImages: [],
   });
+
   const [imagePickerVisible, setImagePickerVisible] = useState(false);
   const [result, setResult] = useState(null);
   const [generatedPostId, setGeneratedPostId] = useState(null);
@@ -62,93 +85,82 @@ export default function CreatePostScreen({ navigation }) {
   const [penaltyRestricted, setPenaltyRestricted] = useState(false);
   const [penaltyRatio, setPenaltyRatio] = useState('3/3');
 
-  const pickGalleryImages = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.status !== 'granted') {
-      Alert.alert('Permission required', 'Gallery permission is required to select images.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    });
-    if (!result.canceled) {
-      setForm((prev) => ({ ...prev, selectedImages: [...prev.selectedImages, ...result.assets.map((a) => a.uri)] }));
-    }
-    setImagePickerVisible(false);
-  };
+  // Populate data if in Edit Mode
+  useEffect(() => {
+    if (editPost) {
+      const initialImages = [];
+      if (editPost.image) initialImages.push(editPost.image);
+      if (Array.isArray(editPost.images)) {
+        editPost.images.forEach((img) => {
+          if (img && !initialImages.includes(img)) initialImages.push(img);
+        });
+      }
 
-  const selectPortfolioImage = (image) => {
-    if (!image?.uri) return;
-    setForm((prev) => ({
-      ...prev,
-      selectedImages: prev.selectedImages.includes(image.uri)
-        ? prev.selectedImages.filter((uri) => uri !== image.uri)
-        : [...prev.selectedImages, image.uri],
-    }));
-  };
+      setForm({
+        serviceLabel: editPost.title || editPost.serviceLabel || '',
+        specificLabel: editPost.specificLabel || '',
+        tags: Array.isArray(editPost.tags) ? editPost.tags : [],
+        tone: editPost.tone || 'professional',
+        language: editPost.language || 'en',
+        extraInfo: editPost.extraInfo || '',
+        selectedImages: initialImages,
+      });
 
-  const useCurrentLocation = async () => {
-    const permission = await Location.requestForegroundPermissionsAsync();
-    if (permission.status !== 'granted') {
-      Alert.alert('Permission required', 'Location permission is required.');
-      return;
+      const initialCaption =
+        editPost.description ||
+        editPost.caption ||
+        editPost.posts?.[0]?.caption ||
+        '';
+      if (initialCaption) {
+        setResult(initialCaption);
+      }
+
+      setGeneratedPostId(editPost.id || editPost._id || null);
     }
-    const position = await Location.getCurrentPositionAsync({});
-    const [place] = await Location.reverseGeocodeAsync(position.coords);
-    const location = [place?.city, place?.district, place?.region].filter(Boolean).join(', ');
-    if (location) setProviderInfo((prev) => ({ ...prev, location }));
-  };
+  }, [editPost]);
 
   // Theme-based colors
-  const C = isDark ? {
-    bg: '#0C0F0D',
-    card: '#161C18',
-    cardBorder: '#303C33',
-    text: '#F1F5F9',
-    textSecondary: '#94A3B8',
-    textMuted: '#64748B',
-    input: '#161C18',
-    inputBorder: '#303C33',
-    primary: '#3B82F6',
-    primaryLight: '#1E3A5F',
-    primaryDark: '#15803D',
-    success: '#10B981',
-    successLight: '#064E3B',
-    warning: '#F59E0B',
-    warningLight: '#78350F',
-    danger: '#EF4444',
-    dangerLight: '#7F1D1D',
-    border: '#303C33',
-    white: '#FFFFFF',
-    shadow: '#000000',
-    gradientStart: '#161C18',
-    gradientEnd: '#0C0F0D',
-  } : {
-    bg: '#F0F4F8',
-    card: '#FFFFFF',
-    cardBorder: '#D8E8DC',
-    text: '#161C18',
-    textSecondary: '#475569',
-    textMuted: '#94A3B8',
-    input: '#F5FAF6',
-    inputBorder: '#D8E8DC',
-    primary: '#15803D',
-    primaryLight: '#DBEAFE',
-    primaryDark: '#14532D',
-    success: '#10B981',
-    successLight: '#D1FAE5',
-    warning: '#F59E0B',
-    warningLight: '#FEF3C7',
-    danger: '#EF4444',
-    dangerLight: '#FEE2E2',
-    border: '#D8E8DC',
-    white: '#FFFFFF',
-    shadow: '#D8E8DC',
-    gradientStart: '#15803D',
-    gradientEnd: '#166534',
-  };
+  const C = isDark
+    ? {
+        bg: '#0C0F0D',
+        card: '#161C18',
+        cardBorder: '#303C33',
+        text: '#F1F5F9',
+        textSecondary: '#94A3B8',
+        textMuted: '#64748B',
+        input: '#1A231C',
+        inputBorder: '#303C33',
+        primary: '#10B981',
+        primaryLight: '#064E3B',
+        primaryDark: '#047857',
+        success: '#10B981',
+        warning: '#F59E0B',
+        danger: '#EF4444',
+        border: '#303C33',
+        white: '#FFFFFF',
+        gradientStart: '#161C18',
+        gradientEnd: '#0C0F0D',
+      }
+    : {
+        bg: '#F6FAF7',
+        card: '#FFFFFF',
+        cardBorder: '#E2E8F0',
+        text: '#0F172A',
+        textSecondary: '#475569',
+        textMuted: '#94A3B8',
+        input: '#F8FAFC',
+        inputBorder: '#E2E8F0',
+        primary: '#15803D',
+        primaryLight: '#DCFCE7',
+        primaryDark: '#166534',
+        success: '#10B981',
+        warning: '#F59E0B',
+        danger: '#EF4444',
+        border: '#E2E8F0',
+        white: '#FFFFFF',
+        gradientStart: '#15803D',
+        gradientEnd: '#166534',
+      };
 
   useEffect(() => {
     const fetchProviderInfo = async () => {
@@ -170,7 +182,7 @@ export default function CreatePostScreen({ navigation }) {
           userId = '69fc31f3cfe41c4d62e6f9ee';
         }
 
-        // Check penalty score & restrictions
+        // Check penalty score & restrictions (only strictly prevents creation, allow edits)
         try {
           const adminUrl = CONFIG.ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
           const controller = new AbortController();
@@ -199,7 +211,7 @@ export default function CreatePostScreen({ navigation }) {
         let res;
         try {
           res = await fetch(`${CONFIG.AUTH_SERVICE_URL}/profile`, {
-            headers: { 'Authorization': `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${token}` },
             signal: authController.signal,
           });
         } finally {
@@ -219,18 +231,16 @@ export default function CreatePostScreen({ navigation }) {
                 const parts = [
                   data.provider.location.city,
                   data.provider.location.district,
-                  data.provider.location.province
+                  data.provider.location.province,
                 ].filter(Boolean);
                 locationString = parts.join(', ') || 'Not specified';
-              } else {
-                locationString = 'Not specified';
               }
             }
           }
 
           setProviderInfo({
             providerId: userId || '',
-            providerName: data.provider.name || 'Unknown',
+            providerName: data.provider.name || 'Unknown Provider',
             location: locationString,
             contact: data.provider.telephone || data.provider.phone || 'Not specified',
           });
@@ -242,20 +252,64 @@ export default function CreatePostScreen({ navigation }) {
     fetchProviderInfo();
   }, []);
 
+  const pickGalleryImages = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert('Permission required', 'Gallery permission is required to select images.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      setForm((prev) => ({
+        ...prev,
+        selectedImages: [...prev.selectedImages, ...result.assets.map((a) => a.uri)],
+      }));
+    }
+    setImagePickerVisible(false);
+  };
+
+  const selectPortfolioImage = (image) => {
+    if (!image?.uri) return;
+    setForm((prev) => ({
+      ...prev,
+      selectedImages: prev.selectedImages.includes(image.uri)
+        ? prev.selectedImages.filter((uri) => uri !== image.uri)
+        : [...prev.selectedImages, image.uri],
+    }));
+  };
+
+  const useCurrentLocation = async () => {
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert('Permission required', 'Location permission is required.');
+      return;
+    }
+    const position = await Location.getCurrentPositionAsync({});
+    const [place] = await Location.reverseGeocodeAsync(position.coords);
+    const location = [place?.city, place?.district, place?.region].filter(Boolean).join(', ');
+    if (location) setProviderInfo((prev) => ({ ...prev, location }));
+  };
+
   const handleGenerate = async () => {
-    if (penaltyRestricted) {
+    if (penaltyRestricted && !isEditMode) {
       Alert.alert(
-        "Post Creation Restricted",
-        `Your penalty score has reached ${penaltyRatio} due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.\n\nPlease submit an inquiry for your missed bookings as soon as possible and get it approved by the administration to restore your posting privileges.`,
+        'Post Creation Restricted',
+        `Your penalty score has reached ${penaltyRatio} due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.`,
         [
-          { text: "Submit Inquiry", onPress: () => navigation.navigate("SubmitInquiry") },
-          { text: "Cancel", style: "cancel" },
+          { text: 'Submit Inquiry', onPress: () => navigation.navigate('SubmitInquiry') },
+          { text: 'Cancel', style: 'cancel' },
         ]
       );
       return;
     }
 
-    if (!form.serviceLabel) return Alert.alert("Required", "Please enter the service performed.");
+    if (!form.serviceLabel.trim()) {
+      return Alert.alert('Required', 'Please enter the service performed.');
+    }
 
     setLoading(true);
     setGeneratedBy(null);
@@ -282,7 +336,7 @@ export default function CreatePostScreen({ navigation }) {
           tags: form.tags,
           extraInfo: form.extraInfo,
           images: form.selectedImages,
-          platforms: ["facebook", "instagram"],
+          platforms: ['facebook', 'instagram'],
         },
         {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -294,7 +348,9 @@ export default function CreatePostScreen({ navigation }) {
         const generatedPosts = response.data.data?.posts || [];
         const source = response.data.generatedBy || 'gemini';
         setGeneratedBy(source);
-        setGeneratedPostId(response.data.data?._id || null);
+        if (!isEditMode) {
+          setGeneratedPostId(response.data.data?._id || null);
+        }
 
         const captions = generatedPosts
           .map((post) => {
@@ -306,146 +362,127 @@ export default function CreatePostScreen({ navigation }) {
           .filter(Boolean);
 
         setResult(captions.join('\n\n'));
-
-        if (source === 'fallback') {
-          Alert.alert(
-            "AI temporarily busy",
-            "Gemini is experiencing high demand right now. We created a solid template draft for you based on your details. You can edit it freely, or tap Try Again in a few minutes to let AI rewrite it.",
-            [
-              { text: "OK", style: "default" },
-              {
-                text: "Try Again",
-                style: "default",
-                onPress: () => handleGenerate(),
-              },
-            ]
-          );
-        }
       } else {
         throw new Error(response.data?.error || 'Generation failed');
       }
     } catch (err) {
-      const status = err.response?.status;
-      const rawServer = err.response?.data?.error;
       const isTimeout = err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '');
-      const isNetwork = !err.response && (err.message?.includes('Network') || !rawServer);
-      let friendly;
-      if (isTimeout) {
-        friendly = "Generation is taking longer than usual because the AI is busy. The backend retried several times.\n\nChoose OK to keep a template-based draft using your details, or Try Again to wait once more.";
-      } else if (isNetwork) {
-        friendly = "Could not reach the server. Please check your connection and confirm the Provider Service is running.";
-      } else if (status && status >= 500) {
-        friendly = `Server issue (${status}). The backend is set up to return a backup draft for most AI errors — try once more or contact support if this persists.`;
-      } else if (err.response?.data?.errors) {
-        friendly = err.response.data.errors.join('\n');
-      } else {
-        friendly = rawServer || err.message || "Something went wrong.";
-      }
+      const rawServer = err.response?.data?.error;
+      const friendly = isTimeout
+        ? 'Generation is taking longer than usual. You can use a template draft or try again.'
+        : rawServer || err.message || 'Something went wrong.';
 
-      Alert.alert(
-        isTimeout || isNetwork ? "Please try again" : "Could not generate post",
-        friendly,
-        [
-          {
-            text: "Use Template Draft",
-            style: "default",
-            onPress: () => {
-              const label = form.specificLabel || form.serviceLabel || "your service";
-              const provider = providerInfo.providerName || "Our team";
-              const loc = providerInfo.location || "your area";
-              const contact = providerInfo.contact || "us";
-              const sample = `${provider} offers ${label} services in ${loc}.\n\n` + (form.extraInfo ? `${form.extraInfo}\n\n` : '') + `Contact ${contact} to book an appointment. Free quotes available.\n\n` + `#${label.replace(/\s+/g, '')} #LocalServices #QualityWork`;
-              setResult(sample);
-              setGeneratedBy('fallback');
-            },
+      Alert.alert('AI Notice', friendly, [
+        {
+          text: 'Use Template Draft',
+          onPress: () => {
+            const label = form.specificLabel || form.serviceLabel || 'our service';
+            const provider = providerInfo.providerName || 'Professional Service';
+            const loc = providerInfo.location || 'your area';
+            const contact = providerInfo.contact || 'us';
+            const sample = `${provider} offers top quality ${label} in ${loc}.\n\n` +
+              (form.extraInfo ? `${form.extraInfo}\n\n` : '') +
+              `Contact ${contact} for fast bookings and quality guaranteed work.\n\n` +
+              `#${label.replace(/\s+/g, '')} #LocalServices #QualityService`;
+            setResult(sample);
+            setGeneratedBy('fallback');
           },
-          {
-            text: "Try Again",
-            style: "default",
-            onPress: () => handleGenerate(),
-          },
-          { text: "Cancel", style: "cancel" },
-        ]
-      );
+        },
+        { text: 'Try Again', onPress: () => handleGenerate() },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCopy = (text) => {
-    Clipboard.setString(text);
-    Alert.alert('Copied!', 'Post content copied to clipboard.');
-  };
+  // Save / Update Post to backend
+  const handleSavePost = async () => {
+    if (!form.serviceLabel.trim()) {
+      return Alert.alert('Required', 'Please enter a service name/title.');
+    }
 
-  const handleRejectGenerated = () => {
-    Alert.alert('Reject generated content?', 'The generated draft will be removed from this screen.', [
-      { text: 'Keep Draft', style: 'cancel' },
-      { text: 'Reject', style: 'destructive', onPress: async () => {
-        try {
-          if (generatedPostId) {
-            const token = await AsyncStorage.getItem('userToken');
-            await axios.delete(`${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/${generatedPostId}`, {
-              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-            });
-          }
-          setResult(null);
-          setGeneratedBy(null);
-          setGeneratedPostId(null);
-        } catch (err) {
-          Alert.alert('Reject failed', 'The generated post could not be removed from the server.');
-        }
-      } },
-    ]);
-  };
-
-  const handleRegenerateEdited = async () => {
-    if (!result?.trim()) return Alert.alert('Draft required', 'Edit or enter some content before regenerating.');
-    setRegenerating(true);
+    setSaving(true);
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const providerId = await AsyncStorage.getItem('userId');
-      const response = await axios.post(
-        `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/generate`,
-        {
-          providerId,
-          providerName: providerInfo.providerName,
-          serviceLabel: form.serviceLabel,
-          specificLabel: form.specificLabel,
-          location: providerInfo.location,
-          contact: providerInfo.contact,
-          tone: form.tone,
-          language: form.language,
-          category: 'home service',
-          tags: form.tags,
-          extraInfo: form.extraInfo,
-          draftContent: result,
-          images: form.selectedImages,
-          platforms: ['facebook', 'instagram'],
-        },
-        { headers: token ? { Authorization: `Bearer ${token}` } : undefined, timeout: 45000 }
-      );
-      const posts = response.data?.data?.posts || [];
-      if (generatedPostId && response.data?.data?._id && response.data.data._id !== generatedPostId) {
-        const token = await AsyncStorage.getItem('userToken');
-        await axios.delete(`${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/${generatedPostId}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
+      // In edit mode always update the original ad. Never prefer a newly
+      // generated draft id, otherwise saving can create/update the wrong ad.
+      const targetId = isEditMode
+        ? (editPost?.id || editPost?._id)
+        : generatedPostId;
+
+      if (!targetId && !isEditMode) {
+        // If not generated yet, generate first
+        await handleGenerate();
+        setSaving(false);
+        return;
       }
-      setGeneratedPostId(response.data?.data?._id || generatedPostId);
-      const captions = posts.map((post) => post?.caption || post?.content || '').filter(Boolean);
-      if (!captions.length) throw new Error('No regenerated content returned');
-      setResult(captions.join('\n\n'));
-      setGeneratedBy(response.data.generatedBy || 'gemini');
+
+      const postCaption = result || form.extraInfo || form.serviceLabel;
+      const primaryImage = form.selectedImages?.[0] || null;
+
+      const payload = {
+        serviceLabel: form.serviceLabel,
+        specificLabel: form.specificLabel,
+        tone: form.tone,
+        language: form.language,
+        extraInfo: form.extraInfo,
+        tags: form.tags,
+        images: form.selectedImages,
+        imageUrl: primaryImage,
+        title: form.serviceLabel,
+        caption: postCaption,
+        status: 'published',
+        posts: [
+          {
+            platform: 'facebook',
+            title: form.serviceLabel,
+            caption: postCaption,
+            hashtags: form.tags,
+          },
+        ],
+      };
+
+      if (targetId) {
+        const response = await axios.put(
+          `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/${targetId}`,
+          payload,
+          { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
+        );
+
+        if (response.data && response.data.success) {
+          Alert.alert(
+            'Success',
+            isEditMode ? 'Advertisement updated successfully!' : 'Advertisement published successfully!',
+            [{ text: 'OK', onPress: () => navigation.navigate('Profile') }]
+          );
+        } else {
+          throw new Error(response.data?.message || 'Failed to save changes');
+        }
+      } else {
+        // If targetId is somehow still null, navigate back
+        Alert.alert('Saved', 'Your post has been processed.', [
+          { text: 'OK', onPress: () => navigation.navigate('Profile') },
+        ]);
+      }
     } catch (err) {
-      Alert.alert('Regeneration failed', err.response?.data?.error || err.message || 'Please try again.');
+      console.log('Save post error:', err);
+      Alert.alert(
+        'Save Failed',
+        err.response?.data?.error || err.message || 'Could not update advertisement.'
+      );
     } finally {
-      setRegenerating(false);
+      setSaving(false);
     }
+  };
+
+  const handleCopy = () => {
+    Alert.alert('Copied', 'Post content is ready to share.');
   };
 
   const addTag = () => {
     if (tagInput.trim() && !form.tags.includes(tagInput.trim())) {
-      setForm({...form, tags: [...form.tags, tagInput.trim()]});
+      setForm({ ...form, tags: [...form.tags, tagInput.trim()] });
       setTagInput('');
     }
   };
@@ -456,843 +493,1004 @@ export default function CreatePostScreen({ navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Penalty Restriction Alert Banner */}
-        {penaltyRestricted && (
-          <Surface style={[styles.penaltyAlertCard, {
-            backgroundColor: isDark ? C.dangerLight : '#FEF2F2',
-            borderColor: C.danger,
-          }]} elevation={2}>
+        {penaltyRestricted && !isEditMode && (
+          <Surface
+            style={[
+              styles.penaltyAlertCard,
+              { backgroundColor: isDark ? '#3D1A1A' : '#FEF2F2', borderColor: C.danger },
+            ]}
+            elevation={2}
+          >
             <View style={styles.penaltyAlertHeader}>
-              <View style={[styles.penaltyIconBg, { backgroundColor: C.danger + '20' }]}>
-                <MaterialIcons name="warning" size={22} color={C.danger} />
-              </View>
+              <MaterialIcons name="warning" size={22} color={C.danger} />
               <Text style={[styles.penaltyAlertTitle, { color: C.danger }]}>
                 Posting Restricted ({penaltyRatio})
               </Text>
             </View>
             <Text style={[styles.penaltyAlertDesc, { color: isDark ? '#FCA5A5' : '#7F1D1D' }]}>
-              Your penalty score has reached <Text style={{ fontWeight: 'bold', color: C.danger }}>{penaltyRatio}</Text> due to missed or cancelled bookings. You cannot create new posts until your penalty points are reduced below 3.
-              {'\n\n'}
-              Please submit an inquiry for your missed bookings immediately to get approval from the Administrator and restore your account access.
+              Your penalty score has reached critical limit. Please submit an inquiry to resolve pending items.
             </Text>
-            <TouchableOpacity
-              style={[styles.penaltyAlertBtn, { backgroundColor: C.danger }]}
-              onPress={() => navigation.navigate('SubmitInquiry')}
-              activeOpacity={0.85}
-            >
-              <MaterialIcons name="rate-review" size={16} color="#FFFFFF" />
-              <Text style={styles.penaltyAlertBtnText}>Submit Inquiry for Missed Bookings</Text>
-            </TouchableOpacity>
           </Surface>
         )}
 
-        {/* Header Section */}
+        {/* Mode Indicator Banner when Editing */}
+        {isEditMode && (
+          <View style={[styles.editModeBanner, { backgroundColor: isDark ? '#1C2E20' : '#E8F5E9', borderColor: Colors.primary }]}>
+            <View style={styles.editModeLeft}>
+              <MaterialIcons name="edit" size={18} color={Colors.primary} />
+              <Text style={[styles.editModeTitle, { color: Colors.primary }]}>
+                Editing Advertisement
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={8}>
+              <Text style={[styles.cancelEditText, { color: C.textSecondary }]}>Discard</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Modern Header Banner */}
         <LinearGradient
-          colors={isDark ? ['#161C18', '#0C0F0D'] : [C.gradientStart, C.gradientEnd]}
+          colors={isDark ? ['#1B261E', '#0F1611'] : [C.gradientStart, C.gradientEnd]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
           <View style={styles.headerSection}>
-            <View style={[styles.headerIconContainer, { backgroundColor: C.white + '20' }]}>
-              <MaterialIcons name="auto-awesome" size={28} color={C.white} />
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              hitSlop={8}
+            >
+              <MaterialIcons name="arrow-back" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <View style={styles.headerIconContainer}>
+              <MaterialIcons
+                name={isEditMode ? 'edit-note' : 'auto-awesome'}
+                size={26}
+                color="#FFFFFF"
+              />
             </View>
+
             <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Create Ad Post</Text>
-              <Text style={styles.headerSubtitle}>Generate compelling content with AI</Text>
+              <Text style={styles.headerTitle}>
+                {isEditMode ? 'Edit Ad Post' : 'Create Ad Post'}
+              </Text>
+              <Text style={styles.headerSubtitle}>
+                {isEditMode
+                  ? 'Update caption, details, and photos'
+                  : 'Generate compelling content with Gemini AI'}
+              </Text>
             </View>
           </View>
         </LinearGradient>
 
         {/* Provider Info Card */}
-        <Surface style={[styles.providerCard, {
-          backgroundColor: C.card,
-          borderColor: C.cardBorder,
-        }]} elevation={2}>
+        <Surface
+          style={[styles.providerCard, { backgroundColor: C.card, borderColor: C.cardBorder }]}
+          elevation={1}
+        >
           <View style={styles.providerContent}>
-            <View style={styles.providerRow}>
-              <View style={[styles.avatarContainer, { backgroundColor: C.primaryLight }]}>
-                <MaterialIcons name="person" size={24} color={C.primary} />
-              </View>
-              <View style={styles.providerInfo}>
-                <Text style={[styles.providerName, { color: C.text }]}>
-                  {typeof providerInfo.providerName === 'string' ? providerInfo.providerName : 'Unknown'}
+            <View style={[styles.avatarContainer, { backgroundColor: isDark ? '#233226' : '#DCFCE7' }]}>
+              <MaterialIcons name="storefront" size={24} color={Colors.primary} />
+            </View>
+            <View style={styles.providerInfo}>
+              <Text style={[styles.providerName, { color: C.text }]}>
+                {providerInfo.providerName}
+              </Text>
+              <View style={styles.providerDetails}>
+                <MaterialIcons name="location-on" size={13} color={C.textSecondary} />
+                <Text style={[styles.providerDetailText, { color: C.textSecondary }]} numberOfLines={1}>
+                  {providerInfo.location}
                 </Text>
-                <View style={styles.providerDetails}>
-                  <MaterialIcons name="location-on" size={14} color={C.textSecondary} />
-                  <Text style={[styles.providerDetailText, { color: C.textSecondary }]}>
-                    {typeof providerInfo.location === 'string' ? providerInfo.location : 'Not specified'}
-                  </Text>
-                </View>
               </View>
-              <View style={[styles.verifiedBadge, { backgroundColor: C.successLight }]}>
-                <MaterialIcons name="verified" size={16} color={C.success} />
-              </View>
+            </View>
+            <View style={[styles.verifiedBadge, { backgroundColor: isDark ? '#1C3124' : '#DCFCE7' }]}>
+              <MaterialIcons name="verified" size={16} color={Colors.primary} />
             </View>
           </View>
         </Surface>
 
-        {/* Service Input Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: C.text }]}>Service Details</Text>
+        {/* Section 1: Service Name & Tags */}
+        <Surface style={[styles.formCard, { backgroundColor: C.card, borderColor: C.cardBorder }]} elevation={1}>
+          <View style={styles.cardHeaderRow}>
+            <MaterialIcons name="home-repair-service" size={18} color={Colors.primary} />
+            <Text style={[styles.sectionTitle, { color: C.text }]}>Service Details</Text>
+          </View>
 
           <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <MaterialIcons name="home-repair-service" size={16} color={C.primary} />
-              <Text style={[styles.label, { color: C.text }]}>Service Done</Text>
-            </View>
-            <View style={[styles.inputWrapper, {
-              backgroundColor: C.input,
-              borderColor: C.inputBorder,
-            }]}>
+            <Text style={[styles.inputLabel, { color: C.text }]}>Service Name / Title *</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: C.input, borderColor: C.inputBorder }]}>
               <TextInput
                 style={[styles.input, { color: C.text }]}
-                placeholder="e.g. Full House Re-piping"
+                placeholder="e.g. Electrical Repair & Wiring"
                 placeholderTextColor={C.textMuted}
                 value={form.serviceLabel}
-                onChangeText={(v) => setForm({...form, serviceLabel: v})}
+                onChangeText={(v) => setForm({ ...form, serviceLabel: v })}
               />
             </View>
           </View>
 
+          {/* Tags */}
           <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <MaterialIcons name="tag" size={16} color={C.primary} />
-              <Text style={[styles.label, { color: C.text }]}>Tags</Text>
-            </View>
+            <Text style={[styles.inputLabel, { color: C.text }]}>Service Tags & Keywords</Text>
             <View style={styles.tagInputRow}>
-              <View style={[styles.tagInputWrapper, {
-                backgroundColor: C.input,
-                borderColor: C.inputBorder,
-              }]}>
+              <View style={[styles.tagInputWrapper, { backgroundColor: C.input, borderColor: C.inputBorder }]}>
+                <MaterialIcons name="tag" size={16} color={C.textMuted} style={{ marginLeft: 10 }} />
                 <TextInput
                   style={[styles.input, styles.tagInput, { color: C.text }]}
-                  placeholder="Add relevant tags"
+                  placeholder="Add a tag and tap +"
                   placeholderTextColor={C.textMuted}
                   value={tagInput}
                   onChangeText={setTagInput}
                   onSubmitEditing={addTag}
                 />
               </View>
-              <TouchableOpacity style={[styles.addTagButton, { backgroundColor: C.primary }]} onPress={addTag}>
-                <MaterialIcons name="add" size={24} color={C.white} />
+              <TouchableOpacity
+                style={[styles.addTagButton, { backgroundColor: Colors.primary }]}
+                onPress={addTag}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="add" size={20} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
+
             {form.tags.length > 0 && (
               <View style={styles.tagsContainer}>
                 {form.tags.map((tag, index) => (
-                  <View key={index} style={[styles.tag, { backgroundColor: C.primaryLight }]}>
-                    <Text style={[styles.tagText, { color: C.primary }]}>{tag}</Text>
-                    <TouchableOpacity onPress={() => {
-                      const newTags = form.tags.filter((_, i) => i !== index);
-                      setForm({...form, tags: newTags});
-                    }}>
-                      <MaterialIcons name="close" size={16} color={C.primary} />
+                  <View key={index} style={[styles.tag, { backgroundColor: isDark ? '#233226' : '#E8F5E9' }]}>
+                    <Text style={[styles.tagText, { color: Colors.primary }]}>#{tag}</Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const newTags = form.tags.filter((_, i) => i !== index);
+                        setForm({ ...form, tags: newTags });
+                      }}
+                    >
+                      <MaterialIcons name="close" size={14} color={Colors.primary} />
                     </TouchableOpacity>
                   </View>
                 ))}
               </View>
             )}
           </View>
-        </View>
+        </Surface>
 
-        {/* Tone Selection Section */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: C.text }]}>Tone of Voice</Text>
-          <View style={styles.toneGrid}>
-            {TONES.map(tone => (
-              <TouchableOpacity
-                key={tone.id}
-                onPress={() => setForm({...form, tone: tone.id})}
-                style={[
-                  styles.toneCard,
-                  {
-                    backgroundColor: form.tone === tone.id ? tone.color : C.card,
-                    borderColor: form.tone === tone.id ? tone.color : C.cardBorder,
-                  }
-                ]}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons
-                  name={tone.icon}
-                  size={24}
-                  color={form.tone === tone.id ? C.white : tone.color}
-                />
-                <Text style={[
-                  styles.toneText,
-                  { color: form.tone === tone.id ? C.white : C.text }
-                ]}>
-                  {tone.id}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        {/* Section 2: Tone & Voice */}
+        <Surface style={[styles.formCard, { backgroundColor: C.card, borderColor: C.cardBorder }]} elevation={1}>
+          <View style={styles.cardHeaderRow}>
+            <MaterialIcons name="record-voice-over" size={18} color={Colors.primary} />
+            <Text style={[styles.sectionTitle, { color: C.text }]}>Tone of Voice</Text>
           </View>
-        </View>
 
-        {/* Additional Options */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: C.text }]}>Options</Text>
-
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <MaterialIcons name="language" size={16} color={C.primary} />
-              <Text style={[styles.label, { color: C.text }]}>Language</Text>
-            </View>
-            <View style={styles.languageRow}>
-              {LANGUAGES.map(lang => (
+          <View style={styles.toneGrid}>
+            {TONES.map((tone) => {
+              const active = form.tone === tone.id;
+              return (
                 <TouchableOpacity
-                  key={lang}
-                  onPress={() => setForm({...form, language: lang})}
+                  key={tone.id}
+                  onPress={() => setForm({ ...form, tone: tone.id })}
                   style={[
-                    styles.languageChip,
+                    styles.toneCard,
                     {
-                      backgroundColor: form.language === lang ? C.primary : C.card,
-                      borderColor: form.language === lang ? C.primary : C.cardBorder,
-                    }
+                      backgroundColor: active ? (isDark ? '#233226' : '#E8F5E9') : C.input,
+                      borderColor: active ? Colors.primary : C.cardBorder,
+                    },
                   ]}
+                  activeOpacity={0.8}
                 >
-                  <Text style={[
-                    styles.languageChipText,
-                    { color: form.language === lang ? C.white : C.textSecondary }
-                  ]}>
-                    {lang.toUpperCase()}
+                  <MaterialIcons
+                    name={tone.icon}
+                    size={22}
+                    color={active ? Colors.primary : tone.color}
+                  />
+                  <Text
+                    style={[
+                      styles.toneText,
+                      { color: active ? Colors.primary : C.text, fontWeight: active ? '700' : '600' },
+                    ]}
+                  >
+                    {tone.label}
                   </Text>
                 </TouchableOpacity>
-              ))}
+              );
+            })}
+          </View>
+        </Surface>
+
+        {/* Section 3: Language & Description Details */}
+        <Surface style={[styles.formCard, { backgroundColor: C.card, borderColor: C.cardBorder }]} elevation={1}>
+          <View style={styles.cardHeaderRow}>
+            <MaterialIcons name="tune" size={18} color={Colors.primary} />
+            <Text style={[styles.sectionTitle, { color: C.text }]}>Content Preferences</Text>
+          </View>
+
+          {/* Language Selector */}
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: C.text }]}>Generation Language</Text>
+            <View style={styles.languageRow}>
+              {LANGUAGES.map((lang) => {
+                const active = form.language === lang.code;
+                return (
+                  <TouchableOpacity
+                    key={lang.code}
+                    onPress={() => setForm({ ...form, language: lang.code })}
+                    style={[
+                      styles.languageChip,
+                      {
+                        backgroundColor: active ? Colors.primary : C.input,
+                        borderColor: active ? Colors.primary : C.cardBorder,
+                      },
+                    ]}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.languageChipText,
+                        { color: active ? '#FFFFFF' : C.textSecondary, fontWeight: active ? '700' : '600' },
+                      ]}
+                    >
+                      {lang.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
+          {/* Additional details to highlight */}
           <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <MaterialIcons name="notes" size={16} color={C.primary} />
-              <Text style={[styles.label, { color: C.text }]}>Additional Information</Text>
-            </View>
-            <View style={[styles.inputWrapper, {
-              backgroundColor: C.input,
-              borderColor: C.inputBorder,
-            }]}>
+            <Text style={[styles.inputLabel, { color: C.text }]}>Highlights / Special Offers</Text>
+            <View style={[styles.inputWrapper, { backgroundColor: C.input, borderColor: C.inputBorder }]}>
               <TextInput
                 style={[styles.input, styles.textArea, { color: C.text }]}
-                placeholder="Any specific details to include..."
+                placeholder="e.g. 24/7 emergency service, 10% discount on first booking, certified technicians..."
                 placeholderTextColor={C.textMuted}
                 value={form.extraInfo}
-                onChangeText={(v) => setForm({...form, extraInfo: v})}
+                onChangeText={(v) => setForm({ ...form, extraInfo: v })}
                 multiline
-                numberOfLines={4}
+                numberOfLines={3}
               />
             </View>
           </View>
 
-          <View style={[styles.inputGroup, { borderTopColor: C.cardBorder, borderTopWidth: 1, paddingTop: 14 }]}>
-            <View style={styles.labelRow}>
-              <MaterialIcons name="location-on" size={20} color={C.primary} />
-              <Text style={[styles.label, { color: C.text }]}>Service Location</Text>
-            </View>
+          {/* Service Location */}
+          <View style={styles.inputGroup}>
+            <Text style={[styles.inputLabel, { color: C.text }]}>Service Area</Text>
             <View style={styles.locationRow}>
+              <View style={[styles.locationInputWrapper, { backgroundColor: C.input, borderColor: C.inputBorder }]}>
+                <MaterialIcons name="location-pin" size={18} color={Colors.primary} style={{ marginLeft: 10 }} />
+                <TextInput
+                  style={[styles.input, { color: C.text }]}
+                  value={providerInfo.location}
+                  onChangeText={(location) => setProviderInfo((prev) => ({ ...prev, location }))}
+                  placeholder="Enter service location"
+                  placeholderTextColor={C.textMuted}
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.locationButton, { backgroundColor: isDark ? '#233226' : '#DCFCE7' }]}
+                onPress={useCurrentLocation}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="my-location" size={18} color={Colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Photos Section */}
+          <View style={styles.inputGroup}>
+            <View style={styles.photoHeaderRow}>
+              <Text style={[styles.inputLabel, { color: C.text, marginBottom: 0 }]}>Post Photos</Text>
+              <Text style={{ fontSize: 11, color: C.textSecondary }}>
+                {form.selectedImages.length} attached
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.addImagesButton, { borderColor: Colors.primary, backgroundColor: isDark ? '#1A231C' : '#F0FDF4' }]}
+              onPress={() => setImagePickerVisible(true)}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="add-photo-alternate" size={20} color={Colors.primary} />
+              <Text style={{ color: Colors.primary, fontWeight: '700', fontSize: 13 }}>
+                Attach Photos (Gallery or Portfolio)
+              </Text>
+            </TouchableOpacity>
+
+            {form.selectedImages.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
+                {form.selectedImages.map((uri, index) => (
+                  <View key={`${uri}-${index}`} style={styles.selectedImageWrap}>
+                    <Image source={{ uri }} style={styles.selectedImage} />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          selectedImages: prev.selectedImages.filter((_, i) => i !== index),
+                        }))
+                      }
+                    >
+                      <MaterialIcons name="close" size={14} color="#fff" />
+                    </TouchableOpacity>
+                    {index === 0 && (
+                      <View style={styles.coverBadge}>
+                        <Text style={styles.coverBadgeText}>Cover</Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        </Surface>
+
+        {/* Generate / Rewrite Action Button */}
+        <TouchableOpacity
+          onPress={handleGenerate}
+          disabled={loading || (penaltyRestricted && !isEditMode)}
+          style={[styles.generateButton, (loading || (penaltyRestricted && !isEditMode)) && { opacity: 0.6 }]}
+          activeOpacity={0.85}
+        >
+          <LinearGradient
+            colors={[Colors.primary, '#059669']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.generateGradient}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <>
+                <MaterialIcons name="auto-awesome" size={20} color="#FFFFFF" />
+                <Text style={styles.generateButtonText}>
+                  {result
+                    ? 'Regenerate Caption with AI'
+                    : 'Generate AI Post with Gemini'}
+                </Text>
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Generated Caption / Editor Preview Card */}
+        {result !== null && (
+          <Surface
+            style={[styles.resultCard, { backgroundColor: C.card, borderColor: isDark ? '#2E4C38' : '#BBF7D0' }]}
+            elevation={2}
+          >
+            <View style={styles.resultHeader}>
+              <View style={styles.resultBadge}>
+                <MaterialIcons name="check-circle" size={16} color={Colors.primary} />
+                <Text style={[styles.resultBadgeText, { color: Colors.primary }]}>
+                  {isEditMode ? 'Advertisement Caption' : 'Generated Advertisement'}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.copyButton, { backgroundColor: isDark ? '#233226' : '#DCFCE7' }]}
+                onPress={handleCopy}
+              >
+                <MaterialIcons name="content-copy" size={16} color={Colors.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.resultTextContainer, { backgroundColor: C.input, borderColor: C.cardBorder }]}>
               <TextInput
-                style={[styles.input, styles.locationInput, { color: C.text, backgroundColor: C.input, borderColor: C.inputBorder }]}
-                value={providerInfo.location}
-                onChangeText={(location) => setProviderInfo((prev) => ({ ...prev, location }))}
-                placeholder="Enter service location"
+                style={[styles.resultText, { color: C.text }]}
+                value={result}
+                onChangeText={setResult}
+                multiline
+                textAlignVertical="top"
+                placeholder="Edit your advertisement caption here..."
                 placeholderTextColor={C.textMuted}
               />
-              <TouchableOpacity style={[styles.locationButton, { backgroundColor: C.primary }]} onPress={useCurrentLocation}>
-                <MaterialIcons name="my-location" size={18} color={C.white} />
+            </View>
+
+            {/* Bottom Final Actions */}
+            <View style={styles.resultButtonRow}>
+              <TouchableOpacity
+                style={[styles.savePostBtnWrapper, saving && { opacity: 0.7 }]}
+                onPress={handleSavePost}
+                disabled={saving}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={[Colors.primary, '#059669']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.savePostGradient}
+                >
+                  {saving ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <MaterialIcons name="check" size={20} color="#fff" />
+                      <Text style={styles.savePostBtnText}>
+                        {isEditMode ? 'Save & Update Post' : 'Publish Advertisement'}
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
-          </View>
+          </Surface>
+        )}
 
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <MaterialIcons name="photo-library" size={20} color={C.primary} />
-              <Text style={[styles.label, { color: C.text }]}>Post Images</Text>
-            </View>
-            <TouchableOpacity style={[styles.addImagesButton, { borderColor: C.primary }]} onPress={() => setImagePickerVisible(true)}>
-              <MaterialIcons name="add-photo-alternate" size={20} color={C.primary} />
-              <Text style={{ color: C.primary, fontWeight: '700' }}>Choose Gallery or Saved Images</Text>
-            </TouchableOpacity>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
-              {form.selectedImages.map((uri, index) => (
-                <View key={`${uri}-${index}`} style={styles.selectedImageWrap}>
-                  <Image source={{ uri }} style={styles.selectedImage} />
-                  <TouchableOpacity style={styles.removeImageButton} onPress={() => setForm((prev) => ({ ...prev, selectedImages: prev.selectedImages.filter((_, i) => i !== index) }))}>
-                    <MaterialIcons name="close" size={14} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-
-        <Modal visible={imagePickerVisible} transparent animationType="slide" onRequestClose={() => setImagePickerVisible(false)}>
+        {/* Modal for Selecting Images */}
+        <Modal
+          visible={imagePickerVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setImagePickerVisible(false)}
+        >
           <View style={styles.imageModalBackdrop}>
             <View style={[styles.imageModal, { backgroundColor: C.card }]}>
-              <Text style={[styles.modalTitle, { color: C.text }]}>Choose Post Images</Text>
-              <TouchableOpacity style={[styles.modalOption, { borderColor: C.border }]} onPress={pickGalleryImages}>
-                <MaterialIcons name="photo-library" size={24} color={C.primary} />
-                <Text style={[styles.modalOptionText, { color: C.text }]}>Select from phone gallery</Text>
+              <View style={styles.imageModalHeader}>
+                <Text style={[styles.modalTitle, { color: C.text }]}>Select Post Photos</Text>
+                <TouchableOpacity onPress={() => setImagePickerVisible(false)}>
+                  <MaterialIcons name="close" size={22} color={C.text} />
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.modalOption, { borderColor: C.cardBorder, backgroundColor: isDark ? '#1A231C' : '#F0FDF4' }]}
+                onPress={pickGalleryImages}
+              >
+                <MaterialIcons name="photo-library" size={24} color={Colors.primary} />
+                <Text style={[styles.modalOptionText, { color: C.text }]}>
+                  Choose from Phone Gallery
+                </Text>
               </TouchableOpacity>
-              <Text style={[styles.fieldHint, { color: C.textSecondary, marginTop: 16 }]}>Saved portfolio images</Text>
-              <ScrollView style={{ maxHeight: 230 }}>
-                <View style={styles.savedImagesGrid}>
-                  {portfolioImages.map((image) => {
-                    const selected = form.selectedImages.includes(image.uri);
-                    return (
-                      <TouchableOpacity key={image.id || image.uri} onPress={() => selectPortfolioImage(image)} style={[styles.savedImageWrap, selected && styles.savedImageSelected]}>
-                        <Image source={{ uri: image.uri }} style={styles.savedImage} />
-                        {selected && <View style={styles.savedImageCheck}><MaterialIcons name="check" size={16} color="#fff" /></View>}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+
+              <Text style={[styles.fieldHint, { color: C.textSecondary, marginTop: 18, marginBottom: 8 }]}>
+                Saved Portfolio Photos ({portfolioImages.length})
+              </Text>
+
+              <ScrollView style={{ maxHeight: 220 }}>
+                {portfolioImages.length === 0 ? (
+                  <Text style={{ color: C.textMuted, fontSize: 13, fontStyle: 'italic', paddingVertical: 12 }}>
+                    No saved portfolio photos found. Use Phone Gallery above.
+                  </Text>
+                ) : (
+                  <View style={styles.savedImagesGrid}>
+                    {portfolioImages.map((image) => {
+                      const selected = form.selectedImages.includes(image.uri);
+                      return (
+                        <TouchableOpacity
+                          key={image.id || image.uri}
+                          onPress={() => selectPortfolioImage(image)}
+                          style={[styles.savedImageWrap, selected && styles.savedImageSelected]}
+                        >
+                          <Image source={{ uri: image.uri }} style={styles.savedImage} />
+                          {selected && (
+                            <View style={styles.savedImageCheck}>
+                              <MaterialIcons name="check" size={14} color="#fff" />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
               </ScrollView>
-              <TouchableOpacity style={[styles.modalCloseButton, { backgroundColor: C.primary }]} onPress={() => setImagePickerVisible(false)}>
-                <Text style={{ color: C.white, fontWeight: '700' }}>Done</Text>
+
+              <TouchableOpacity
+                style={[styles.modalCloseButton, { backgroundColor: Colors.primary }]}
+                onPress={() => setImagePickerVisible(false)}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Done</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
 
-        {/* Generate Button */}
-        <TouchableOpacity
-          onPress={handleGenerate}
-          disabled={loading || penaltyRestricted}
-          style={[
-            styles.generateButton,
-            { backgroundColor: (loading || penaltyRestricted) ? C.textMuted : C.primary }
-          ]}
-          activeOpacity={0.8}
-        >
-          {loading ? (
-            <ActivityIndicator color={C.white} size="small" />
-          ) : (
-            <>
-              <LinearGradient
-                colors={[C.gradientStart, C.gradientEnd]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.generateGradient}
-              >
-                <MaterialIcons name="auto-awesome" size={20} color={C.white} />
-                <Text style={styles.generateButtonText}>Generate AI Post</Text>
-              </LinearGradient>
-            </>
-          )}
-        </TouchableOpacity>
-
-        {/* Result Card */}
-        {result && (
-          <Surface style={[styles.resultCard, {
-            backgroundColor: C.card,
-            borderColor: C.cardBorder,
-          }]} elevation={3}>
-            <View style={styles.resultContent}>
-              <View style={styles.resultHeader}>
-                <View style={styles.resultTitleContainer}>
-                  <View style={[styles.resultIconContainer, {
-                    backgroundColor: generatedBy === 'fallback' ? C.warningLight : C.primaryLight
-                  }]}>
-                    <MaterialIcons
-                      name={generatedBy === 'fallback' ? 'edit-note' : 'check-circle'}
-                      size={20}
-                      color={generatedBy === 'fallback' ? C.warning : C.primary}
-                    />
-                  </View>
-                  <View>
-                    <Text style={[styles.resultTitle, { color: C.text }]}>
-                      {generatedBy === 'fallback' ? 'Template Draft (AI was busy)' : 'AI-Generated Content'}
-                    </Text>
-                    <Text style={[styles.resultSubtitle, { color: C.textSecondary }]}>
-                      {generatedBy === 'fallback' ? 'Based on your service details. Feel free to edit.' : 'Generated with Gemini AI'}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.resultActions}>
-                  {generatedBy === 'fallback' && (
-                    <TouchableOpacity
-                      style={[styles.retryChip, { backgroundColor: C.primaryLight }]}
-                      onPress={handleGenerate}
-                      disabled={loading}
-                    >
-                      <MaterialIcons name="refresh" size={14} color={C.primary} />
-                      <Text style={[styles.retryChipText, { color: C.primary }]}>Re-try AI</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity style={[styles.copyButton, { backgroundColor: C.primaryLight }]} onPress={() => handleCopy(result)}>
-                    <MaterialIcons name="content-copy" size={18} color={C.primary} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <View style={[styles.resultTextContainer, { backgroundColor: C.input }]}> 
-                <TextInput
-                  style={[styles.resultText, { color: C.text }]}
-                  value={result}
-                  onChangeText={setResult}
-                  multiline
-                  textAlignVertical="top"
-                  placeholder="Edit the generated content..."
-                  placeholderTextColor={C.textMuted}
-                />
-              </View>
-              <View style={styles.resultButtonRow}>
-                <TouchableOpacity style={[styles.resultSecondaryButton, { borderColor: C.danger }]} onPress={handleRejectGenerated}>
-                  <MaterialIcons name="delete-outline" size={18} color={C.danger} />
-                  <Text style={[styles.resultSecondaryButtonText, { color: C.danger }]}>Reject</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.resultSecondaryButton, { borderColor: C.primary }]} onPress={handleRegenerateEdited} disabled={regenerating}>
-                  {regenerating ? <ActivityIndicator size="small" color={C.primary} /> : <MaterialIcons name="refresh" size={18} color={C.primary} />}
-                  <Text style={[styles.resultSecondaryButtonText, { color: C.primary }]}>Regenerate</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.saveButton, { backgroundColor: C.primary }]} onPress={() => navigation.navigate('Profile')}>
-                  <MaterialIcons name="save" size={18} color={C.white} />
-                  <Text style={styles.saveButtonText}>Accept</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Surface>
-        )}
-
-        <View style={{ height: 30 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
 }
+
+// ── Styles ────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
 
-  // Header
+  // Edit Mode Indicator
+  editModeBanner: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  editModeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editModeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  cancelEditText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // Header Banner
   headerGradient: {
     marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: 8,
+    marginBottom: 12,
     borderRadius: 20,
     overflow: 'hidden',
   },
   headerSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
+    gap: 12,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 15,
-    alignItems: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
-    marginRight: 12,
+    alignItems: 'center',
   },
   headerTextContainer: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#FFFFFFCC',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
     marginTop: 2,
   },
 
   // Provider Card
   providerCard: {
     marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 12,
     borderRadius: 16,
     borderWidth: 1,
-    overflow: 'hidden',
+    padding: 12,
   },
   providerContent: {
-    padding: 16,
-  },
-  providerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
   },
   avatarContainer: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    alignItems: 'center',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
-    marginRight: 12,
+    alignItems: 'center',
   },
   providerInfo: {
     flex: 1,
   },
   providerName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   providerDetails: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    gap: 3,
+    marginTop: 2,
   },
   providerDetailText: {
-    fontSize: 12,
-    marginLeft: 4,
+    fontSize: 11.5,
   },
   verifiedBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 4,
+    borderRadius: 12,
   },
 
-  // Sections
-  section: {
-    paddingHorizontal: 16,
-    paddingTop: 15,
+  // Form Cards
+  formCard: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-  },
-
-  // Inputs
-  inputGroup: {
-    marginBottom: 15,
-  },
-  labelRow: {
+  cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 6,
+    gap: 8,
+    marginBottom: 12,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  inputGroup: {
+    marginBottom: 14,
+  },
+  inputLabel: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    marginBottom: 6,
   },
   inputWrapper: {
     borderRadius: 12,
     borderWidth: 1,
-    overflow: 'hidden',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
   input: {
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 15,
+    fontSize: 13.5,
+    paddingVertical: 8,
   },
   textArea: {
-    minHeight: 80,
+    minHeight: 65,
     textAlignVertical: 'top',
-  },
-
-  // Categories
-  categoryScroll: {
-    flexDirection: 'row',
-  },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginRight: 8,
-  },
-  categoryChipText: {
-    fontSize: 13,
-    fontWeight: '500',
   },
 
   // Tags
   tagInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   tagInputWrapper: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    overflow: 'hidden',
   },
   tagInput: {
-    paddingVertical: 10,
+    flex: 1,
+    paddingHorizontal: 8,
   },
   addTagButton: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     borderRadius: 12,
-    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
+    alignItems: 'center',
   },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 10,
+    gap: 6,
+    marginTop: 8,
   },
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    marginRight: 8,
-    marginBottom: 8,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   tagText: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginRight: 6,
+    fontSize: 11.5,
+    fontWeight: '700',
   },
 
-  // Tones
+  // Tone Grid
   toneGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   toneCard: {
-    width: (width - 72) / 3,
-    aspectRatio: 1.2,
+    flexBasis: '31%',
+    flexGrow: 1,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
+    paddingVertical: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
+    gap: 4,
   },
   toneText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 6,
-    textTransform: 'capitalize',
+    fontSize: 11.5,
   },
 
-  // Languages
+  // Language Chips
   languageRow: {
     flexDirection: 'row',
     gap: 8,
   },
   languageChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    paddingVertical: 9,
+    alignItems: 'center',
   },
   languageChipText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
   },
 
-  // Switch
-  switchRow: {
+  // Location Row
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  locationInputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  locationButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Photos
+  photoHeaderRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderTopWidth: 1,
+    alignItems: 'center',
+    marginBottom: 6,
   },
-  switchLabel: {
+  addImagesButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    paddingVertical: 12,
   },
-  switchText: {
-    fontSize: 15,
-    fontWeight: '500',
-    marginLeft: 8,
+  selectedImageWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    marginRight: 10,
+  },
+  selectedImage: {
+    width: '100%',
+    height: '100%',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  coverBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    backgroundColor: Colors.primary,
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  coverBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '800',
   },
 
   // Generate Button
   generateButton: {
     marginHorizontal: 16,
-    marginTop: 20,
-    borderRadius: 15,
+    marginTop: 4,
+    marginBottom: 14,
+    borderRadius: 14,
     overflow: 'hidden',
-    elevation: 3,
   },
   generateGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 15,
     gap: 8,
+    paddingVertical: 14,
   },
   generateButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14.5,
+    fontWeight: '800',
   },
 
   // Result Card
   resultCard: {
     marginHorizontal: 16,
-    marginTop: 25,
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  resultContent: {
-    padding: 16,
+    marginTop: 4,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    padding: 14,
   },
   resultHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  resultTitleContainer: {
+  resultBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: 5,
   },
-  resultIconContainer: {
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  resultTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  resultSubtitle: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  resultActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  retryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  retryChipText: {
-    fontSize: 11,
-    fontWeight: '700',
+  resultBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
   copyButton: {
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    alignItems: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   resultTextContainer: {
     borderRadius: 12,
-    padding: 12,
+    borderWidth: 1,
+    padding: 10,
     marginBottom: 12,
   },
   resultText: {
-    fontSize: 15,
-    lineHeight: 22,
-    minHeight: 150,
-    padding: 0,
+    fontSize: 13.5,
+    lineHeight: 20,
+    minHeight: 120,
   },
   resultButtonRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
   },
-  resultSecondaryButton: {
+  savePostBtnWrapper: {
     flex: 1,
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  savePostGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 6,
+    paddingVertical: 12,
   },
-  resultSecondaryButtonText: {
-    fontSize: 12,
+  savePostBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '700',
   },
-  saveButton: {
+
+  // Modal
+  imageModalBackdrop: {
     flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  imageModal: {
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  imageModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  modalOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 6,
+    gap: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginTop: 6,
   },
-  saveButtonText: {
-    color: '#FFFFFF',
+  modalOptionText: {
     fontSize: 14,
     fontWeight: '600',
   },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  locationInput: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
-  locationButton: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  addImagesButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderStyle: 'dashed', borderRadius: 10, padding: 12 },
-  selectedImageWrap: { width: 76, height: 76, borderRadius: 10, marginRight: 8, overflow: 'hidden', position: 'relative' },
-  selectedImage: { width: '100%', height: '100%' },
-  removeImageButton: { position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center' },
-  imageModalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-  imageModal: { borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, maxHeight: '75%' },
-  modalTitle: { fontSize: 18, fontWeight: '800', marginBottom: 14 },
-  modalOption: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 10, padding: 12 },
-  modalOptionText: { fontSize: 14, fontWeight: '600' },
-  savedImagesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
-  savedImageWrap: { width: 78, height: 78, borderRadius: 10, overflow: 'hidden', position: 'relative', borderWidth: 2, borderColor: 'transparent' },
-  savedImageSelected: { borderColor: '#15803D' },
-  savedImage: { width: '100%', height: '100%' },
-  savedImageCheck: { position: 'absolute', right: 4, top: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: '#15803D', alignItems: 'center', justifyContent: 'center' },
-  modalCloseButton: { alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 16 },
+  fieldHint: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  savedImagesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  savedImageWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  savedImageSelected: {
+    borderColor: Colors.primary,
+  },
+  savedImage: {
+    width: '100%',
+    height: '100%',
+  },
+  savedImageCheck: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseButton: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
 
-  // Penalty Alert
+  // Penalty Card
   penaltyAlertCard: {
     marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    elevation: 3,
+    marginTop: 10,
+    marginBottom: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
   },
   penaltyAlertHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  penaltyIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 4,
   },
   penaltyAlertTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
   },
   penaltyAlertDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 12,
-  },
-  penaltyAlertBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  penaltyAlertBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '700',
+    fontSize: 12,
+    lineHeight: 16,
   },
 });

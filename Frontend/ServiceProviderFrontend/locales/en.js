@@ -91,4 +91,22 @@ export default {
   portfolio: 'Portfolio',
   reviews: 'Reviews',
   language: 'Language',
+
+  // Posts Section
+  myPosts: 'My Posts',
+  newPost: 'New Post',
+  allPosts: 'All My Posts',
+  showAll: 'Show All',
+  boostAd: 'Boost Priority',
+  boostAgain: 'Boost Again',
+  boosted: 'Boosted',
+  editPost: 'Edit Post',
+  deletePost: 'Delete Post',
+  likedBy: 'Liked by',
+  advertisements: 'advertisements',
+  noPostsYet: 'No posts yet',
+  createFirstPost: 'Create your first advertisement to attract more customers',
+  recentlyCreated: 'Recently Created',
+  mostBoosted: 'Most Boosted',
+  searchPosts: 'Search your posts...',
 };

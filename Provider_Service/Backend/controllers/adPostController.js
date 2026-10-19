@@ -62,7 +62,8 @@ export const generateManualPost = async (req, res) => {
       posts,
       image: {
         requested: adData.generateImage,
-        url: null,
+        // Use the first selected/inserted image as the ad cover image.
+        url: adData.images?.[0] || null,
         note: adData.generateImage
           ? "Image generation is not implemented in this service yet"
           : null,
@@ -109,7 +110,7 @@ export const generateFromMLResult = async (req, res) => {
       posts,
       image: {
         requested: adData.generateImage,
-        url: null,
+        url: adData.images?.[0] || null,
         note: adData.generateImage
           ? "Image generation is not implemented in this service yet"
           : null,
@@ -284,13 +285,64 @@ export const getPostById = async (req, res) => {
 
 // ── PUT /api/ad/:id ──────────────────────────────────────────────────────
 // Lets a provider manually edit a generated caption before publishing,
-// or change its status.
+// or change its status/content.
 export const updatePost = async (req, res) => {
   try {
-    const allowedFields = ["posts", "status", "extraInfo", "tone"];
+    const allowedFields = [
+      "posts",
+      "status",
+      "extraInfo",
+      "tone",
+      "serviceLabel",
+      "specificLabel",
+      "category",
+      "tags",
+      "images",
+      "image",
+      "language",
+    ];
     const updates = {};
     for (const key of allowedFields) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+
+    // If client supplied title or caption directly, reflect inside posts array
+    if (req.body.title !== undefined || req.body.caption !== undefined) {
+      const existing = await AdPost.findById(req.params.id);
+      if (existing) {
+        let currentPosts = updates.posts || existing.posts || [];
+        if (!Array.isArray(currentPosts) || currentPosts.length === 0) {
+          currentPosts = [{ platform: "facebook", title: "", caption: "", hashtags: [] }];
+        } else {
+          currentPosts = currentPosts.map(p => (p && typeof p.toObject === 'function' ? p.toObject() : { ...p }));
+        }
+
+        const newTitle = req.body.title !== undefined ? req.body.title : (currentPosts[0].title || "");
+        const newCaption = req.body.caption !== undefined ? req.body.caption : (currentPosts[0].caption || "");
+
+        currentPosts[0] = {
+          ...currentPosts[0],
+          platform: currentPosts[0].platform || "facebook",
+          title: newTitle,
+          caption: newCaption,
+          hashtags: req.body.tags !== undefined ? req.body.tags : (currentPosts[0].hashtags || []),
+        };
+        updates.posts = currentPosts;
+
+        if (req.body.title !== undefined && !updates.serviceLabel) {
+          updates.serviceLabel = req.body.title;
+        }
+      }
+    }
+
+    // Support image url updates
+    if (req.body.imageUrl !== undefined || (req.body.images && req.body.images[0])) {
+      const imgUrl = req.body.imageUrl || req.body.images[0];
+      updates.image = {
+        requested: true,
+        url: imgUrl,
+        note: null,
+      };
     }
 
     const post = await AdPost.findByIdAndUpdate(req.params.id, updates, {
