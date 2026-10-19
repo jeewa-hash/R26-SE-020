@@ -1,12 +1,11 @@
+import { validateRescheduleTime } from '../services/rescheduleValidationService.js';
 import { toScheduleParts } from '../utils/timeUtils.js';
 import { publishLifecycleNotification } from '../utils/lifecycleNotifications.js';
 import Booking, { notifyBookingLifecycle } from "../models/Booking.js";
 import RescheduleRequest from "../models/RescheduleRequest.js";
 import { suggestRescheduleSlots } from "../services/rescheduleSlotService.js";
-import { validateProviderSchedule } from "../services/scheduleValidationService.js";
 import BidCoordination from "../models/BidCoordination.js";
 import { updateProviderQuotationCoordination } from "../clients/providerServiceClient.js";
-import { getRoadDistanceAndTime } from "../services/osrmService.js";
 
 const getRequesterType = (role) => {
   if (role === "ServiceProvider") return "PROVIDER";
@@ -59,8 +58,6 @@ export const createRescheduleRequest = async (req, res) => {
       ![
         "CONFIRMED",
         "ON_THE_WAY",
-        "IN_PROGRESS",
-        "DELAY_REPORTED",
         "RESCHEDULE_REQUESTED",
         "RESCHEDULING_REQUIRED",
         "RESCHEDULED",
@@ -106,7 +103,8 @@ export const createRescheduleRequest = async (req, res) => {
     const suggestedSlots = requestedStartTime ? [] : await suggestRescheduleSlots({
       providerId: booking.providerId,
       currentDate: booking.scheduledDate,
-      estimatedDurationHours: booking.estimatedDurationHours,
+      estimatedDurationHours: booking.mlPredictedDurationHours || booking.estimatedDurationHours,
+      booking,
     });
 
     let requestedSlot = null;
@@ -121,6 +119,11 @@ export const createRescheduleRequest = async (req, res) => {
       const date = toScheduleParts(start).date;
       const time = value => toScheduleParts(value).time;
       if (date !== toScheduleParts(end).date) return res.status(400).json({ message: "The requested job must finish within the same working day." });
+      const validation = await validateRescheduleTime({ booking, startTime: start, durationHours });
+      if (!validation.isValid) {
+        const alternatives = await suggestRescheduleSlots({ providerId: booking.providerId, currentDate: date, estimatedDurationHours: durationHours, originalStartTime: start, booking });
+        return res.status(409).json({ success: false, code: 'RESCHEDULE_TIME_UNAVAILABLE', message: validation.message, suggestedSlots: alternatives });
+      }
       requestedSlot = {
         date,
         startTime: time(start),
@@ -249,8 +252,9 @@ export const acceptRescheduleSlot = async (req, res) => {
     if (Number.isNaN(selectedStart.getTime()) || selectedStart <= new Date()) {
       return res.status(400).json({ success: false, message: "Selected slot date and start time are invalid" });
     }
+    if (rescheduleRequest.requestedStartTime && +new Date(rescheduleRequest.requestedStartTime) !== +selectedStart) return res.status(409).json({ message: 'Approve the time proposed by the customer. A different time needs a new request.' });
     const selectedEnd = new Date(selectedStart.getTime() + durationHours * 60 * 60 * 1000);
-    const validationEnd = new Date(selectedEnd.getTime() + 30 * 60 * 1000);
+    const validationEnd = new Date(selectedEnd.getTime() + 15 * 60 * 1000);
     if (['COMPLETED', 'CANCELLED', 'IN_PROGRESS', 'DELAY_REPORTED'].includes(booking.bookingStatus)) return res.status(409).json({ message: 'This booking can no longer use this reschedule request.' });
     if (toScheduleParts(selectedStart).date !== toScheduleParts(validationEnd).date) return res.status(409).json({ message: 'The full job and buffer must fit within the working day.' });
     const validatedSlot = {
@@ -258,38 +262,10 @@ export const acceptRescheduleSlot = async (req, res) => {
       endTime: toScheduleParts(selectedEnd).time,
     };
 
-    const validation = await validateProviderSchedule({
-      providerId: booking.providerId,
-      requestedDate: validatedSlot.date,
-      requestedStartTime: validatedSlot.startTime,
-      requestedEndTime: toScheduleParts(validationEnd).time,
-      excludeBookingId: booking._id,
-    });
-
+    const validation = await validateRescheduleTime({ booking, startTime: selectedStart, durationHours });
     if (!validation.isValid) {
-      return res.status(409).json({
-        success: false,
-        message: "Selected slot is no longer available",
-        validation,
-      });
-    }
-
-    const previousBooking = await Booking.findOne({
-      _id: { $ne: booking._id },
-      providerId: booking.providerId,
-      bookingStatus: { $in: ["CONFIRMED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "COMPLETED", "RESCHEDULED"] },
-      scheduledDate: selectedSlot.date,
-      scheduledStartTime: { $lt: selectedStart },
-    }).sort({ scheduledStartTime: -1 });
-    if (previousBooking?.location?.lat != null && previousBooking?.location?.lng != null && booking.location?.lat != null && booking.location?.lng != null) {
-      const travel = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, booking.location.lat, booking.location.lng);
-      const previousEnd = previousBooking.bookingStatus === "EXPIRED"
-        ? (previousBooking.expiredAt || previousBooking.scheduledStartTime)
-        : (previousBooking.actualEndTime || previousBooking.scheduledEndTime);
-      const travelGapMinutes = previousEnd ? Math.round((selectedStart.getTime() - new Date(previousEnd).getTime()) / 60000) : null;
-      if (travelGapMinutes !== null && travelGapMinutes < travel.estimatedTravelTimeMins) {
-        return res.status(409).json({ success: false, message: "Selected slot does not leave enough travel time from the previous booking" });
-      }
+      const alternatives = await suggestRescheduleSlots({ providerId: booking.providerId, currentDate: validatedSlot.date, estimatedDurationHours: durationHours, originalStartTime: selectedStart, booking });
+      return res.status(409).json({ success: false, code: 'RESCHEDULE_TIME_UNAVAILABLE', message: validation.message, validation, suggestedSlots: alternatives });
     }
 
     const originalStart = booking.scheduledStartTime;

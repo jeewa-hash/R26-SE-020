@@ -26,7 +26,7 @@ export const generateSuggestedSlots = async ({
   providerId,
   originalStartTime,
   finalSchedulingDurationHours,
-  bufferMinutes = 30,
+  bufferMinutes = 15,
   maxSuggestions = 3,
 }) => {
   const originalStart = new Date(originalStartTime);

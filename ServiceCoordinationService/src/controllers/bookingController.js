@@ -1088,7 +1088,7 @@ export const reportBookingDelay = async (req, res) => {
 
     let delayImpactStatus = "NO_CONFLICT";
     let affectedNextBooking = null;
-    const bufferMinutes = 30;
+    const bufferMinutes = 15;
 
     if (nextBooking?.scheduledStartTime) {
       const nextStart = new Date(nextBooking.scheduledStartTime);

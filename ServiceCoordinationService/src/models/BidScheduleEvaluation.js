@@ -62,7 +62,7 @@ const bidScheduleEvaluationSchema = new mongoose.Schema(
 
     bufferMinutes: {
       type: Number,
-      default: 30,
+      default: 15,
       min: 0,
     }, // Chaw: safety buffer after work duration
 

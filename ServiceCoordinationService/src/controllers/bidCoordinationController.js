@@ -37,7 +37,7 @@ export const validateQuotationSchedule = async (req, res) => {
     const prediction = await predictDuration(payload);
     const predicted = Number(prediction?.predictedDurationMins);
     const duration = Number.isFinite(predicted) && predicted > 0 ? predicted : estimateServiceDuration({ serviceCategory: payload.serviceCategory, serviceSubcategory: payload.serviceType, taskName: payload.taskName, urgency: request.urgencyLevel }).averageDurationHours * 60;
-    const schedule = await evaluateBidSchedule({ providerId: req.user.id, proposedStartTime: start, preferredStartTime: start, preferredEndTime: request.preferredEndTime, predictedDurationMins: duration, bufferMinutes: 30 });
+    const schedule = await evaluateBidSchedule({ providerId: req.user.id, proposedStartTime: start, preferredStartTime: start, preferredEndTime: request.preferredEndTime, predictedDurationMins: duration, bufferMinutes: 15 });
     if (schedule.conflictDetected) return res.status(409).json({ code: 'RESCHEDULE_REQUIRED', message: schedule.conflictReason, schedule });
     return res.json({ success: true, schedule });
   } catch (error) {
@@ -50,7 +50,7 @@ export const checkBidCoordination = async (req, res) => {
     const {
       externalRequestQuotationId,
       externalQuotationId,
-      bufferMinutes = 30,
+      bufferMinutes = 15,
     } = req.body;
 
     if (!externalRequestQuotationId || !externalQuotationId) {

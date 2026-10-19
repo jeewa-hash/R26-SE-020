@@ -14,7 +14,7 @@ export const evaluateBidSchedule = async ({
   predictedDurationMins,
   durationPredictionSource = "ML_MODEL",
   durationModelVersion = null,
-  bufferMinutes = 30,
+  bufferMinutes = 15,
 }) => {
   const proposedStart = new Date(proposedStartTime);
   if (Number.isNaN(proposedStart.getTime())) throw new Error("Invalid proposedStartTime");

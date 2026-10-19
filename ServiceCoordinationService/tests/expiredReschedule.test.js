@@ -8,6 +8,7 @@ function setup(role='Seeker') {
   const booking = { _id:'b', seekerId:'s', providerId:'p', bookingStatus:'EXPIRED', estimatedDurationHours:1, scheduledDate:'2026-01-01', startTime:'09:00', endTime:'10:00', timeline:[], save:async()=>{} };
   let created, saved;
   const context = { Date, console, toScheduleParts, Booking:{findById:async()=>booking}, RescheduleRequest:{findOne:async()=>null,create:async data=>(created={_id:'r',...data})}, suggestRescheduleSlots:async()=>{throw Error('Must not generate slots when customer proposes a time')}, notifyBookingLifecycle:async(_,status)=>{saved=status}, publishLifecycleNotification:async()=>{} };
+  context.validateRescheduleTime = async args => context.validateProviderSchedule ? context.validateProviderSchedule({ requestedStartTime: toScheduleParts(new Date(args.startTime)).time }) : ({ isValid: true });
   vm.runInNewContext(source+'\nthis.api={createRescheduleRequest,rejectRescheduleRequest};',context);
   const req={params:{bookingId:'b'},user:{id:role==='Seeker'?'s':'p',role},body:{requestedStartTime:'2035-01-01T09:00:00+05:30'}};
   let code, body; const res={status(n){code=n;return this},json(data){body=data;return this}};
@@ -47,7 +48,12 @@ test('provider approval validates a future time then restores scheduled service 
  assert.equal(x.code,200);assert.equal(x.booking.bookingStatus,'RESCHEDULED');assert.equal(x.booking.pendingRescheduleId,null);assert.equal(x.booking.expiredAt,null);assert.equal(x.booking.timeline[0].status,'RESCHEDULED');assert.equal(toScheduleParts(x.booking.scheduledStartTime).time,'09:00');
 });
 test('unavailable proposed time cannot reopen an expired service',async()=>{
- const x=setupApproval(false);vm.runInNewContext('this.accept=acceptRescheduleSlot;',x.context);
+ const x=setupApproval(false);x.context.suggestRescheduleSlots=async()=>[];vm.runInNewContext('this.accept=acceptRescheduleSlot;',x.context);
  await x.context.accept({params:{rescheduleId:'r'},user:{id:'p',role:'ServiceProvider'},body:{selectedSlot:{date:'2035-01-01',startTime:'09:00',endTime:'10:00'}}},x.res);
  assert.equal(x.code,409);assert.equal(x.booking.bookingStatus,'EXPIRED');
+});
+
+test('conflicting customer time returns alternatives without creating a pending request',async()=>{
+ const x=setup();x.context.validateRescheduleTime=async()=>({isValid:false,message:'Outside working hours'});x.context.suggestRescheduleSlots=async()=>[{date:'2035-01-02',startTime:'09:00',endTime:'10:00'}];
+ await x.context.api.createRescheduleRequest(x.req,x.res);assert.equal(x.code,409);assert.equal(x.created,undefined);assert.equal(x.booking.pendingRescheduleId,undefined);assert.equal(x.booking.bookingStatus,'EXPIRED');
 });

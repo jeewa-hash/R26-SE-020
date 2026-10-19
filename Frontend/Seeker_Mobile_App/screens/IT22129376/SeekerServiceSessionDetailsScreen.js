@@ -228,6 +228,9 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   const [loadError, setLoadError] = useState(null);
   const [rescheduleVisible, setRescheduleVisible] = useState(Boolean(route?.params?.showReschedule));
   const [rescheduleDate, setRescheduleDate] = useState(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  const [rescheduleAlternatives, setRescheduleAlternatives] = useState([]);
+  const [rescheduleError, setRescheduleError] = useState('');
+  useEffect(() => { setRescheduleAlternatives([]); setRescheduleError(''); }, [rescheduleDate, rescheduleVisible]);
   const [rescheduleNote, setRescheduleNote] = useState('');
   const [pickerMode, setPickerMode] = useState(null);
   const [submittingReschedule, setSubmittingReschedule] = useState(false);
@@ -313,6 +316,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   };
 
   const submitReschedule = async () => {
+    if (submittingReschedule) return;
     const quote = sortedQuotes.find((item) => String(item?.status || '').toUpperCase() === 'ACCEPTED') || sortedQuotes[0];
     if (!canReschedule || (!booking?._id && !booking?.id)) {
       Alert.alert('Booking required', 'A reschedule suggestion can be sent after a booking is confirmed.');
@@ -339,7 +343,8 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
       Alert.alert('Suggestion sent', 'The provider must review and confirm the new time. Your booking has not been changed yet.');
       await loadRelatedData();
     } catch (error) {
-      Alert.alert('Unable to suggest reschedule', error?.message || 'Please try again.');
+      setRescheduleError(error?.message || 'Please try again.');
+      setRescheduleAlternatives(Array.isArray(error?.data?.suggestedSlots) ? error.data.suggestedSlots : []);
     } finally {
       setSubmittingReschedule(false);
     }
@@ -690,12 +695,12 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
       {timeRequest ? <RequestedTimeModal request={timeRequest} onClose={() => setTimeRequest(null)} onSaved={loadRelatedData} /> : null}
       <Modal visible={rescheduleVisible} transparent animationType="fade" onRequestClose={() => setRescheduleVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, isDarkMode && styles.sectionCardDark]}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>{booking?.bookingStatus === 'EXPIRED' ? 'Request a New Time' : 'Suggest Reschedule'}</Text>
-            <Text style={[styles.modalHelp, isDarkMode && styles.textMutedDark]}>The provider will review this suggestion. It will not directly change the booking.</Text>
-            <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Suggested date</Text>
+          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: '90%', width: '100%', maxWidth: 520, alignSelf: 'center' }} contentContainerStyle={[styles.modalCard, isDarkMode && styles.sectionCardDark]}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Choose a new time</Text>
+            <Text style={[styles.modalHelp, isDarkMode && styles.textMutedDark]}>We check availability first. The provider must approve before your booking time changes.</Text>
+            <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Date</Text>
             <TouchableOpacity style={[styles.pickerButton, isDarkMode && styles.providerRowDark]} onPress={() => setPickerMode('date')}><Text style={[styles.infoValue, isDarkMode && styles.textDark]}>{rescheduleDate.toLocaleDateString()}</Text></TouchableOpacity>
-            <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Suggested time</Text>
+            <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Time</Text>
             <TouchableOpacity style={[styles.pickerButton, isDarkMode && styles.providerRowDark]} onPress={() => setPickerMode('time')}><Text style={[styles.infoValue, isDarkMode && styles.textDark]}>{rescheduleDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text></TouchableOpacity>
             {pickerMode && Platform.OS !== 'web' ? <DateTimePicker value={rescheduleDate} mode={pickerMode} minimumDate={pickerMode === 'date' ? new Date() : undefined} onChange={(event, value) => { setPickerMode(null); if (value) setRescheduleDate((current) => { const next = new Date(current); if (pickerMode === 'date') next.setFullYear(value.getFullYear(), value.getMonth(), value.getDate()); else next.setHours(value.getHours(), value.getMinutes(), 0, 0); return next; }); }} /> : null}
             <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Note (optional)</Text>
@@ -709,9 +714,11 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                 setRescheduleDate(current => { const next = new Date(current); if (pickerMode === 'date') { const [y,m,d] = value.split('-').map(Number); next.setFullYear(y,m-1,d); } else { const [h,m] = value.split(':').map(Number); next.setHours(h,m,0,0); } return next; });
               }, style: { padding: 12, marginBottom: 12, borderRadius: 10, width: '100%', boxSizing: 'border-box' },
             }) : null}
+            {rescheduleError ? <Text accessibilityRole="alert" style={{ color: isDarkMode ? '#FCA5A5' : '#B91C1C', marginVertical: 10 }}>{rescheduleError}</Text> : null}
+            {rescheduleAlternatives.length > 0 ? <View style={{ gap: 8, marginVertical: 10 }}><Text style={[styles.descriptionTitle, isDarkMode && styles.textDark]}>Try an available time</Text>{rescheduleAlternatives.map(slot => <TouchableOpacity key={`${slot.date}:${slot.startTime}`} disabled={submittingReschedule} accessibilityRole="button" style={[styles.pickerButton, isDarkMode && styles.providerRowDark]} onPress={() => setRescheduleDate(new Date(`${slot.date}T${slot.startTime}:00+05:30`))}><Text style={[styles.infoValue, isDarkMode && styles.textDark]}>{formatDateTime(`${slot.date}T${slot.startTime}:00+05:30`)}</Text><Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>{slot.reason}</Text></TouchableOpacity>)}</View> : null}
             <TextInput style={[styles.noteInput, isDarkMode && styles.providerRowDark, isDarkMode && styles.textDark]} value={rescheduleNote} onChangeText={setRescheduleNote} placeholder="Why would you like a different time?" placeholderTextColor={isDarkMode ? COLORS.darkMuted : COLORS.muted} multiline />
-            <View style={styles.modalActions}><TouchableOpacity style={styles.modalCancel} onPress={() => setRescheduleVisible(false)}><Text style={[styles.modalCancelText, isDarkMode && styles.textMutedDark]}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.modalSubmit} onPress={submitReschedule} disabled={submittingReschedule}>{submittingReschedule ? <ActivityIndicator color="#fff" /> : <Text style={styles.compareButtonText}>Send Suggestion</Text>}</TouchableOpacity></View>
-          </View>
+            <View style={styles.modalActions}><TouchableOpacity style={styles.modalCancel} onPress={() => setRescheduleVisible(false)}><Text style={[styles.modalCancelText, isDarkMode && styles.textMutedDark]}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.modalSubmit} onPress={submitReschedule} disabled={submittingReschedule}>{submittingReschedule ? <ActivityIndicator color="#fff" /> : <Text style={styles.compareButtonText}>Check & Send Request</Text>}</TouchableOpacity></View>
+          </ScrollView>
         </View>
       </Modal>
     </SafeAreaView>
