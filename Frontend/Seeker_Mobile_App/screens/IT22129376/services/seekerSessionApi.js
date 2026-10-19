@@ -1,4 +1,4 @@
-import { CONFIG } from '../../../config';
+import { CONFIG, AUTH_SERVICE_URL } from '../../../config';
 import { fetchSeekerWithTimeout } from '../../../utils/seekerHttp';
 import { buildAuthHeaders } from './seekerAuthStorage';
 
@@ -26,4 +26,18 @@ export async function getSeekerBookings(seekerId) {
     result = await read(`${CONFIG.COORDINATION_SERVICE_URL}/bookings/seeker/${seekerId}`, ['bookings', 'data']);
   }
   return { raw: result.raw, bookings: result.rows };
+}
+
+let providerDirectoryCache = null;
+let providerDirectoryLoadedAt = 0;
+let providerDirectoryRequest = null;
+export async function getSeekerProviderDirectory() {
+  if (providerDirectoryCache && Date.now() - providerDirectoryLoadedAt < 60000) return providerDirectoryCache;
+  if (providerDirectoryRequest) return providerDirectoryRequest;
+  providerDirectoryRequest = read(`${AUTH_SERVICE_URL}/providers`, ['providers', 'data']).then(result => {
+    providerDirectoryCache = result.rows.map(row => ({ _id: row._id || row.id, fullName: row.fullName, name: row.name, businessName: row.businessName, district: row.district, profileImage: row.profileImage }));
+    providerDirectoryLoadedAt = Date.now();
+    return providerDirectoryCache;
+  }).finally(() => { providerDirectoryRequest = null; });
+  return providerDirectoryRequest;
 }

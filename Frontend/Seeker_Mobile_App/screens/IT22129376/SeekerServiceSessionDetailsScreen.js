@@ -1,3 +1,5 @@
+import { AUTH_SERVICE_URL } from '../../config';
+import { attachProviderIdentity, providerDisplayName } from '../../utils/providerIdentity';
 import { useNotification } from '../../context/NotificationContext';
 import { useChat } from '../../context/ChatContext';
 import { openProviderConversation } from '../../utils/seekerChat';
@@ -6,6 +8,7 @@ import PageHeader from '../../components/PageHeader';
 import RequestedTimeModal from './components/RequestedTimeModal';
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import {
+  Image,
   ActivityIndicator,
   Alert,
   Modal,
@@ -29,6 +32,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { COLORS, toneColors } from './theme';
 import { getStoredSeekerAuth } from './services/seekerAuthStorage';
 import {
+  getSeekerProviderDirectory,
   getProviderQuotationsForSeeker,
   getSeekerBookings,
   getSeekerRequestQuotations,
@@ -107,19 +111,10 @@ const getLocation = (session) => {
   return 'Location not available';
 };
 
-const getProviderNameFromRequest = (request) => {
-  const provider = request?.provider || request?.providerId || request?.providerSnapshot;
-
-  return (
-    request?.providerName ||
-    request?.businessName ||
-    request?.providerSnapshot?.businessName ||
-    request?.providerSnapshot?.name ||
-    provider?.businessName ||
-    provider?.name ||
-    provider?.fullName ||
-    (provider?._id || provider?.id || provider ? `Provider · ${shortId(provider?._id || provider?.id || provider)}` : 'Provider')
-  );
+const getProviderNameFromRequest = providerDisplayName;
+const providerPhoto = request => {
+  const photo = request.providerSnapshot?.profileImage || request.provider?.profileImage || request.providerId?.profileImage;
+  return typeof photo === 'string' && photo ? (/^https?:\/\//i.test(photo) ? photo : `${AUTH_SERVICE_URL}/${photo.replace(/\\/g, '/').replace(/^\/+/, '')}`) : null;
 };
 
 const getProviderNameFromQuote = (quote) => {
@@ -248,14 +243,16 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
       const auth = await getStoredSeekerAuth();
       if (!auth?.seekerId) return;
       const results = await Promise.allSettled([
-        getSeekerRequestQuotations(auth.seekerId), getProviderQuotationsForSeeker(), getSeekerBookings(auth.seekerId),
+        getSeekerRequestQuotations(auth.seekerId), getProviderQuotationsForSeeker(), getSeekerBookings(auth.seekerId), getSeekerProviderDirectory(),
       ]);
       const failed = results.some(r => r.status === 'rejected' || r.value?.raw === null);
       setLoadError(failed ? 'Some updates are unavailable. Showing the latest information loaded; refresh before confirming a change.' : null);
       setSession(current => {
         const keys = ['requests', 'quotations', 'bookings'];
         const sources = {};
-        results.forEach((result, i) => { sources[keys[i]] = result.status === 'fulfilled' && result.value?.raw !== null ? result.value[keys[i]] || [] : current[keys[i]] || []; });
+        results.slice(0, 3).forEach((result, i) => { sources[keys[i]] = result.status === 'fulfilled' && result.value?.raw !== null ? result.value[keys[i]] || [] : current[keys[i]] || []; });
+        const directory = results[3]?.status === 'fulfilled' ? results[3].value : [];
+        sources.requests = sources.requests.map(request => attachProviderIdentity(request, directory));
         const grouped = buildSeekerSessions(sources);
         const knownRequests = new Set((current.requests || []).map(recordId));
         const found = grouped.find(item => item.sessionId === String(sessionId) ||
@@ -487,7 +484,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                 style={[styles.providerRow, isDarkMode && styles.providerRowDark]}
               >
                 <View style={[styles.providerIcon, isDarkMode && styles.providerIconDark]}>
-                  <Ionicons name="person-outline" size={19} color={COLORS.primary} />
+                  {providerPhoto(request) ? <Image source={{ uri: providerPhoto(request) }} style={{ width: 42, height: 42, borderRadius: 21 }} /> : <Ionicons name="person-outline" size={19} color={COLORS.primary} />}
                 </View>
 
                 <View style={{ flex: 1 }}>
@@ -496,11 +493,12 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                   </Text>
 
                   <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>
-                    {String(request?.status || 'pending').toLowerCase() === 'pending' ? 'Request Sent' : `Status: ${request?.status}`}
+                    {{ pending: 'Waiting for quotation', quoted: 'Quotation received', accepted: 'Quotation accepted', rejected: 'Request declined', cancelled: 'Request cancelled', expired: 'Request expired' }[String(request?.status || 'pending').toLowerCase()] || 'Request under review'}
                   </Text>
                   <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>
                     Requested start: {formatDateTime(request.preferredStartTime)}
                   </Text>
+                  {request.providerSnapshot?.district ? <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>{request.providerSnapshot.district}</Text> : null}
                   {!booking && request.rescheduleRequestedAt && ['pending', 'quoted'].includes(String(request.status).toLowerCase()) ? <>
                     <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Provider requested a new time: {request.rescheduleReason}</Text>
                     <TouchableOpacity onPress={() => setTimeRequest(request)} style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark]}><Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>Choose New Date & Time</Text></TouchableOpacity>
