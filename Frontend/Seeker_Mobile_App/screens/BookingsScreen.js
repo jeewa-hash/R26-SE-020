@@ -1,6 +1,6 @@
-import PageHeader from '../components/PageHeader';
 // screens/BookingsScreen.js
 
+import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import {
   View,
@@ -16,9 +16,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL, AUTH_SERVICE_URL, ML_SERVICE_URL } from '../config';
 import { useTheme } from '../hooks/useTheme';
@@ -28,7 +28,7 @@ import { LanguageContext } from '../context/LanguageContext';
 const PROVIDER_SERVICE_URL = `${ML_SERVICE_URL}/portfolio/all-providers`;
 
 // ─────────────────────────────────────────────────────────────
-// Shared palette — matches Home, Feed, Profile, ProviderProfile
+// Shared palette
 // ─────────────────────────────────────────────────────────────
 const P = {
   indigo: '#4F46E5',
@@ -105,6 +105,7 @@ export default function BookingsScreen({ navigation }) {
 
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   const fetchProviders = useCallback(async () => {
     try {
@@ -197,24 +198,14 @@ export default function BookingsScreen({ navigation }) {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    if (date.toDateString() === today.toDateString()) {
-      return isSi ? 'අද' : 'Today';
-    }
-    if (date.toDateString() === yesterday.toDateString()) {
-      return isSi ? 'ඊයේ' : 'Yesterday';
-    }
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
+    if (date.toDateString() === today.toDateString()) return isSi ? 'අද' : 'Today';
+    if (date.toDateString() === yesterday.toDateString()) return isSi ? 'ඊයේ' : 'Yesterday';
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   const formatTime = (dateString) => {
     if (!dateString) return '';
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return new Date(dateString).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   const getStatusStyle = (status) => {
@@ -255,9 +246,7 @@ export default function BookingsScreen({ navigation }) {
           bg: isDarkMode ? P.slate800 : P.slate100,
           border: isDarkMode ? P.slate700 : P.slate200,
           color: isDarkMode ? P.slate400 : P.slate500,
-          text: status
-            ? String(status).replace(/_/g, ' ').replace(/^\w/, (l) => l.toUpperCase())
-            : (isSi ? 'සාමාන්‍ය' : 'Normal'),
+          text: status ? String(status).replace(/_/g, ' ').replace(/^\w/, (l) => l.toUpperCase()) : (isSi ? 'සාමාන්‍ය' : 'Normal'),
         };
     }
   };
@@ -453,14 +442,8 @@ export default function BookingsScreen({ navigation }) {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep}
-        />
-        <PageHeader
-          title={<>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</>}
-          onBack={() => navigation.goBack()}
-        />
+        <StatusBar barStyle="light-content" backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep} />
+        <PageHeader title={<>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</>} onBack={() => navigation.goBack()} />
         <View style={styles.centerContainer}>
           <View style={[styles.loadingRing, isDarkMode && { backgroundColor: P.indigoSoftDark }]}>
             <ActivityIndicator size="large" color={P.indigo} />
@@ -478,147 +461,56 @@ export default function BookingsScreen({ navigation }) {
   // ─────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep}
-      />
+      <StatusBar barStyle="light-content" backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep} />
 
       <PageHeader
         title={<>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</>}
         onBack={() => navigation.goBack()}
         renderActions={({ textColor }) => (
-          <TouchableOpacity
-            style={styles.headerRefreshBtn}
-            onPress={onRefresh}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.headerRefreshBtn} onPress={onRefresh} activeOpacity={0.8}>
             <Ionicons name="refresh-outline" size={22} color={textColor} />
           </TouchableOpacity>
         )}
       />
 
-      {/* ── Compact summary strip ── */}
-      <View style={[styles.summaryStrip, isDarkMode && styles.summaryStripDark]}>
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, isDarkMode && { color: P.white }]}>
-            {counts.all}
-          </Text>
-          <Text style={[styles.summaryLabel, isDarkMode && { color: P.slate400 }]}>
-            {isSi ? 'මුළු' : 'Total'}
-          </Text>
-        </View>
-
-        <View style={[styles.summaryDivider, isDarkMode && { backgroundColor: P.slate700 }]} />
-
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: P.amber }]}>{counts.pending}</Text>
-          <Text style={[styles.summaryLabel, isDarkMode && { color: P.slate400 }]}>
-            {isSi ? 'පොරොත්තු' : 'Pending'}
-          </Text>
-        </View>
-
-        <View style={[styles.summaryDivider, isDarkMode && { backgroundColor: P.slate700 }]} />
-
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: P.emerald }]}>{counts.confirmed}</Text>
-          <Text style={[styles.summaryLabel, isDarkMode && { color: P.slate400 }]}>
-            {isSi ? 'තහවුරු' : 'Confirmed'}
-          </Text>
-        </View>
-
-        <View style={[styles.summaryDivider, isDarkMode && { backgroundColor: P.slate700 }]} />
-
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: P.rose }]}>{counts.cancelled}</Text>
-          <Text style={[styles.summaryLabel, isDarkMode && { color: P.slate400 }]}>
-            {isSi ? 'අවලංගු' : 'Cancelled'}
-          </Text>
-        </View>
-      </View>
-
-      {/* ── Search + Tabs ── */}
+      {/* ── Search + Filter Button ── */}
       <View style={[styles.topControls, isDarkMode && styles.topControlsDark]}>
-        <View style={[styles.searchBox, isDarkMode && styles.searchBoxDark]}>
-          <Ionicons
-            name="search-outline"
-            size={18}
-            color={isDarkMode ? P.slate400 : P.slate500}
-          />
-          <TextInput
-            style={[styles.searchInput, isDarkMode && styles.textDark]}
-            placeholder={isSi ? 'සේවාව හෝ සපයන්නා සොයන්න' : 'Search service or provider'}
-            placeholderTextColor={isDarkMode ? P.slate500 : P.slate400}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Ionicons
-                name="close-circle"
-                size={18}
-                color={isDarkMode ? P.slate400 : P.slate500}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScroll}
-        >
-          {[
-            { key: 'all', label: isSi ? 'සියල්ල' : 'All', count: counts.all },
-            { key: 'pending', label: isSi ? 'පොරොත්තු' : 'Pending', count: counts.pending },
-            { key: 'confirmed', label: isSi ? 'තහවුරු' : 'Confirmed', count: counts.confirmed },
-            { key: 'cancelled', label: isSi ? 'අවලංගු' : 'Cancelled', count: counts.cancelled },
-          ].map((tab) => {
-            const isSelected = activeFilter === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                onPress={() => setActiveFilter(tab.key)}
-                style={[
-                  styles.filterChip,
-                  isSelected && styles.filterChipActive,
-                  isDarkMode && !isSelected && styles.filterChipDark,
-                ]}
-                activeOpacity={0.75}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    isSelected && styles.filterChipTextActive,
-                    isDarkMode && !isSelected && styles.textMutedDark,
-                  ]}
-                >
-                  {tab.label}
-                </Text>
-                <View
-                  style={[
-                    styles.filterCountBadge,
-                    isSelected && styles.filterCountBadgeActive,
-                    isDarkMode && !isSelected && { backgroundColor: P.slate700 },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.filterCountText,
-                      isSelected && styles.filterCountTextActive,
-                      isDarkMode && !isSelected && styles.textMutedDark,
-                    ]}
-                  >
-                    {tab.count}
-                  </Text>
-                </View>
+        <View style={styles.searchRow}>
+          <View style={[styles.searchBox, isDarkMode && styles.searchBoxDark]}>
+            <Ionicons name="search-outline" size={18} color={isDarkMode ? P.slate400 : P.slate500} />
+            <TextInput
+              style={[styles.searchInput, isDarkMode && styles.textDark]}
+              placeholder={isSi ? 'සේවාව හෝ සපයන්නා සොයන්න' : 'Search service or provider'}
+              placeholderTextColor={isDarkMode ? P.slate500 : P.slate400}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <Ionicons name="close-circle" size={18} color={isDarkMode ? P.slate400 : P.slate500} />
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+            )}
+          </View>
+
+          {/* Filter Button */}
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              isDarkMode && styles.filterButtonDark,
+              activeFilter !== 'all' && styles.filterButtonActive,
+            ]}
+            onPress={() => setFilterModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="options-outline"
+              size={22}
+              color={activeFilter !== 'all' ? P.white : (isDarkMode ? P.slate300 : P.slate600)}
+            />
+            {activeFilter !== 'all' && <View style={styles.filterDot} />}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Main list ── */}
@@ -639,69 +531,35 @@ export default function BookingsScreen({ navigation }) {
             <View style={[styles.emptyIconWrap, { backgroundColor: isDarkMode ? P.roseSoftDark : P.roseSoft }]}>
               <Ionicons name="alert-circle-outline" size={40} color={P.rose} />
             </View>
-            <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
-              {isSi ? 'දෝෂයක් සිදු විය' : 'Something went wrong'}
-            </Text>
-            <Text style={[styles.emptyDesc, isDarkMode && styles.textMutedDark]}>
-              {error}
-            </Text>
-            <TouchableOpacity
-              style={styles.actionBtnPrimary}
-              onPress={onRefresh}
-              activeOpacity={0.85}
-            >
+            <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>{isSi ? 'දෝෂයක් සිදු විය' : 'Something went wrong'}</Text>
+            <Text style={[styles.emptyDesc, isDarkMode && styles.textMutedDark]}>{error}</Text>
+            <TouchableOpacity style={styles.actionBtnPrimary} onPress={onRefresh} activeOpacity={0.85}>
               <Ionicons name="refresh" size={16} color={P.white} style={{ marginRight: 6 }} />
-              <Text style={styles.actionBtnPrimaryText}>
-                {isSi ? 'නැවත උත්සාහ කරන්න' : 'Try Again'}
-              </Text>
+              <Text style={styles.actionBtnPrimaryText}>{isSi ? 'නැවත උත්සාහ කරන්න' : 'Try Again'}</Text>
             </TouchableOpacity>
           </View>
         ) : filteredBookings.length === 0 ? (
           <View style={[styles.emptyCard, isDarkMode && styles.emptyCardDark]}>
             <View style={[styles.emptyIconWrap, isDarkMode && { backgroundColor: P.indigoSoftDark }]}>
-              <Ionicons
-                name={searchQuery ? 'search-outline' : 'receipt-outline'}
-                size={40}
-                color={isDarkMode ? P.indigoLight : P.indigo}
-              />
+              <Ionicons name={searchQuery ? 'search-outline' : 'receipt-outline'} size={40} color={isDarkMode ? P.indigoLight : P.indigo} />
             </View>
             <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
-              {searchQuery
-                ? (isSi ? 'ප්‍රතිඵල හමු නොවීය' : 'No matching bookings')
-                : activeFilter !== 'all'
-                ? (isSi ? 'මෙම කාණ්ඩයේ ඇණවුම් නොමැත' : `No ${activeFilter} bookings`)
+              {searchQuery ? (isSi ? 'ප්‍රතිඵල හමු නොවීය' : 'No matching bookings')
+                : activeFilter !== 'all' ? (isSi ? 'මෙම කාණ්ඩයේ ඇණවුම් නොමැත' : `No ${activeFilter} bookings`)
                 : (isSi ? 'තවමත් ඇණවුම් නොමැත' : 'No bookings yet')}
             </Text>
             <Text style={[styles.emptyDesc, isDarkMode && styles.textMutedDark]}>
-              {searchQuery
-                ? (isSi ? 'වෙනත් වචනයක් යොදා සොයා බලන්න.' : 'Try a different search or clear the filter.')
-                : (isSi
-                    ? 'සේවා සපයන්නන්ගෙන් මිල ගණන් ඉල්ලූ පසු ඔබගේ ඇණවුම් මෙහි දිස්වේ.'
-                    : 'Your bookings will appear here once you request a quote from a provider.')}
+              {searchQuery ? (isSi ? 'වෙනත් වචනයක් යොදා සොයා බලන්න.' : 'Try a different search or clear the filter.')
+                : (isSi ? 'සේවා සපයන්නන්ගෙන් මිල ගණන් ඉල්ලූ පසු ඔබගේ ඇණවුම් මෙහි දිස්වේ.' : 'Your bookings will appear here once you request a quote from a provider.')}
             </Text>
-
-            {searchQuery ? (
-              <TouchableOpacity
-                style={[styles.actionBtnSecondary, isDarkMode && { backgroundColor: P.slate800 }]}
-                onPress={() => {
-                  setSearchQuery('');
-                  setActiveFilter('all');
-                }}
-              >
-                <Text style={[styles.actionBtnSecondaryText, isDarkMode && { color: P.slate200 }]}>
-                  {isSi ? 'සෙවුම ඉවත් කරන්න' : 'Clear Search'}
-                </Text>
+            {searchQuery || activeFilter !== 'all' ? (
+              <TouchableOpacity style={[styles.actionBtnSecondary, isDarkMode && { backgroundColor: P.slate800 }]} onPress={() => { setSearchQuery(''); setActiveFilter('all'); }}>
+                <Text style={[styles.actionBtnSecondaryText, isDarkMode && { color: P.slate200 }]}>{isSi ? 'සෙවුම ඉවත් කරන්න' : 'Clear Search & Filter'}</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity
-                style={styles.actionBtnPrimary}
-                onPress={() => navigation.navigate('CreatePostScreen')}
-                activeOpacity={0.85}
-              >
+              <TouchableOpacity style={styles.actionBtnPrimary} onPress={() => navigation.navigate('CreatePostScreen')} activeOpacity={0.85}>
                 <Ionicons name="add" size={18} color={P.white} style={{ marginRight: 6 }} />
-                <Text style={styles.actionBtnPrimaryText}>
-                  {isSi ? 'නව සේවාවක් සොයන්න' : 'Request a Service'}
-                </Text>
+                <Text style={styles.actionBtnPrimaryText}>{isSi ? 'නව සේවාවක් සොයන්න' : 'Request a Service'}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -715,131 +573,55 @@ export default function BookingsScreen({ navigation }) {
             const providerCount = group.requests.length;
             const isExpanded = expandedSessions[group.sessionId] ?? false;
             const categoryIcon = getCategoryIcon(group.detectedCategory || '');
-            const isUrgent =
-              group.urgencyLevel &&
-              (group.urgencyLevel.toLowerCase().includes('high') ||
-                group.urgencyLevel.toLowerCase().includes('urgent'));
+            const isUrgent = group.urgencyLevel && (group.urgencyLevel.toLowerCase().includes('high') || group.urgencyLevel.toLowerCase().includes('urgent'));
 
             return (
               <View key={group.sessionId} style={[styles.card, isDarkMode && styles.cardDark]}>
-                {/* Header */}
                 <View style={styles.cardHeader}>
                   <View style={[styles.catIconWrap, isDarkMode && styles.catIconWrapDark]}>
-                    <Ionicons
-                      name={categoryIcon}
-                      size={24}
-                      color={isDarkMode ? P.indigoLight : P.indigo}
-                    />
+                    <Ionicons name={categoryIcon} size={24} color={isDarkMode ? P.indigoLight : P.indigo} />
                   </View>
-
                   <View style={styles.cardTitleWrap}>
-                    <Text
-                      style={[styles.serviceTitle, isDarkMode && styles.textDark]}
-                      numberOfLines={2}
-                    >
-                      {title}
-                    </Text>
-                    <Text style={[styles.metaText, isDarkMode && styles.textMutedDark]}>
-                      {date} · {time}
-                    </Text>
+                    <Text style={[styles.serviceTitle, isDarkMode && styles.textDark]} numberOfLines={2}>{title}</Text>
+                    <Text style={[styles.metaText, isDarkMode && styles.textMutedDark]}>{date} · {time}</Text>
                   </View>
-
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: overallStyle.bg, borderColor: overallStyle.border },
-                    ]}
-                  >
+                  <View style={[styles.statusBadge, { backgroundColor: overallStyle.bg, borderColor: overallStyle.border }]}>
                     <View style={[styles.statusDot, { backgroundColor: overallStyle.color }]} />
-                    <Text style={[styles.statusBadgeText, { color: overallStyle.color }]}>
-                      {overallStyle.text}
-                    </Text>
+                    <Text style={[styles.statusBadgeText, { color: overallStyle.color }]}>{overallStyle.text}</Text>
                   </View>
                 </View>
 
-                {/* Info pills */}
                 <View style={styles.infoRow}>
                   {group.serviceLocation && typeof group.serviceLocation === 'string' && (
-                    <View
-                      style={[
-                        styles.infoPill,
-                        isDarkMode && { backgroundColor: P.slate900, borderColor: P.slate700 },
-                      ]}
-                    >
-                      <Ionicons
-                        name="location-outline"
-                        size={13}
-                        color={isDarkMode ? P.slate400 : P.slate500}
-                      />
-                      <Text
-                        style={[styles.infoPillText, isDarkMode && styles.textMutedDark]}
-                        numberOfLines={1}
-                      >
-                        {group.serviceLocation}
-                      </Text>
+                    <View style={[styles.infoPill, isDarkMode && { backgroundColor: P.slate900, borderColor: P.slate700 }]}>
+                      <Ionicons name="location-outline" size={13} color={isDarkMode ? P.slate400 : P.slate500} />
+                      <Text style={[styles.infoPillText, isDarkMode && styles.textMutedDark]} numberOfLines={1}>{group.serviceLocation}</Text>
                     </View>
                   )}
-
                   {isUrgent && (
-                    <View
-                      style={[
-                        styles.infoPill,
-                        {
-                          backgroundColor: isDarkMode ? P.roseSoftDark : P.roseSoft,
-                          borderColor: isDarkMode ? P.roseDark : '#FECACA',
-                        },
-                      ]}
-                    >
+                    <View style={[styles.infoPill, { backgroundColor: isDarkMode ? P.roseSoftDark : P.roseSoft, borderColor: isDarkMode ? P.roseDark : '#FECACA' }]}>
                       <Ionicons name="flash" size={12} color={P.rose} />
-                      <Text style={[styles.infoPillText, { color: P.rose, fontWeight: '800' }]}>
-                        {isSi ? 'හදිසි' : 'Urgent'}
-                      </Text>
+                      <Text style={[styles.infoPillText, { color: P.rose, fontWeight: '800' }]}>{isSi ? 'හදිසි' : 'Urgent'}</Text>
                     </View>
                   )}
                 </View>
 
                 {group.briefDescription ? (
-                  <Text
-                    style={[styles.descText, isDarkMode && styles.textMutedDark]}
-                    numberOfLines={3}
-                  >
-                    {group.briefDescription}
-                  </Text>
+                  <Text style={[styles.descText, isDarkMode && styles.textMutedDark]} numberOfLines={3}>{group.briefDescription}</Text>
                 ) : null}
 
-                {/* Accordion */}
-                <TouchableOpacity
-                  style={[styles.accordionBtn, isDarkMode && styles.accordionBtnDark]}
-                  onPress={() => toggleExpand(group.sessionId)}
-                  activeOpacity={0.75}
-                >
+                <TouchableOpacity style={[styles.accordionBtn, isDarkMode && styles.accordionBtnDark]} onPress={() => toggleExpand(group.sessionId)} activeOpacity={0.75}>
                   <View style={styles.accordionLeft}>
-                    <View
-                      style={[
-                        styles.accordionIconWrap,
-                        isDarkMode && { backgroundColor: P.indigoSoftDark },
-                      ]}
-                    >
-                      <Ionicons
-                        name="people"
-                        size={14}
-                        color={isDarkMode ? P.indigoLight : P.indigo}
-                      />
+                    <View style={[styles.accordionIconWrap, isDarkMode && { backgroundColor: P.indigoSoftDark }]}>
+                      <Ionicons name="people" size={14} color={isDarkMode ? P.indigoLight : P.indigo} />
                     </View>
                     <Text style={[styles.accordionBtnText, isDarkMode && styles.textDark]}>
-                      {isExpanded
-                        ? (isSi ? `${providerCount} සපයන්නන් සඟවන්න` : `Hide ${providerCount} provider${providerCount !== 1 ? 's' : ''}`)
-                        : (isSi ? `${providerCount} සපයන්නන් බලන්න` : `View ${providerCount} provider${providerCount !== 1 ? 's' : ''}`)}
+                      {isExpanded ? (isSi ? `${providerCount} සපයන්නන් සඟවන්න` : `Hide ${providerCount} provider${providerCount !== 1 ? 's' : ''}`) : (isSi ? `${providerCount} සපයන්නන් බලන්න` : `View ${providerCount} provider${providerCount !== 1 ? 's' : ''}`)}
                     </Text>
                   </View>
-                  <Ionicons
-                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={18}
-                    color={isDarkMode ? P.slate400 : P.slate500}
-                  />
+                  <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={isDarkMode ? P.slate400 : P.slate500} />
                 </TouchableOpacity>
 
-                {/* Providers */}
                 {isExpanded && (
                   <View style={styles.providerList}>
                     {group.requests.map((req, idx) => {
@@ -853,97 +635,38 @@ export default function BookingsScreen({ navigation }) {
                         <View key={req._id || idx}>
                           <View style={styles.providerBlock}>
                             <View style={styles.providerTopRow}>
-                              <TouchableOpacity
-                                onPress={() => handleViewProviderProfile(pId)}
-                                activeOpacity={0.8}
-                              >
-                                <View
-                                  style={[
-                                    styles.providerAvatarRing,
-                                    isDarkMode && { borderColor: P.indigoSoftDark },
-                                  ]}
-                                >
-                                  {pImage ? (
-                                    <Image source={{ uri: pImage }} style={styles.providerAvatar} />
-                                  ) : (
-                                    <View
-                                      style={[
-                                        styles.providerAvatar,
-                                        styles.providerAvatarPlaceholder,
-                                        isDarkMode && { backgroundColor: P.indigoSoftDark },
-                                      ]}
-                                    >
-                                      <Ionicons
-                                        name="person"
-                                        size={22}
-                                        color={isDarkMode ? P.indigoLight : P.indigo}
-                                      />
+                              <TouchableOpacity onPress={() => handleViewProviderProfile(pId)} activeOpacity={0.8}>
+                                <View style={[styles.providerAvatarRing, isDarkMode && { borderColor: P.indigoSoftDark }]}>
+                                  {pImage ? <Image source={{ uri: pImage }} style={styles.providerAvatar} /> : (
+                                    <View style={[styles.providerAvatar, styles.providerAvatarPlaceholder, isDarkMode && { backgroundColor: P.indigoSoftDark }]}>
+                                      <Ionicons name="person" size={22} color={isDarkMode ? P.indigoLight : P.indigo} />
                                     </View>
                                   )}
                                 </View>
                               </TouchableOpacity>
-
                               <View style={styles.providerMainInfo}>
-                                <TouchableOpacity
-                                  onPress={() => handleViewProviderProfile(pId)}
-                                  activeOpacity={0.7}
-                                >
-                                  <Text
-                                    style={[styles.providerName, isDarkMode && styles.textDark]}
-                                    numberOfLines={1}
-                                  >
-                                    {pName}
-                                  </Text>
+                                <TouchableOpacity onPress={() => handleViewProviderProfile(pId)} activeOpacity={0.7}>
+                                  <Text style={[styles.providerName, isDarkMode && styles.textDark]} numberOfLines={1}>{pName}</Text>
                                 </TouchableOpacity>
-
-                                <View
-                                  style={[
-                                    styles.providerStatusBadge,
-                                    { backgroundColor: pStatus.bg, borderColor: pStatus.border },
-                                  ]}
-                                >
-                                  <View
-                                    style={[styles.providerStatusDot, { backgroundColor: pStatus.color }]}
-                                  />
-                                  <Text style={[styles.providerStatusText, { color: pStatus.color }]}>
-                                    {pStatus.text}
-                                  </Text>
+                                <View style={[styles.providerStatusBadge, { backgroundColor: pStatus.bg, borderColor: pStatus.border }]}>
+                                  <View style={[styles.providerStatusDot, { backgroundColor: pStatus.color }]} />
+                                  <Text style={[styles.providerStatusText, { color: pStatus.color }]}>{pStatus.text}</Text>
                                 </View>
                               </View>
                             </View>
 
                             <View style={styles.providerActionsRow}>
-                              <TouchableOpacity
-                                style={[styles.actionBtnHalf, isDarkMode && styles.actionBtnHalfDark]}
-                                onPress={() => handleMessage(req, group)}
-                                activeOpacity={0.8}
-                              >
-                                <Ionicons
-                                  name="chatbubble-ellipses-outline"
-                                  size={17}
-                                  color={isDarkMode ? P.indigoLight : P.indigo}
-                                />
-                                <Text style={[styles.actionBtnHalfText, isDarkMode && styles.textDark]}>
-                                  {isSi ? 'චැට්' : 'Chat'}
-                                </Text>
+                              <TouchableOpacity style={[styles.actionBtnHalf, isDarkMode && styles.actionBtnHalfDark]} onPress={() => handleMessage(req, group)} activeOpacity={0.8}>
+                                <Ionicons name="chatbubble-ellipses-outline" size={17} color={isDarkMode ? P.indigoLight : P.indigo} />
+                                <Text style={[styles.actionBtnHalfText, isDarkMode && styles.textDark]}>{isSi ? 'චැට්' : 'Chat'}</Text>
                               </TouchableOpacity>
-
-                              <TouchableOpacity
-                                style={styles.actionBtnHalfSolid}
-                                onPress={() => handleViewQuote(req)}
-                                activeOpacity={0.85}
-                              >
+                              <TouchableOpacity style={styles.actionBtnHalfSolid} onPress={() => handleViewQuote(req)} activeOpacity={0.85}>
                                 <Ionicons name="document-text-outline" size={17} color={P.white} />
-                                <Text style={styles.actionBtnHalfSolidText}>
-                                  {isSi ? 'මිල ගණන්' : 'View Quote'}
-                                </Text>
+                                <Text style={styles.actionBtnHalfSolidText}>{isSi ? 'මිල ගණන්' : 'View Quote'}</Text>
                               </TouchableOpacity>
                             </View>
                           </View>
-
-                          {!isLast && (
-                            <View style={[styles.rowDivider, isDarkMode && styles.rowDividerDark]} />
-                          )}
+                          {!isLast && <View style={[styles.rowDivider, isDarkMode && styles.rowDividerDark]} />}
                         </View>
                       );
                     })}
@@ -954,6 +677,62 @@ export default function BookingsScreen({ navigation }) {
           })
         )}
       </ScrollView>
+
+      {/* ── Filter Bottom Sheet Modal ── */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={filterModalVisible}
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPressOut={() => setFilterModalVisible(false)}
+        >
+          <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, isDarkMode && styles.textDark]}>
+                {isSi ? 'පෙරහන් කරන්න' : 'Filter Bookings'}
+              </Text>
+              <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                <Ionicons name="close" size={24} color={isDarkMode ? P.slate400 : P.slate500} />
+              </TouchableOpacity>
+            </View>
+
+            {[
+              { key: 'all', label: isSi ? 'සියල්ල' : 'All', count: counts.all, icon: 'list-outline', color: P.slate600 },
+              { key: 'pending', label: isSi ? 'පොරොත්තු' : 'Pending', count: counts.pending, icon: 'time-outline', color: P.amber },
+              { key: 'confirmed', label: isSi ? 'තහවුරු' : 'Confirmed', count: counts.confirmed, icon: 'checkmark-circle-outline', color: P.emerald },
+              { key: 'cancelled', label: isSi ? 'අවලංගු' : 'Cancelled', count: counts.cancelled, icon: 'close-circle-outline', color: P.rose },
+            ].map((item) => {
+              const isActive = activeFilter === item.key;
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[styles.modalOption, isDarkMode && styles.modalOptionDark, isActive && styles.modalOptionActive]}
+                  onPress={() => {
+                    setActiveFilter(item.key);
+                    setFilterModalVisible(false);
+                  }}
+                >
+                  <View style={styles.modalOptionLeft}>
+                    <Ionicons name={item.icon} size={20} color={isActive ? P.indigo : item.color} />
+                    <Text style={[styles.modalOptionText, isDarkMode && styles.textDark, isActive && styles.modalOptionTextActive]}>
+                      {item.label}
+                    </Text>
+                  </View>
+                  <View style={[styles.modalOptionBadge, isActive && { backgroundColor: P.indigoSoft }]}>
+                    <Text style={[styles.modalOptionBadgeText, isDarkMode && styles.textMutedDark, isActive && { color: P.indigo }]}>
+                      {item.count}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -972,36 +751,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // ── Summary strip ──
-  summaryStrip: {
-    flexDirection: 'row',
-    backgroundColor: P.white,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderColor: P.slate200,
-  },
-  summaryStripDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
-  summaryItem: { flex: 1, alignItems: 'center', gap: 2 },
-  summaryValue: {
-    fontSize: 19,
-    fontWeight: '900',
-    color: P.slate900,
-    letterSpacing: -0.4,
-  },
-  summaryLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: P.slate500,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  summaryDivider: {
-    width: 1,
-    backgroundColor: P.slate200,
-    marginVertical: 6,
-  },
-
   // ── Top controls ──
   topControls: {
     backgroundColor: P.white,
@@ -1012,11 +761,17 @@ const styles = StyleSheet.create({
   },
   topControlsDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
 
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    gap: 10,
+  },
   searchBox: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: P.slate100,
-    marginHorizontal: 16,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 46,
@@ -1027,33 +782,28 @@ const styles = StyleSheet.create({
   searchBoxDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
   searchInput: { flex: 1, fontSize: 14.5, color: P.slate900, paddingVertical: 0 },
 
-  filterScroll: { paddingHorizontal: 16, paddingTop: 12, gap: 8 },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: P.white,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    gap: 6,
+  // ── Filter Button ──
+  filterButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: P.slate100,
     borderWidth: 1,
     borderColor: P.slate200,
-  },
-  filterChipDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
-  filterChipActive: { backgroundColor: P.indigo, borderColor: P.indigo },
-  filterChipText: { fontSize: 12.5, fontWeight: '700', color: P.slate600 },
-  filterChipTextActive: { color: P.white },
-  filterCountBadge: {
-    backgroundColor: P.slate100,
-    borderRadius: 9,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    minWidth: 18,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  filterCountBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
-  filterCountText: { fontSize: 10, fontWeight: '800', color: P.slate600 },
-  filterCountTextActive: { color: P.white },
+  filterButtonDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
+  filterButtonActive: { backgroundColor: P.indigo, borderColor: P.indigo },
+  filterDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: P.white,
+  },
 
   // ── List ──
   listContent: { padding: 16, paddingBottom: 40 },
@@ -1311,4 +1061,50 @@ const styles = StyleSheet.create({
   // ── Utility ──
   textDark: { color: P.slate50 },
   textMutedDark: { color: P.slate400 },
+
+  // ── Filter Modal ──
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: P.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  },
+  modalContentDark: { backgroundColor: P.slate800 },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: P.slate900 },
+  modalOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: P.slate50,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  modalOptionDark: { backgroundColor: P.slate900 },
+  modalOptionActive: { backgroundColor: P.indigoSoft, borderColor: P.indigo },
+  modalOptionLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  modalOptionText: { fontSize: 15, fontWeight: '700', color: P.slate700 },
+  modalOptionTextActive: { color: P.indigo },
+  modalOptionBadge: {
+    backgroundColor: P.slate200,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  modalOptionBadgeText: { fontSize: 13, fontWeight: '800', color: P.slate600 },
 });
