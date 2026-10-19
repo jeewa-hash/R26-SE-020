@@ -2,7 +2,6 @@ import { getProviderBookings as loadProviderBookings } from '../../../services/p
 import { fetchProviderWithTimeout as fetchWithTimeout, PROVIDER_REQUEST_TIMEOUT_MS } from '../../../utils/providerHttp';
 // pages/IT22129376/services/providerFlowApi.js
 import {
-  IP_ADDRESS,
   CONFIG,
   SEEKER_SERVICE_URL,
   PROVIDER_SERVICE_API_URL,
@@ -17,13 +16,11 @@ const SEEKER_URLS = uniqueUrls([
   CONFIG?.SEEKER_SERVICE_URL,
   SEEKER_SERVICE_URL,
   CONFIG?.API_BASE_URL,
-  `http://${IP_ADDRESS}:6000`,
 ]);
 
 const PROVIDER_URLS = uniqueUrls([
   CONFIG?.PROVIDER_SERVICE_URL,
   PROVIDER_SERVICE_API_URL,
-  `http://${IP_ADDRESS}:3002`,
 ]);
 
 const COORDINATION_URLS = uniqueUrls([

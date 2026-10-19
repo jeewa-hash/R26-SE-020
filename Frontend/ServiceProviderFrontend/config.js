@@ -3,18 +3,18 @@
 export const IP_ADDRESS = process.env.EXPO_PUBLIC_API_HOST || '192.168.8.101'; //'192.168.56.1'; //'192.168.1.38' 169.254.230.160; '172.28.31.24'; 
 
 export const CONFIG = {
-  API_BASE_URL: `http://${IP_ADDRESS}:6000`,
-  SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6000`,
-  // Core APIs default to the local laptop for device testing.
-  AUTH_SERVICE_URL: process.env.EXPO_PUBLIC_AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`,
+  API_BASE_URL: 'https://r26-se-020-production-db02.up.railway.app',
+  SEEKER_SERVICE_URL: 'https://r26-se-020-production-db02.up.railway.app',
+  // Live Cloud Render Services 🚀
+  AUTH_SERVICE_URL: 'https://r26-auth-service.onrender.com',
   ADMIN_SERVICE_URL: 'https://r26-admin-service.onrender.com',
 
-  // Local Services
-  PROVIDER_SERVICE_URL: `http://${IP_ADDRESS}:3002`,
-  PROVIDER_SERVICE_API_URL: `http://${IP_ADDRESS}:3002`,
-  ML_SERVICE_URL: `http://${IP_ADDRESS}:5000`,
+  // Deployed services
+  PROVIDER_SERVICE_URL: 'https://r26-se-020-production.up.railway.app',
+  PROVIDER_SERVICE_API_URL: 'https://r26-se-020-production.up.railway.app',
+  ML_SERVICE_URL: 'https://r26-se-020-production-faf9.up.railway.app',
   COORDINATION_SERVICE_URL: (process.env.EXPO_PUBLIC_COORDINATION_API_URL ||
-  `http://${IP_ADDRESS}:5010`).replace(/\/+$/, ''),
+  'http://k8s-default-coordina-f35bbe8d02-1683340780.ap-southeast-2.elb.amazonaws.com').replace(/\/+$/, ''),
 };
 
 export const ADMIN_SERVICE_URL = CONFIG.ADMIN_SERVICE_URL;

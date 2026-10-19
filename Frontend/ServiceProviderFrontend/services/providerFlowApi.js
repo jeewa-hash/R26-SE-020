@@ -3,7 +3,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking, Platform } from 'react-native';
 import {
   CONFIG,
-  IP_ADDRESS,
 } from '../config';
 
 const uniqueUrls = (items) => {
@@ -18,13 +17,11 @@ const uniqueUrls = (items) => {
 const SEEKER_URLS = uniqueUrls([
   CONFIG?.SEEKER_SERVICE_URL,
   CONFIG?.API_BASE_URL,
-  `http://${IP_ADDRESS}:6000`,
 ]);
 
 const PROVIDER_URLS = uniqueUrls([
   CONFIG?.PROVIDER_SERVICE_API_URL,
   CONFIG?.PROVIDER_SERVICE_URL,
-  `http://${IP_ADDRESS}:3002`,
 ]);
 
 const COORDINATION_URLS = uniqueUrls([
