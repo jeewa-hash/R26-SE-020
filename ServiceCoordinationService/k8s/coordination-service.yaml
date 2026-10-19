@@ -73,6 +73,12 @@ spec:
                   name: coordination-secrets
                   key: GOOGLE_MAPS_API_KEY
 
+            - name: REWARD_SERVICE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: coordination-secrets
+                  key: REWARD_SERVICE_KEY
+
           readinessProbe:
             httpGet:
               path: /health
