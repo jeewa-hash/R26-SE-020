@@ -13,10 +13,13 @@ import {
 } from 'react-native';
 import { Text, Surface } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
+import { summarizeCompletedEarnings } from '../utils/completedEarnings';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   getBillingOverview,
+  getCompletedJobEarnings,
   createCommissionCheckoutSession,
   refreshMonthlyBill,
 } from '../services/billingApi';
@@ -35,6 +38,10 @@ export default function EarningsScreen() {
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'fees' | 'boosts'
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [completedEarnings, setCompletedEarnings] = useState(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const [loadError, setLoadError] = useState('');
+  const [billingError, setBillingError] = useState('');
   const [paying, setPaying] = useState(false);
 
   const [billingData, setBillingData] = useState({
@@ -77,21 +84,14 @@ export default function EarningsScreen() {
 
   const fetchBillingData = useCallback(async () => {
     try {
-      const res = await getBillingOverview();
-      if (res?.success && res?.data) {
-        setBillingData(res.data);
-      }
-    } catch (error) {
-      console.warn('Failed to load billing overview:', error.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      const [billing, earnings] = await Promise.allSettled([getBillingOverview(), getCompletedJobEarnings()]);
+      if (billing.status === 'fulfilled' && billing.value?.success && billing.value?.data) { setBillingData(billing.value.data); setBillingError(''); }
+      else setBillingError('Billing statements could not be loaded. Pull down to retry.');
+      if (earnings.status === 'fulfilled') { setCompletedEarnings(earnings.value); setLastSyncedAt(new Date()); setLoadError(''); }
+      else setLoadError('Completed-job earnings could not be loaded. Pull down to retry.');
+    } finally { setLoading(false); setRefreshing(false); }
   }, []);
-
-  useEffect(() => {
-    fetchBillingData();
-  }, [fetchBillingData]);
+  useFocusEffect(useCallback(() => { fetchBillingData(); }, [fetchBillingData]));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -174,6 +174,14 @@ export default function EarningsScreen() {
     displayNetEarnings = lifetime.netEarnings || Math.max(0, displayEarnings - lifetime.totalCommissionPaid - displayBoostExpense);
   }
 
+  const verified = completedEarnings ? summarizeCompletedEarnings(completedEarnings.bookings, period) : null;
+  const billingMismatch = Boolean(verified && (Number(displayEarnings) !== verified.totalIncome || Number(displayJobsCount) !== verified.completedBookingsCount));
+  if (verified) {
+    displayEarnings = verified.totalIncome;
+    displayJobsCount = verified.completedBookingsCount;
+    displayAvgPerJob = displayJobsCount ? displayEarnings / displayJobsCount : 0;
+  }
+  const netUnavailable = Boolean(billingError || billingMismatch || !completedEarnings);
   const chartMonths = [];
   const now = new Date();
 
@@ -182,7 +190,7 @@ export default function EarningsScreen() {
     const mStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
     const label = MONTH_NAMES[d.getUTCMonth()];
     const foundBill = allBills.find((b) => b.billingMonth === mStr);
-    const income = foundBill ? Number(foundBill.totalIncome) || 0 : 0;
+    const income = completedEarnings ? summarizeCompletedEarnings(completedEarnings.bookings, 'Month', d).totalIncome : foundBill ? Number(foundBill.totalIncome) || 0 : 0;
 
     chartMonths.push({
       label,
@@ -199,6 +207,7 @@ export default function EarningsScreen() {
   }));
 
   const handlePayServiceCharge = async (billToPay) => {
+    if (billingError || billingMismatch || !completedEarnings) return Alert.alert('Statement unavailable', 'Refresh your billing statement before making a payment.');
     const bill = billToPay || currentBill;
 
     if (!bill || bill.serviceChargeAmount <= 0) {
@@ -251,6 +260,8 @@ export default function EarningsScreen() {
       >
         <HeaderSection navigation={navigation} />
 
+        {loadError || billingError ? <Text accessibilityRole="alert" style={{ margin: 16, color: theme.textSecondary }}>{loadError || billingError}</Text> : null}
+        {lastSyncedAt ? <Text style={{ marginHorizontal: 20, marginTop: 12, color: theme.textSecondary, fontSize: 12 }}>{completedEarnings?.accountLabel ? `${completedEarnings.accountLabel} · ` : ''}Last sync: {lastSyncedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text> : null}
         <View style={styles.refreshRow}>
           <View style={styles.screenBadge}>
             <MaterialCommunityIcons name="finance" size={13} color="#166534" />
@@ -337,18 +348,18 @@ export default function EarningsScreen() {
           {loading ? (
             <ActivityIndicator color="#FFF" size="large" style={{ marginVertical: 18 }} />
           ) : (
-            <Text style={styles.heroAmount}>LKR {formatLkr(displayEarnings)}</Text>
+            <Text style={styles.heroAmount}>{completedEarnings ? `LKR ${formatLkr(displayEarnings)}` : 'Unavailable'}</Text>
           )}
 
           <View style={styles.heroFooter}>
             <View style={styles.heroTag}>
               <MaterialCommunityIcons name="check-decagram" size={15} color="#A7F3D0" />
-              <Text style={styles.heroTagText}>{displayJobsCount} Completed Jobs</Text>
+              <Text style={styles.heroTagText}>{completedEarnings ? `${displayJobsCount} Completed Jobs` : 'Jobs unavailable'}</Text>
             </View>
 
             <View style={styles.heroTagFee}>
               <MaterialCommunityIcons name="percent-outline" size={14} color="#FDE68A" />
-              <Text style={styles.heroTagFeeText}>5% Fee: LKR {formatLkr(displayEarnings * 0.05)}</Text>
+              <Text style={styles.heroTagFeeText}>{completedEarnings ? `Estimated 5% Fee: LKR ${formatLkr(displayEarnings * 0.05)}` : 'Fee unavailable'}</Text>
             </View>
           </View>
         </LinearGradient>
@@ -362,7 +373,7 @@ export default function EarningsScreen() {
             <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Net Earnings</Text>
 
             <Text style={[styles.metricValue, { color: '#10B981' }]} numberOfLines={1}>
-              LKR {formatLkr(displayNetEarnings)}
+              {netUnavailable ? 'Unavailable' : `LKR ${formatLkr(displayNetEarnings)}`}
             </Text>
 
             <Text style={styles.metricSub}>After fees & boosts</Text>
@@ -397,7 +408,7 @@ export default function EarningsScreen() {
           </Surface>
         </View>
 
-        {urgentBill && (
+        {urgentBill && !billingError && !billingMismatch && (
           <Surface style={[styles.portalCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]} elevation={2}>
             <View style={styles.portalHeader}>
               <View style={styles.portalTitleWrap}>
