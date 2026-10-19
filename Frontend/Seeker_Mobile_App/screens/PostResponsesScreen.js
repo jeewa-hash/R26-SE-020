@@ -350,12 +350,12 @@ export default function PostResponsesScreen({ navigation, route }) {
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <StatusBar
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
         />
         <PageHeader title={<>Responses</>} onBack={() => navigation.goBack()} />
 
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#667eea'} />
+          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#4F46E5'} />
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
             Loading responses...
           </Text>
@@ -383,7 +383,7 @@ export default function PostResponsesScreen({ navigation, route }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
       />
 
       {/* HEADER */}
@@ -395,8 +395,8 @@ export default function PostResponsesScreen({ navigation, route }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#667eea']}
-            tintColor={isDarkMode ? '#667eea' : '#667eea'}
+            colors={['#4F46E5']}
+            tintColor={isDarkMode ? '#4F46E5' : '#4F46E5'}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -416,10 +416,10 @@ export default function PostResponsesScreen({ navigation, route }) {
                   <View
                     style={[
                       styles.categoryIconWrap,
-                      { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' },
+                      { backgroundColor: isDarkMode ? '#2d3561' : '#4F46E515' },
                     ]}
                   >
-                    <Ionicons name="briefcase-outline" size={14} color="#667eea" />
+                    <Ionicons name="briefcase-outline" size={14} color="#4F46E5" />
                   </View>
                   <Text style={[styles.categoryText, isDarkMode && styles.textDark]}>
                     {post.category || 'General'}
@@ -505,7 +505,7 @@ export default function PostResponsesScreen({ navigation, route }) {
               <Ionicons
                 name="people-outline"
                 size={48}
-                color={isDarkMode ? '#667eea' : '#9CA3AF'}
+                color={isDarkMode ? '#4F46E5' : '#9CA3AF'}
               />
             </View>
             <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#667eea',
+    color: '#4F46E5',
     textTransform: 'uppercase',
   },
   urgencyBadge: {
@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     marginRight: 12,
     borderWidth: 2,
-    borderColor: '#667eea',
+    borderColor: '#4F46E5',
   },
   responseInfo: {
     flex: 1,
@@ -802,7 +802,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   chatButton: {
-    backgroundColor: '#667eea',
+    backgroundColor: '#4F46E5',
   },
   quoteButton: {
     backgroundColor: '#10B981',

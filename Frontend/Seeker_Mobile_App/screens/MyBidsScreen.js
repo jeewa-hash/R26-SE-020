@@ -4,6 +4,9 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Ale
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import BottomNav from '../components/BottomNav';
+import { APP_THEME } from '../context/ThemeContext';
+
+const P = APP_THEME.light;
 
 export default function MyBidsScreen({ navigation }) {
   const [userBids, setUserBids] = useState([
@@ -51,7 +54,7 @@ export default function MyBidsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+      <StatusBar barStyle="dark-content" backgroundColor={P.surface} />
       
       {/* Header */}
       <PageHeader title={<>My Bids</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity style={styles.createButton} onPress={() => navigation.navigate('BiddingScreen')}>
@@ -61,8 +64,8 @@ export default function MyBidsScreen({ navigation }) {
       {/* Stats Cards */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <View style={[styles.statIcon, { backgroundColor: '#667eea15' }]}>
-            <Ionicons name="gavel" size={20} color="#667eea" />
+          <View style={[styles.statIcon, { backgroundColor: P.accent + '15' }]}>
+            <Ionicons name="gavel" size={20} color={P.accent} />
           </View>
           <Text style={styles.statNumber}>{userBids.length}</Text>
           <Text style={styles.statLabel}>Total Bids</Text>
@@ -103,14 +106,14 @@ export default function MyBidsScreen({ navigation }) {
           return (
             <View key={bid.id} style={styles.bidCard}>
               <LinearGradient
-                colors={['#ffffff', '#f8f9fa']}
+                colors={[P.surface, P.canvas]}
                 style={styles.cardGradient}
               >
                 {/* Header */}
                 <View style={styles.cardHeader}>
                   <View style={styles.categoryContainer}>
-                    <View style={[styles.categoryIcon, { backgroundColor: '#667eea15' }]}>
-                      <Ionicons name="briefcase" size={14} color="#667eea" />
+                    <View style={[styles.categoryIcon, { backgroundColor: P.accent + '15' }]}>
+                      <Ionicons name="briefcase" size={14} color={P.accent} />
                     </View>
                     <Text style={styles.bidCategory}>{bid.category}</Text>
                   </View>
@@ -133,19 +136,19 @@ export default function MyBidsScreen({ navigation }) {
                 <View style={styles.detailsRow}>
                   <View style={styles.detailItem}>
                     <View style={styles.detailIcon}>
-                      <Ionicons name="cash-outline" size={14} color="#667eea" />
+                      <Ionicons name="cash-outline" size={14} color={P.accent} />
                     </View>
                     <Text style={styles.detailText}>{bid.budget}</Text>
                   </View>
                   <View style={styles.detailItem}>
                     <View style={styles.detailIcon}>
-                      <Ionicons name="location-outline" size={14} color="#667eea" />
+                      <Ionicons name="location-outline" size={14} color={P.accent} />
                     </View>
                     <Text style={styles.detailText}>{bid.location}</Text>
                   </View>
                   <View style={styles.detailItem}>
                     <View style={styles.detailIcon}>
-                      <Ionicons name="calendar-outline" size={14} color="#667eea" />
+                      <Ionicons name="calendar-outline" size={14} color={P.accent} />
                     </View>
                     <Text style={styles.detailText}>{bid.createdAt}</Text>
                   </View>
@@ -154,9 +157,9 @@ export default function MyBidsScreen({ navigation }) {
                 {/* Responses */}
                 <TouchableOpacity onPress={() => handleViewResponses(bid)}>
                   <View style={styles.responsesContainer}>
-                    <Ionicons name="people-outline" size={16} color="#667eea" />
+                    <Ionicons name="people-outline" size={16} color={P.accent} />
                     <Text style={styles.bidResponses}>{bid.responses} professionals responded</Text>
-                    <Ionicons name="chevron-forward" size={16} color="#667eea" />
+                    <Ionicons name="chevron-forward" size={16} color={P.accent} />
                   </View>
                 </TouchableOpacity>
 
@@ -166,7 +169,7 @@ export default function MyBidsScreen({ navigation }) {
                     style={styles.editButton}
                     onPress={() => handleEditBid(bid)}
                   >
-                    <Ionicons name="create-outline" size={18} color="#667eea" />
+                    <Ionicons name="create-outline" size={18} color={P.accent} />
                     <Text style={styles.editButtonText}>Edit</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
@@ -195,7 +198,7 @@ export default function MyBidsScreen({ navigation }) {
               onPress={() => navigation.navigate('BiddingScreen')}
             >
               <LinearGradient
-                colors={['#667eea', '#764ba2']}
+                colors={[P.accent, P.accentDeep]}
                 style={styles.createBidGradient}
               >
                 <Ionicons name="add" size={20} color="#fff" />
@@ -214,7 +217,7 @@ export default function MyBidsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: P.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -299,7 +302,7 @@ const styles = StyleSheet.create({
   },
   seeAllText: {
     fontSize: 13,
-    color: '#667eea',
+    color: P.accent,
     fontWeight: '500',
   },
   content: {
@@ -340,7 +343,7 @@ const styles = StyleSheet.create({
   },
   bidCategory: {
     fontSize: 12,
-    color: '#667eea',
+    color: P.accent,
     fontWeight: '600',
   },
   statusBadge: {
@@ -387,7 +390,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#667eea15',
+    backgroundColor: P.accent + '15',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -401,14 +404,14 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    backgroundColor: '#667eea10',
+    backgroundColor: P.accent + '10',
     borderRadius: 12,
     marginBottom: 12,
   },
   bidResponses: {
     flex: 1,
     fontSize: 13,
-    color: '#667eea',
+    color: P.accent,
     fontWeight: '500',
   },
   actionButtons: {
@@ -424,13 +427,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#667eea',
+    borderColor: P.accent,
     backgroundColor: '#fff',
   },
   editButtonText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#667eea',
+    color: P.accent,
   },
   deleteButton: {
     flex: 1,

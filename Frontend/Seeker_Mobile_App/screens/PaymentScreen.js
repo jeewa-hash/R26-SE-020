@@ -55,7 +55,7 @@ export default function PaymentScreen({ navigation }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar 
         barStyle={isDarkMode ? "light-content" : "dark-content"} 
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"} 
+        backgroundColor={isDarkMode ? "#1a1a2e" : "#4F46E5"} 
       />
       
       {/* Header */}
@@ -72,7 +72,7 @@ export default function PaymentScreen({ navigation }) {
           <Text style={[styles.defaultTitle, isDarkMode && styles.textMutedDark]}>Default Payment Method</Text>
           <View style={styles.defaultCard}>
             <LinearGradient
-              colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#667eea', '#764ba2']}
+              colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#4F46E5', '#4338CA']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.defaultCardGradient}
@@ -104,8 +104,8 @@ export default function PaymentScreen({ navigation }) {
             activeOpacity={0.7}
           >
             <View style={styles.paymentLeft}>
-              <View style={[styles.paymentIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' }]}>
-                <Ionicons name={method.icon} size={24} color="#667eea" />
+              <View style={[styles.paymentIcon, { backgroundColor: isDarkMode ? '#2d3561' : '#4F46E515' }]}>
+                <Ionicons name={method.icon} size={24} color="#4F46E5" />
               </View>
               <View>
                 <Text style={[styles.paymentName, isDarkMode && styles.textDark]}>{method.name}</Text>
@@ -122,7 +122,7 @@ export default function PaymentScreen({ navigation }) {
             <View style={styles.paymentRight}>
               {method.id === 'card' && (
                 <TouchableOpacity style={styles.editButton}>
-                  <Ionicons name="create-outline" size={18} color="#667eea" />
+                  <Ionicons name="create-outline" size={18} color="#4F46E5" />
                 </TouchableOpacity>
               )}
               <View style={[styles.radioButton, selectedMethod === method.id && styles.radioSelected]}>
@@ -142,7 +142,7 @@ export default function PaymentScreen({ navigation }) {
             colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#F3F4F6', '#E5E7EB']}
             style={styles.addCardGradient}
           >
-            <Ionicons name="add-circle-outline" size={24} color="#667eea" />
+            <Ionicons name="add-circle-outline" size={24} color="#4F46E5" />
             <Text style={styles.addCardText}>Add New Payment Method</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -161,7 +161,7 @@ export default function PaymentScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContainer, isDarkMode && styles.modalContainerDark]}>
             <LinearGradient
-              colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#667eea', '#764ba2']}
+              colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#4F46E5', '#4338CA']}
               style={styles.modalHeader}
             >
               <Text style={styles.modalTitle}>Add New Card</Text>
@@ -225,7 +225,7 @@ export default function PaymentScreen({ navigation }) {
 
               <TouchableOpacity style={styles.saveCardButton} onPress={handleAddCard}>
                 <LinearGradient
-                  colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#667eea', '#764ba2']}
+                  colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#4F46E5', '#4338CA']}
                   style={styles.saveCardGradient}
                 >
                   <Text style={styles.saveCardText}>Save Card</Text>
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   defaultCard: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#667eea',
+    shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   },
   selectedCard: {
     borderWidth: 2,
-    borderColor: '#667eea',
+    borderColor: '#4F46E5',
   },
   paymentLeft: {
     flexDirection: 'row',
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   cardBadge: {
-    backgroundColor: '#667eea15',
+    backgroundColor: '#4F46E515',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   },
   cardBadgeText: {
     fontSize: 10,
-    color: '#667eea',
+    color: '#4F46E5',
     fontWeight: '500',
   },
   paymentRight: {
@@ -410,12 +410,12 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#667eea',
+    borderColor: '#4F46E5',
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioSelected: {
-    backgroundColor: '#667eea',
+    backgroundColor: '#4F46E5',
   },
   radioInner: {
     width: 10,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   addCardText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#667eea',
+    color: '#4F46E5',
   },
   securityNote: {
     flexDirection: 'row',

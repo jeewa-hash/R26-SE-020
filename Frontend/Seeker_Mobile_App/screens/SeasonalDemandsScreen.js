@@ -16,6 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { seasonalServices } from '../data/seasonalData';
+import { APP_THEME } from '../context/ThemeContext';
+
+const P = APP_THEME.light;
 
 const { width } = Dimensions.get('window');
 
@@ -27,7 +30,7 @@ export default function SeasonalDemandsScreen() {
     if (season.includes('Monsoon')) return '#45B7D1';
     if (season.includes('Winter')) return '#4ECDC4';
     if (season.includes('Spring')) return '#96CEB4';
-    return '#667eea';
+    return P.accent;
   };
 
   return (
@@ -41,7 +44,7 @@ export default function SeasonalDemandsScreen() {
 
       {/* Banner */}
       <LinearGradient
-        colors={['#667eea', '#764ba2']}
+        colors={[P.accent, P.accentDeep]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.banner}
@@ -80,7 +83,7 @@ export default function SeasonalDemandsScreen() {
               <View style={styles.buttonContainer}>
                 <TouchableOpacity style={styles.quoteButton}>
                   <Text style={styles.quoteButtonText}>Get Quote</Text>
-                  <Ionicons name="arrow-forward" size={14} color="#667eea" />
+                  <Ionicons name="arrow-forward" size={14} color={P.accent} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -94,7 +97,7 @@ export default function SeasonalDemandsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: P.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -204,7 +207,7 @@ const styles = StyleSheet.create({
   servicePrice: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#667eea',
+    color: P.accent,
     marginBottom: 10,
   },
   buttonContainer: {
@@ -222,6 +225,6 @@ const styles = StyleSheet.create({
   quoteButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#667eea',
+    color: P.accent,
   },
 });

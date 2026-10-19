@@ -223,11 +223,11 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <StatusBar
           barStyle="light-content"
-          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
         />
         <PageHeader title={<>Quotation Details</>} onBack={() => navigation.goBack()} />
         <View style={[styles.loadingContainer, isDarkMode && styles.containerDark]}>
-          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#667eea'} />
+          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#4F46E5'} />
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
             Loading details...
           </Text>
@@ -243,7 +243,7 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
       />
 
       {/* ── Header ── */}
@@ -261,7 +261,7 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[isDarkMode ? '#818cf8' : '#667eea']}
+            colors={[isDarkMode ? '#818cf8' : '#4F46E5']}
           />
         }
       >
@@ -284,7 +284,7 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
                 </Text>
                 <View style={styles.requestHeader}>
                   <View style={[styles.requestIconContainer, isDarkMode && styles.requestIconContainerDark]}>
-                    <Ionicons name="construct-outline" size={24} color={isDarkMode ? '#818cf8' : '#667eea'} />
+                    <Ionicons name="construct-outline" size={24} color={isDarkMode ? '#818cf8' : '#4F46E5'} />
                   </View>
                   <View style={styles.requestHeaderText}>
                     <Text style={[styles.requestCategory, isDarkMode && styles.textMutedDark]}>
@@ -400,7 +400,7 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
                           <Image source={{ uri: providerPhotoUrl }} style={styles.providerAvatar} />
                         ) : (
                           <LinearGradient
-                            colors={['#667eea', '#764ba2']}
+                            colors={['#4F46E5', '#4338CA']}
                             style={styles.providerAvatar}
                           >
                             <Text style={styles.providerInitial}>
@@ -448,7 +448,7 @@ export default function RequestQuotationDetailsScreen({ route, navigation }) {
                         <Ionicons
                           name="time-outline"
                           size={17}
-                          color={isDarkMode ? '#818cf8' : '#667eea'}
+                          color={isDarkMode ? '#818cf8' : '#4F46E5'}
                         />
                         <Text style={[styles.detailText, isDarkMode && styles.textMutedDark]}>
                           {quote.durationText || '1 day'}
@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#667eea',
+    backgroundColor: '#4F46E5',
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 12,
@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
   stepBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#667eea',
+    color: '#4F46E5',
   },
   stepBadgeTextDark: {
     color: '#818cf8',
@@ -743,7 +743,7 @@ const styles = StyleSheet.create({
   },
   sectionCount: {
     fontSize: 12,
-    color: '#667eea',
+    color: '#4F46E5',
     fontWeight: '600',
   },
   sectionCountDark: {
@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
   priceValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#667eea',
+    color: '#4F46E5',
   },
   priceValueDark: {
     color: '#818cf8',

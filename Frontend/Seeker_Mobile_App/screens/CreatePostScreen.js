@@ -21,7 +21,6 @@ import {
   Alert,
   Platform,
   ActivityIndicator,
-  Animated,
   Modal,
   KeyboardAvoidingView,
 } from 'react-native';
@@ -36,6 +35,43 @@ import MapView, { Marker } from '../components/SafeMapView';
 import { LanguageContext } from '../context/LanguageContext';
 import { useTheme } from '../hooks/useTheme';
 import { API_BASE_URL } from '../config';
+
+// ─────────────────────────────────────────────────────────────
+// Shared palette (matches Home, Bookings, Feed, Profile)
+// ─────────────────────────────────────────────────────────────
+const P = {
+  indigo: '#4F46E5',
+  indigoDeep: '#4338CA',
+  indigoSoft: '#EEF2FF',
+  indigoSoftDark: '#1E1B4B',
+  indigoLight: '#A5B4FC',
+  emerald: '#10B981',
+  emeraldDark: '#059669',
+  emeraldSoft: '#ECFDF5',
+  emeraldSoftDark: '#064E3B',
+  emeraldLight: '#34D399',
+  amber: '#D97706',
+  amberSoft: '#FFFBEB',
+  amberSoftDark: '#78350F',
+  amberLight: '#FBBF24',
+  rose: '#EF4444',
+  roseDark: '#991B1B',
+  roseSoft: '#FEF2F2',
+  roseSoftDark: '#7F1D1D',
+  roseLight: '#FCA5A5',
+  violet: '#7C3AED',
+  slate900: '#0F172A',
+  slate800: '#1E293B',
+  slate700: '#334155',
+  slate600: '#475569',
+  slate500: '#64748B',
+  slate400: '#94A3B8',
+  slate300: '#CBD5E1',
+  slate200: '#E2E8F0',
+  slate100: '#F1F5F9',
+  slate50: '#F8FAFC',
+  white: '#FFFFFF',
+};
 
 const SRI_LANKA_DISTRICTS = [
   'Colombo', 'Gampaha', 'Kalutara', 'Kandy', 'Matale', 'Nuwara Eliya',
@@ -675,10 +711,10 @@ export default function CreatePostScreen() {
   };
 
   const urgencyOptions = [
-    { key: 'low', label: isSi ? 'නම්‍යශීලී' : 'Flexible', icon: 'leaf-outline', color: '#10B981' },
-    { key: 'medium', label: isSi ? 'සාමාන්‍ය' : 'Standard', icon: 'time-outline', color: '#6366F1' },
-    { key: 'high', label: isSi ? 'හදිසි' : 'Urgent', icon: 'flash-outline', color: '#F59E0B' },
-    { key: 'emergency', label: isSi ? 'ඉතා හදිසි' : 'Emergency', icon: 'flame-outline', color: '#EF4444' },
+    { key: 'low', label: isSi ? 'නම්‍යශීලී' : 'Flexible', icon: 'leaf-outline', color: P.emerald },
+    { key: 'medium', label: isSi ? 'සාමාන්‍ය' : 'Standard', icon: 'time-outline', color: P.indigo },
+    { key: 'high', label: isSi ? 'හදිසි' : 'Urgent', icon: 'flash-outline', color: P.amber },
+    { key: 'emergency', label: isSi ? 'ඉතා හදිසි' : 'Emergency', icon: 'flame-outline', color: P.rose },
   ];
 
   const postLanguageOptions = [
@@ -686,17 +722,52 @@ export default function CreatePostScreen() {
     { key: 'si', label: 'සිංහල' },
   ];
 
+  // ─────────────────────────────────────────────────────────────
+  // Small reusable sub-components
+  // ─────────────────────────────────────────────────────────────
+  const SectionHeader = ({ icon, iconBg, iconColor, title, subtitle }) => (
+    <View style={styles.cardHeaderRow}>
+      <View
+        style={[
+          styles.cardIconBubble,
+          { backgroundColor: isDarkMode ? iconBg.dark : iconBg.light },
+        ]}
+      >
+        <Ionicons name={icon} size={18} color={iconColor} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>{title}</Text>
+        {subtitle ? (
+          <Text style={[styles.cardSubtitle, isDarkMode && styles.textMutedDark]}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isDarkMode ? '#0F172A' : '#4338CA'}
+        backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep}
       />
 
-      {/* Modern App Bar */}
-      <PageHeader title={<>{isEditMode
+      <PageHeader
+        title={
+          <>
+            {isEditMode
               ? (isSi ? 'පළකිරීම සංස්කරණය' : 'Edit Service Request')
-              : (isSi ? 'නව සේවා ඉල්ලුම' : 'Create Service Request')}</>} subtitle={<>{isSi ? 'AI තාක්ෂණයෙන් පහසුවෙන් පළ කරන්න' : 'Powered by Smart AI Assistant'}</>} onBack={() => navigation.goBack()} />
+              : (isSi ? 'නව සේවා ඉල්ලුම' : 'Create Service Request')}
+          </>
+        }
+        subtitle={
+          <>
+            {isSi ? 'AI තාක්ෂණයෙන් පහසුවෙන් පළ කරන්න' : 'Powered by Smart AI Assistant'}
+          </>
+        }
+        onBack={() => navigation.goBack()}
+      />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -710,39 +781,34 @@ export default function CreatePostScreen() {
         >
           {/* Card 1: Service Information */}
           <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconBubble, { backgroundColor: isDarkMode ? '#1E1B4B' : '#EEF2FF' }]}>
-                <Ionicons name="create-outline" size={18} color="#4F46E5" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>
-                  {isSi ? 'සේවාවේ විස්තර' : 'Job Information'}
-                </Text>
-                <Text style={[styles.cardSubtitle, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? 'ඔබට අවශ්‍ය දේ කෙටියෙන් සඳහන් කරන්න' : 'What do you need help with?'}
-                </Text>
-              </View>
-            </View>
+            <SectionHeader
+              icon="create-outline"
+              iconBg={{ light: P.indigoSoft, dark: P.indigoSoftDark }}
+              iconColor={P.indigo}
+              title={isSi ? 'සේවාවේ විස්තර' : 'Job Information'}
+              subtitle={isSi ? 'ඔබට අවශ්‍ය දේ කෙටියෙන් සඳහන් කරන්න' : 'What do you need help with?'}
+            />
 
             {/* Title Input */}
             <View style={styles.fieldGroup}>
               <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
-                {isSi ? 'මාතෘකාව' : 'Post Title'} <Text style={styles.requiredAsterisk}>*</Text>
+                {isSi ? 'මාතෘකාව' : 'Post Title'}{' '}
+                <Text style={styles.requiredAsterisk}>*</Text>
               </Text>
               <View
                 style={[
                   styles.textInputBox,
                   isDarkMode && styles.textInputBoxDark,
-                  activeField === 'title' && (isDarkMode ? styles.textInputBoxActiveDark : styles.textInputBoxActive),
+                  activeField === 'title' &&
+                    (isDarkMode ? styles.textInputBoxActiveDark : styles.textInputBoxActive),
                 ]}
               >
                 <TextInput
-                  style={[
-                    styles.inputControl,
-                    { color: isDarkMode ? '#F8FAFC' : '#0F172A' },
-                  ]}
-                  placeholder={isSi ? 'උදා: කාන්දුවන නළයක් අලුත්වැඩියාව…' : 'e.g., Fix leaking pipe under sink…'}
-                  placeholderTextColor={isDarkMode ? '#64748B' : '#94A3B8'}
+                  style={[styles.inputControl, isDarkMode && styles.textDark]}
+                  placeholder={
+                    isSi ? 'උදා: කාන්දුවන නළයක් අලුත්වැඩියාව…' : 'e.g., Fix leaking pipe under sink…'
+                  }
+                  placeholderTextColor={isDarkMode ? P.slate500 : P.slate400}
                   value={title}
                   onChangeText={setTitle}
                   onFocus={() => setActiveField('title')}
@@ -766,14 +832,12 @@ export default function CreatePostScreen() {
                 style={[
                   styles.textAreaBox,
                   isDarkMode && styles.textInputBoxDark,
-                  activeField === 'desc' && (isDarkMode ? styles.textInputBoxActiveDark : styles.textInputBoxActive),
+                  activeField === 'desc' &&
+                    (isDarkMode ? styles.textInputBoxActiveDark : styles.textInputBoxActive),
                 ]}
               >
                 <TextInput
-                  style={[
-                    styles.textAreaControl,
-                    { color: isDarkMode ? '#F8FAFC' : '#0F172A' },
-                  ]}
+                  style={[styles.textAreaControl, isDarkMode && styles.textDark]}
                   multiline
                   numberOfLines={4}
                   placeholder={
@@ -781,7 +845,7 @@ export default function CreatePostScreen() {
                       ? 'ගැටලුව පිළිබඳ විස්තරයක්, ස්ථානය සහ දිනය සඳහන් කරන්න. අපගේ AI මඟින් අවශ්‍ය තොරතුරු ස්වයංක්‍රීයව හඳුනාගනී…'
                       : 'Describe the issue or service needed. Mention location and urgency; our AI will extract them automatically…'
                   }
-                  placeholderTextColor={isDarkMode ? '#64748B' : '#94A3B8'}
+                  placeholderTextColor={isDarkMode ? P.slate500 : P.slate400}
                   value={description}
                   onChangeText={setDescription}
                   onFocus={() => setActiveField('desc')}
@@ -789,32 +853,28 @@ export default function CreatePostScreen() {
                 />
               </View>
             </View>
-
           </View>
 
-          {/* Card 2: Requirements (Location, Date & Urgency) */}
+          {/* Card 2: Requirements */}
           <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconBubble, { backgroundColor: isDarkMode ? '#064E3B' : '#ECFDF5' }]}>
-                <Ionicons name="options-outline" size={18} color="#10B981" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>
-                  {isSi ? 'අවශ්‍යතා සහ මනාපයන්' : 'Requirements & Schedule'}
-                </Text>
-                <Text style={[styles.cardSubtitle, { color: '#EF4444', fontWeight: '700' }]}>
-                  {isSi ? 'ස්ථානය, දිනය සහ හදිසිභාවය අනිවාර්ය වේ' : 'Location, Date, and Urgency are mandatory'}
-                </Text>
-              </View>
-            </View>
+            <SectionHeader
+              icon="options-outline"
+              iconBg={{ light: P.emeraldSoft, dark: P.emeraldSoftDark }}
+              iconColor={P.emerald}
+              title={isSi ? 'අවශ්‍යතා සහ මනාපයන්' : 'Requirements & Schedule'}
+              subtitle={
+                isSi
+                  ? 'ස්ථානය, දිනය සහ හදිසිභාවය අනිවාර්ය වේ'
+                  : 'Location, Date, and Urgency are mandatory'
+              }
+            />
 
-            {/* Location Input with Location Picker Actions */}
+            {/* Location */}
             <View style={styles.fieldGroup}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
-                  {isSi ? 'සේවාව අවශ්‍ය ස්ථානය' : 'Service Location'} <Text style={styles.requiredAsterisk}>*</Text>
-                </Text>
-              </View>
+              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                {isSi ? 'සේවාව අවශ්‍ය ස්ථානය' : 'Service Location'}{' '}
+                <Text style={styles.requiredAsterisk}>*</Text>
+              </Text>
 
               <View
                 style={[
@@ -822,17 +882,22 @@ export default function CreatePostScreen() {
                   styles.locationInputBox,
                   isDarkMode && styles.textInputBoxDark,
                   formErrors.location && styles.inputBoxError,
-                  activeField === 'loc' && (isDarkMode ? styles.textInputBoxActiveDark : styles.textInputBoxActive),
+                  activeField === 'loc' &&
+                    (isDarkMode ? styles.textInputBoxActiveDark : styles.textInputBoxActive),
                 ]}
               >
-                <Ionicons name="location-outline" size={18} color="#4F46E5" style={{ marginRight: 6 }} />
+                <Ionicons
+                  name="location-outline"
+                  size={18}
+                  color={isDarkMode ? P.indigoLight : P.indigo}
+                  style={{ marginRight: 6 }}
+                />
                 <TextInput
-                  style={[
-                    styles.inputControl,
-                    { color: isDarkMode ? '#F8FAFC' : '#0F172A' },
-                  ]}
-                  placeholder={isSi ? 'උදා: කොළඹ 03, නාවල, මහනුවර…' : 'e.g., Colombo 03, Kandy, Rajagiriya…'}
-                  placeholderTextColor={isDarkMode ? '#64748B' : '#94A3B8'}
+                  style={[styles.inputControl, isDarkMode && styles.textDark]}
+                  placeholder={
+                    isSi ? 'උදා: කොළඹ 03, නාවල, මහනුවර…' : 'e.g., Colombo 03, Kandy, Rajagiriya…'
+                  }
+                  placeholderTextColor={isDarkMode ? P.slate500 : P.slate400}
                   value={serviceLocation}
                   onChangeText={(text) => {
                     setServiceLocation(text);
@@ -842,22 +907,22 @@ export default function CreatePostScreen() {
                   onBlur={() => setActiveField(null)}
                 />
 
-                {/* Quick GPS Auto-detect Button */}
                 <TouchableOpacity
-                  style={[styles.quickGpsBtn, isDarkMode && styles.quickGpsBtnDark]}
+                  style={[
+                    styles.quickGpsBtn,
+                    isDarkMode && { backgroundColor: P.indigoSoftDark },
+                  ]}
                   onPress={() => handleUseCurrentLocation(true)}
                   disabled={locatingGPS}
                   activeOpacity={0.75}
-                  accessibilityLabel="Auto-detect current location"
                 >
                   {locatingGPS ? (
-                    <ActivityIndicator size="small" color="#4F46E5" />
+                    <ActivityIndicator size="small" color={P.indigo} />
                   ) : (
-                    <Ionicons name="locate" size={17} color="#4F46E5" />
+                    <Ionicons name="locate" size={17} color={isDarkMode ? P.indigoLight : P.indigo} />
                   )}
                 </TouchableOpacity>
 
-                {/* Open Location Picker Modal Button */}
                 <TouchableOpacity
                   style={styles.openPickerBtn}
                   onPress={() => {
@@ -866,10 +931,8 @@ export default function CreatePostScreen() {
                   }}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="map" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
-                  <Text style={styles.openPickerBtnText}>
-                    {isSi ? 'සිතියම' : 'Map'}
-                  </Text>
+                  <Ionicons name="map" size={13} color={P.white} style={{ marginRight: 4 }} />
+                  <Text style={styles.openPickerBtnText}>{isSi ? 'සිතියම' : 'Map'}</Text>
                 </TouchableOpacity>
               </View>
               {formErrors.location && (
@@ -877,13 +940,12 @@ export default function CreatePostScreen() {
               )}
             </View>
 
-            {/* Date Picker Button */}
+            {/* Date */}
             <View style={styles.fieldGroup}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
-                  {isSi ? 'අවශ්‍ය දිනය' : 'Preferred Date'} <Text style={styles.requiredAsterisk}>*</Text>
-                </Text>
-              </View>
+              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                {isSi ? 'අවශ්‍ය දිනය' : 'Preferred Date'}{' '}
+                <Text style={styles.requiredAsterisk}>*</Text>
+              </Text>
 
               <TouchableOpacity
                 style={[
@@ -895,12 +957,22 @@ export default function CreatePostScreen() {
                 activeOpacity={0.75}
               >
                 <View style={styles.dateBtnLeft}>
-                  <Ionicons name="calendar-outline" size={18} color="#4F46E5" />
-                  <Text style={[styles.dateButtonText, !requiredDate && styles.placeholderText, isDarkMode && requiredDate && styles.textDark]}>
+                  <Ionicons name="calendar-outline" size={18} color={isDarkMode ? P.indigoLight : P.indigo} />
+                  <Text
+                    style={[
+                      styles.dateButtonText,
+                      !requiredDate && styles.placeholderText,
+                      isDarkMode && requiredDate && styles.textDark,
+                    ]}
+                  >
                     {requiredDate || (isSi ? 'දිනයක් තෝරන්න' : 'Select a date')}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={isDarkMode ? '#94A3B8' : '#94A3AF'} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={isDarkMode ? P.slate400 : P.slate500}
+                />
               </TouchableOpacity>
               {formErrors.date && (
                 <Text style={styles.fieldErrorText}>{formErrors.date}</Text>
@@ -924,13 +996,12 @@ export default function CreatePostScreen() {
               )}
             </View>
 
-            {/* Urgency Selector */}
+            {/* Urgency */}
             <View style={styles.fieldGroup}>
-              <View style={styles.labelRow}>
-                <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
-                  {isSi ? 'හදිසිභාවය' : 'Urgency Level'} <Text style={styles.requiredAsterisk}>*</Text>
-                </Text>
-              </View>
+              <Text style={[styles.fieldLabel, isDarkMode && styles.textDark]}>
+                {isSi ? 'හදිසිභාවය' : 'Urgency Level'}{' '}
+                <Text style={styles.requiredAsterisk}>*</Text>
+              </Text>
 
               <View style={styles.urgencyGrid}>
                 {urgencyOptions.map((opt) => {
@@ -947,7 +1018,7 @@ export default function CreatePostScreen() {
                         isDarkMode && styles.urgencyPillDark,
                         formErrors.urgency && styles.inputBoxError,
                         isSelected && {
-                          backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.18)' : '#EEF2FF',
+                          backgroundColor: isDarkMode ? `${opt.color}22` : `${opt.color}12`,
                           borderColor: opt.color,
                           borderWidth: 1.5,
                         },
@@ -957,13 +1028,13 @@ export default function CreatePostScreen() {
                       <Ionicons
                         name={opt.icon}
                         size={15}
-                        color={isSelected ? opt.color : isDarkMode ? '#94A3B8' : '#64748B'}
+                        color={isSelected ? opt.color : isDarkMode ? P.slate400 : P.slate500}
                       />
                       <Text
                         style={[
                           styles.urgencyPillText,
                           isDarkMode && styles.textDark,
-                          isSelected && { color: opt.color, fontWeight: '700' },
+                          isSelected && { color: opt.color, fontWeight: '800' },
                         ]}
                       >
                         {opt.label}
@@ -980,19 +1051,17 @@ export default function CreatePostScreen() {
 
           {/* Card 3: Photo Attachment */}
           <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
-            <View style={styles.cardHeaderRow}>
-              <View style={[styles.cardIconBubble, { backgroundColor: isDarkMode ? '#451A03' : '#FFFBEB' }]}>
-                <Ionicons name="camera-outline" size={18} color="#D97706" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, isDarkMode && styles.textDark]}>
-                  {isSi ? 'ඡායාරූපය (වෛකල්පික)' : 'Photo Attachment'}
-                </Text>
-                <Text style={[styles.cardSubtitle, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? 'ගැටලුව පැහැදිලි කිරීමට පින්තූරයක් එක් කරන්න' : 'Help providers understand the job with a picture'}
-                </Text>
-              </View>
-            </View>
+            <SectionHeader
+              icon="camera-outline"
+              iconBg={{ light: P.amberSoft, dark: P.amberSoftDark }}
+              iconColor={P.amber}
+              title={isSi ? 'ඡායාරූපය (වෛකල්පික)' : 'Photo Attachment'}
+              subtitle={
+                isSi
+                  ? 'ගැටලුව පැහැදිලි කිරීමට පින්තූරයක් එක් කරන්න'
+                  : 'Help providers understand the job with a picture'
+              }
+            />
 
             {selectedImage ? (
               <View style={styles.imageCard}>
@@ -1003,8 +1072,10 @@ export default function CreatePostScreen() {
                     onPress={pickImage}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="refresh" size={16} color="#FFFFFF" />
-                    <Text style={styles.imageOverlayBtnText}>{isSi ? 'වෙනස් කරන්න' : 'Change'}</Text>
+                    <Ionicons name="refresh" size={16} color={P.white} />
+                    <Text style={styles.imageOverlayBtnText}>
+                      {isSi ? 'වෙනස් කරන්න' : 'Change'}
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -1012,8 +1083,10 @@ export default function CreatePostScreen() {
                     onPress={removeImage}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.imageOverlayBtnText}>{isSi ? 'ඉවත් කරන්න' : 'Remove'}</Text>
+                    <Ionicons name="trash-outline" size={16} color={P.white} />
+                    <Text style={styles.imageOverlayBtnText}>
+                      {isSi ? 'ඉවත් කරන්න' : 'Remove'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1023,8 +1096,12 @@ export default function CreatePostScreen() {
                 onPress={pickImage}
                 activeOpacity={0.7}
               >
-                <View style={styles.uploadIconCircle}>
-                  <Ionicons name="cloud-upload-outline" size={24} color="#4F46E5" />
+                <View style={[styles.uploadIconCircle, isDarkMode && { backgroundColor: P.indigoSoftDark }]}>
+                  <Ionicons
+                    name="cloud-upload-outline"
+                    size={24}
+                    color={isDarkMode ? P.indigoLight : P.indigo}
+                  />
                 </View>
                 <Text style={[styles.uploadPrimaryText, isDarkMode && styles.textDark]}>
                   {isSi ? 'ඡායාරූපයක් එක් කරන්න' : 'Upload or Take a Photo'}
@@ -1036,32 +1113,46 @@ export default function CreatePostScreen() {
             )}
           </View>
 
-          {/* Card 4: AI Smart Assist Summary (If Generated) */}
+          {/* Card 4: AI Preview Ready */}
           {previewData && (
             <View style={[styles.previewReadyCard, isDarkMode && styles.previewReadyCardDark]}>
               <View style={styles.previewReadyHeader}>
-                <View style={styles.previewSparkleWrap}>
-                  <Ionicons name="sparkles" size={16} color="#4F46E5" />
+                <View style={[styles.previewSparkleWrap, isDarkMode && { backgroundColor: P.indigoSoftDark }]}>
+                  <Ionicons name="sparkles" size={16} color={isDarkMode ? P.indigoLight : P.indigo} />
                 </View>
-                <Text style={[styles.previewReadyTitle, isDarkMode && styles.textDark]}>
+                <Text style={[styles.previewReadyTitle, isDarkMode && { color: P.indigoLight }]}>
                   {isSi ? 'AI මඟින් හඳුනාගත් තොරතුරු' : 'AI Generated Enhancements'}
                 </Text>
                 <TouchableOpacity onPress={() => setPreviewVisible(true)}>
-                  <Text style={styles.previewViewLink}>{isSi ? 'සම්පූර්ණ පෙරදසුන' : 'View Full'}</Text>
+                  <Text style={[styles.previewViewLink, isDarkMode && { color: P.indigoLight }]}>
+                    {isSi ? 'සම්පූර්ණ පෙරදසුන' : 'View Full'}
+                  </Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.previewQuickChips}>
                 {previewData.category && (
-                  <View style={styles.quickChip}>
-                    <Ionicons name="construct-outline" size={12} color="#4F46E5" />
-                    <Text style={styles.quickChipText}>{previewData.category}</Text>
+                  <View style={[styles.quickChip, isDarkMode && { backgroundColor: P.slate800 }]}>
+                    <Ionicons
+                      name="construct-outline"
+                      size={12}
+                      color={isDarkMode ? P.indigoLight : P.indigo}
+                    />
+                    <Text style={[styles.quickChipText, isDarkMode && { color: P.slate200 }]}>
+                      {previewData.category}
+                    </Text>
                   </View>
                 )}
                 {previewData.urgency && (
-                  <View style={styles.quickChip}>
-                    <Ionicons name="flash-outline" size={12} color="#D97706" />
-                    <Text style={styles.quickChipText}>{previewData.urgency}</Text>
+                  <View style={[styles.quickChip, isDarkMode && { backgroundColor: P.slate800 }]}>
+                    <Ionicons
+                      name="flash-outline"
+                      size={12}
+                      color={isDarkMode ? P.amberLight : P.amber}
+                    />
+                    <Text style={[styles.quickChipText, isDarkMode && { color: P.slate200 }]}>
+                      {previewData.urgency}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -1069,7 +1160,10 @@ export default function CreatePostScreen() {
               {previewData.tags && previewData.tags.length > 0 && (
                 <View style={styles.tagsRow}>
                   {previewData.tags.slice(0, 4).map((tag, i) => (
-                    <Text key={i} style={[styles.tagPill, isDarkMode && styles.tagPillDark]}>
+                    <Text
+                      key={i}
+                      style={[styles.tagPill, isDarkMode && styles.tagPillDark]}
+                    >
                       #{tag}
                     </Text>
                   ))}
@@ -1078,9 +1172,8 @@ export default function CreatePostScreen() {
             </View>
           )}
 
-          {/* Action Buttons Section */}
+          {/* Action buttons */}
           <View style={styles.actionButtonsSection}>
-            {/* 1. Generate AI Preview Button */}
             <TouchableOpacity
               style={styles.previewActionBtn}
               onPress={() => generatePreview()}
@@ -1088,16 +1181,16 @@ export default function CreatePostScreen() {
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#8B5CF6', '#6366F1']}
+                colors={isDarkMode ? [P.indigoLight, P.indigo] : [P.violet, '#6366F1']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.actionBtnGradient}
               >
                 {previewLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={P.white} />
                 ) : (
                   <>
-                    <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+                    <Ionicons name="sparkles" size={20} color={P.white} />
                     <Text style={styles.actionBtnText}>
                       {isSi ? 'AI පෙරදසුන සකසන්න' : 'Generate AI Preview'}
                     </Text>
@@ -1106,7 +1199,6 @@ export default function CreatePostScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* 2. Publish / Update Post Button */}
             <TouchableOpacity
               style={styles.publishActionBtn}
               onPress={savePost}
@@ -1114,19 +1206,19 @@ export default function CreatePostScreen() {
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#4338CA', '#4F46E5']}
+                colors={isDarkMode ? [P.indigoLight, P.indigo] : [P.indigoDeep, P.indigo]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.actionBtnGradient}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={P.white} />
                 ) : (
                   <>
                     <Ionicons
                       name={isEditMode ? 'checkmark-circle-outline' : 'paper-plane-outline'}
                       size={20}
-                      color="#FFFFFF"
+                      color={P.white}
                     />
                     <Text style={styles.actionBtnText}>
                       {isEditMode
@@ -1139,12 +1231,11 @@ export default function CreatePostScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Bottom spacing so content easily scrolls above BottomNav */}
           <View style={{ height: 100 }} />
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* AI Preview Bottom Sheet / Modal */}
+      {/* AI Preview Modal */}
       <Modal
         visible={previewVisible}
         animationType="slide"
@@ -1153,18 +1244,24 @@ export default function CreatePostScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
-            {/* Modal Drag Bar */}
-            <View style={styles.modalDragHandle} />
+            <View style={[styles.modalDragHandle, isDarkMode && { backgroundColor: P.slate600 }]} />
 
             <View style={styles.modalHeaderRow}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="sparkles" size={18} color="#4F46E5" />
+                <Ionicons
+                  name="sparkles"
+                  size={18}
+                  color={isDarkMode ? P.indigoLight : P.indigo}
+                />
                 <Text style={[styles.modalHeading, isDarkMode && styles.textDark]}>
                   {isSi ? 'AI පෙරදසුන' : 'AI Generated Post Review'}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setPreviewVisible(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-circle" size={24} color={isDarkMode ? '#94A3B8' : '#94A3AF'} />
+              <TouchableOpacity
+                onPress={() => setPreviewVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={24} color={isDarkMode ? P.slate400 : P.slate500} />
               </TouchableOpacity>
             </View>
 
@@ -1173,6 +1270,7 @@ export default function CreatePostScreen() {
                 ? 'භාෂාවක් තෝරන්න. තවම සකස් කර නැති භාෂාව තෝරාගත් විට පරිවර්තනය වේ.'
                 : 'Choose a language. The other version will be translated when selected.'}
             </Text>
+
             <View style={styles.languageOptions}>
               {postLanguageOptions.map((option) => {
                 const isSelected = postLanguage === option.key;
@@ -1190,20 +1288,25 @@ export default function CreatePostScreen() {
                     style={[
                       styles.languageOption,
                       isDarkMode && styles.urgencyPillDark,
-                      isSelected && (isDarkMode ? styles.languageOptionSelectedDark : styles.languageOptionSelected),
+                      isSelected &&
+                        (isDarkMode ? styles.languageOptionSelectedDark : styles.languageOptionSelected),
                     ]}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: isSelected, disabled: previewLoading }}
                     activeOpacity={0.75}
                   >
                     {previewLoading && translationTarget === option.key ? (
-                      <ActivityIndicator size="small" color={isDarkMode ? '#A5B4FC' : '#4338CA'} />
+                      <ActivityIndicator
+                        size="small"
+                        color={isDarkMode ? P.indigoLight : P.indigo}
+                      />
                     ) : (
                       <Text
                         style={[
                           styles.urgencyPillText,
                           isDarkMode && styles.textDark,
-                          isSelected && (isDarkMode ? styles.languageOptionTextSelectedDark : styles.languageOptionTextSelected),
+                          isSelected &&
+                            (isDarkMode
+                              ? styles.languageOptionTextSelectedDark
+                              : styles.languageOptionTextSelected),
                         ]}
                       >
                         {buttonLabel}
@@ -1245,7 +1348,7 @@ export default function CreatePostScreen() {
                   <Text style={[styles.modalLabel, isDarkMode && styles.textMutedDark]}>
                     {isSi ? 'කාණ්ඩය' : 'Category'}
                   </Text>
-                  <Text style={[styles.modalBadgeText, { color: '#4F46E5' }]}>
+                  <Text style={[styles.modalBadgeText, { color: isDarkMode ? P.indigoLight : P.indigo }]}>
                     {previewData?.category || 'General'}
                   </Text>
                 </View>
@@ -1254,7 +1357,7 @@ export default function CreatePostScreen() {
                   <Text style={[styles.modalLabel, isDarkMode && styles.textMutedDark]}>
                     {isSi ? 'හදිසිභාවය' : 'Urgency'}
                   </Text>
-                  <Text style={[styles.modalBadgeText, { color: '#D97706' }]}>
+                  <Text style={[styles.modalBadgeText, { color: isDarkMode ? P.amberLight : P.amber }]}>
                     {previewData?.urgency || urgency}
                   </Text>
                 </View>
@@ -1289,8 +1392,13 @@ export default function CreatePostScreen() {
                   </Text>
                   <View style={styles.modalTagsWrap}>
                     {previewData.tags.map((tag, idx) => (
-                      <View key={idx} style={[styles.tagBadge, isDarkMode && styles.tagBadgeDark]}>
-                        <Text style={styles.tagBadgeText}>#{tag}</Text>
+                      <View
+                        key={idx}
+                        style={[styles.tagBadge, isDarkMode && styles.tagBadgeDark]}
+                      >
+                        <Text style={[styles.tagBadgeText, isDarkMode && { color: P.indigoLight }]}>
+                          #{tag}
+                        </Text>
                       </View>
                     ))}
                   </View>
@@ -1298,7 +1406,6 @@ export default function CreatePostScreen() {
               )}
             </ScrollView>
 
-            {/* Modal Buttons */}
             <View style={styles.modalButtonsRow}>
               <TouchableOpacity
                 style={[styles.modalEditBtn, isDarkMode && styles.modalEditBtnDark]}
@@ -1317,7 +1424,7 @@ export default function CreatePostScreen() {
                 }}
               >
                 <LinearGradient
-                  colors={['#4338CA', '#4F46E5']}
+                  colors={isDarkMode ? [P.indigoLight, P.indigo] : [P.indigoDeep, P.indigo]}
                   style={styles.modalPublishGradient}
                 >
                   <Text style={styles.modalPublishText}>
@@ -1339,37 +1446,43 @@ export default function CreatePostScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={[styles.locationModalContent, isDarkMode && styles.modalContentDark]}>
-            <View style={styles.modalDragHandle} />
+            <View style={[styles.modalDragHandle, isDarkMode && { backgroundColor: P.slate600 }]} />
 
-            {/* Modal Header */}
             <View style={styles.modalHeaderRow}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="map" size={18} color="#4F46E5" />
+                <Ionicons name="map" size={18} color={isDarkMode ? P.indigoLight : P.indigo} />
                 <Text style={[styles.modalHeading, isDarkMode && styles.textDark]}>
                   {isSi ? 'සේවා ස්ථානය තෝරන්න' : 'Choose Service Location'}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setShowLocationModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-circle" size={24} color={isDarkMode ? '#94A3B8' : '#94A3AF'} />
+              <TouchableOpacity
+                onPress={() => setShowLocationModal(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close-circle" size={24} color={isDarkMode ? P.slate400 : P.slate500} />
               </TouchableOpacity>
             </View>
 
-            {/* GPS Detect Banner */}
             <TouchableOpacity
-              style={[styles.detectGpsBanner, isDarkMode && styles.detectGpsBannerDark]}
+              style={[styles.detectGpsBanner, isDarkMode && { backgroundColor: P.indigoSoftDark }]}
               onPress={() => handleUseCurrentLocation(false)}
               disabled={locatingGPS}
               activeOpacity={0.8}
             >
-              <View style={styles.detectGpsIcon}>
+              <View
+                style={[
+                  styles.detectGpsIcon,
+                  isDarkMode && { backgroundColor: P.slate900 },
+                ]}
+              >
                 {locatingGPS ? (
-                  <ActivityIndicator size="small" color="#4F46E5" />
+                  <ActivityIndicator size="small" color={P.indigo} />
                 ) : (
-                  <Ionicons name="navigate" size={18} color="#4F46E5" />
+                  <Ionicons name="navigate" size={18} color={isDarkMode ? P.indigoLight : P.indigo} />
                 )}
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.detectGpsTitle, isDarkMode && styles.textDark]}>
+                <Text style={[styles.detectGpsTitle, isDarkMode && { color: P.indigoLight }]}>
                   {isSi ? 'වත්මන් GPS ස්ථානය ලබා ගන්න' : 'Use Current GPS Location'}
                 </Text>
                 <Text style={[styles.detectGpsSubtitle, isDarkMode && styles.textMutedDark]}>
@@ -1378,8 +1491,7 @@ export default function CreatePostScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* Interactive Map */}
-            <View style={styles.mapContainer}>
+            <View style={[styles.mapContainer, isDarkMode && { borderColor: P.slate700 }]}>
               <MapView
                 ref={mapRef}
                 style={styles.mapView}
@@ -1401,31 +1513,50 @@ export default function CreatePostScreen() {
               </View>
             </View>
 
-            {/* Selected Address Card */}
-            <View style={[styles.selectedAddressCard, isDarkMode && styles.selectedAddressCardDark]}>
-              <Ionicons name="location" size={18} color="#4F46E5" style={{ marginTop: 1 }} />
+            <View
+              style={[
+                styles.selectedAddressCard,
+                isDarkMode && styles.selectedAddressCardDark,
+              ]}
+            >
+              <Ionicons
+                name="location"
+                size={18}
+                color={isDarkMode ? P.indigoLight : P.indigo}
+                style={{ marginTop: 1 }}
+              />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.selectedAddressLabel, isDarkMode && styles.textMutedDark]}>
                   {isSi ? 'තෝරාගත් ස්ථානය:' : 'Selected Address:'}
                 </Text>
-                <Text style={[styles.selectedAddressText, isDarkMode && styles.textDark]} numberOfLines={2}>
-                  {tempLocationAddress || (isSi ? 'ස්ථානයක් තෝරා නැත (සිතියම tap කරන්න)' : 'Tap map or use GPS above')}
+                <Text
+                  style={[styles.selectedAddressText, isDarkMode && styles.textDark]}
+                  numberOfLines={2}
+                >
+                  {tempLocationAddress ||
+                    (isSi
+                      ? 'ස්ථානයක් තෝරා නැත (සිතියම tap කරන්න)'
+                      : 'Tap map or use GPS above')}
                 </Text>
               </View>
             </View>
 
-            {/* Quick District Selector */}
             <Text style={[styles.quickDistrictsHeader, isDarkMode && styles.textMutedDark]}>
               {isSi ? 'දිස්ත්‍රික්කයෙන් ඉක්මනින් තෝරන්න:' : 'Or Quick Select District:'}
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.districtChipsScroll}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.districtChipsScroll}
+            >
               {SRI_LANKA_DISTRICTS.map((dist) => (
                 <TouchableOpacity
                   key={dist}
                   style={[
                     styles.districtChip,
                     isDarkMode && styles.districtChipDark,
-                    tempLocationAddress.toLowerCase().includes(dist.toLowerCase()) && styles.districtChipActive,
+                    tempLocationAddress.toLowerCase().includes(dist.toLowerCase()) &&
+                      styles.districtChipActive,
                   ]}
                   onPress={() => handleSelectDistrict(dist)}
                   activeOpacity={0.7}
@@ -1434,7 +1565,8 @@ export default function CreatePostScreen() {
                     style={[
                       styles.districtChipText,
                       isDarkMode && styles.textDark,
-                      tempLocationAddress.toLowerCase().includes(dist.toLowerCase()) && styles.districtChipTextActive,
+                      tempLocationAddress.toLowerCase().includes(dist.toLowerCase()) &&
+                        styles.districtChipTextActive,
                     ]}
                   >
                     {dist}
@@ -1443,17 +1575,21 @@ export default function CreatePostScreen() {
               ))}
             </ScrollView>
 
-            {/* Confirm Button */}
             <TouchableOpacity
               style={styles.confirmLocationBtn}
               onPress={handleConfirmLocation}
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#4338CA', '#4F46E5']}
+                colors={isDarkMode ? [P.indigoLight, P.indigo] : [P.indigoDeep, P.indigo]}
                 style={styles.confirmLocationGradient}
               >
-                <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={18}
+                  color={P.white}
+                  style={{ marginRight: 6 }}
+                />
                 <Text style={styles.confirmLocationText}>
                   {isSi ? 'මෙම ස්ථානය තහවුරු කරන්න' : 'Confirm Location'}
                 </Text>
@@ -1466,98 +1602,36 @@ export default function CreatePostScreen() {
   );
 }
 
-// =======================================================
-// PROFESSIONAL DESIGN STYLES
-// =======================================================
+// ========================================================
+// STYLES
+// ========================================================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  containerDark: {
-    backgroundColor: '#090D16',
-  },
+  container: { flex: 1, backgroundColor: P.slate50 },
+  containerDark: { backgroundColor: P.slate900 },
 
-  // App Bar
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: Platform.OS === 'ios' ? 10 : 12,
-  },
-  headerBackBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 8,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.2,
-  },
-  headerSubtitle: {
-    fontSize: 10.5,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 2,
-  },
-  headerRightBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 3,
-  },
-  aiBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 16 },
 
-  // Scroll Content
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-  },
-
-  // Section Cards
+  // ── Section cards ──
   sectionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: P.slate200,
     ...Platform.select({
       ios: {
-        shadowColor: '#4338CA',
+        shadowColor: '#64748B',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
-        shadowRadius: 6,
+        shadowRadius: 8,
       },
-      android: {
-        elevation: 1.5,
-      },
+      android: { elevation: 2 },
     }),
   },
-  sectionCardDark: {
-    backgroundColor: '#111827',
-    borderColor: '#1F2937',
-  },
+  sectionCardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
+
   cardHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1573,230 +1647,158 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 14.5,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.2,
   },
   cardSubtitle: {
     fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
+    color: P.slate500,
+    marginTop: 2,
+    fontWeight: '500',
   },
 
-  // Field Groups & Inputs
-  fieldGroup: {
-    marginBottom: 14,
-  },
+  // ── Fields ──
+  fieldGroup: { marginBottom: 14 },
   fieldLabel: {
     fontSize: 12.5,
-    fontWeight: '600',
-    color: '#334155',
+    fontWeight: '700',
+    color: P.slate700,
     marginBottom: 6,
   },
-  requiredAsterisk: {
-    color: '#EF4444',
-  },
+  requiredAsterisk: { color: P.rose },
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
   },
-  charHint: {
-    fontSize: 11,
-    color: '#94A3B8',
-  },
+  charHint: { fontSize: 11, color: P.slate400, fontWeight: '600' },
+
   textInputBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: P.slate50,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: P.slate200,
     paddingHorizontal: 12,
     minHeight: 46,
     justifyContent: 'center',
   },
   textInputBoxDark: {
-    backgroundColor: '#0F172A',
-    borderColor: '#1E293B',
+    backgroundColor: P.slate900,
+    borderColor: P.slate700,
   },
   textInputBoxActive: {
-    borderColor: '#4F46E5',
-    backgroundColor: '#FFFFFF',
+    borderColor: P.indigo,
+    backgroundColor: P.white,
   },
   textInputBoxActiveDark: {
-    borderColor: '#818CF8',
-    backgroundColor: '#1E293B',
+    borderColor: P.indigoLight,
+    backgroundColor: P.slate900,
   },
-  inputBoxError: {
-    borderColor: '#EF4444',
-    borderWidth: 1.5,
-  },
+  inputBoxError: { borderColor: P.rose, borderWidth: 1.5 },
   fieldErrorText: {
-    color: '#EF4444',
+    color: P.rose,
     fontSize: 11.5,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: 4,
-  },
-  inputWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   inputControl: {
     flex: 1,
     fontSize: 14,
-    color: '#0F172A',
+    color: P.slate900,
     paddingVertical: 8,
   },
   textAreaBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: P.slate50,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: P.slate200,
     paddingHorizontal: 12,
     paddingVertical: 10,
     minHeight: 96,
   },
   textAreaControl: {
     fontSize: 14,
-    color: '#0F172A',
+    color: P.slate900,
     textAlignVertical: 'top',
     minHeight: 80,
   },
 
-  // Date Button
+  // ── Date button ──
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: P.slate50,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: P.slate200,
     paddingHorizontal: 12,
-    minHeight: 44,
+    minHeight: 46,
   },
-  dateBtnLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+  dateBtnLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dateButtonText: {
-    fontSize: 13,
-    color: '#0F172A',
-    fontWeight: '500',
+    fontSize: 13.5,
+    color: P.slate900,
+    fontWeight: '600',
   },
-  placeholderText: {
-    color: '#94A3B8',
-    fontWeight: '400',
-  },
+  placeholderText: { color: P.slate400, fontWeight: '500' },
 
-  languageOptions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  languageOption: {
-    flex: 1,
-    minHeight: 42,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 10,
-  },
-  languageOptionSelected: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#4F46E5',
-    borderWidth: 1.5,
-  },
-  languageOptionSelectedDark: {
-    backgroundColor: 'rgba(99, 102, 241, 0.18)',
-    borderColor: '#818CF8',
-    borderWidth: 1.5,
-  },
-  languageOptionTextSelected: {
-    color: '#4338CA',
-    fontWeight: '700',
-  },
-  languageOptionTextSelectedDark: {
-    color: '#A5B4FC',
-  },
-
-  // Urgency Pills Grid
+  // ── Urgency pills ──
   urgencyGrid: {
     flexDirection: 'row',
-    gap: 8,
     flexWrap: 'wrap',
+    gap: 8,
   },
   urgencyPill: {
-    flex: 1,
-    minWidth: '46%',
+    flexBasis: '48%',
+    flexGrow: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: P.slate50,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingVertical: 9,
+    borderWidth: 1.5,
+    borderColor: P.slate200,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     gap: 6,
   },
-  urgencyPillDark: {
-    backgroundColor: '#0F172A',
-    borderColor: '#1E293B',
-  },
-  urgencyPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
+  urgencyPillDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
+  urgencyPillText: { fontSize: 12.5, fontWeight: '700', color: P.slate600 },
 
-  // Image Upload Box
+  // ── Upload ──
   uploadBox: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: P.slate50,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: P.slate300,
     borderStyle: 'dashed',
     paddingVertical: 24,
     alignItems: 'center',
   },
-  uploadBoxDark: {
-    backgroundColor: '#0F172A',
-    borderColor: '#1E293B',
-  },
+  uploadBoxDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
   uploadIconCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: P.indigoSoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   uploadPrimaryText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#4F46E5',
+    fontWeight: '700',
+    color: P.indigo,
     marginBottom: 2,
   },
-  uploadSecondaryText: {
-    fontSize: 11,
-    color: '#94A3B8',
-  },
+  uploadSecondaryText: { fontSize: 11, color: P.slate400 },
 
-  // Image Preview
-  imageCard: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  attachedImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: 12,
-  },
+  // ── Image preview ──
+  imageCard: { borderRadius: 12, overflow: 'hidden', position: 'relative' },
+  attachedImage: { width: '100%', height: 180, borderRadius: 12 },
   imageOverlayControls: {
     position: 'absolute',
     bottom: 10,
@@ -1813,18 +1815,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 4,
   },
-  imageDeleteBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.85)',
-  },
-  imageOverlayBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-  },
+  imageDeleteBtn: { backgroundColor: 'rgba(239, 68, 68, 0.85)' },
+  imageOverlayBtnText: { color: P.white, fontSize: 11, fontWeight: '700' },
 
-  // AI Ready Card
+  // ── AI preview ready card ──
   previewReadyCard: {
-    backgroundColor: '#F5F3FF',
+    backgroundColor: P.indigoSoft,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
@@ -1832,28 +1828,34 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   previewReadyCardDark: {
-    backgroundColor: '#1E1B4B',
-    borderColor: '#3730A3',
+    backgroundColor: P.indigoSoftDark,
+    borderColor: P.indigo,
   },
   previewReadyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
+    gap: 8,
   },
   previewSparkleWrap: {
-    marginRight: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: P.white,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   previewReadyTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontWeight: '800',
+    color: P.indigo,
     flex: 1,
   },
   previewViewLink: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontWeight: '800',
+    color: P.indigo,
     textDecorationLine: 'underline',
   },
   previewQuickChips: {
@@ -1864,54 +1866,42 @@ const styles = StyleSheet.create({
   quickChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
     gap: 4,
   },
-  quickChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 4,
-  },
+  quickChipText: { fontSize: 11, fontWeight: '700', color: P.slate700 },
+
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   tagPill: {
     fontSize: 11,
-    color: '#6366F1',
-    fontWeight: '600',
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    color: P.indigo,
+    fontWeight: '700',
+    backgroundColor: 'rgba(99, 102, 241, 0.12)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   tagPillDark: {
-    color: '#A5B4FC',
+    color: P.indigoLight,
+    backgroundColor: 'rgba(165, 180, 252, 0.15)',
   },
 
-  // Action Buttons Section
-  actionButtonsSection: {
-    marginTop: 10,
-    gap: 12,
-  },
+  // ── Actions ──
+  actionButtonsSection: { marginTop: 10, gap: 12 },
   previewActionBtn: {
     borderRadius: 14,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#8B5CF6',
+        shadowColor: P.violet,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
       },
-      android: {
-        elevation: 4,
-      },
+      android: { elevation: 4 },
     }),
   },
   publishActionBtn: {
@@ -1919,14 +1909,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#4F46E5',
+        shadowColor: P.indigo,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
       },
-      android: {
-        elevation: 4,
-      },
+      android: { elevation: 4 },
     }),
   },
   actionBtnGradient: {
@@ -1939,32 +1927,54 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: '800',
+    color: P.white,
     letterSpacing: 0.2,
   },
 
-  // Modal Sheet Styles
+  // ── Language options ──
+  languageOptions: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  languageOption: {
+    flex: 1,
+    minHeight: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: P.slate50,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: P.slate200,
+    paddingHorizontal: 10,
+  },
+  languageOptionSelected: {
+    backgroundColor: P.indigoSoft,
+    borderColor: P.indigo,
+  },
+  languageOptionSelectedDark: {
+    backgroundColor: P.indigoSoftDark,
+    borderColor: P.indigoLight,
+  },
+  languageOptionTextSelected: { color: P.indigoDeep, fontWeight: '800' },
+  languageOptionTextSelectedDark: { color: P.indigoLight },
+
+  // ── Modals ──
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
   },
-  modalContentDark: {
-    backgroundColor: '#111827',
-  },
+  modalContentDark: { backgroundColor: P.slate800 },
   modalDragHandle: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: P.slate300,
     alignSelf: 'center',
     marginBottom: 12,
   },
@@ -1976,8 +1986,15 @@ const styles = StyleSheet.create({
   },
   modalHeading: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.2,
+  },
+  languagePreviewHint: {
+    fontSize: 12,
+    color: P.slate500,
+    marginBottom: 10,
+    fontWeight: '500',
   },
   modalPreviewImage: {
     width: '100%',
@@ -1985,100 +2002,53 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 14,
   },
-  modalDetailBlock: {
-    marginBottom: 12,
-  },
+  modalDetailBlock: { marginBottom: 12 },
   modalLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: '700',
+    color: P.slate500,
     marginBottom: 3,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  modalValueTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  modalValueDesc: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 18,
-  },
-  modalGridRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
-    gap: 16,
-  },
-  modalGridCol: {
-    flex: 1,
-  },
-  modalBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  modalTagsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 4,
-  },
+  modalValueTitle: { fontSize: 15, fontWeight: '800', color: P.slate900 },
+  modalValueDesc: { fontSize: 13.5, color: P.slate700, lineHeight: 19, fontWeight: '500' },
+  modalGridRow: { flexDirection: 'row', marginBottom: 12, gap: 16 },
+  modalGridCol: { flex: 1 },
+  modalBadgeText: { fontSize: 13, fontWeight: '800' },
+  modalTagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   tagBadge: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: P.indigoSoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  tagBadgeDark: {
-    backgroundColor: '#1E1B4B',
-  },
-  tagBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#4F46E5',
-  },
-  modalButtonsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 18,
-  },
+  tagBadgeDark: { backgroundColor: P.indigoSoftDark },
+  tagBadgeText: { fontSize: 11, fontWeight: '700', color: P.indigo },
+
+  modalButtonsRow: { flexDirection: 'row', gap: 10, marginTop: 18 },
   modalEditBtn: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderColor: P.slate200,
+    backgroundColor: P.slate50,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modalEditBtnDark: {
-    backgroundColor: '#1F2937',
-    borderColor: '#374151',
-  },
-  modalEditBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  modalPublishBtn: {
-    flex: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
+  modalEditBtnDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
+  modalEditBtnText: { fontSize: 13, fontWeight: '700', color: P.slate600 },
+
+  modalPublishBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
   modalPublishGradient: {
     paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modalPublishText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  modalPublishText: { fontSize: 13.5, fontWeight: '800', color: P.white },
 
-  // Location Input Box with Actions
+  // ── Location box ──
   locationInputBox: {
     paddingRight: 6,
     flexDirection: 'row',
@@ -2088,31 +2058,24 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: P.indigoSoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 6,
   },
-  quickGpsBtnDark: {
-    backgroundColor: '#1E1B4B',
-  },
   openPickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4F46E5',
+    backgroundColor: P.indigo,
     paddingHorizontal: 9,
     paddingVertical: 7,
     borderRadius: 8,
   },
-  openPickerBtnText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  openPickerBtnText: { fontSize: 11.5, fontWeight: '800', color: P.white },
 
-  // Location Modal Styles
+  // ── Location modal ──
   locationModalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 18,
@@ -2122,33 +2085,32 @@ const styles = StyleSheet.create({
   detectGpsBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: P.indigoSoft,
     padding: 10,
     borderRadius: 12,
     marginBottom: 12,
     gap: 10,
   },
-  detectGpsBannerDark: {
-    backgroundColor: '#1E1B4B',
-  },
   detectGpsIcon: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
   detectGpsTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontWeight: '800',
+    color: P.indigo,
   },
   detectGpsSubtitle: {
     fontSize: 10.5,
-    color: '#64748B',
+    color: P.slate500,
     marginTop: 1,
+    fontWeight: '500',
   },
+
   mapContainer: {
     height: 180,
     borderRadius: 14,
@@ -2156,12 +2118,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: P.slate200,
   },
-  mapView: {
-    width: '100%',
-    height: '100%',
-  },
+  mapView: { width: '100%', height: '100%' },
   mapHintBadge: {
     position: 'absolute',
     top: 8,
@@ -2171,41 +2130,39 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
   },
-  mapHintText: {
-    color: '#FFFFFF',
-    fontSize: 10.5,
-    fontWeight: '600',
-  },
+  mapHintText: { color: P.white, fontSize: 10.5, fontWeight: '700' },
+
   selectedAddressCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: P.slate50,
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: P.slate200,
     gap: 8,
   },
   selectedAddressCardDark: {
-    backgroundColor: '#0F172A',
-    borderColor: '#1E293B',
+    backgroundColor: P.slate900,
+    borderColor: P.slate700,
   },
   selectedAddressLabel: {
     fontSize: 10.5,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: '700',
+    color: P.slate500,
   },
   selectedAddressText: {
     fontSize: 12.5,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontWeight: '800',
+    color: P.slate900,
     marginTop: 1,
   },
+
   quickDistrictsHeader: {
     fontSize: 11.5,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: '700',
+    color: P.slate500,
     marginBottom: 6,
   },
   districtChipsScroll: {
@@ -2213,35 +2170,31 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   districtChip: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: P.slate100,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: P.slate200,
   },
   districtChipDark: {
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
+    backgroundColor: P.slate900,
+    borderColor: P.slate700,
   },
   districtChipActive: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#4F46E5',
+    backgroundColor: P.indigoSoft,
+    borderColor: P.indigo,
   },
   districtChipText: {
     fontSize: 11.5,
-    fontWeight: '600',
-    color: '#475569',
+    fontWeight: '700',
+    color: P.slate600,
   },
   districtChipTextActive: {
-    color: '#4F46E5',
-    fontWeight: '700',
+    color: P.indigo,
+    fontWeight: '800',
   },
-  confirmLocationBtn: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginTop: 6,
-  },
+  confirmLocationBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 6 },
   confirmLocationGradient: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2250,16 +2203,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   confirmLocationText: {
-    color: '#FFFFFF',
+    color: P.white,
     fontSize: 13.5,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 
-  // Generic Dark Mode Helpers
-  textDark: {
-    color: '#F8FAFC',
-  },
-  textMutedDark: {
-    color: '#94A3B8',
-  },
+  // ── Utility ──
+  textDark: { color: P.slate50 },
+  textMutedDark: { color: P.slate400 },
 });

@@ -26,8 +26,8 @@ export default function OnboardingScreen({ navigation }) {
       title: 'Find Trusted Professionals',
       description: 'Browse through verified service providers in your area',
       icon: 'search-circle',
-      color: '#667eea',
-      gradientColors: ['#667eea', '#764ba2'],
+      color: '#4F46E5',
+      gradientColors: ['#4F46E5', '#4338CA'],
     },
     {
       id: '2',
@@ -123,7 +123,7 @@ export default function OnboardingScreen({ navigation }) {
                 {
                   opacity,
                   transform: [{ scale }],
-                  backgroundColor: currentIndex === i ? '#667eea' : '#D1D5DB',
+                  backgroundColor: currentIndex === i ? '#4F46E5' : '#D1D5DB',
                 },
               ]}
             />
@@ -162,7 +162,7 @@ export default function OnboardingScreen({ navigation }) {
       {/* Next/Get Started Button */}
       <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
         <LinearGradient
-          colors={['#667eea', '#764ba2']}
+          colors={['#4F46E5', '#4338CA']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.nextGradient}
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#667eea',
+    shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,

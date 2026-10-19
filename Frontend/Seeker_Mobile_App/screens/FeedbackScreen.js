@@ -226,7 +226,7 @@ export default function FeedbackScreen({ navigation, route }) {
       return (
         <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#667eea" />
+            <ActivityIndicator size="large" color="#4F46E5" />
             <Text style={[styles.loaderText, isDarkMode && styles.textDark]}>
               Loading completed jobs...
             </Text>
@@ -239,7 +239,7 @@ export default function FeedbackScreen({ navigation, route }) {
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <StatusBar
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
         />
         <PageHeader title={<>Select Job to Review</>} onBack={() => navigation.goBack()} />
 
@@ -291,7 +291,7 @@ export default function FeedbackScreen({ navigation, route }) {
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#667eea" />
+          <ActivityIndicator size="large" color="#4F46E5" />
           <Text style={[styles.loaderText, isDarkMode && styles.textDark]}>
             Loading...
           </Text>
@@ -330,7 +330,7 @@ export default function FeedbackScreen({ navigation, route }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
       />
 
       {/* Header */}
@@ -435,7 +435,7 @@ export default function FeedbackScreen({ navigation, route }) {
           <Ionicons
             name={isAnonymous ? 'checkbox' : 'square-outline'}
             size={24}
-            color="#667eea"
+            color="#4F46E5"
           />
           <Text style={[styles.anonymousText, isDarkMode && styles.textDark]}>
             Post anonymously
@@ -449,7 +449,7 @@ export default function FeedbackScreen({ navigation, route }) {
           disabled={loading}
         >
           <LinearGradient
-            colors={['#667eea', '#764ba2']}
+            colors={['#4F46E5', '#4338CA']}
             style={styles.submitGradient}
           >
             {loading ? (
@@ -608,8 +608,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#16213e',
   },
   optionSelected: {
-    borderColor: '#667eea',
-    backgroundColor: '#667eea10',
+    borderColor: '#4F46E5',
+    backgroundColor: '#4F46E510',
   },
   optionText: {
     fontSize: 14,
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   optionTextSelected: {
-    color: '#667eea',
+    color: '#4F46E5',
   },
   anonymousToggle: {
     flexDirection: 'row',
@@ -677,7 +677,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingVertical: 12,
     paddingHorizontal: 32,
-    backgroundColor: '#667eea',
+    backgroundColor: '#4F46E5',
     borderRadius: 12,
   },
   goBackText: {

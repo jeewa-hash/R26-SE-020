@@ -28,7 +28,7 @@ import { LanguageContext } from '../context/LanguageContext';
 const PROVIDER_SERVICE_URL = `${ML_SERVICE_URL}/portfolio/all-providers`;
 
 // ─────────────────────────────────────────────────────────────
-// Palette
+// Shared palette — matches Home, Feed, Profile, ProviderProfile
 // ─────────────────────────────────────────────────────────────
 const P = {
   indigo: '#4F46E5',
@@ -45,6 +45,7 @@ const P = {
   amberSoft: '#FFFBEB',
   amberSoftDark: '#78350F',
   amberLight: '#FBBF24',
+  amberVeryLight: '#FDE68A',
   rose: '#EF4444',
   roseDark: '#991B1B',
   roseSoft: '#FEF2F2',
@@ -223,23 +224,23 @@ export default function BookingsScreen({ navigation }) {
       case 'accepted':
         return {
           bg: isDarkMode ? P.emeraldSoftDark : P.emeraldSoft,
-          border: isDarkMode ? '#065F46' : '#A7F3D0',
-          color: P.emerald,
+          border: isDarkMode ? P.emeraldDark : '#A7F3D0',
+          color: isDarkMode ? P.emeraldLight : P.emerald,
           text: isSi ? 'තහවුරුයි' : 'Confirmed',
         };
       case 'pending':
         return {
           bg: isDarkMode ? P.amberSoftDark : P.amberSoft,
-          border: isDarkMode ? '#92400E' : '#FDE68A',
-          color: P.amber,
+          border: isDarkMode ? '#92400E' : P.amberVeryLight,
+          color: isDarkMode ? P.amberLight : P.amber,
           text: isSi ? 'පොරොත්තුවේ' : 'Pending',
         };
       case 'cancelled':
       case 'canceled':
         return {
           bg: isDarkMode ? P.roseSoftDark : P.roseSoft,
-          border: isDarkMode ? '#991B1B' : '#FECACA',
-          color: P.rose,
+          border: isDarkMode ? P.roseDark : '#FECACA',
+          color: isDarkMode ? P.roseLight : P.rose,
           text: isSi ? 'අවලංගුයි' : 'Cancelled',
         };
       case 'rejected':
@@ -496,7 +497,7 @@ export default function BookingsScreen({ navigation }) {
         )}
       />
 
-      {/* ── Summary strip ── */}
+      {/* ── Compact summary strip ── */}
       <View style={[styles.summaryStrip, isDarkMode && styles.summaryStripDark]}>
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryValue, isDarkMode && { color: P.white }]}>
@@ -535,12 +536,12 @@ export default function BookingsScreen({ navigation }) {
         </View>
       </View>
 
-      {/* ── Top controls ── */}
+      {/* ── Search + Tabs ── */}
       <View style={[styles.topControls, isDarkMode && styles.topControlsDark]}>
         <View style={[styles.searchBox, isDarkMode && styles.searchBoxDark]}>
           <Ionicons
             name="search-outline"
-            size={20}
+            size={18}
             color={isDarkMode ? P.slate400 : P.slate500}
           />
           <TextInput
@@ -558,7 +559,7 @@ export default function BookingsScreen({ navigation }) {
             >
               <Ionicons
                 name="close-circle"
-                size={20}
+                size={18}
                 color={isDarkMode ? P.slate400 : P.slate500}
               />
             </TouchableOpacity>
@@ -636,7 +637,7 @@ export default function BookingsScreen({ navigation }) {
         {error ? (
           <View style={[styles.emptyCard, isDarkMode && styles.emptyCardDark]}>
             <View style={[styles.emptyIconWrap, { backgroundColor: isDarkMode ? P.roseSoftDark : P.roseSoft }]}>
-              <Ionicons name="alert-circle-outline" size={44} color={P.rose} />
+              <Ionicons name="alert-circle-outline" size={40} color={P.rose} />
             </View>
             <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
               {isSi ? 'දෝෂයක් සිදු විය' : 'Something went wrong'}
@@ -649,7 +650,7 @@ export default function BookingsScreen({ navigation }) {
               onPress={onRefresh}
               activeOpacity={0.85}
             >
-              <Ionicons name="refresh" size={18} color={P.white} style={{ marginRight: 8 }} />
+              <Ionicons name="refresh" size={16} color={P.white} style={{ marginRight: 6 }} />
               <Text style={styles.actionBtnPrimaryText}>
                 {isSi ? 'නැවත උත්සාහ කරන්න' : 'Try Again'}
               </Text>
@@ -660,7 +661,7 @@ export default function BookingsScreen({ navigation }) {
             <View style={[styles.emptyIconWrap, isDarkMode && { backgroundColor: P.indigoSoftDark }]}>
               <Ionicons
                 name={searchQuery ? 'search-outline' : 'receipt-outline'}
-                size={44}
+                size={40}
                 color={isDarkMode ? P.indigoLight : P.indigo}
               />
             </View>
@@ -697,7 +698,7 @@ export default function BookingsScreen({ navigation }) {
                 onPress={() => navigation.navigate('CreatePostScreen')}
                 activeOpacity={0.85}
               >
-                <Ionicons name="add" size={20} color={P.white} style={{ marginRight: 6 }} />
+                <Ionicons name="add" size={18} color={P.white} style={{ marginRight: 6 }} />
                 <Text style={styles.actionBtnPrimaryText}>
                   {isSi ? 'නව සේවාවක් සොයන්න' : 'Request a Service'}
                 </Text>
@@ -721,12 +722,12 @@ export default function BookingsScreen({ navigation }) {
 
             return (
               <View key={group.sessionId} style={[styles.card, isDarkMode && styles.cardDark]}>
-                {/* Header: icon + title + status */}
+                {/* Header */}
                 <View style={styles.cardHeader}>
                   <View style={[styles.catIconWrap, isDarkMode && styles.catIconWrapDark]}>
                     <Ionicons
                       name={categoryIcon}
-                      size={26}
+                      size={24}
                       color={isDarkMode ? P.indigoLight : P.indigo}
                     />
                   </View>
@@ -749,22 +750,25 @@ export default function BookingsScreen({ navigation }) {
                       { backgroundColor: overallStyle.bg, borderColor: overallStyle.border },
                     ]}
                   >
-                    <View
-                      style={[styles.statusDot, { backgroundColor: overallStyle.color }]}
-                    />
+                    <View style={[styles.statusDot, { backgroundColor: overallStyle.color }]} />
                     <Text style={[styles.statusBadgeText, { color: overallStyle.color }]}>
                       {overallStyle.text}
                     </Text>
                   </View>
                 </View>
 
-                {/* Location & urgent */}
+                {/* Info pills */}
                 <View style={styles.infoRow}>
                   {group.serviceLocation && typeof group.serviceLocation === 'string' && (
-                    <View style={styles.infoPill}>
+                    <View
+                      style={[
+                        styles.infoPill,
+                        isDarkMode && { backgroundColor: P.slate900, borderColor: P.slate700 },
+                      ]}
+                    >
                       <Ionicons
                         name="location-outline"
-                        size={14}
+                        size={13}
                         color={isDarkMode ? P.slate400 : P.slate500}
                       />
                       <Text
@@ -794,17 +798,16 @@ export default function BookingsScreen({ navigation }) {
                   )}
                 </View>
 
-                {/* Description */}
                 {group.briefDescription ? (
                   <Text
                     style={[styles.descText, isDarkMode && styles.textMutedDark]}
-                    numberOfLines={2}
+                    numberOfLines={3}
                   >
                     {group.briefDescription}
                   </Text>
                 ) : null}
 
-                {/* Accordion toggle */}
+                {/* Accordion */}
                 <TouchableOpacity
                   style={[styles.accordionBtn, isDarkMode && styles.accordionBtnDark]}
                   onPress={() => toggleExpand(group.sessionId)}
@@ -819,7 +822,7 @@ export default function BookingsScreen({ navigation }) {
                     >
                       <Ionicons
                         name="people"
-                        size={16}
+                        size={14}
                         color={isDarkMode ? P.indigoLight : P.indigo}
                       />
                     </View>
@@ -836,7 +839,7 @@ export default function BookingsScreen({ navigation }) {
                   />
                 </TouchableOpacity>
 
-                {/* Expanded providers */}
+                {/* Providers */}
                 {isExpanded && (
                   <View style={styles.providerList}>
                     {group.requests.map((req, idx) => {
@@ -900,14 +903,9 @@ export default function BookingsScreen({ navigation }) {
                                   ]}
                                 >
                                   <View
-                                    style={[
-                                      styles.providerStatusDot,
-                                      { backgroundColor: pStatus.color },
-                                    ]}
+                                    style={[styles.providerStatusDot, { backgroundColor: pStatus.color }]}
                                   />
-                                  <Text
-                                    style={[styles.providerStatusText, { color: pStatus.color }]}
-                                  >
+                                  <Text style={[styles.providerStatusText, { color: pStatus.color }]}>
                                     {pStatus.text}
                                   </Text>
                                 </View>
@@ -916,21 +914,16 @@ export default function BookingsScreen({ navigation }) {
 
                             <View style={styles.providerActionsRow}>
                               <TouchableOpacity
-                                style={[
-                                  styles.actionBtnHalf,
-                                  isDarkMode && styles.actionBtnHalfDark,
-                                ]}
+                                style={[styles.actionBtnHalf, isDarkMode && styles.actionBtnHalfDark]}
                                 onPress={() => handleMessage(req, group)}
                                 activeOpacity={0.8}
                               >
                                 <Ionicons
                                   name="chatbubble-ellipses-outline"
-                                  size={18}
+                                  size={17}
                                   color={isDarkMode ? P.indigoLight : P.indigo}
                                 />
-                                <Text
-                                  style={[styles.actionBtnHalfText, isDarkMode && styles.textDark]}
-                                >
+                                <Text style={[styles.actionBtnHalfText, isDarkMode && styles.textDark]}>
                                   {isSi ? 'චැට්' : 'Chat'}
                                 </Text>
                               </TouchableOpacity>
@@ -940,7 +933,7 @@ export default function BookingsScreen({ navigation }) {
                                 onPress={() => handleViewQuote(req)}
                                 activeOpacity={0.85}
                               >
-                                <Ionicons name="document-text-outline" size={18} color={P.white} />
+                                <Ionicons name="document-text-outline" size={17} color={P.white} />
                                 <Text style={styles.actionBtnHalfSolidText}>
                                   {isSi ? 'මිල ගණන්' : 'View Quote'}
                                 </Text>
@@ -949,9 +942,7 @@ export default function BookingsScreen({ navigation }) {
                           </View>
 
                           {!isLast && (
-                            <View
-                              style={[styles.rowDivider, isDarkMode && styles.rowDividerDark]}
-                            />
+                            <View style={[styles.rowDivider, isDarkMode && styles.rowDividerDark]} />
                           )}
                         </View>
                       );
@@ -985,27 +976,24 @@ const styles = StyleSheet.create({
   summaryStrip: {
     flexDirection: 'row',
     backgroundColor: P.white,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderColor: P.slate200,
   },
-  summaryStripDark: {
-    backgroundColor: P.slate800,
-    borderColor: P.slate700,
-  },
+  summaryStripDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
   summaryItem: { flex: 1, alignItems: 'center', gap: 2 },
   summaryValue: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '900',
     color: P.slate900,
     letterSpacing: -0.4,
   },
   summaryLabel: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '700',
     color: P.slate500,
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
   summaryDivider: {
@@ -1029,42 +1017,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: P.slate100,
     marginHorizontal: 16,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    height: 48,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 46,
     borderWidth: 1,
     borderColor: P.slate200,
-    gap: 10,
+    gap: 8,
   },
   searchBoxDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
-  searchInput: { flex: 1, fontSize: 15, color: P.slate900, paddingVertical: 0 },
+  searchInput: { flex: 1, fontSize: 14.5, color: P.slate900, paddingVertical: 0 },
 
   filterScroll: { paddingHorizontal: 16, paddingTop: 12, gap: 8 },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: P.white,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 18,
     gap: 6,
     borderWidth: 1,
     borderColor: P.slate200,
   },
   filterChipDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
   filterChipActive: { backgroundColor: P.indigo, borderColor: P.indigo },
-  filterChipText: { fontSize: 13, fontWeight: '700', color: P.slate600 },
+  filterChipText: { fontSize: 12.5, fontWeight: '700', color: P.slate600 },
   filterChipTextActive: { color: P.white },
   filterCountBadge: {
     backgroundColor: P.slate100,
-    borderRadius: 10,
-    paddingHorizontal: 7,
+    borderRadius: 9,
+    paddingHorizontal: 6,
     paddingVertical: 1,
-    minWidth: 20,
+    minWidth: 18,
     alignItems: 'center',
   },
   filterCountBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
-  filterCountText: { fontSize: 10.5, fontWeight: '800', color: P.slate600 },
+  filterCountText: { fontSize: 10, fontWeight: '800', color: P.slate600 },
   filterCountTextActive: { color: P.white },
 
   // ── List ──
@@ -1073,32 +1061,28 @@ const styles = StyleSheet.create({
   // ── Card ──
   card: {
     backgroundColor: P.white,
-    borderRadius: 18,
-    marginBottom: 14,
+    borderRadius: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: P.slate200,
-    padding: 16,
+    padding: 14,
     ...Platform.select({
       ios: {
         shadowColor: '#64748B',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
       },
       android: { elevation: 2 },
     }),
   },
   cardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
 
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   catIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: P.indigoSoft,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1106,49 +1090,44 @@ const styles = StyleSheet.create({
   catIconWrapDark: { backgroundColor: P.indigoSoftDark },
   cardTitleWrap: { flex: 1, justifyContent: 'center', paddingTop: 2 },
   serviceTitle: {
-    fontSize: 16.5,
+    fontSize: 15.5,
     fontWeight: '800',
     color: P.slate900,
-    letterSpacing: -0.3,
-    marginBottom: 4,
+    letterSpacing: -0.2,
+    marginBottom: 3,
   },
-  metaText: { fontSize: 12.5, color: P.slate500, fontWeight: '600' },
+  metaText: { fontSize: 12, color: P.slate500, fontWeight: '600' },
 
   // ── Status badge ──
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 18,
     borderWidth: 1,
     gap: 5,
     alignSelf: 'flex-start',
   },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusBadgeText: { fontSize: 11.5, fontWeight: '800', letterSpacing: 0.1 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.1 },
 
   // ── Info row ──
-  infoRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 12,
-  },
+  infoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
   infoPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: P.slate100,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: P.slate200,
-    maxWidth: '75%',
+    maxWidth: '80%',
   },
   infoPillText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '700',
     color: P.slate600,
     flexShrink: 1,
@@ -1156,9 +1135,9 @@ const styles = StyleSheet.create({
 
   // ── Description ──
   descText: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: P.slate600,
-    lineHeight: 19,
+    lineHeight: 18,
     marginTop: 10,
     fontWeight: '500',
   },
@@ -1171,22 +1150,17 @@ const styles = StyleSheet.create({
     backgroundColor: P.slate50,
     borderWidth: 1,
     borderColor: P.slate200,
-    borderRadius: 12,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 11,
-    marginTop: 14,
+    paddingVertical: 10,
+    marginTop: 12,
     gap: 10,
   },
   accordionBtnDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
-  accordionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
+  accordionLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   accordionIconWrap: {
-    width: 28,
-    height: 28,
+    width: 26,
+    height: 26,
     borderRadius: 8,
     backgroundColor: P.indigoSoft,
     alignItems: 'center',
@@ -1194,7 +1168,7 @@ const styles = StyleSheet.create({
   },
   accordionBtnText: {
     flex: 1,
-    fontSize: 13.5,
+    fontSize: 12.5,
     fontWeight: '800',
     color: P.slate700,
     letterSpacing: -0.1,
@@ -1202,79 +1176,71 @@ const styles = StyleSheet.create({
 
   // ── Providers ──
   providerList: { marginTop: 4 },
-  providerBlock: { paddingVertical: 14 },
+  providerBlock: { paddingVertical: 12 },
   providerTopRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   providerAvatarRing: {
     padding: 2,
-    borderRadius: 28,
+    borderRadius: 26,
     borderWidth: 2,
     borderColor: P.indigoSoft,
   },
-  providerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
+  providerAvatar: { width: 44, height: 44, borderRadius: 22 },
   providerAvatarPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: P.indigoSoft,
   },
-  providerMainInfo: { flex: 1, gap: 5 },
-  providerName: { fontSize: 15, fontWeight: '800', color: P.slate900, letterSpacing: -0.2 },
+  providerMainInfo: { flex: 1, gap: 4 },
+  providerName: { fontSize: 14.5, fontWeight: '800', color: P.slate900, letterSpacing: -0.2 },
   providerStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 10,
+    borderRadius: 9,
     borderWidth: 1,
     gap: 5,
   },
   providerStatusDot: { width: 5, height: 5, borderRadius: 3 },
-  providerStatusText: { fontSize: 10.5, fontWeight: '800' },
+  providerStatusText: { fontSize: 10, fontWeight: '800' },
 
   // ── Actions ──
-  providerActionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
+  providerActionsRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
   actionBtnHalf: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 44,
-    borderRadius: 12,
+    height: 42,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: P.indigo,
     backgroundColor: P.white,
     gap: 6,
   },
   actionBtnHalfDark: { backgroundColor: P.slate800 },
-  actionBtnHalfText: { fontSize: 13.5, fontWeight: '800', color: P.indigo },
+  actionBtnHalfText: { fontSize: 13, fontWeight: '800', color: P.indigo },
   actionBtnHalfSolid: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 44,
-    borderRadius: 12,
+    height: 42,
+    borderRadius: 10,
     backgroundColor: P.indigo,
     gap: 6,
   },
-  actionBtnHalfSolidText: { fontSize: 13.5, fontWeight: '800', color: P.white },
+  actionBtnHalfSolidText: { fontSize: 13, fontWeight: '800', color: P.white },
 
-  rowDivider: { height: 1, backgroundColor: P.slate100, marginLeft: 62 },
+  rowDivider: { height: 1, backgroundColor: P.slate100, marginLeft: 58 },
   rowDividerDark: { backgroundColor: P.slate700 },
 
-  // ── Empty states ──
+  // ── Empty / error ──
   emptyCard: {
     backgroundColor: P.white,
-    borderRadius: 18,
-    padding: 28,
+    borderRadius: 16,
+    padding: 24,
     alignItems: 'center',
     marginTop: 16,
     borderWidth: 1,
@@ -1282,28 +1248,28 @@ const styles = StyleSheet.create({
   },
   emptyCardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
   emptyIconWrap: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     backgroundColor: P.indigoSoft,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   emptyTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     color: P.slate900,
-    marginBottom: 8,
+    marginBottom: 6,
     textAlign: 'center',
     letterSpacing: -0.2,
   },
   emptyDesc: {
-    fontSize: 14,
+    fontSize: 13,
     color: P.slate500,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
+    lineHeight: 19,
+    marginBottom: 18,
     paddingHorizontal: 8,
     fontWeight: '500',
   },
@@ -1312,36 +1278,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: P.indigo,
-    paddingHorizontal: 22,
-    paddingVertical: 13,
-    borderRadius: 12,
-    minHeight: 48,
-    minWidth: 170,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 10,
+    minHeight: 44,
+    minWidth: 160,
   },
-  actionBtnPrimaryText: { color: P.white, fontWeight: '800', fontSize: 14 },
+  actionBtnPrimaryText: { color: P.white, fontWeight: '800', fontSize: 13 },
   actionBtnSecondary: {
-    paddingHorizontal: 22,
-    paddingVertical: 13,
-    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 10,
     backgroundColor: P.slate100,
-    minHeight: 48,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionBtnSecondaryText: { fontSize: 14, fontWeight: '800', color: P.slate600 },
+  actionBtnSecondaryText: { fontSize: 13, fontWeight: '800', color: P.slate600 },
 
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingRing: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: P.indigoSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  loadingText: { fontSize: 14, color: P.slate500, fontWeight: '600' },
+  loadingText: { fontSize: 13.5, color: P.slate500, fontWeight: '600' },
 
+  // ── Utility ──
   textDark: { color: P.slate50 },
   textMutedDark: { color: P.slate400 },
 });

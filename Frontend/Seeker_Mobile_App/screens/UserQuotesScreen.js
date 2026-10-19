@@ -53,7 +53,7 @@ export default function UserQuotesScreen({ navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'} />
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'} />
       
       {/* Header */}
       <PageHeader title={<>Quote / Invoice</>} onBack={() => navigation.goBack()} />
@@ -76,11 +76,11 @@ export default function UserQuotesScreen({ navigation }) {
 
           {/* Timeline */}
           <View style={styles.row}>
-            <Ionicons name="time-outline" size={20} color="#667eea" />
+            <Ionicons name="time-outline" size={20} color="#4F46E5" />
             <Text style={[styles.rowText, isDarkMode && styles.textDark]}>Estimated timeline: {quote.timeline}</Text>
           </View>
           <View style={styles.row}>
-            <Ionicons name="calendar-outline" size={20} color="#667eea" />
+            <Ionicons name="calendar-outline" size={20} color="#4F46E5" />
             <Text style={[styles.rowText, isDarkMode && styles.textDark]}>Valid until: {quote.validUntil}</Text>
           </View>
 
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   dividerDark: { backgroundColor: '#2d3561' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalLabel: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
-  totalAmount: { fontSize: 20, fontWeight: '800', color: '#667eea' },
+  totalAmount: { fontSize: 20, fontWeight: '800', color: '#4F46E5' },
   termsText: { fontSize: 13, color: '#6B7280', lineHeight: 18 },
   confirmButton: { borderRadius: 14, overflow: 'hidden', marginTop: 8, marginBottom: 16 },
   confirmGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8 },

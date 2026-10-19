@@ -7,6 +7,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { postsAPI, providerRequestsAPI, bookingsAPI } from '../services/api';
+import { APP_THEME } from '../context/ThemeContext';
+
+const P = APP_THEME.light;
 
 export default function PostDetailScreen({ navigation, route }) {
   const { post } = route.params;
@@ -165,7 +168,7 @@ export default function PostDetailScreen({ navigation, route }) {
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#667eea" />
+            <ActivityIndicator size="large" color={P.accent} />
             <Text style={styles.loadingText}>Loading requests...</Text>
           </View>
         ) : providerRequests.length === 0 ? (
@@ -181,7 +184,7 @@ export default function PostDetailScreen({ navigation, route }) {
               <View key={request.id} style={styles.requestCard}>
                 <View style={styles.requestHeader}>
                   <View style={styles.providerInfo}>
-                    <Ionicons name="person-circle-outline" size={32} color="#667eea" />
+                    <Ionicons name="person-circle-outline" size={32} color={P.accent} />
                     <View>
                       <Text style={styles.providerName}>{request.providerName}</Text>
                       <Text style={styles.requestTime}>
