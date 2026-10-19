@@ -1,9 +1,11 @@
+import { resolvePortfolioImage } from '../../utils/portfolioMedia';
+import { getStoredProviderAuth } from '../../pages/IT22129376/services/providerAuthStorage';
+import { fetchProviderWithTimeout } from '../../utils/providerHttp';
 // components/portfolio/ServicesSection.js
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { View, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG } from '../../config';
 import { ThemeContext } from '../../context/ThemeContext';
 
@@ -24,33 +26,30 @@ const getMeta = (key) => CATEGORY_META[(key || '').toLowerCase()] || DEFAULT_MET
 const INITIAL_SERVICE_LIMIT = 4;
 
 // Resolve image URL the same way PortfolioContext does
-const resolveUrl = (raw) => {
-  if (!raw) return null;
-  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('file://')) return raw;
-  if (raw.startsWith('/uploads/')) return `${CONFIG.ML_SERVICE_URL}${raw}`;
-  return raw;
-};
+const resolveUrl = raw => resolvePortfolioImage(raw, CONFIG.ML_SERVICE_URL);
 
 export default function ServicesSection({ navigation, C, initialCategory }) {
   const { isDark } = useContext(ThemeContext) || {};
   const [addedServices, setAddedServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [showAllServices, setShowAllServices] = useState(false);
 
   const fetchAddedServices = useCallback(async () => {
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) return;
+      setLoadError(null);
+      const { token } = await getStoredProviderAuth();
+      if (!token) { setAddedServices([]); setLoadError('Sign in to load your portfolio services.'); return; }
 
-      const res = await fetch(`${CONFIG.ML_SERVICE_URL}/portfolio/categories`, {
+      const res = await fetchProviderWithTimeout(`${CONFIG.ML_SERVICE_URL}/portfolio/categories`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
       });
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      if (!res.ok) throw new Error(res.status === 401 ? 'Your session could not be verified. Sign in again to load your services.' : 'Unable to load portfolio services. Please retry.');
       const data = await res.json();
 
       const raw = Array.isArray(data) ? data : data?.categories || [];
@@ -75,7 +74,7 @@ export default function ServicesSection({ navigation, C, initialCategory }) {
 
       setAddedServices(Object.values(grouped));
     } catch (err) {
-      console.log('Portfolio categories fetch error:', err);
+      setLoadError(err.message || 'Unable to load your services.');
     } finally {
       setLoading(false);
     }
@@ -172,8 +171,9 @@ export default function ServicesSection({ navigation, C, initialCategory }) {
         </TouchableOpacity>
       )}
 
+      {loadError && <View><Text accessibilityRole="alert" style={[styles.emptyText, { color: C.textSub }]}>{loadError}</Text><TouchableOpacity accessibilityRole="button" onPress={fetchAddedServices} style={{ paddingVertical: 12 }}><Text style={{ color: accent, fontWeight: '600' }}>Retry</Text></TouchableOpacity></View>}
       {loading && <Text style={[styles.loadingText, { color: C.textSub }]}>Loading services…</Text>}
-      {!loading && !initialCategory && addedServices.length === 0 && (
+      {!loading && !loadError && !initialCategory && addedServices.length === 0 && (
         <Text style={[styles.emptyText, { color: C.textSub }]}>No services yet</Text>
       )}
     </View>

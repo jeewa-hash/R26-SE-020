@@ -154,7 +154,7 @@ const getMenuSections = (isSi) => [
         icon: 'assignment',
         iconType: 'material',
         color: '#4F46E5',
-        screen: 'SeekerServiceSessions',
+        screen: 'SeekerServices',
       },
       {
         id: 'calendar',

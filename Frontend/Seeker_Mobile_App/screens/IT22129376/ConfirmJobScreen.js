@@ -15,7 +15,7 @@ const notify = (title, message, buttons) => {
 };
 const getAmount = (quote) => quote?.quotedPrice || quote?.price || quote?.finalAmount || 0;
 const getTitle = (quote) => quote?.title || quote?.serviceSubcategory || quote?.serviceSubCategory || quote?.subcategory || 'Service Job';
-const getProvider = (quote) => quote?.providerSnapshot?.name || quote?.providerName || quote?.providerId || 'Provider';
+const getProvider = quote => quote?.providerSnapshot?.name || quote?.providerName || quote?.providerId?.name || 'Provider';
 
 export default function ConfirmJobScreen({ route, navigation }) {
   const { isDarkMode } = useTheme();
@@ -49,8 +49,8 @@ export default function ConfirmJobScreen({ route, navigation }) {
 
       notify('Booking Confirmed', 'Booking confirmed successfully.', [
         {
-          text: 'View Scheduled Jobs',
-          onPress: () => navigation.navigate('MyJobsScreen', { refresh: Date.now(), booking }),
+          text: 'View Booking',
+          onPress: () => navigation.replace('SeekerServiceSessionDetails', { sessionId: String(booking.externalSessionId || booking.sessionId || `booking:${booking._id || booking.id}`), session: { booking, bookings: [booking] } }),
         },
       ]);
     } catch (error) {

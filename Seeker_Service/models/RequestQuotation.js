@@ -44,6 +44,8 @@ const requestQuotationSchema = new mongoose.Schema(
       trim: true,
     },
 
+    serviceContext: { category: String, serviceType: String, taskName: String, source: String },
+
     detectedCategory: {
       type: String,
       required: true,

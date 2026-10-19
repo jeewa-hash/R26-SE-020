@@ -12,10 +12,10 @@ import { useTheme } from '../../hooks/useTheme';
 
 const getJobId = (job) => job?._id || job?.id || job?.bookingId;
 const getTitle = (job) => job?.title || job?.serviceSubcategory || job?.serviceSubCategory || job?.subcategory || 'Service Job';
-const getProvider = (job) => job?.providerSnapshot?.name || job?.providerName || job?.providerId || 'Provider';
+const getProvider = (job) => job?.providerSnapshot?.name || job?.providerName || job?.providerId?.name || 'Provider';
 const getAmount = (job) => job?.finalAmount || job?.amount || job?.price || job?.quotedPrice || 0;
 const getClosedDate = (job) => job?.completedAt || job?.cancelledAt || job?.updatedAt || job?.scheduledEndTime || job?.endTime;
-const getLocation = (job) => job?.location || job?.serviceLocation || job?.district || 'Location not available';
+const getLocation = job => job?.serviceLocation || job?.location?.address || (typeof job?.location === 'string' ? job.location : '') || job?.district || 'Location not available';
 
 export default function JobHistoryDetailsScreen({ route, navigation }) {
   const { isDarkMode } = useTheme();
@@ -60,7 +60,7 @@ export default function JobHistoryDetailsScreen({ route, navigation }) {
 
       <View style={styles.actions}>
         <ActionButton label="Book Similar Service" icon="replay" onPress={() => navigation.navigate('Home')} />
-        <ActionButton label="Leave Review" variant="secondary" icon="star" onPress={() => navigation.navigate('FeedbackScreen', { job })} />
+        {String(job.bookingStatus || job.status).toUpperCase() === 'COMPLETED' && <ActionButton label="Leave Review" variant="secondary" icon="star" onPress={() => navigation.navigate('FeedbackScreen', { bookingId: getJobId(job), providerId: job.providerId?._id || job.providerId, providerName: getProvider(job), serviceTitle: getTitle(job) })} />}
       </View>
     </ScreenShell>
   );

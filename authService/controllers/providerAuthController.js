@@ -466,3 +466,23 @@ exports.getAllProviders = async (req, res) => {
     });
   }
 };
+// Save only the authenticated provider's declared experience for one catalogue task.
+exports.saveDurationTaskProfile = async (req, res) => {
+  const fields = ['serviceCategory', 'serviceType', 'taskName'];
+  if (fields.some(key => typeof req.body[key] !== 'string' || !req.body[key].trim() || req.body[key].length > 180)) return res.status(400).json({ message: 'A service and task are required.' });
+  const yearsExperience = Number(req.body.yearsExperience), taskFrequencyPerMonth = Number(req.body.taskFrequencyPerMonth);
+  if ([req.body.yearsExperience, req.body.taskFrequencyPerMonth].some(value => value == null || value === '') || !Number.isFinite(yearsExperience) || yearsExperience < 0 || yearsExperience > 80 || !Number.isInteger(taskFrequencyPerMonth) || taskFrequencyPerMonth < 0 || taskFrequencyPerMonth > 1000) return res.status(400).json({ message: 'Enter valid experience (0–80 years) and monthly frequency (0–1000).' });
+  try {
+    const task = Object.fromEntries(fields.map(key => [key, req.body[key].trim()]));
+    const response = await fetch(`${(process.env.COORDINATION_SERVICE_URL || 'http://localhost:5010').replace(/\/$/, '')}/duration/model-tasks`, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) throw new Error('Catalogue unavailable');
+    const catalogue = (await response.json()).data || [];
+    if (!catalogue.some(row => row.service_category === task.serviceCategory && row.service_type === task.serviceType && row.task_name === task.taskName)) return res.status(400).json({ message: 'Choose a task from the duration catalogue.' });
+    const entry = { ...task, yearsExperience, taskFrequencyPerMonth, updatedAt: new Date() };
+    // Atomic update avoids overwriting changes to other task profiles.
+    const match = fields.map(key => ({ $eq: ['$$task.' + key, task[key]] }));
+    const provider = await Provider.findByIdAndUpdate(req.user.id, [{ $set: { durationTaskProfiles: { $concatArrays: [{ $filter: { input: { $ifNull: ['$durationTaskProfiles', []] }, as: 'task', cond: { $not: [{ $and: match }] } } }, [{ $literal: entry }]] } } }], { new: true });
+    if (!provider) return res.status(404).json({ message: 'Provider not found.' });
+    return res.json({ taskProfile: entry });
+  } catch (error) { return res.status(503).json({ message: 'Unable to save task details. Please retry.' }); }
+};

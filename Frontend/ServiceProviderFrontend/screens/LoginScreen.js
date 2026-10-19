@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import { IP_ADDRESS } from '../config';
+import { AUTH_SERVICE_URL } from '../config';
 import { saveCredentials } from '../utils/biometricAuth';
 import { debugAuthStorage, saveProviderLogin } from '../pages/IT22129376/services/providerAuthStorage';
 
-const API_URL = `http://${IP_ADDRESS}:4003`;
+const API_URL = AUTH_SERVICE_URL;
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -26,8 +26,6 @@ export default function LoginScreen({ navigation }) {
         email,
         password
       });
-
-      console.log('LOGIN RESPONSE:', response.data);
 
       const rawToken = response.data?.token || response.data?.accessToken || response.data?.data?.token;
       const cleanToken = typeof rawToken === 'string' ? rawToken.replace(/^Bearer\s+/i, '').trim() : '';

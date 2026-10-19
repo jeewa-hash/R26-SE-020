@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG } from '../config';
 
-const PROVIDER_SERVICE_URL = CONFIG?.PROVIDER_SERVICE_URL || 'http://localhost:3002';
+const PROVIDER_SERVICE_URL = CONFIG?.PROVIDER_SERVICE_URL || 'https://r26-se-020-production.up.railway.app';
 
 const billingApi = axios.create({
   baseURL: `${PROVIDER_SERVICE_URL}/api/provider/billing`,

@@ -17,7 +17,7 @@ export default function HelpScreen({ navigation }) {
     { id: 4, question: "How to cancel a booking?", answer: "Go to My Bookings, select the booking you want to cancel, and click 'Cancel'. Please note cancellation fees may apply.", category: "Bookings" },
     { id: 5, question: "Is my payment information secure?", answer: "Yes, we use industry-standard encryption to protect your payment information. We never store your full card details.", category: "Security" },
     { id: 6, question: "How do I contact a provider?", answer: "You can message providers directly through the chat feature in your bookings or from their profile page.", category: "Communication" },
-    { id: 7, question: "What is the refund policy?", answer: "Refunds are processed within 5-7 business days based on the service provider's cancellation policy.", category: "Payments" },
+    { id: 7, question: "What is the refund policy?", answer: "Discuss refund eligibility and timing with your provider before agreeing to payment terms.", category: "Payments" },
   ];
 
   const contactOptions = [

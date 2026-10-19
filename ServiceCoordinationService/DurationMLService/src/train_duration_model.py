@@ -38,13 +38,12 @@ NUMERIC_FEATURES = [
     "years_experience",
     "task_frequency_per_month",
     "planned_team_size",
-    "provider_estimated_duration_mins",
 ]
 
 FEATURES = CATEGORICAL_FEATURES + NUMERIC_FEATURES
 TARGET = "actual_duration_mins"
 GROUP_KEY = "provider_id"
-MODEL_VERSION = "duration-ridge-v1"
+MODEL_VERSION = "duration-v2-no-manual-estimate"
 
 
 def _time_to_minutes(value):
@@ -114,7 +113,7 @@ def build_training_dataset() -> pd.DataFrame:
     actual_duration = actual_duration.where(actual_duration >= 0, actual_duration + 1440)
     df[TARGET] = actual_duration
 
-    for col in NUMERIC_FEATURES + ["provider_typical_duration_mins"]:
+    for col in NUMERIC_FEATURES + ["provider_estimated_duration_mins", "provider_typical_duration_mins"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
     df = df[
@@ -123,7 +122,7 @@ def build_training_dataset() -> pd.DataFrame:
         & df[TARGET].notna()
     ].copy()
 
-    selected = [GROUP_KEY] + FEATURES + ["provider_typical_duration_mins", TARGET]
+    selected = [GROUP_KEY] + FEATURES + ["provider_estimated_duration_mins", "provider_typical_duration_mins", TARGET]
     df = df[selected]
 
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
@@ -141,7 +140,7 @@ def build_pipeline() -> Pipeline:
     categorical_pipeline = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("encoder", OneHotEncoder(handle_unknown="ignore")),
+            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
         ]
     )
     preprocessor = ColumnTransformer(

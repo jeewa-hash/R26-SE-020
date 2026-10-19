@@ -1,5 +1,6 @@
+import { startWindow } from '../services/bookingStartPolicy.js';
 import { getRequestQuotationById } from "../clients/seekerServiceClient.js";
-import Booking from "../models/Booking.js";
+import Booking, { notifyBookingLifecycle } from "../models/Booking.js";
 import mongoose from "mongoose";
 import BidCoordination from "../models/BidCoordination.js";
 import BidPriceEvaluation from "../models/BidPriceEvaluation.js";
@@ -72,7 +73,7 @@ const getBookingStartDate = (booking) => {
   }
 
   if (booking.scheduledDate && booking.startTime) {
-    const fallbackStartTime = new Date(`${booking.scheduledDate}T${booking.startTime}:00`);
+    const fallbackStartTime = new Date(`${booking.scheduledDate}T${booking.startTime}:00+05:30`);
     if (!Number.isNaN(fallbackStartTime.getTime())) return fallbackStartTime;
   }
 
@@ -81,18 +82,21 @@ const getBookingStartDate = (booking) => {
 
 const expireMissedBookings = async (ownerQuery = {}) => {
   const cutoff = addMinutes(new Date(), -START_WINDOW_MINUTES);
-  await Booking.updateMany(
-    {
-      ...ownerQuery,
-      bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
-      scheduledStartTime: { $ne: null, $lt: cutoff },
-      actualStartTime: null,
-    },
-    {
-      $set: { bookingStatus: "EXPIRED", expiredAt: new Date() },
-      $push: { timeline: { status: "EXPIRED", message: "Booking expired because it was not started within 45 minutes", at: new Date() } },
-    }
-  );
+  const missedQuery = {
+    ...ownerQuery,
+    bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
+    scheduledStartTime: { $ne: null, $lt: cutoff },
+    actualStartTime: null,
+  };
+  const candidates = await Booking.find(missedQuery).select('_id');
+  for (const candidate of candidates) {
+    // Keep the state predicate on the write so a job started concurrently cannot expire.
+    const expired = await Booking.findOneAndUpdate({ ...missedQuery, _id: candidate._id }, {
+      $set: { bookingStatus: 'EXPIRED', expiredAt: new Date() },
+      $push: { timeline: { status: 'EXPIRED', message: 'Booking expired because it was not started within 45 minutes', at: new Date() } },
+    }, { new: true });
+    if (expired) await notifyBookingLifecycle(expired, 'EXPIRED');
+  }
   const fallbackCandidates = await Booking.find({
     ...ownerQuery,
     bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
@@ -105,22 +109,19 @@ const expireMissedBookings = async (ownerQuery = {}) => {
 const getStartWindowError = (booking, now = new Date()) => {
   const scheduledStart = getBookingStartDate(booking);
   if (!scheduledStart) return "Booking does not have a valid scheduled start time";
-  const opensAt = scheduledStart;
-  const expiresAt = addMinutes(scheduledStart, START_WINDOW_MINUTES);
-  if (now < opensAt) return "This action is available from the scheduled start time";
-  if (now > expiresAt) return "This booking has passed the 45-minute start window";
-  return "";
+  return startWindow(scheduledStart, now).message;
 };
 
 const expireBookingIfMissed = async (booking) => {
   if (!["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"].includes(booking.bookingStatus) || booking.actualStartTime) return false;
   const start = getBookingStartDate(booking);
   if (!start || new Date() <= addMinutes(start, START_WINDOW_MINUTES)) return false;
-  booking.bookingStatus = "EXPIRED";
-  booking.expiredAt = new Date();
-  booking.timeline.push({ status: "EXPIRED", message: "Booking expired because it was not started within 45 minutes", at: new Date() });
-  await booking.save();
-  return true;
+  const expired = await Booking.findOneAndUpdate({ _id: booking._id, bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] }, actualStartTime: null, scheduledStartTime: booking.scheduledStartTime }, {
+    $set: { bookingStatus: 'EXPIRED', expiredAt: new Date() },
+    $push: { timeline: { status: 'EXPIRED', message: 'Booking expired because it was not started within 45 minutes', at: new Date() } },
+  }, { new: true });
+  if (expired) await notifyBookingLifecycle(expired, 'EXPIRED');
+  return Boolean(expired);
 };
 
 const getOngoingWindowEnd = () => addMinutes(new Date(), 24 * 60);
@@ -178,7 +179,7 @@ const LIVE_SUMMARY_FIELDS = [
   "startTime", "endTime", "estimatedDurationHours", "finalAmount", "currency",
   "bookingStatus", "delayRiskLevel", "providerReadyConfirmed",
   "providerReadyConfirmedAt", "onTheWayAt", "onTheWayBy", "actualStartTime", "startedBy", "actualEndTime", "completedAt", "completedBy", "expiredAt",
-  "delayInfo", "timeline",
+  "delayInfo", "timeline", "pendingRescheduleId",
 ].join(" ");
 const LIVE_SUMMARY_PROJECTION = Object.fromEntries(
   LIVE_SUMMARY_FIELDS.split(" ").map((field) => [field, 1])
@@ -908,20 +909,17 @@ export const startBooking = async (req, res) => {
     const actualStartTime = new Date();
     const scheduledStartTime = getBookingStartDate(booking);
 
-    booking.bookingStatus = "IN_PROGRESS";
-    booking.actualStartTime = actualStartTime;
-    booking.startedBy = "PROVIDER";
-    booking.startDelayMinutes = scheduledStartTime
-      ? Math.max(0, minutesBetween(scheduledStartTime, actualStartTime))
-      : 0;
-    booking.timeline.push({ status: "IN_PROGRESS", message: "Provider started the job", at: new Date() });
-
-    await booking.save();
+    const started = await Booking.findOneAndUpdate({ _id: booking._id, bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] }, actualStartTime: null, scheduledStartTime: booking.scheduledStartTime }, {
+      $set: { bookingStatus: 'IN_PROGRESS', actualStartTime, startedBy: 'PROVIDER', startDelayMinutes: scheduledStartTime ? Math.max(0, minutesBetween(scheduledStartTime, actualStartTime)) : 0 },
+      $push: { timeline: { status: 'IN_PROGRESS', message: 'Provider started the job', at: actualStartTime } },
+    }, { new: true });
+    if (!started) return res.status(409).json({ success: false, message: 'Booking status changed. Refresh before starting.' });
+    await notifyBookingLifecycle(started, 'IN_PROGRESS');
 
     return res.status(200).json({
       success: true,
       message: "Booking started successfully",
-      data: booking,
+      data: started,
     });
   } catch (error) {
     return res.status(500).json({

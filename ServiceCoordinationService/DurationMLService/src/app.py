@@ -26,6 +26,7 @@ app = FastAPI(
 model = None
 metadata = {}
 metrics = {}
+task_catalog = []
 
 
 class DurationPredictionRequest(BaseModel):
@@ -40,7 +41,7 @@ class DurationPredictionRequest(BaseModel):
 
 @app.on_event("startup")
 def load_assets():
-    global model, metadata, metrics
+    global model, metadata, metrics, task_catalog
 
     model = joblib.load(MODEL_PATH) if MODEL_PATH.exists() else None
     metadata = (
@@ -53,6 +54,9 @@ def load_assets():
         if METRICS_PATH.exists()
         else {}
     )
+
+    dataset_path = ROOT / "data" / "processed" / "duration_training_dataset.csv"
+    task_catalog = pd.read_csv(dataset_path)[["service_category", "service_type", "task_name"]].drop_duplicates().sort_values(["service_category", "service_type", "task_name"]).to_dict("records") if dataset_path.exists() else []
 
 
 @app.get("/health")
@@ -71,6 +75,7 @@ def model_info():
     return {
         "metadata": metadata,
         "metrics": metrics,
+        "taskCatalog": task_catalog,
     }
 
 
@@ -100,6 +105,8 @@ def predict_duration(request: DurationPredictionRequest):
             detail=f"Unable to generate duration prediction: {exc}",
         ) from exc
 
+    raw_prediction = prediction
+
     # A negative/near-zero regression output is not a meaningful service duration.
     prediction = max(1.0, prediction)
     rounded_prediction = int(round(prediction))
@@ -111,6 +118,21 @@ def predict_duration(request: DurationPredictionRequest):
     }
     supplied_optional = sum(value is not None for value in optional_fields.values())
 
+    # Preserve submitted values and distinguish median imputation from measured data.
+    preprocessor = model.named_steps["preprocessor"]
+    num_pipeline = preprocessor.named_transformers_["num"]
+    numeric_columns = list(preprocessor.transformers_[0][2])
+    medians = dict(zip(numeric_columns, num_pipeline.named_steps["imputer"].statistics_))
+    categorical_steps = preprocessor.named_transformers_["cat"].named_steps
+    encoder = categorical_steps.get("onehot", categorical_steps.get("encoder"))
+    categorical_columns = list(preprocessor.transformers_[1][2])
+    unseen = [column for column, categories in zip(categorical_columns, encoder.categories_)
+              if input_data.iloc[0][column] not in categories]
+    submitted = input_data.iloc[0].to_dict()
+    effective = {key: (float(medians[key]) if value is None or pd.isna(value) else value)
+                 for key, value in submitted.items()}
+    imputed = [key for key in numeric_columns if submitted[key] is None or pd.isna(submitted[key])]
+
     return {
         "predictedDurationMins": rounded_prediction,
         "predictedDurationHours": round(rounded_prediction / 60.0, 2),
@@ -121,4 +143,14 @@ def predict_duration(request: DurationPredictionRequest):
             "optionalFieldsTotal": len(optional_fields),
         },
         "source": "TRAINED_DURATION_MODEL",
+        "evidence": {
+            "submittedInputs": submitted,
+            "effectiveInputs": effective,
+            "imputedFields": imputed,
+            "unseenCategories": unseen,
+            "rawPredictionMins": raw_prediction,
+            "minimumDurationApplied": raw_prediction < 1,
+            "predictionTarget": "actual_duration_mins",
+            "note": "Duration prediction, not a delay-risk probability. Missing numeric values use training medians; unseen categorical values are ignored by the encoder.",
+        },
     }

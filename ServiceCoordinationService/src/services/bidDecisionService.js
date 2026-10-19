@@ -12,18 +12,18 @@ export const decideBidCoordination = ({ priceEvaluation, scheduleEvaluation }) =
     };
   }
 
-  if (scheduleEvaluation.delayRiskLevel === "High") {
+  // Travel feasibility is calculated from the previous job's end and location.
+  // Legacy ML delay-risk labels must not reject an otherwise available first job.
+  if (scheduleEvaluation.travelFeasible === false || scheduleEvaluation.coordinationStatus === "RESCHEDULE_REQUIRED") {
     return {
       finalDecision: "RESCHEDULE_REQUIRED",
-      recommendedAction:
-        "ML risk analysis indicates a high delay risk. Choose a validated alternative time.",
+      recommendedAction: scheduleEvaluation.coordinationReason || "There is not enough time to travel from the previous booking.",
     };
   }
 
-  if (scheduleEvaluation.delayRiskLevel === "Medium") {
+  if (scheduleEvaluation.coordinationStatus === "CAUTION") {
     finalDecision = "AVAILABLE_WITH_CAUTION";
-    recommendedAction =
-      "ML risk analysis indicates a medium delay risk. Seeker can proceed with caution.";
+    recommendedAction = scheduleEvaluation.coordinationReason || "Travel fits, but the remaining safety buffer is short.";
   }
 
   if (scheduleEvaluation.preferredTimeMatch === "OUTSIDE_PREFERENCE") {

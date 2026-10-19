@@ -4,6 +4,7 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeContext } from '../context/ThemeContext';
+import { openProviderInbox } from '../utils/providerFlowUi';
 import HeaderSection from './HeaderSection';
 
 export default function ProviderPageHeader({ navigation, title, subtitle, showBack = true }) {
@@ -18,7 +19,7 @@ export default function ProviderPageHeader({ navigation, title, subtitle, showBa
 
   return (
     <>
-      <HeaderSection navigation={navigation} onInboxPress={() => navigation.navigate('InboxScreen')} />
+      <HeaderSection navigation={navigation} onInboxPress={() => openProviderInbox(navigation)} />
       <View style={[styles.pageRow, { backgroundColor: colors.bg, borderBottomColor: colors.border }]}>
         {showBack ? (
           <TouchableOpacity style={[styles.backButton, { backgroundColor: colors.iconBg, borderColor: colors.border }]} onPress={() => navigation.goBack()}>

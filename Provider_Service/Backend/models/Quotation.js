@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const quotationSchema = new mongoose.Schema(
   {
+    taskHistorySnapshot: { type: mongoose.Schema.Types.Mixed },
+    modelInputSources: { type: mongoose.Schema.Types.Mixed },
+    durationTaskContext: { serviceCategory: String, serviceType: String, taskName: String },
+    yearsExperience: { type: Number, min: 0, default: null },
+    taskFrequencyPerMonth: { type: Number, min: 0, default: null },
+    plannedTeamSize: { type: Number, min: 1, default: null },
     workflowVersion: { type: Number },
     providerRequestId: {
       type: mongoose.Schema.Types.ObjectId,

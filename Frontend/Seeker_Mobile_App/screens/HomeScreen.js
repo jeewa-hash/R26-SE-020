@@ -1,3 +1,5 @@
+import FeedScreen from './FeedScreen';
+import { startServiceSearch } from '../utils/serviceSearchApi';
 import React, { useContext, useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import {
@@ -590,13 +592,15 @@ export default function HomeScreen() {
   } = useNotification();
 
   const [expandedId, setExpandedId] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [liveSummary, setLiveSummary] = useState(null);
   const [liveLoading, setLiveLoading] = useState(true);
   const [liveError, setLiveError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [feedRefreshKey, setFeedRefreshKey] = useState(0);
 
   const navigation = useNavigation();
 
@@ -629,6 +633,7 @@ export default function HomeScreen() {
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
+    setFeedRefreshKey(current => current + 1);
     loadLiveSummary(false);
   }, [loadLiveSummary]);
 
@@ -636,7 +641,7 @@ export default function HomeScreen() {
     ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
     : (isSi ? 'නියමිත කර නැත' : 'Not scheduled');
 
-  const openBookingDetails = (booking) => navigation.navigate('IT22129376ScheduledJobDetails', { booking });
+  const openBookingDetails = booking => navigation.navigate('SeekerServiceSessionDetails', { sessionId: String(booking.externalSessionId || booking.sessionId || `booking:${booking._id || booking.id}`), session: { booking, bookings: [booking] } });
 
   const renderLiveBooking = () => {
     if (liveLoading) return (
@@ -799,66 +804,14 @@ export default function HomeScreen() {
   };
 
   const handleSearch = async () => {
-    if (searchQuery.trim().length === 0) return;
-
+    if (!searchQuery.trim() || searching) return;
+    setSearching(true);
     try {
-      const token = await AsyncStorage.getItem('userToken');
-
-      if (!token) {
-        Alert.alert('Error', 'You are not logged in. Please log in again.');
-        return;
-      }
-
-      const appLanguage = language === 'si' ? 'si' : 'en';
-      const url = `${TEXT_MODEL_URL}/text-predict`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          text: searchQuery,
-          app_lan: appLanguage,
-        }),
-      });
-
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        const responseBody = await response.text();
-        console.error('Text service returned a non-JSON response:', {
-          url,
-          status: response.status,
-          body: responseBody.slice(0, 200),
-        });
-        Alert.alert(
-          'Text Service Error',
-          `The text service returned an invalid response (HTTP ${response.status}). Check the text model URL in your hosting settings and rebuild the app.`
-        );
-        return;
-      }
-
-      if (response.status === 401) {
-        Alert.alert('Session Expired', 'Please log in again.');
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.session_id) {
-        navigation.navigate('FollowUpScreen', {
-          initialMessage: searchQuery,
-          backendResponse: data,
-          source: 'text',
-        });
-      } else {
-        Alert.alert('Error', data.error || 'Unable to process your request.');
-      }
+      const data = await startServiceSearch(searchQuery, language);
+      navigation.navigate('FollowUpScreen', { initialMessage: searchQuery.trim(), backendResponse: data, source: 'text' });
     } catch (error) {
-      console.error('Search error:', error);
-      Alert.alert('Network Error', 'Could not connect to the service.');
-    }
+      if (Platform.OS === 'web') window.alert(error.message); else Alert.alert('Unable to find services', error.message);
+    } finally { setSearching(false); }
   };
 
   const handleImageUpload = async () => {
@@ -1062,6 +1015,7 @@ export default function HomeScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
+              editable={!searching}
               onSubmitEditing={handleSearch}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
@@ -1081,15 +1035,14 @@ export default function HomeScreen() {
             )}
 
             <TouchableOpacity
-              onPress={() => setShowFilters(!showFilters)}
+              accessibilityRole="button" accessibilityLabel={searching ? 'Finding services' : 'Find a service'}
+              disabled={searching}
+              onPress={() => searchQuery.trim() ? handleSearch() : navigation.navigate('FindService')}
               style={[styles.filterIcon, isDarkMode && styles.filterIconDark]}
             >
-              <Feather
-                name="sliders"
-                size={17}
-                color={isDarkMode ? P.slate400 : P.slate500}
-              />
+              {searching ? <ActivityIndicator size="small" color="#6366F1" /> : <Feather name="arrow-right" size={20} color={isDarkMode ? '#818cf8' : '#4F46E5'} />}
             </TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search filters" accessibilityState={{ expanded: showFilters }} onPress={() => setShowFilters(value => !value)} style={{ padding: 6 }}><Feather name="sliders" size={17} color={isDarkMode ? P.slate400 : P.slate500} /></TouchableOpacity>
           </View>
 
           {showFilters && (
@@ -1229,6 +1182,18 @@ export default function HomeScreen() {
 
         {/* ── All Services ── */}
         <View style={styles.sectionHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>{isSi ? 'සේවා සපයන්නන්ගේ පළ කිරීම්' : 'Provider Feed'}</Text>
+            <Text style={[styles.sectionSubtitle, isDarkMode && styles.textMutedDark]}>{isSi ? 'නවතම සේවා සහ මිල ගණන් ඉල්ලීම්' : 'Discover services and request a quotation'}</Text>
+          </View>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="View all provider posts" style={styles.seeAllBtn} onPress={() => navigation.navigate('FeedScreen')}>
+            <Text style={[styles.seeAllText, isDarkMode && styles.seeAllTextDark]}>{isSi ? 'සියල්ල' : 'View All'}</Text>
+            <Feather name="arrow-right" size={14} color={isDarkMode ? '#818cf8' : '#4F46E5'} />
+          </TouchableOpacity>
+        </View>
+        <FeedScreen navigation={navigation} embedded limit={3} refreshKey={feedRefreshKey} />
+
+        <View style={styles.sectionHeader}>
           <View>
             <Text style={[styles.sectionEyebrow, isDarkMode && styles.textMutedDark]}>
               {isSi ? 'කාණ්ඩ' : 'Categories'}
@@ -1238,7 +1203,7 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.seeAllBtn}>
+          <TouchableOpacity style={styles.seeAllBtn} onPress={() => navigation.navigate('FindService')}>
             <Text style={[styles.seeAllText, isDarkMode && styles.seeAllTextDark]}>
               {isSi ? 'සියල්ල' : (t('home_see_all') || 'See all')}
             </Text>
@@ -1740,6 +1705,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 12,
   },
+  sectionSubtitle: { fontSize: 12, color: '#64748B', marginTop: 4 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',

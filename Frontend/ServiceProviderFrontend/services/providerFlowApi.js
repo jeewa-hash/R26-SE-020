@@ -1,8 +1,8 @@
+import { fetchProviderWithTimeout as fetchWithTimeout, PROVIDER_REQUEST_TIMEOUT_MS } from '../utils/providerHttp';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking, Platform } from 'react-native';
 import {
   CONFIG,
-  IP_ADDRESS,
 } from '../config';
 
 const uniqueUrls = (items) => {
@@ -17,13 +17,11 @@ const uniqueUrls = (items) => {
 const SEEKER_URLS = uniqueUrls([
   CONFIG?.SEEKER_SERVICE_URL,
   CONFIG?.API_BASE_URL,
-  `http://${IP_ADDRESS}:6000`,
 ]);
 
 const PROVIDER_URLS = uniqueUrls([
   CONFIG?.PROVIDER_SERVICE_API_URL,
   CONFIG?.PROVIDER_SERVICE_URL,
-  `http://${IP_ADDRESS}:3002`,
 ]);
 
 const COORDINATION_URLS = uniqueUrls([
@@ -68,18 +66,9 @@ const readJson = async (response) => {
   }
 };
 
-const fetchWithTimeout = async (url, options = {}, timeoutMs = 3500) => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-};
 
-const requestFirstSuccess = async ({ urls, paths, options = {}, label }) => {
+
+const requestFirstSuccess = async ({ urls, paths, options = {}, label, timeoutMs = PROVIDER_REQUEST_TIMEOUT_MS }) => {
   let lastError = null;
   const headers = await buildAuthHeaders();
 
@@ -93,15 +82,18 @@ const requestFirstSuccess = async ({ urls, paths, options = {}, label }) => {
             ...headers,
             ...(options.headers || {}),
           },
-        });
+        }, timeoutMs);
         const data = await readJson(response);
         if (response.ok) {
           return data;
         }
         const message = data?.message || data?.error || `HTTP ${response.status}`;
-        lastError = new Error(message);
+        const error = new Error(message);
+        error.status = response.status;
+        // A missing compatibility route must not hide a timeout or server failure.
+        if (!lastError || response.status !== 404) lastError = error;
       } catch (error) {
-        lastError = error;
+        if (!lastError || error.status !== 404) lastError = error;
       }
     }
   }
@@ -132,18 +124,21 @@ export const getProviderQuotations = async () => {
   return normalizeArrayResponse(payload);
 };
 
-export const getProviderBookings = async (providerId) => {
-  const payload = await requestFirstSuccess({
-    urls: COORDINATION_URLS,
-    paths: [
-      '/bookings/provider/me',
-      `/bookings/provider/${providerId}`,
-      '/calendar/provider/me',
-      `/calendar/provider/${providerId}`,
-    ],
-    label: 'provider bookings',
-  });
-  return normalizeArrayResponse(payload);
+// Share simultaneous booking reads across Home/My Jobs; do not cache completed reads.
+const bookingReads = new Map();
+export const getProviderBookings = (providerId) => {
+  const key = String(providerId || 'me');
+  if (bookingReads.has(key)) return bookingReads.get(key);
+  const read = (async () => {
+    const payload = await requestFirstSuccess({
+      urls: COORDINATION_URLS,
+      paths: ['/bookings/provider/me', ...(providerId ? [`/bookings/provider/${providerId}`] : [])],
+      label: 'provider bookings',
+    });
+    return normalizeArrayResponse(payload);
+  })().finally(() => bookingReads.delete(key));
+  bookingReads.set(key, read);
+  return read;
 };
 
 export const getProviderBookingById = async (bookingId) => {
@@ -156,22 +151,9 @@ export const getProviderBookingById = async (bookingId) => {
   return payload?.data || payload?.booking || payload;
 };
 
-export const getProviderOngoingBookings = async (providerId) => {
-  try {
-    const payload = await requestFirstSuccess({
-      urls: COORDINATION_URLS,
-      paths: [
-        '/bookings/provider/me/ongoing',
-        `/bookings/provider/${providerId}/ongoing`,
-      ],
-      label: 'provider ongoing bookings',
-    });
-    return normalizeArrayResponse(payload);
-  } catch (error) {
-    const all = await getProviderBookings(providerId);
-    return all.filter(isOngoingBooking);
-  }
-};
+// The full booking list is authoritative; avoid an extra /ongoing request.
+export const getProviderOngoingBookings = async (providerId) =>
+  (await getProviderBookings(providerId)).filter(isOngoingBooking);
 
 export const getProviderLiveSummary = async (providerId) => {
   if (!providerId) throw new Error('Provider ID is required.');
@@ -261,6 +243,9 @@ export const submitProviderQuotation = async (payload) => {
       body: JSON.stringify(payload),
     },
     label: 'submit quotation',
+    // Creation waits for the availability preflight (30s) and coordination
+    // validation (60s), in addition to fetching the seeker request (10s).
+    timeoutMs: 120000,
   });
   return { ...(responsePayload?.data || responsePayload), message: responsePayload?.message, validationPending: responsePayload?.validationPending };
 };
@@ -272,10 +257,10 @@ export const getBookingStatus = (booking) => String(booking?.bookingStatus || 'C
 export const isOngoingBooking = (booking) => {
   const status = getBookingStatus(booking);
   if (status === 'ON_THE_WAY' || status === 'IN_PROGRESS' || status === 'DELAY_REPORTED') return true;
-  if (status !== 'CONFIRMED') return false;
+  if (!['CONFIRMED', 'RESCHEDULED'].includes(status)) return false;
 
   const start = getBookingStartDate(booking);
-  if (!start) return false;
+  if (!start) return true;
 
   const now = new Date();
   const next24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -428,3 +413,37 @@ export const openLocationInMaps = async ({ latitude, longitude, address, label }
   else await Linking.openURL(url);
   return true;
 };
+
+export const getProviderRequestById = async (id) => {
+  const result = await requestFirstSuccess({ urls: SEEKER_URLS, paths: [`/request-quotations/${id}`], label: 'request details' });
+  return result?.request || result?.data || result;
+};
+export const getProviderQuotationById = async (id) => {
+  const result = await requestFirstSuccess({ urls: PROVIDER_URLS, paths: [`/api/provider/quotations/${id}`], label: 'quotation details' });
+  return result?.data || result?.quotation || result;
+};
+export const retryProviderQuotation = async (id) => requestFirstSuccess({
+  urls: PROVIDER_URLS, paths: [`/api/provider/quotations/${id}/validate`],
+  options: { method: 'POST' }, label: 'quotation validation', timeoutMs: 90000,
+});
+export const askSeekerToReschedule = async (id, reason) => requestFirstSuccess({
+  urls: SEEKER_URLS, paths: [`/request-quotations/${id}/reschedule-request`],
+  options: { method: 'PATCH', body: JSON.stringify({ reason }) }, label: 'request a new time',
+});
+
+export const getCoordinationEvidence = async id => {
+  const result = await requestFirstSuccess({ urls: COORDINATION_URLS, paths: [`/bid-coordinations/${id}`], label: 'duration estimate details' });
+  return result.data || result;
+};
+
+export const getDurationTasks = async () => {
+  const result = await requestFirstSuccess({ urls: COORDINATION_URLS, paths: ['/duration/model-tasks'], label: 'model tasks' });
+  return result.data || [];
+};
+
+export const getProviderModelProfile = async () => {
+  const result = await requestFirstSuccess({ urls: [CONFIG.AUTH_SERVICE_URL], paths: ['/profile'], label: 'Provider task profile' });
+  return result.provider;
+};
+
+export const getProviderTaskHistory = async () => requestFirstSuccess({ urls: COORDINATION_URLS, paths: ['/duration/provider-task-history'], label: 'Completed task history' });

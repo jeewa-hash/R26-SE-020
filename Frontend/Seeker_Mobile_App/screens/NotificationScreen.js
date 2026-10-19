@@ -1,3 +1,4 @@
+import { seekerNotificationDestination } from '../utils/seekerNotifications';
 import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect } from 'react';
 import {
@@ -16,22 +17,19 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS, AUTH_SERVICE_URL, PROVIDER_SERVICE_URL } from '../config';
 import { useTheme } from '../hooks/useTheme';
 import { useNotification } from '../context/NotificationContext';
-
-const API_URL = AUTH_SERVICE_URL
-  ? `${AUTH_SERVICE_URL}/seeker`
-  : `http://${IP_ADDRESS}:4003/seeker`;
-const QUOTATIONS_URL = `${PROVIDER_SERVICE_URL}/api/provider/quotations/seeker/me`;
-const READ_QUOTES_KEY = 'readQuotes';
 
 export default function NotificationScreen({ navigation }) {
   const { isDarkMode } = useTheme();
   const {
+    notifications: liveNotifications,
+    loading: inboxLoading,
     markAsRead: markHomeNotificationAsRead,
     markAllAsRead: markAllHomeNotificationsAsRead,
+    clearNotifications,
+    syncNotifications,
+    syncError,
   } = useNotification();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,174 +38,27 @@ export default function NotificationScreen({ navigation }) {
 
   useEffect(() => {
     fetchAllNotifications();
-    const intervalId = setInterval(() => fetchAllNotifications(false), 15000);
-    return () => clearInterval(intervalId);
-  }, []);
+    return navigation.addListener('focus', () => fetchAllNotifications(false));
+  }, [navigation, syncNotifications]);
+  useEffect(() => { setNotifications(liveNotifications); }, [liveNotifications]);
 
-  // ========== Helper functions for persistent read status ==========
-  const getReadQuoteIds = async () => {
-    try {
-      const stored = await AsyncStorage.getItem(READ_QUOTES_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
+  const showUpdateError = () => {
+    if (Platform.OS === 'web') window.alert('Unable to update notifications. Please retry.');
+    else Alert.alert('Update failed', 'Unable to update notifications. Please retry.');
   };
-
-  const saveReadQuoteId = async (id) => {
-    try {
-      const current = await getReadQuoteIds();
-      if (!current.includes(id)) {
-        current.push(id);
-        await AsyncStorage.setItem(READ_QUOTES_KEY, JSON.stringify(current));
-      }
-    } catch (e) {
-      console.warn('Failed to save read quote ID:', e);
-    }
-  };
-
-  // ========== Fetch notifications ==========
   const fetchAllNotifications = async (showLoading = true) => {
-    if (showLoading && !refreshing) setLoading(true);
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) {
-        setNotifications([]);
-        setLoading(false);
-        return;
-      }
-
-      // 1. Auth service notifications
-      let authNotifications = [];
-      try {
-        const authRes = await fetch(`${API_URL}/notifications`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (authRes.ok) {
-          const authData = await authRes.json();
-          authNotifications = Array.isArray(authData) ? authData : (authData.data || []);
-        }
-      } catch (err) {
-        console.warn('Auth notifications fetch failed:', err);
-      }
-
-      // 2. Quotations from provider service
-      let quoteNotifications = [];
-      try {
-        const quoteRes = await fetch(QUOTATIONS_URL, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const quoteData = await quoteRes.json();
-
-        if (quoteData.success && quoteData.data) {
-          const readIds = await getReadQuoteIds();
-
-          quoteNotifications = quoteData.data.map((quote) => {
-            const id = `quote_${quote._id}`;
-            return {
-              _id: id,
-              type: 'quote',
-              title: `New Quote: LKR ${quote.price}`,
-              message: quote.notes || `Duration: ${quote.durationText || '1 day'}`,
-              createdAt: quote.createdAt,
-              isRead: readIds.includes(id),
-              icon: 'document-text',
-              iconColor: '#8B5CF6',
-              action: 'View Quote',
-              quoteId: quote._id,
-              providerRequestId: quote.providerRequestId,
-              providerId: quote.providerId?._id || quote.providerId,
-              price: quote.price,
-              duration: quote.durationText,
-              status: quote.status,
-              providerName: quote.providerId?.name || 'Provider',
-            };
-          });
-        }
-      } catch (err) {
-        console.warn('Quotations fetch failed:', err);
-      }
-
-      // 3. Merge and sort (newest first)
-      const combined = [...authNotifications, ...quoteNotifications].sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-      );
-      setNotifications(combined);
-    } catch (error) {
-      console.error('Failed to fetch notifications', error);
-      setNotifications([]);
-    } finally {
-      if (showLoading) setLoading(false);
-      setRefreshing(false);
-    }
+    if (showLoading) setLoading(true);
+    try { await syncNotifications(false); }
+    finally { setLoading(false); setRefreshing(false); }
   };
-
-  // ========== Mark as read ==========
-  const markAsRead = async (id) => {
-    if (id.startsWith('quote_')) {
-      await saveReadQuoteId(id);
-      markHomeNotificationAsRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
-      );
-      return;
-    }
-
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      const response = await fetch(`${API_URL}/notifications/${id}/read`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.ok) {
-        markHomeNotificationAsRead(id);
-        setNotifications((prev) =>
-          prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
-        );
-      }
-    } catch (err) {
-      console.error('Failed to mark notification as read', err);
-    }
+  const markAsRead = async id => {
+    if (!await markHomeNotificationAsRead(id)) showUpdateError();
   };
-
-  // ========== Mark all as read ==========
   const markAllAsRead = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      await fetch(`${API_URL}/notifications/read-all`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const quoteIds = notifications
-        .filter((n) => n.type === 'quote')
-        .map((n) => n._id);
-      for (const id of quoteIds) {
-        await saveReadQuoteId(id);
-      }
-
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      markAllHomeNotificationsAsRead();
-    } catch (err) {
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-      markAllHomeNotificationsAsRead();
-      console.error('Failed to mark all as read', err);
-    }
+    if (!await markAllHomeNotificationsAsRead()) showUpdateError();
   };
-
-  // ========== Clear all ==========
   const clearAll = async () => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      await fetch(`${API_URL}/notifications`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setNotifications([]);
-    } catch (err) {
-      setNotifications([]);
-      console.error('Failed to clear notifications', err);
-    }
+    if (!await clearNotifications()) showUpdateError();
   };
 
   // ========== Helpers ==========
@@ -256,7 +107,7 @@ export default function NotificationScreen({ navigation }) {
         iconName = 'gavel';
         break;
       case 'quote':
-        iconName = 'document-text';
+        iconName = 'description';
         iconColor = '#8B5CF6';
         bgColor = '#8B5CF615';
         break;
@@ -273,18 +124,8 @@ export default function NotificationScreen({ navigation }) {
         ]}
         onPress={() => {
           if (!item.isRead) markAsRead(item._id);
-          if (item.type === 'quote') {
-            if (item.providerRequestId) {
-              navigation.navigate('RequestQuotationDetails', {
-                requestId: item.providerRequestId,
-                request: null,
-                providerId: item.providerId,
-                quoteId: item.quoteId,
-              });
-            } else {
-              Alert.alert('Error', 'Request ID not found for this quotation.');
-            }
-          }
+          const target = seekerNotificationDestination(item);
+          navigation.navigate(target.name, target.params);
         }}
       >
         <View style={[styles.iconContainer, { backgroundColor: bgColor }]}>
@@ -314,7 +155,7 @@ export default function NotificationScreen({ navigation }) {
   };
 
   // ========== Loading state ==========
-  if (loading) {
+  if (loading || inboxLoading) {
     return (
       <SafeAreaView style={[styles.safeArea, isDarkMode && styles.safeAreaDark]}>
         <StatusBar
@@ -406,6 +247,7 @@ export default function NotificationScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
+        {syncError ? <TouchableOpacity accessibilityRole="button" onPress={() => fetchAllNotifications()}><Text accessibilityRole="alert" style={{ padding: 16, color: isDarkMode ? '#FCD34D' : '#92400E' }}>{syncError} Tap to retry.</Text></TouchableOpacity> : null}
         {/* Notification list */}
         {getFilteredNotifications().length === 0 ? (
           <View style={styles.center}>
@@ -414,8 +256,8 @@ export default function NotificationScreen({ navigation }) {
               size={60}
               color={isDarkMode ? '#334155' : '#d1d5db'}
             />
-            <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>No notifications</Text>
-            <Text style={[styles.emptySubtitle, isDarkMode && styles.textMutedDark]}>You're all caught up!</Text>
+            <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>{syncError ? 'Notifications unavailable' : 'No notifications'}</Text>
+            <Text style={[styles.emptySubtitle, isDarkMode && styles.textMutedDark]}>{syncError ? 'Refresh to check your latest updates.' : "You're all caught up!"}</Text>
           </View>
         ) : (
           <FlatList

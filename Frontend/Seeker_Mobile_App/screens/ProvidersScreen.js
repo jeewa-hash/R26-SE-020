@@ -1,3 +1,6 @@
+import { useChat } from '../context/ChatContext';
+import { openProviderConversation } from '../utils/seekerChat';
+import { showRequestSent } from '../utils/seekerFeedback';
 import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect } from "react";
 import {
@@ -73,6 +76,7 @@ export default function ProvidersScreen({ route, navigation }) {
 
   const { isDarkMode } = useTheme();
   const { user } = useAuth();
+  const { createOrGetChat } = useChat();
   const [seekerId, setSeekerId] = useState(null);
 
   const [selectedProvider, setSelectedProvider] = useState(null);
@@ -245,17 +249,11 @@ export default function ProvidersScreen({ route, navigation }) {
     });
   };
 
-  const handleChat = (item) => {
-    const provider = item.provider || {};
-    Alert.alert("Start Chat", `Start a conversation with ${getProviderName(provider)}?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Start Chat",
-        onPress: () => {
-          Alert.alert("Chat", `Chat with ${getProviderName(provider)} started!`);
-        },
-      },
-    ]);
+  const handleChat = async item => {
+    const provider = item.provider || item;
+    try {
+      await openProviderConversation({ navigation, createOrGetChat, seekerId, providerId: provider.id || provider._id, providerName: getProviderName(provider) });
+    } catch (error) { Alert.alert('Unable to open chat', error.message); }
   };
 
   const renderStars = () => {
@@ -653,12 +651,8 @@ export default function ProvidersScreen({ route, navigation }) {
                           borderColor: "#059669",
                         },
                       ]}
-                      onPress={() =>
-                        Alert.alert(
-                          "Quotation Requested",
-                          `You have already requested a quotation from ${providerName}. Only 1 quotation request is allowed per provider for this service requirement.`
-                        )
-                      }
+                      disabled
+                      accessibilityState={{ disabled: true }}
                     >
                       <Ionicons
                         name="checkmark-circle"
@@ -727,13 +721,11 @@ export default function ProvidersScreen({ route, navigation }) {
         defaultLocation={summary.provider_matching?.criteria?.service_location || ""}
         defaultUrgency={summary.urgency_level || "Normal"}
         onClose={() => setQuotationModalVisible(false)}
+        onAlreadyRequested={(_, providerId) => { setRequestedProviderIds(prev => new Set([...prev, String(providerId)])); setQuotationModalVisible(false); }}
         onSuccess={(_, providerId) => {
           setRequestedProviderIds((prev) => new Set([...prev, String(providerId)]));
           setQuotationModalVisible(false);
-          Alert.alert(
-            "Request sent",
-            "Quotation request sent successfully. You can track provider responses in My Jobs."
-          );
+          showRequestSent(navigation);
         }}
       />
     </SafeAreaView>

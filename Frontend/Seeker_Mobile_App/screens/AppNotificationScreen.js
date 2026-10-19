@@ -61,7 +61,7 @@ export default function NotificationsScreen() {
       message: '3 providers have placed bids on your cleaning service post.',
       time: '3 hours ago',
       read: true,
-      icon: 'gavel',
+      icon: 'hammer',
       iconColor: '#F59E0B',
       action: 'View Bids',
     },
@@ -256,7 +256,8 @@ export default function NotificationsScreen() {
     const map = {
       'checkmark-circle': 'checkmark-circle',
       chatbubble: 'chatbubble-outline',
-      gavel: 'gavel',
+      gavel: 'hammer',
+      hammer: 'hammer',
       star: 'star-outline',
       card: 'card-outline',
       time: 'time-outline',
@@ -348,7 +349,7 @@ export default function NotificationsScreen() {
               style={[styles.tab, activeTab === 'bid' && styles.activeTab]}
               onPress={() => setActiveTab('bid')}
             >
-              <Ionicons name="gavel" size={16} color={activeTab === 'bid' ? '#fff' : '#6B7280'} />
+              <Ionicons name="hammer" size={16} color={activeTab === 'bid' ? '#fff' : '#6B7280'} />
               <Text style={[styles.tabText, activeTab === 'bid' && styles.activeTabText]}>
                 Bids
               </Text>
