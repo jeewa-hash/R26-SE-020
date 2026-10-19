@@ -57,14 +57,14 @@ export async function validateProviderSchedule({
 
   if (configuredSlots.length > 0) {
     const containingSlot = configuredSlots.find((slot) => requestedStartTime >= slot.startTime && requestedEndTime <= slot.endTime);
-    if (!containingSlot) return { isValid: false, validationStatus: "CONFLICT", message: "Provider is not available at the proposed time.", providerBookingsToday: 0 };
+    if (!containingSlot) return { isValid: false, validationStatus: "CONFLICT", message: `Requested ${requestedDay} ${requestedStartTime}–${requestedEndTime} is outside your date-specific hours (${configuredSlots.map(slot => `${slot.startTime}–${slot.endTime}`).join(", ")}). The whole job must fit within an available slot.`, providerBookingsToday: 0 };
   } else if (weeklyDay) {
     if (!weeklyDay.isAvailable) {
       return { isValid: false, validationStatus: "CONFLICT", message: `Provider is not available on ${requestedDay}`, providerBookingsToday: 0 };
     }
     const containingWeeklySlot = (weeklyDay.slots || []).find((slot) => requestedStartTime >= slot.startTime && requestedEndTime <= slot.endTime);
     if (!containingWeeklySlot) {
-      return { isValid: false, validationStatus: "CONFLICT", message: "Provider is not available at the proposed time.", providerBookingsToday: 0 };
+      return { isValid: false, validationStatus: "CONFLICT", message: `Requested ${requestedDay} ${requestedStartTime}–${requestedEndTime} is outside your saved ${requestedDay} hours (${(weeklyDay.slots || []).map(slot => `${slot.startTime}–${slot.endTime}`).join(", ") || "none"}). Update ${requestedDay} availability or ask the customer for another time. The whole job must fit within your hours.`, providerBookingsToday: 0 };
     }
   } else if (!availability.availableDays.includes(requestedDay)) {
     return {

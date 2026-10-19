@@ -206,12 +206,14 @@ export default function NotificationScreen({ navigation }) {
       if (!userId) return;
 
       socketRef.current = io(API_URL, {
-        transports: ['websocket'],
+        transports: ['polling', 'websocket'],
+        tryAllTransports: true,
         auth: { token },
         reconnection: true,
       });
 
       socketRef.current.on('connect', () => {
+        fetchNotifications(false);
         if (userId) {
           socketRef.current.emit('join_notification_room', userId);
           socketRef.current.emit('join', userId);
@@ -361,7 +363,7 @@ export default function NotificationScreen({ navigation }) {
 
   const markAsRead = async (id) => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const { token } = await getStoredProviderAuth();
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
       );
@@ -379,7 +381,7 @@ export default function NotificationScreen({ navigation }) {
 
   const markAllAsRead = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const { token } = await getStoredProviderAuth();
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
 
       if (token) {
@@ -395,7 +397,7 @@ export default function NotificationScreen({ navigation }) {
 
   const clearAll = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const { token } = await getStoredProviderAuth();
       setNotifications([]);
 
       if (token) {

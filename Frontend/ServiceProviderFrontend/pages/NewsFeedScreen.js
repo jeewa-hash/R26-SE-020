@@ -1077,16 +1077,18 @@ export default function NewsFeedScreen() {
           >
             {quickCategories.map((category) => {
               const isActive = selectedCategory === category;
-              const color = category === 'All' ? '#166534' : CATEGORY_COLORS[category] || '#166534';
               const icon = getCategoryIcon(category);
 
               return (
                 <TouchableOpacity
                   key={category}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
                   onPress={() => setSelectedCategory(category)}
                   style={[
                     styles.quickCategoryChip,
                     isActive && styles.quickCategoryChipActive,
+                    isActive && { backgroundColor: isDark ? '#203B2A' : '#E8F4EC', borderColor: isDark ? '#477454' : '#A8CEB4' },
                     !isActive && {
                       backgroundColor: isDark ? '#161C18' : '#F1F5F9',
                       borderColor: isDark ? '#303C33' : '#D8E8DC',
@@ -1094,37 +1096,8 @@ export default function NewsFeedScreen() {
                   ]}
                   activeOpacity={0.7}
                 >
-                  {isActive ? (
-                    <LinearGradient
-                      colors={[color, `${color}BB`]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.chipGradient}
-                    >
-                      <MaterialIcons name={icon} size={17} color="#FFF" />
-
-                      <Text style={[styles.quickCategoryText, styles.quickCategoryTextActive]}>
-                        {category}
-                      </Text>
-                    </LinearGradient>
-                  ) : (
-                    <>
-                      <MaterialIcons
-                        name={icon}
-                        size={17}
-                        color={isDark ? '#94A3B8' : '#64748B'}
-                      />
-
-                      <Text
-                        style={[
-                          styles.quickCategoryText,
-                          { color: isDark ? '#CBD5E1' : '#374151' },
-                        ]}
-                      >
-                        {category}
-                      </Text>
-                    </>
-                  )}
+                  <MaterialIcons name={icon} size={16} color={isActive ? (isDark ? '#86EFAC' : '#166534') : isDark ? '#94A3B8' : '#64748B'} />
+                  <Text style={[styles.quickCategoryText, { color: isActive ? (isDark ? '#86EFAC' : '#166534') : isDark ? '#CBD5E1' : '#475569', fontWeight: isActive ? '700' : '500' }]}>{category}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -1133,7 +1106,7 @@ export default function NewsFeedScreen() {
 
         {/* Toggle: All Jobs vs Applied - Modern Design */}
         <View style={styles.toggleSection}>
-          <Surface style={[styles.toggleContainer, {
+          <View style={[styles.toggleContainer, {
             backgroundColor: isDark ? '#303C33' : '#F3F4F6',
             borderColor: isDark ? '#3A3A3C' : '#D8E8DC',
           }]}>
@@ -1192,7 +1165,7 @@ export default function NewsFeedScreen() {
                 </View>
               )}
             </TouchableOpacity>
-          </Surface>
+          </View>
         </View>
 
         {showApplied ? (
@@ -1617,7 +1590,7 @@ const styles = StyleSheet.create({
   },
 
   quickCategoriesWrapper: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
 
   quickCategoriesScroll: {
@@ -1629,30 +1602,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 25,
+    minHeight: 42,
+    borderRadius: 12,
     borderWidth: 1,
     position: 'relative',
   },
 
-  quickCategoryChipActive: {
-    borderWidth: 0,
-    elevation: 4,
-    shadowColor: '#166534',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  chipGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 25,
-    margin: -1,
-  },
+  quickCategoryChipActive: { borderWidth: 1 },
   quickCategoryText: {
     fontSize: 13,
     fontWeight: '500',
@@ -1669,36 +1627,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  toggleContainer: {
-    flexDirection: 'row',
-    borderRadius: 14,
-    padding: 4,
-    borderWidth: 1,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-
-  toggleOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 11,
-  },
-
-  toggleOptionActive: {
-    elevation: 2,
-    shadowColor: '#166534',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-
+  toggleContainer: { flexDirection: 'row', borderRadius: 13, padding: 4, borderWidth: 1 },
+  toggleOption: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 10, borderRadius: 9 },
+  toggleOptionActive: {},
   toggleOptionText: {
     fontSize: 14,
     fontWeight: '500',

@@ -27,8 +27,6 @@ export default function LoginScreen({ navigation }) {
         password
       });
 
-      console.log('LOGIN RESPONSE:', response.data);
-
       const rawToken = response.data?.token || response.data?.accessToken || response.data?.data?.token;
       const cleanToken = typeof rawToken === 'string' ? rawToken.replace(/^Bearer\s+/i, '').trim() : '';
 

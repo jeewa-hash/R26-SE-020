@@ -1,3 +1,4 @@
+import { useNotification } from '../../context/NotificationContext';
 import { fetchSeekerWithTimeout as fetch } from '../../utils/seekerHttp';
 import { buildSeekerSessions, seekerSessionGuidance } from '../../utils/seekerSessions';
 import PageHeader from '../../components/PageHeader';
@@ -31,7 +32,8 @@ import { CONFIG } from '../../config';
 
 const SEEKER_SERVICE_URL = CONFIG.SEEKER_SERVICE_URL;
 
-const TABS = ['All', 'Active', 'Scheduled', 'Ongoing', 'History'];
+const TABS = ['All', 'Ongoing', 'Active', 'Scheduled', 'History', 'Drafts'];
+const tabLabel = tab => tab === 'Active' ? 'Requests' : tab;
 
 const normalizeList = (data) => {
   if (Array.isArray(data)) return data;
@@ -126,7 +128,7 @@ const getPreferredTime = (session) => {
 };
 
 const formatDateTime = (value) => {
-  if (!value) return 'Flexible time';
+  if (!value) return 'Start time not chosen';
 
   const date = new Date(value);
 
@@ -143,12 +145,12 @@ const formatDateTime = (value) => {
 };
 
 const formatCreatedDate = (value) => {
-  if (!value) return 'Recently';
+  if (!value) return '';
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return 'Recently';
+    return '';
   }
 
   return date.toLocaleString(undefined, {
@@ -191,11 +193,11 @@ function SessionTabBar({ activeTab, onTabChange, counts, isDarkMode }) {
               key={tab}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
-              accessibilityLabel={`${tab} sessions, ${counts[tab] || 0}`}
+              accessibilityLabel={`${tabLabel(tab)} sessions, ${counts[tab] || 0}`}
               onPress={() => onTabChange(tab)}
               style={[styles.tab, isDarkMode && styles.tabDark, selected && styles.tabActive, selected && isDarkMode && styles.tabActiveDark]}
             >
-              <Text style={[styles.tabText, isDarkMode && styles.textMutedDark, selected && styles.tabTextActive]}>{tab}</Text>
+              <Text style={[styles.tabText, isDarkMode && styles.textMutedDark, selected && styles.tabTextActive]}>{tabLabel(tab)}</Text>
               <View style={[styles.countPill, isDarkMode && styles.countPillDark, selected && styles.countPillActive]}>
                 <Text style={[styles.countText, isDarkMode && styles.textMutedDark, selected && styles.countTextActive]}>{counts[tab] || 0}</Text>
               </View>
@@ -242,6 +244,7 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
       onPress={onPress}
       activeOpacity={0.88}
     >
+      <View style={styles.sourceRow}><Ionicons name={session.origin?.icon || 'layers-outline'} size={14} color={COLORS.primary} /><Text style={[styles.sourceText, isDarkMode && styles.textMutedDark]}>{session.origin?.label || 'Source not recorded'}</Text></View>
       <View style={styles.cardTopRow}>
         <View style={styles.titleBlock}>
           <Text style={[styles.cardTitle, isDarkMode && styles.textDark]} numberOfLines={2}>
@@ -264,10 +267,10 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
       <Text style={[styles.statusMessage, isDarkMode && styles.textMutedDark]}>
         {meta.message}
       </Text>
-      <View style={styles.progressRow}>{['Requested', 'Quoted', 'Booked', 'Completed'].map((label, index) => <View key={label} style={{ flex: 1 }}>
+      {meta.step >= 0 && <View style={styles.progressRow}>{['Requested', 'Quoted', 'Booked', 'Completed'].map((label, index) => <View key={label} style={{ flex: 1 }}>
         <View style={[styles.progressTrack, index <= meta.step && { backgroundColor: COLORS.primary }]} />
         <Text style={[styles.progressLabel, isDarkMode && styles.textMutedDark]}>{label}</Text>
-      </View>)}</View>
+      </View>)}</View>}
 
       <View style={styles.chipRow}>
         <View style={[styles.chip, isDarkMode && styles.chipDark]}>
@@ -293,7 +296,8 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
         </Text>
       </View>
 
-      <View style={styles.metricsRow}>
+      {session.booking?.actualStartTime && <View style={styles.infoRow}><Ionicons name="play-circle-outline" size={17} color={COLORS.primary} /><Text style={[styles.infoText, isDarkMode && styles.textMutedDark]}>Work started {formatDateTime(session.booking.actualStartTime)}</Text></View>}
+      {meta.step >= 0 && <View style={styles.metricsRow}>
         <View style={[styles.metricBox, isDarkMode && styles.metricBoxDark]}>
           <Text style={styles.metricNumber}>{providerCount}</Text>
           <Text style={[styles.metricLabel, isDarkMode && styles.textMutedDark]}>
@@ -316,11 +320,11 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
             Booking
           </Text>
         </View>
-      </View>
+      </View>}
 
       <View style={styles.cardFooter}>
         <Text style={[styles.createdText, isDarkMode && styles.textMutedDark]}>
-          Created {formatCreatedDate(session.createdAt || session.created_at)}
+          {formatCreatedDate(session.createdAt || session.created_at) ? `Created ${formatCreatedDate(session.createdAt || session.created_at)}` : 'Created date not recorded'}
         </Text>
 
         <View style={styles.openButton}>
@@ -335,6 +339,7 @@ function ServiceSessionCard({ session, isDarkMode, onPress }) {
 export default function SeekerServiceSessionsScreen({ navigation, embedded = false }) {
   const { isDarkMode } = useTheme();
 
+  const { socket } = useNotification() || {};
   const [activeTab, setActiveTab] = useState('All');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -354,6 +359,7 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
       Scheduled: 0,
       Ongoing: 0,
       History: 0,
+      Drafts: 0,
     };
 
     sessions.forEach((session) => {
@@ -426,9 +432,11 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
     useCallback(() => {
       setLoading(true);
       loadSessions();
-      const timer = setInterval(loadSessions, 30000);
-      return () => clearInterval(timer);
-    }, [])
+      const timer = setInterval(loadSessions, 15000);
+      const onServiceUpdate = item => { if (['booking', 'quote', 'NEW_QUOTATION'].includes(item?.type)) loadSessions(); };
+      socket?.on('notification', onServiceUpdate);
+      return () => { clearInterval(timer); socket?.off('notification', onServiceUpdate); };
+    }, [socket])
   );
 
   const onRefresh = async () => {
@@ -488,7 +496,7 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
     if (!filteredSessions.length) {
       return (
         <EmptySessionState
-          title={activeTab === 'All' ? 'No service sessions yet' : `No ${activeTab.toLowerCase()} sessions`}
+          title={activeTab === 'All' ? 'No service sessions yet' : `No ${tabLabel(activeTab).toLowerCase()} sessions`}
           message="Your service sessions will appear here after you request quotations from providers."
           icon="assignment"
           isDarkMode={isDarkMode}
@@ -537,6 +545,11 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
 
       {lastChecked && <Text style={[styles.updatedText, isDarkMode && styles.textMutedDark]}>Updated {lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Pull down to refresh</Text>}
       {error && sessions.length > 0 ? <Text accessibilityRole="alert" style={[styles.updatedText, isDarkMode && styles.textMutedDark]}>{error}</Text> : null}
+      {counts.Ongoing > 0 && <TouchableOpacity accessibilityRole="button" accessibilityLabel={`View ${counts.Ongoing} ongoing services`} onPress={() => setActiveTab('Ongoing')} style={[styles.ongoingBanner, isDarkMode && styles.sessionCardDark]}>
+        <Ionicons name="construct-outline" size={25} color={COLORS.primary} />
+        <View style={{ flex: 1 }}><Text style={[styles.ongoingTitle, isDarkMode && styles.textDark]}>{counts.Ongoing} service{counts.Ongoing === 1 ? '' : 's'} ongoing</Text><Text style={[styles.ongoingHint, isDarkMode && styles.textMutedDark]}>Track arrival, work progress and delay updates here.</Text></View>
+        <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
+      </TouchableOpacity>}
       <SessionTabBar
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -559,6 +572,9 @@ export default function SeekerServiceSessionsScreen({ navigation, embedded = fal
 }
 
 const styles = StyleSheet.create({
+  sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }, sourceText: { fontSize: 12, fontWeight: '600', color: COLORS.muted },
+  ongoingBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 12, padding: 15, backgroundColor: '#EEF2FF', borderRadius: 15, borderWidth: 1, borderColor: '#C7D2FE' },
+  ongoingTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text }, ongoingHint: { fontSize: 12, lineHeight: 18, marginTop: 4, color: COLORS.muted },
   updatedText: { color: COLORS.muted, paddingHorizontal: 18, paddingTop: 10, fontSize: 12 },
   progressRow: { flexDirection: 'row', gap: 7, marginTop: 12 },
   progressTrack: { height: 4, borderRadius: 4, backgroundColor: '#DDE1EA', marginBottom: 6 },

@@ -41,3 +41,9 @@ test('all notification destinations are registered in the app navigator', () => 
   const routes = new Set([...app.matchAll(/name="([^"]+)"/g)].map(m => m[1]));
   for (const type of ['booking', 'quote', 'bid', 'message', 'high_demand_alert', 'system']) assert.ok(routes.has(destination({ type }).name));
 });
+
+test('provider availability opens responses for the exact seeker post', () => {
+  const target = destination({ type: 'provider_available', metadata: { postId: 'post-42', providerId: 'provider-7' } });
+  assert.equal(target.name, 'PostResponsesScreen');
+  assert.equal(target.params.postId, 'post-42');
+});

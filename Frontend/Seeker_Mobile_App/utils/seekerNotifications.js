@@ -17,6 +17,7 @@ export function seekerNotificationDestination(item = {}) {
   if (bookingId) return { name: 'SeekerServiceSessionDetails', params: { notificationId: id(item._id), sessionId: id(metadata.sessionId) || `booking:${bookingId}`, session: { booking: { _id: bookingId }, bookings: [{ _id: bookingId }] } } };
   if (requestId) return { name: 'SeekerServiceSessionDetails', params: { notificationId: id(item._id), sessionId: id(metadata.sessionId) || `request:${requestId}`, session: { requests: [{ _id: requestId }] } } };
   const type = String(item.type || '').toLowerCase();
+  if (type === 'provider_available' && (metadata.postId || item.postId)) return { name: 'PostResponsesScreen', params: { postId: id(metadata.postId || item.postId) } };
   if (type === 'booking' || type === 'quote' || type === 'new_quotation') return { name: 'SeekerServices' };
   if (type === 'bid') return { name: 'BiddingScreen', params: { postId: item.postId || metadata.postId } };
   if (type === 'message' || type === 'new_message') return { name: 'ChatListScreen' };

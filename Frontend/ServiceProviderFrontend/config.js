@@ -3,10 +3,10 @@
 export const IP_ADDRESS = process.env.EXPO_PUBLIC_API_HOST || '192.168.8.101'; //'192.168.56.1'; //'192.168.1.38' 169.254.230.160; '172.28.31.24'; 
 
 export const CONFIG = {
-  API_BASE_URL: `http://${IP_ADDRESS}:6000`,
-  SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6000`,
-  // Live Cloud Render Services 🚀
-  AUTH_SERVICE_URL: 'https://r26-auth-service.onrender.com',
+  API_BASE_URL: `http://${IP_ADDRESS}:6001`,
+  SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6001`,
+  // Core APIs default to the local laptop for device testing.
+  AUTH_SERVICE_URL: process.env.EXPO_PUBLIC_AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`,
   ADMIN_SERVICE_URL: 'https://r26-admin-service.onrender.com',
 
   // Local Services
@@ -14,7 +14,7 @@ export const CONFIG = {
   PROVIDER_SERVICE_API_URL: `http://${IP_ADDRESS}:3002`,
   ML_SERVICE_URL: `http://${IP_ADDRESS}:5000`,
   COORDINATION_SERVICE_URL: (process.env.EXPO_PUBLIC_COORDINATION_API_URL ||
-  'http://k8s-default-coordina-f35bbe8d02-1683340780.ap-southeast-2.elb.amazonaws.com').replace(/\/+$/, ''),
+  `http://${IP_ADDRESS}:5010`).replace(/\/+$/, ''),
 };
 
 export const ADMIN_SERVICE_URL = CONFIG.ADMIN_SERVICE_URL;

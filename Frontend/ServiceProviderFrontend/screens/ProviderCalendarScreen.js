@@ -139,7 +139,7 @@ export default function ProviderCalendarScreen({ navigation, route }) {
   const [sessionFilter, setSessionFilter] = useState('All');
   const [filterVisible, setFilterVisible] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const sessions = useMemo(() => buildProviderSessions(requests, quotations, [...bookings, ...ongoingBookings]), [requests, quotations, bookings, ongoingBookings]);
+  const sessions = useMemo(() => buildProviderSessions(requests, quotations, [...bookings, ...ongoingBookings]).filter(session => !session.booking || getBookingStatus(session.booking) !== 'COMPLETED'), [requests, quotations, bookings, ongoingBookings]);
 
   const dates = useMemo(() => nextSevenDays(), []);
 
@@ -289,6 +289,9 @@ export default function ProviderCalendarScreen({ navigation, route }) {
     const filters = { All: null, 'Needs you': 'attention', 'Waiting for seeker': 'waiting', Booked: 'booked', 'In progress': 'working', Closed: 'closed' };
     const visible = sessions.filter(session => !filters[sessionFilter] || session.guidance.group === filters[sessionFilter]);
     return <>
+      <View style={styles.sessionOverview}>
+        {[['Needs you', 'attention', 'alert-circle-outline'], ['In progress', 'working', 'construct-outline'], ['Waiting for seeker', 'waiting', 'time-outline']].map(([label, group, icon]) => <TouchableOpacity key={group} accessibilityRole="button" accessibilityLabel={`${label}, ${sessions.filter(item => item.guidance.group === group).length} sessions`} onPress={() => setSessionFilter(label)} style={[styles.overviewTile, { backgroundColor: sessionFilter === label ? (isDark ? '#24402C' : '#E8F4EC') : C.card, borderColor: sessionFilter === label ? '#15803D' : C.border }]}><Ionicons name={icon} size={18} color="#15803D" /><Text style={[styles.overviewCount, { color: C.text }]}>{sessions.filter(item => item.guidance.group === group).length}</Text><Text style={[styles.overviewLabel, { color: C.muted }]}>{label === 'Waiting for seeker' ? 'With customer' : label}</Text></TouchableOpacity>)}
+      </View>
       <View style={styles.filterToolbar}>
         <Text style={{ color: C.muted, fontSize: 13 }}>{visible.length} {visible.length === 1 ? 'session' : 'sessions'}</Text>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Filter sessions. Showing ${sessionFilter}`} accessibilityState={{ expanded: filterVisible }} onPress={() => setFilterVisible(true)} style={[styles.filterSelector, { backgroundColor: C.card, borderColor: C.border }]}>
@@ -323,15 +326,22 @@ export default function ProviderCalendarScreen({ navigation, route }) {
         const row = session.request || session.booking || session.quotation;
         const start = session.booking ? getBookingStartDate(session.booking) : new Date(session.quotation?.proposedStartTime || session.request?.preferredStartTime || '');
         return <View key={session.key} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
-          <Text style={[styles.cardTitle, { color: C.text }]}>{getHumanServiceTitle(row)}</Text>
-          <Text style={[styles.cardSubText, { color: C.muted }]}>{getHumanSeekerName(session.booking || row)}</Text>
-          <View style={styles.stageRow}>{['Requested', 'Quoted', 'Booked', 'Completed'].map((label, index) => <View key={label} style={styles.stageItem}><View style={[styles.stageLine, { backgroundColor: index <= session.guidance.step ? '#15803D' : C.border }]} /><Text style={{ color: index <= session.guidance.step ? '#15803D' : C.muted, fontSize: 11 }}>{label}</Text></View>)}</View>
-          {renderGuidance(session.guidance)}
-          <Text style={[styles.detailText, { color: C.muted, marginTop: 12 }]}>{session.booking ? 'Scheduled' : 'Requested'}: {start && Number.isFinite(start.getTime()) ? start.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Time not selected'}</Text>
-          <Text style={[styles.detailText, { color: C.muted }]}>{getHumanLocation(session.booking || row)}</Text>
-          {session.booking || session.quotation ? <Text style={[styles.detailText, { color: C.text }]}>{formatMoney(session.booking?.finalAmount || session.quotation?.price)}</Text> : null}
-          <TouchableOpacity style={styles.fullPrimaryButton} onPress={() => openSession(session)}><Text style={styles.primaryButtonText}>{session.guidance.action}</Text></TouchableOpacity>
-          {session.request && session.guidance.kind !== 'request' ? <TouchableOpacity style={styles.fullSecondaryButton} onPress={() => navigation.navigate('IT22129376ProviderRequestDetails', { request: session.request })}><Text style={styles.secondaryButtonText}>Original Request</Text></TouchableOpacity> : null}
+          <View style={styles.sessionHeading}>
+            <View style={[styles.sessionStateIcon, { backgroundColor: isDark ? '#24402C' : '#EAF6EE' }]}><Ionicons name={session.booking ? 'calendar-outline' : session.quotation ? 'document-text-outline' : 'mail-outline'} size={21} color="#15803D" /></View>
+            <View style={{ flex: 1 }}><Text style={[styles.sessionEyebrow, { color: C.muted }]}>{session.booking ? 'CONFIRMED SERVICE' : session.quotation ? 'QUOTATION' : 'NEW REQUEST'}</Text><Text style={[styles.cardTitle, { color: C.text }]}>{getHumanServiceTitle(row)}</Text></View>
+          </View>
+          {getHumanSeekerName(session.booking || row) !== 'Customer' ? <Text style={[styles.cardSubText, { color: C.muted }]}>{getHumanSeekerName(session.booking || row)}</Text> : null}
+          <View style={[styles.sessionStatus, { borderColor: C.border }]}>
+            <View style={styles.sessionDot} /><Text style={[styles.sessionStatusTitle, { color: C.text }]}>{session.guidance.title.replace(/seeker/gi, 'customer')}</Text>
+          </View>
+          <Text style={[styles.sessionExplanation, { color: C.muted }]}>{session.guidance.message.replace(/seeker/gi, 'customer')}</Text>
+          <View style={styles.sessionMeta}><Ionicons name="time-outline" size={16} color={C.muted} /><Text style={[styles.detailText, { color: C.muted, flex: 1 }]}>{start && Number.isFinite(start.getTime()) ? start.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Start time not chosen'}</Text></View>
+          <View style={styles.sessionMeta}><Ionicons name="location-outline" size={16} color={C.muted} /><Text style={[styles.detailText, { color: C.muted, flex: 1 }]}>{getHumanLocation(session.booking || row)}</Text></View>
+          <View style={[styles.sessionActionRow, { borderColor: C.border }]}>
+            <View style={{ flex: 1 }}><Text style={[styles.sessionEyebrow, { color: C.muted }]}>{session.booking ? 'AGREED AMOUNT' : session.quotation ? 'YOUR PRICE' : 'NEXT STEP'}</Text><Text style={[styles.sessionAmount, { color: C.text }]}>{session.booking || session.quotation ? formatMoney(session.booking?.finalAmount ?? session.quotation?.price) : 'Prepare your quote'}</Text></View>
+            <TouchableOpacity accessibilityRole="button" style={styles.sessionOpenButton} onPress={() => openSession(session)}><Text style={styles.primaryButtonText}>{session.booking ? 'Manage Job' : session.quotation ? 'View Quote' : 'Review'}</Text><Ionicons name="arrow-forward" size={16} color="#FFFFFF" /></TouchableOpacity>
+          </View>
+          {session.request && session.guidance.kind !== 'request' ? <TouchableOpacity accessibilityRole="button" style={styles.originalRequestLink} onPress={() => navigation.navigate('IT22129376ProviderRequestDetails', { request: session.request })}><Text style={[styles.secondaryButtonText, { fontSize: 12 }]}>View original request</Text></TouchableOpacity> : null}
         </View>;
       })}
     </>;
@@ -615,6 +625,10 @@ export default function ProviderCalendarScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  sessionOverview: { flexDirection: 'row', gap: 8, marginBottom: 8 }, overviewTile: { flex: 1, borderRadius: 14, borderWidth: 1, padding: 12, gap: 5 }, overviewCount: { fontSize: 23, fontWeight: '700' }, overviewLabel: { fontSize: 11, lineHeight: 16 },
+  sessionHeading: { flexDirection: 'row', gap: 11, alignItems: 'flex-start' }, sessionStateIcon: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }, sessionEyebrow: { fontSize: 9, fontWeight: '700', letterSpacing: .7, marginBottom: 4 },
+  sessionStatus: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 14, marginTop: 15, borderTopWidth: 1 }, sessionDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#15803D' }, sessionStatusTitle: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600' }, sessionExplanation: { fontSize: 12, lineHeight: 19, marginTop: 7, marginBottom: 8 }, sessionMeta: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 7 },
+  sessionActionRow: { borderTopWidth: 1, marginTop: 16, paddingTop: 14, flexDirection: 'row', gap: 10, alignItems: 'center' }, sessionAmount: { fontSize: 16, fontWeight: '700' }, sessionOpenButton: { backgroundColor: '#15803D', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 11, flexDirection: 'row', alignItems: 'center', gap: 7 }, originalRequestLink: { alignSelf: 'flex-start', paddingTop: 14, paddingBottom: 3 },
   filterToolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16 },
   filterSelector: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
   filterOverlay: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },

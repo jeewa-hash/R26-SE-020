@@ -62,7 +62,7 @@ const io = new Server(httpServer, {
 chatSocket(io);
 
 // DB connection
-const PORT = process.env.PORT || 6000;
+const PORT = process.env.PORT || 6001;
 
 mongoose
   .connect(process.env.MONGO_URI)

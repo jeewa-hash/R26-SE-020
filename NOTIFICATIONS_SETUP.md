@@ -8,6 +8,8 @@ Set `NOTIFICATION_SERVICE_SECRET` to the same random server-only value in **auth
 
 Set `AUTH_SERVICE_URL` in the three sending backends to the reachable auth origin, for example `http://localhost:4003` when all servers run on the same machine. Containers must use a reachable service hostname. Both mobile app configs must point to this same auth deployment; a phone must use the machine's LAN IP for a local server.
 
+For local web or simulator testing, both mobile apps now default to `http://localhost:4003`. Set `EXPO_PUBLIC_AUTH_SERVICE_URL` to `http://<your-mac-lan-ip>:4003` when testing on a physical phone, or to the deployed auth origin for a deployment build. Lifecycle delivery remains disabled until the shared backend secret is configured and all four backend processes are restarted.
+
 Restart all four backends and reload both apps. The auth service must be able to create the sparse unique `eventId` indexes on ProviderNotification and SeekerNotification. If automatic index creation is disabled, create these indexes through your deployment's MongoDB migration procedure before enabling event delivery.
 
 Missing sender configuration disables lifecycle publishing. Delivery failures log a status/code without credentials and do not undo a successful booking or quotation. A failed server-to-server request currently needs operational recovery; this is not a durable outbox/retry queue.
@@ -31,7 +33,11 @@ The seeker inbox, Home badge and My Services badge now share one notification st
 
 Quote fallback notifications share a popup identity with their persisted quotation alert, so polling and sockets do not announce the same offer twice. Read/clear state is account-scoped, repeated read actions cannot decrement unread counts twice, and clearing the inbox suppresses old synthetic quotation entries. Partial fetch failures retain previously loaded sources and show an inline retry message. Background push and durable backend delivery retries remain outside this implementation.
 
-Local configuration audit: the four backend `.env` files had no `NOTIFICATION_SERVICE_SECRET`; `Seeker_Service` also had no `AUTH_SERVICE_URL`. No secrets or deployment settings were changed. Hosted deployments must be checked independently; local files do not establish hosted configuration.
+Local setup (19 October 2026): all four ignored backend `.env` files now share a generated notification secret. The three senders use `AUTH_SERVICE_URL=http://127.0.0.1:4003`; coordination uses the local provider and seeker APIs. Both mobile configs default to the laptop LAN host for auth (4003), seeker (6001), provider (3002), and coordination (5010). Override `EXPO_PUBLIC_API_HOST` for a different LAN IP. A physical phone must never use `localhost` for the laptop API. Hosted deployment configuration has not been changed.
+
+Restart Expo with `npx expo start --clear` in each app after changing these URLs. Both devices must be on the laptop's network. The four backend processes were restarted for local notification testing. Re-login if the app holds a token from a different auth environment.
+
+Local transport regression: `node --test authService/test/lifecycleTransport.test.cjs` runs an ephemeral HTTP/Socket.IO hub with in-memory storage, verifies 14 event types for both roles, and checks duplicate suppression. It does not create production records or replace phone testing.
 
 After configuring and restarting, test with a provider and seeker account: send a quotation, receive it with the inbox closed, tap the banner, confirm the exact session opens and both badges decrement once. Repeat with delay, reschedule and completion. Disconnect/reconnect the seeker and confirm history recovers without repeated popups. Mark all read, refresh, clear, refresh, then sign out and sign in as another seeker to verify isolation. No live account notifications were sent by the automated checks.
 

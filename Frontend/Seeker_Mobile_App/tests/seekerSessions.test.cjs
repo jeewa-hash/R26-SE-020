@@ -51,3 +51,31 @@ test('sessions requiring a decision sort before waiting and closed sessions', ()
   assert.equal(sessions[0].requests[0]._id, 'choose');
   assert.equal(sessions[2].requests[0]._id, 'closed');
 });
+
+test('service flow stays in one session as work starts, is delayed and completes', () => {
+  for (const [status, tab] of [['CONFIRMED', 'Scheduled'], ['ON_THE_WAY', 'Ongoing'], ['IN_PROGRESS', 'Ongoing'], ['DELAY_REPORTED', 'Ongoing'], ['COMPLETED', 'History']]) {
+    const sessions = build({ requests: [{ _id: 'r', sessionId: 'service' }], quotations: [{ _id: 'q', providerRequestId: 'r' }], bookings: [{ _id: 'b', externalQuotationId: 'q', bookingStatus: status }] });
+    assert.equal(sessions.length, 1);
+    assert.equal(sessions[0].sessionId, 'service');
+    assert.equal(sessions[0].guidance.tab, tab);
+  }
+});
+
+test('unfinished searches are drafts and do not claim a request was sent', () => {
+  const [session] = build({ serviceSessions: [{ id: 'Q-0100', session_id: 'Q-0100', title: 'Blocked Drains' }] });
+  assert.equal(session.guidance.tab, 'Drafts');
+  assert.equal(session.guidance.step, -1);
+  assert.equal(session.origin.label, 'Service search');
+});
+test('source labels use explicit provenance and never guess from job titles', () => {
+  for (const [sessionId, label] of [['POST-1', 'Your job post'], ['AD-1', 'Provider feed'], ['REPAIR-1', 'Photo diagnosis'], ['Q-1', 'Service search'], ['legacy', 'Source not recorded']]) {
+    const [session] = build({ requests: [{ _id: 'request', sessionId, title: 'Blocked Drains', status: 'pending' }] });
+    assert.equal(session.origin.label, label);
+    assert.equal(session.guidance.tab, 'Active');
+  }
+});
+test('snake-case diagnosis identifiers link requests without a duplicate draft', () => {
+  const sessions = build({ serviceSessions: [{ _id: 'mongo-id', session_id: 'Q-42' }], requests: [{ _id: 'r', sessionId: 'Q-42', status: 'pending' }] });
+  assert.equal(sessions.length, 1);
+  assert.equal(sessions[0].requests.length, 1);
+});

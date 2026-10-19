@@ -1,6 +1,7 @@
+import { useNotification } from '../../context/NotificationContext';
 import { useChat } from '../../context/ChatContext';
 import { openProviderConversation } from '../../utils/seekerChat';
-import { buildSeekerSessions, seekerSessionGuidance, recordId } from '../../utils/seekerSessions';
+import { buildSeekerSessions, seekerSessionGuidance, seekerSessionOrigin, recordId } from '../../utils/seekerSessions';
 import PageHeader from '../../components/PageHeader';
 import RequestedTimeModal from './components/RequestedTimeModal';
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
@@ -208,6 +209,7 @@ function SectionCard({ title, icon, count, children, isDarkMode }) {
 }
 
 export default function SeekerServiceSessionDetailsScreen({ navigation, route }) {
+  const { socket } = useNotification() || {};
   const { isDarkMode } = useTheme();
   const { createOrGetChat } = useChat();
   const [openingChat, setOpeningChat] = useState(false);
@@ -260,14 +262,19 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
     }
   }, [sessionId, route?.params?.notificationId]);
 
-  useFocusEffect(useCallback(() => { loadRelatedData(); }, [loadRelatedData]));
+  useFocusEffect(useCallback(() => {
+    loadRelatedData();
+    const timer = setInterval(loadRelatedData, 15000);
+    const onUpdate = item => { if (item?.type === 'booking' || item?.type === 'quote') loadRelatedData(); };
+    socket?.on('notification', onUpdate);
+    return () => { clearInterval(timer); socket?.off('notification', onUpdate); };
+  }, [loadRelatedData, socket]));
   const requests = Array.isArray(session.requests) ? session.requests : [];
   const quotations = Array.isArray(session.quotations) ? session.quotations : [];
   const booking = session.booking || null;
   const guidance = seekerSessionGuidance(session);
   const canReschedule = booking && ['CONFIRMED', 'RESCHEDULED', 'ON_THE_WAY', 'IN_PROGRESS', 'DELAY_REPORTED', 'RESCHEDULING_REQUIRED'].includes(String(booking.bookingStatus || booking.status).toUpperCase());
   const canSelectQuote = quote => !booking && !loadError && !['REJECTED', 'CANCELLED', 'EXPIRED'].includes(String(quote.status).toUpperCase()) && quote.coordinationId && ['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus || quote.coordinationDecision);
-  const openBooking = () => navigation.navigate(guidance.tab === 'History' ? 'IT22129376JobHistoryDetails' : 'IT22129376ScheduledJobDetails', guidance.tab === 'History' ? { job: booking } : { booking });
 
   const sortedQuotes = useMemo(() => {
     return [...quotations].sort((a, b) => Number(getQuotePrice(a)) - Number(getQuotePrice(b)));
@@ -382,7 +389,15 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Next: {guidance.owner}</Text>
           <Text style={[styles.descriptionText, isDarkMode && styles.textMutedDark]}>{guidance.message}</Text>
           {booking ? <>
-            <TouchableOpacity style={styles.compareButton} onPress={openBooking}><Text style={styles.compareButtonText}>{guidance.action}</Text></TouchableOpacity>
+            <View style={{ marginTop: 14, gap: 8 }}>
+              <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Scheduled start: {booking.scheduledStartTime ? new Date(booking.scheduledStartTime).toLocaleString() : 'Not scheduled'}</Text>
+              {booking.actualStartTime ? <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Work started: {new Date(booking.actualStartTime).toLocaleString()}</Text> : null}
+              {booking.scheduledEndTime ? <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Planned finish: {new Date(booking.scheduledEndTime).toLocaleString()}</Text> : null}
+              {booking.delayInfo?.expectedEndTime ? <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Updated finish: {new Date(booking.delayInfo.expectedEndTime).toLocaleString()}</Text> : null}
+              {booking.delayInfo?.delayReason ? <Text style={[styles.descriptionText, isDarkMode && styles.textMutedDark]}>Delay update: {booking.delayInfo.delayReason}</Text> : null}
+            </View>
+            {(booking.timeline || []).length > 0 && <View style={{ marginTop: 16 }}><Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Service activity</Text>{booking.timeline.slice().reverse().map((event, index) => <View key={event._id || index} style={{ paddingVertical: 8 }}><Text style={[styles.descriptionText, isDarkMode && styles.textDark]}>{event.message || String(event.status || '').replace(/_/g, ' ')}</Text>{event.at && <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>{new Date(event.at).toLocaleString()}</Text>}</View>)}</View>}
+
             {booking.providerId && <TouchableOpacity disabled={openingChat} style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark]} onPress={contactProvider}><Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>{openingChat ? 'Opening conversation…' : 'Message Provider'}</Text></TouchableOpacity>}
           </> : null}
         </View>
@@ -392,7 +407,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           </Text>
 
           <Text style={[styles.mainSubtitle, isDarkMode && styles.textMutedDark]}>
-            Service Session ID: {String(session.sessionId || '')}
+            Started from: {seekerSessionOrigin(session).label}
           </Text>
 
           <View style={styles.chipRow}>

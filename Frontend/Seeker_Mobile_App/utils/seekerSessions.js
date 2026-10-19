@@ -1,9 +1,20 @@
 export const recordId = value => String(value?._id || value?.id || value || '');
 const upper = value => String(value || '').toUpperCase();
 const changedAt = row => new Date(row?.updatedAt || row?.createdAt || 0).getTime() || 0;
-const sessionId = row => recordId(row?.externalSessionId || row?.sessionId || row?.serviceSessionId);
+const sessionId = row => recordId(row?.externalSessionId || row?.sessionId || row?.session_id || row?.serviceSessionId);
 const requestId = row => recordId(row?.providerRequestId || row?.externalRequestQuotationId || row?.requestQuotationId || row?.requestId);
 const closed = row => ['COMPLETED', 'CANCELLED', 'EXPIRED'].includes(upper(row?.bookingStatus || row?.status));
+
+export function seekerSessionOrigin(session = {}) {
+  const key = sessionId(session) || recordId(session.id);
+  const source = upper(session.sourceType || session.originType);
+  if (source === 'POST' || key.startsWith('POST-')) return { label: 'Your job post', icon: 'newspaper-outline', kind: 'post' };
+  if (source === 'PROVIDER_FEED' || key.startsWith('AD-')) return { label: 'Provider feed', icon: 'people-outline', kind: 'provider' };
+  if (source === 'PHOTO' || key.startsWith('REPAIR-')) return { label: 'Photo diagnosis', icon: 'camera-outline', kind: 'photo' };
+  if (source === 'SEARCH' || key.startsWith('Q-')) return { label: 'Service search', icon: 'search-outline', kind: 'search' };
+  if (source === 'DIRECT_PROVIDER') return { label: 'Direct provider request', icon: 'person-outline', kind: 'provider' };
+  return { label: 'Source not recorded', icon: 'layers-outline', kind: 'unknown' };
+}
 
 export function seekerSessionGuidance(session = {}) {
   const booking = session.booking;
@@ -33,7 +44,7 @@ export function seekerSessionGuidance(session = {}) {
   if (requests.length && requests.every(r => ['REJECTED', 'CANCELLED', 'EXPIRED'].includes(upper(r.status)))) return describe('Requests closed', 'You', 'These requests are closed and no booking was confirmed. You can find another provider.', 'View Requests', 0, 'closed', 'History');
   if (requests.some(r => ['QUOTED', 'ACCEPTED'].includes(upper(r.status)))) return describe('Quotation details unavailable', 'Refresh needed', 'A quotation is recorded for this request, but its details are not loaded. Refresh to check the latest offer before continuing.', 'Review Requests', 1, 'attention', 'Active');
   if (requests.length) return describe('Waiting for provider quotations', 'Provider', 'Your request has been sent. Providers need to review it and send their prices.', 'View Requests', 0, 'waiting', 'Active');
-  return describe('Choose providers', 'You', 'No quotation requests are linked yet. Find providers and request prices to continue.', 'Find Providers', 0, 'attention', 'Active', 'providers');
+  return describe('Draft · no requests sent', 'You', 'This service has no quotation requests yet. Choose providers to request prices.', 'Find Providers', -1, 'draft', 'Drafts', 'providers');
 }
 
 // Match only explicit session, request and quotation identifiers; never service titles or post IDs.
@@ -69,9 +80,9 @@ export function buildSeekerSessions({ serviceSessions = [], requests = [], quota
     group.booking = [...group.bookings].sort((a, b) => Number(closed(a)) - Number(closed(b)) || changedAt(b) - changedAt(a))[0] || null;
     const source = group.requests[0] || group.booking || group.quotations[0] || {};
     const result = { ...source, ...group, requestedProvidersCount: group.requests.length, quoteCount: group.quotations.length, bookingCount: group.bookings.length };
-    return { ...result, guidance: seekerSessionGuidance(result) };
+    return { ...result, origin: seekerSessionOrigin(result), guidance: seekerSessionGuidance(result) };
   }).sort((a, b) => {
-    const rank = { attention: 0, working: 1, booked: 2, waiting: 3, closed: 4 };
+    const rank = { attention: 0, working: 1, booked: 2, waiting: 3, draft: 4, closed: 5 };
     return rank[a.guidance.group] - rank[b.guidance.group] || Math.max(changedAt(b), ...b.bookings.map(changedAt)) - Math.max(changedAt(a), ...a.bookings.map(changedAt));
   });
 }

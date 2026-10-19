@@ -213,6 +213,13 @@ export const createRequestQuotation = async (req, res) => {
     });
 
     await publishLifecycleNotification({ recipientId: String(request.providerId), role: 'ServiceProvider', eventId: `request:${request._id}:created`, type: 'quote', title: 'New quotation request', message: 'A seeker requested your price. Review the service and requested time.', metadata: { providerRequestId: String(request._id) } });
+    await publishLifecycleNotification({
+      recipientId: String(request.seekerId), role: 'Seeker',
+      eventId: `request:${request._id}:sent`, type: 'quote',
+      title: 'Quotation request sent',
+      message: 'Your request has been sent to the provider. You will be notified when they respond.',
+      metadata: { providerRequestId: String(request._id), sessionId: request.sessionId ? String(request.sessionId) : undefined },
+    });
     return res.status(201).json({
       success: true,
       message: "Request quotation sent successfully",

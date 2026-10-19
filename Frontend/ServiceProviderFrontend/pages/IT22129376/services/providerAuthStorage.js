@@ -145,8 +145,7 @@ const readStoredObject = async (key) => {
 
 export const debugAuthStorage = async () => {
   const values = await AsyncStorage.multiGet(AUTH_KEYS);
-  console.log('===== AUTH STORAGE DEBUG =====');
-  values.forEach(([key, value]) => console.log(key, value));
+  console.log('AUTH STORAGE DEBUG: populated keys', values.filter(([, value]) => Boolean(value)).map(([key]) => key));
 };
 
 export const getStoredProviderAuth = async () => {
