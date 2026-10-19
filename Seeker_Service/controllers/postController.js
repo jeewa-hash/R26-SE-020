@@ -1,3 +1,5 @@
+import { publishLifecycleNotification } from '../utils/lifecycleNotifications.js';
+import { publicImagePath, storedImageFile } from '../utils/uploadPaths.js';
 import Post from "../models/Post.js";
 import { analyzeImageWithGemini, rankRelevantPosts } from "../utils/gemini.js";
 import fs from "fs";
@@ -424,7 +426,7 @@ export const previewPost = async (req, res) => {
         description:
           aiData.description || description,
 
-        image: req.file?.path || null,
+        image: publicImagePath(req.file),
 
         category:
           aiData.category || "General",
@@ -641,9 +643,9 @@ export const deletePost = async (req, res) => {
 
     if (
       post.image &&
-      fs.existsSync(post.image)
+      storedImageFile(post.image) && fs.existsSync(storedImageFile(post.image))
     ) {
-      fs.unlinkSync(post.image);
+      fs.unlinkSync(storedImageFile(post.image));
     }
 
     await Post.findByIdAndDelete(
@@ -755,6 +757,16 @@ export const applyPost = async (req, res) => {
       await post.save();
     }
 
+    const recipientId = post.userId || post.seekerId;
+    if (recipientId && String(recipientId) !== String(applicantId) && applicantRole === 'ServiceProvider') {
+      await publishLifecycleNotification({
+        recipientId: String(recipientId), role: 'Seeker',
+        eventId: `post:${post._id}:available:${applicantId}`,
+        type: 'provider_available', title: 'A provider is available',
+        message: `${applicantInfo.name || 'A service provider'} is available for your post. Review their response and request a quotation.`,
+        metadata: { postId: String(post._id), providerId: String(applicantId), sessionId: post.sessionId || null },
+      });
+    }
     const rawOwner = await getUserById(post.userId);
     const ownerInfo = buildUserInfo(rawOwner, post.userId);
 

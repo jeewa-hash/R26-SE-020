@@ -1,3 +1,17 @@
+// Availability hours are Sri Lanka wall-clock times, independent of the host TZ.
+export const SCHEDULING_TIME_ZONE = "Asia/Colombo";
+
+export function toScheduleParts(value) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) throw new Error("Invalid schedule date");
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: SCHEDULING_TIME_ZONE,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(date).map(({ type, value }) => [type, value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+}
+
 
 export function timeToMinutes(time) {
     const [hours, minutes] = time.split(":").map(Number);
@@ -24,8 +38,8 @@ export function timeToMinutes(time) {
   }
   
   export function getDayName(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", { weekday: "long" });
+    const date = new Date(`${dateString}T12:00:00+05:30`);
+    return date.toLocaleDateString("en-US", { weekday: "long", timeZone: SCHEDULING_TIME_ZONE });
   }
 
   export function calculateGapMinutes(previousEndTime, nextStartTime) {

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -27,11 +27,6 @@ const showRequestAlert = (title, message) => {
   else Alert.alert(title, message);
 };
 
-const TIME_WINDOWS = {
-  Morning: [9, 12],
-  Afternoon: [13, 17],
-  Evening: [17, 20],
-};
 const URGENCY_LEVELS = ["Normal", "Today", "Emergency"];
 const normalizeUrgency = (value) =>
   URGENCY_LEVELS.includes(value) ? value : "Normal";
@@ -61,6 +56,7 @@ export default function RequestQuotationModal({
   initialDescription = "",
   onClose,
   onSuccess,
+  onAlreadyRequested,
 }) {
   const { isDarkMode } = useTheme();
   const { width, height } = useWindowDimensions();
@@ -75,17 +71,16 @@ export default function RequestQuotationModal({
   }, [isDarkMode]);
   const styles = useMemo(() => createStyles(colors, width, height), [colors, width, height]);
   const [preferredDate, setPreferredDate] = useState(new Date());
-  const [preferredTimeLabel, setPreferredTimeLabel] = useState("Morning");
   const [startTime, setStartTime] = useState(atHour(new Date(), 8));
   const [budget, setBudget] = useState("");
   const [location, setLocation] = useState(defaultLocation);
   const [coordinates, setCoordinates] = useState(null);
   const [showMap, setShowMap] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [description, setDescription] = useState(initialDescription);
   const [urgency, setUrgency] = useState(normalizeUrgency(defaultUrgency));
   const [picker, setPicker] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const submissionLock = useRef(false);
 
   const providerName = useMemo(
     () =>
@@ -101,39 +96,27 @@ export default function RequestQuotationModal({
     if (!visible) return;
     const date = new Date();
     setPreferredDate(date);
-    setPreferredTimeLabel("Morning");
     setStartTime(atHour(date, 9));
     setBudget("");
     setLocation(typeof defaultLocation === "string" ? defaultLocation : "");
     setCoordinates(null);
     setShowMap(false);
-    setDescription(initialDescription || "");
     setUrgency(normalizeUrgency(defaultUrgency));
     setPicker(null);
   }, [visible, defaultLocation, defaultUrgency, initialDescription]);
-
-  const selectWindow = (label) => {
-    setPreferredTimeLabel(label);
-    if (TIME_WINDOWS[label]) {
-      setStartTime(atHour(preferredDate, TIME_WINDOWS[label][0]));
-    }
-  };
 
   const handlePickerChange = (event, value) => {
     if (Platform.OS === "android") setPicker(null);
     if (!value || event?.type === "dismissed") return;
     if (picker === "date") {
       setPreferredDate(value);
-      if (TIME_WINDOWS[preferredTimeLabel]) {
-        setStartTime(atHour(value, TIME_WINDOWS[preferredTimeLabel][0]));
-      }
     } else if (picker === "start") {
       setStartTime(value);
-      setPreferredTimeLabel("Custom");
     }
   };
 
   const submit = async () => {
+    if (submissionLock.current) return;
     const explicitProviderId = firstValue(
       provider?.providerId?._id,
       provider?.providerId,
@@ -176,10 +159,6 @@ export default function RequestQuotationModal({
 
     const preferredStartTime = new Date(preferredDate);
     preferredStartTime.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
-    // A preset cutoff is an availability preference, not the predicted job end.
-    const preferredEndTime = TIME_WINDOWS[preferredTimeLabel]
-      ? atHour(preferredDate, TIME_WINDOWS[preferredTimeLabel][1])
-      : null;
 
     const detectedCategory = firstValue(
       sessionData?.detectedCategory,
@@ -224,7 +203,7 @@ export default function RequestQuotationModal({
         []
       ),
       briefDescription: firstValue(
-        description.trim(),
+        initialDescription?.trim(),
         sessionData?.briefDescription,
         sessionData?.brief_description,
         diagnosisData?.briefDescription,
@@ -241,11 +220,12 @@ export default function RequestQuotationModal({
         lng: coordinates?.longitude ?? null,
       },
       preferredStartTime: preferredStartTime.toISOString(),
-      preferredEndTime: preferredEndTime?.toISOString() ?? null,
-      preferredTimeLabel,
+      preferredEndTime: null,
+      preferredTimeLabel: formatTime(preferredStartTime),
       seekerBudgetAmount: Number(budget),
     };
 
+    submissionLock.current = true;
     setSubmitting(true);
     try {
       const token =
@@ -255,6 +235,7 @@ export default function RequestQuotationModal({
       onSuccess?.(result, providerId);
     } catch (error) {
       const isDuplicate = error.status === 409;
+      if (isDuplicate && onAlreadyRequested) { onAlreadyRequested(error.data, providerId); return; }
       const isNetworkError = !error.status;
       showRequestAlert(
         isDuplicate ? "Already requested" : "Request failed",
@@ -265,6 +246,7 @@ export default function RequestQuotationModal({
           : "Could not send the quotation request. Please check the details and try again."
       );
     } finally {
+      submissionLock.current = false;
       setSubmitting(false);
     }
   };
@@ -317,21 +299,10 @@ export default function RequestQuotationModal({
                 Category: {firstValue(sessionData?.detectedCategory, sessionData?.detected_category, sessionData?.category, diagnosisData?.detectedCategory, diagnosisData?.detected_category, "General")}
               </Text>
             </View>
-            <Text style={styles.label}>Requirements &amp; Details</Text>
-            <TextInput placeholderTextColor={colors.muted} selectionColor={colors.accent} keyboardAppearance={isDarkMode ? "dark" : "light"} style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} multiline placeholder="Describe what work needs to be done..." />
             <Text style={styles.label}>Preferred date</Text>
             <TouchableOpacity style={styles.input} onPress={() => setPicker("date")}>
               <Text style={styles.valueText}>{formatDate(preferredDate)}</Text>
             </TouchableOpacity>
-
-            <Text style={styles.label}>Preferred time window</Text>
-            <View style={styles.options}>
-              {["Morning", "Afternoon", "Evening", "Custom"].map((label) => (
-                <TouchableOpacity key={label} style={[styles.chip, preferredTimeLabel === label && styles.chipActive]} onPress={() => selectWindow(label)}>
-                  <Text style={preferredTimeLabel === label ? styles.chipTextActive : styles.chipText}>{label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
 
             <View style={styles.timeRow}>
               <View style={styles.timeField}>

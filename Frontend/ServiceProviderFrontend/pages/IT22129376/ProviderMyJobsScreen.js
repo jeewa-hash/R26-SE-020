@@ -16,7 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ThemeContext } from '../../context/ThemeContext';
 import HeaderSection from '../../components/HeaderSection';
 import { COLORS } from './theme';
-import { debugAuthStorage, getStoredProviderAuth } from './services/providerAuthStorage';
+import { getStoredProviderAuth } from './services/providerAuthStorage';
 import { getCoordinationReview, getProviderJobs, getProviderOngoingJobs, getProviderQuotations, getProviderRequests, selectCoordinationSuggestedSlot } from './services/providerFlowApi';
 import { COORDINATION_SERVICE_URL, PROVIDER_SERVICE_API_URL, SEEKER_SERVICE_URL } from '../../config';
 import { formatDate, formatFullDate, formatTime, isSameDay } from './utils/dateTimeFormatter';
@@ -122,7 +122,6 @@ const filterForLoggedProvider = (items, providerId) => {
 
 const safelyFilterProviderResponse = (items, providerId, label) => {
   const raw = Array.isArray(items) ? items : [];
-  console.log('Filtering item provider ids:', raw.map(getProviderIdFromItem));
   const filtered = filterForLoggedProvider(raw, providerId);
   if (raw.length > 0 && filtered.length === 0) {
     console.warn('Provider filter removed all items. Check providerId shape.', { label, providerId });
@@ -310,7 +309,6 @@ export default function ProviderMyJobsScreen({ navigation }) {
       setError(null);
       setBackendWarning(null);
       const auth = await getStoredProviderAuth();
-      await debugAuthStorage();
       if (!auth.isLoggedIn || !auth.providerId) {
         setProviderId(null);
         setRequests([]);
@@ -321,12 +319,6 @@ export default function ProviderMyJobsScreen({ navigation }) {
         return;
       }
       setProviderId(auth.providerId);
-      console.log('LOGGED PROVIDER ID:', auth.providerId);
-      console.log('MY JOBS AUTH:', { providerId: auth.providerId, hasToken: Boolean(auth.token) });
-      console.log('REQUESTS API URL:', `${SEEKER_SERVICE_URL}/request-quotations/provider-filtered/${auth.providerId}`);
-      console.log('QUOTATIONS API URL:', `${PROVIDER_SERVICE_API_URL}/api/provider/quotations/provider/me`);
-      console.log('BOOKINGS API URL:', `${COORDINATION_SERVICE_URL}/bookings/provider/me`);
-      console.log('ONGOING API URL:', `${COORDINATION_SERVICE_URL}/bookings/provider/me/ongoing`);
 
       const [reqResult, quoteResult, jobsResult, ongoingResult] = await Promise.allSettled([
         getProviderRequests(auth.providerId),
@@ -339,14 +331,8 @@ export default function ProviderMyJobsScreen({ navigation }) {
         const rawRequests = extractArray(reqResult.value);
         const providerRequests = safelyFilterProviderResponse(rawRequests, auth.providerId, 'requests');
 
-        console.log('RAW PROVIDER REQUESTS:', rawRequests.length);
-        console.log('FILTERED PROVIDER REQUESTS:', providerRequests.length);
-        console.log('Provider requests filter providerId:', auth.providerId);
-        console.log('FIRST RAW REQUEST:', JSON.stringify(rawRequests[0], null, 2));
 
         setRequests(providerRequests);
-        console.log('Provider requests raw:', rawRequests);
-        console.log('Provider requests count:', rawRequests.length);
 
         if (rawRequests.length === 0) {
           setBackendWarning('No incoming requests yet. New quotation requests assigned to you will appear here.');
@@ -363,13 +349,8 @@ export default function ProviderMyJobsScreen({ navigation }) {
         const rawQuotations = extractArray(quoteResult.value);
         const providerQuotations = safelyFilterProviderResponse(rawQuotations, auth.providerId, 'quotations');
 
-        console.log('RAW PROVIDER QUOTATIONS:', rawQuotations.length);
-        console.log('FILTERED PROVIDER QUOTATIONS:', providerQuotations.length);
-        console.log('Provider quotations filter providerId:', auth.providerId);
 
         setQuotations(providerQuotations);
-        console.log('Provider quotations raw:', rawQuotations);
-        console.log('Provider quotations count:', rawQuotations.length);
       } else {
         console.log('Provider quotations failed:', quoteResult.reason?.message);
         setQuotations([]);
@@ -379,13 +360,8 @@ export default function ProviderMyJobsScreen({ navigation }) {
         const rawJobs = extractArray(jobsResult.value);
         const providerJobs = safelyFilterProviderResponse(rawJobs, auth.providerId, 'bookings');
 
-        console.log('RAW PROVIDER JOBS:', rawJobs.length);
-        console.log('FILTERED PROVIDER JOBS:', providerJobs.length);
-        console.log('Provider jobs filter providerId:', auth.providerId);
 
         setJobs(providerJobs);
-        console.log('Provider bookings raw:', rawJobs);
-        console.log('Provider bookings count:', rawJobs.length);
       } else {
         console.log('Provider jobs failed:', jobsResult.reason?.message);
         setJobs([]);
@@ -397,12 +373,8 @@ export default function ProviderMyJobsScreen({ navigation }) {
         const rawOngoing = extractArray(ongoingResult.value);
         const providerOngoing = safelyFilterProviderResponse(rawOngoing, auth.providerId, 'ongoing');
         setOngoingJobs(providerOngoing.length ? providerOngoing : fallbackOngoing);
-        console.log('Provider ongoing raw:', rawOngoing);
-        console.log('Provider ongoing count:', rawOngoing.length);
       } else {
         console.log('Provider ongoing failed:', ongoingResult.reason?.message);
-        console.log('Provider ongoing raw:', []);
-        console.log('Provider ongoing count:', 0);
         setOngoingJobs(fallbackOngoing);
       }
 
@@ -518,7 +490,7 @@ export default function ProviderMyJobsScreen({ navigation }) {
       return <>{warningBlock}{normalizedRequests.length === 0 ? <EmptyState isDark={isDark} icon="mail-open-outline" title="No incoming requests" message="No incoming requests yet. New quotation requests assigned to you will appear here." /> : normalizedRequests.map((r) => <RequestCard key={getRequestId(r)} request={r} isDark={isDark} onPress={() => openRequest(r)} onQuote={() => openQuoteForm(r)} />)}</>;
     }
     if (activeTab === 'Quotes') {
-      return <>{warningBlock}{normalizedQuotes.length === 0 ? <EmptyState isDark={isDark} icon="receipt-outline" title="No quotations sent" message="After submitting a quotation, its seeker decision and coordination status will appear here." /> : normalizedQuotes.map((q) => <QuoteCard key={getQuotationId(q)} quotation={q} isDark={isDark} onReviewSlots={() => reviewSuggestedSlots(q)} onRetryValidation={() => retryValidation(q)} onPress={() => Alert.alert('Quotation', `Status: ${q.status || 'SENT'}\nPrice: LKR ${q.price || '-'}`)} />)}</>;
+      return <>{warningBlock}{normalizedQuotes.length === 0 ? <EmptyState isDark={isDark} icon="receipt-outline" title="No quotations sent" message="After submitting a quotation, its seeker decision and coordination status will appear here." /> : normalizedQuotes.map((q) => <QuoteCard key={getQuotationId(q)} quotation={q} isDark={isDark} onReviewSlots={() => reviewSuggestedSlots(q)} onRetryValidation={() => retryValidation(q)} onPress={() => navigation.navigate('IT22129376ProviderQuotationDetails', { quotation: q })} />)}</>;
     }
     if (activeTab === 'Scheduled') {
       return <>{warningBlock}{scheduledJobs.length === 0 ? <EmptyState isDark={isDark} icon="briefcase-outline" title="No scheduled jobs" message="Bookings appear here only after the seeker confirms a coordinated quotation." /> : scheduledJobs.map((job) => <BookingCard key={getBookingId(job)} booking={job} onPress={() => openJob(job)} isDark={isDark} />)}</>;

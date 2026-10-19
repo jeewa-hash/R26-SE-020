@@ -1,3 +1,4 @@
+import ProviderNotificationBanner from '../components/ProviderNotificationBanner';
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Platform, Alert, TouchableOpacity } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -12,8 +13,8 @@ import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { io } from 'socket.io-client';
 import { clearAllAuthStorage, getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 
-const API_URL = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
-const ADMIN_API_URL = ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
+const API_URL = AUTH_SERVICE_URL || 'https://r26-auth-service.onrender.com';
+const ADMIN_API_URL = ADMIN_SERVICE_URL || 'https://r26-admin-service.onrender.com';
 
 // Import Screens
 import NewsFeedScreen from '../pages/NewsFeedScreen';
@@ -216,11 +217,14 @@ export default function BottomTabNavigator() {
       try {
         if (!socketRef.current) {
           socketRef.current = io(API_URL, {
-            transports: ['websocket'],
+            transports: ['polling', 'websocket'],
+        tryAllTransports: true,
+        auth: { token },
             reconnection: true,
           });
 
           socketRef.current.on('connect', () => {
+            checkStatusAndNotifications();
             if (userId) {
               socketRef.current.emit('join_notification_room', userId);
               socketRef.current.emit('join', userId);
@@ -265,10 +269,27 @@ export default function BottomTabNavigator() {
 
           if (!currentUserId) return;
 
-          const response = await fetchWithTimeout(`${ADMIN_API_URL}/api/inquiries/provider-status/${currentUserId}`, {}, 5000);
-          const data = await response.json();
+          let allNotifs = [];
+          if (currentToken) {
+            try {
+              const authNotifRes = await fetchWithTimeout(`${API_URL}/notifications`, {
+                headers: { Authorization: `Bearer ${currentToken}` },
+              }, 5000);
 
-          if (response.ok && data.isBlocked) {
+              const authNotifData = await authNotifRes.json();
+
+              if (authNotifRes.ok && Array.isArray(authNotifData)) {
+                allNotifs = [...allNotifs, ...authNotifData];
+              }
+            } catch (e) {
+              // silent
+            }
+          }
+
+          const response = await fetchWithTimeout(`${ADMIN_API_URL}/api/inquiries/provider-status/${currentUserId}`, {}, 5000).catch(() => null);
+          const data = response?.ok ? await response.json().catch(() => ({})) : {};
+
+          if (response?.ok && data.isBlocked) {
             isLoggingOutRef.current = true;
 
             const untilDate = data.blockedUntil
@@ -302,7 +323,6 @@ export default function BottomTabNavigator() {
             return;
           }
 
-          let allNotifs = [];
 
           try {
             const notifRes = await fetchWithTimeout(`${ADMIN_API_URL}/api/inquiries/notifications/${currentUserId}`, {}, 5000);
@@ -315,21 +335,6 @@ export default function BottomTabNavigator() {
             // silent
           }
 
-          if (currentToken) {
-            try {
-              const authNotifRes = await fetchWithTimeout(`${API_URL}/notifications`, {
-                headers: { Authorization: `Bearer ${currentToken}` },
-              }, 5000);
-
-              const authNotifData = await authNotifRes.json();
-
-              if (authNotifRes.ok && Array.isArray(authNotifData)) {
-                allNotifs = [...allNotifs, ...authNotifData];
-              }
-            } catch (e) {
-              // silent
-            }
-          }
 
           if (allNotifs.length > 0) {
             const anyUnread = allNotifs.some((n) => !n.isRead);
@@ -338,7 +343,8 @@ export default function BottomTabNavigator() {
             const unreadPriorityNotifs = allNotifs.filter(
               (n) =>
                 !n.isRead &&
-                (n.type === 'inquiry_rejected' ||
+                (n.type === 'booking' || n.type === 'quote' ||
+                  n.type === 'inquiry_rejected' ||
                   n.type === 'inquiry_approved' ||
                   n.type === 'high_demand_alert' ||
                   (n.title && n.title.includes('High Demand'))) &&
@@ -374,135 +380,7 @@ export default function BottomTabNavigator() {
 
   return (
     <View style={{ flex: 1 }}>
-      {activeAlertBanner && (
-        <View style={styles.floatingBannerContainer}>
-          <LinearGradient
-            colors={
-              activeAlertBanner.type === 'high_demand_alert' ||
-              (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
-                ? ['#EAF7EE', '#D8E8DC']
-                : activeAlertBanner.type === 'inquiry_approved'
-                ? ['#ECFDF5', '#D1FAE5']
-                : ['#FEF2F2', '#FEE2E2']
-            }
-            style={styles.floatingBannerCard}
-          >
-            <View
-              style={[
-                styles.floatingBannerIconWrap,
-                activeAlertBanner.type === 'high_demand_alert' ||
-                (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
-                  ? { backgroundColor: '#A7D6B4' }
-                  : activeAlertBanner.type === 'inquiry_approved'
-                  ? styles.floatingBannerIconWrapApproved
-                  : styles.floatingBannerIconWrapRejected,
-              ]}
-            >
-              <MaterialIcons
-                name={
-                  activeAlertBanner.type === 'high_demand_alert' ||
-                  (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
-                    ? 'trending-up'
-                    : activeAlertBanner.type === 'inquiry_approved'
-                    ? 'check-circle'
-                    : 'error-outline'
-                }
-                size={24}
-                color={
-                  activeAlertBanner.type === 'high_demand_alert' ||
-                  (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
-                    ? '#166534'
-                    : activeAlertBanner.type === 'inquiry_approved'
-                    ? '#059669'
-                    : '#dc2626'
-                }
-              />
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[
-                  styles.floatingBannerTitle,
-                  (activeAlertBanner.type === 'high_demand_alert' ||
-                    (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))) && {
-                    color: '#3730A3',
-                  },
-                  activeAlertBanner.type === 'inquiry_approved' && { color: '#065f46' },
-                ]}
-              >
-                {activeAlertBanner.title}
-              </Text>
-
-              <Text style={styles.floatingBannerMessage} numberOfLines={2}>
-                {activeAlertBanner.message}
-              </Text>
-
-              <View style={styles.floatingBannerActions}>
-                <TouchableOpacity
-                  style={[
-                    styles.floatingBannerActionBtn,
-                    activeAlertBanner.type === 'high_demand_alert' ||
-                    (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
-                      ? { backgroundColor: '#166534' }
-                      : activeAlertBanner.type === 'inquiry_approved'
-                      ? { backgroundColor: '#059669' }
-                      : { backgroundColor: '#dc2626' },
-                  ]}
-                  onPress={() => {
-                    const isDemandAlert =
-                      activeAlertBanner.type === 'high_demand_alert' ||
-                      (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'));
-
-                    setActiveAlertBanner(null);
-
-                    if (isDemandAlert) {
-                      navigation.navigate('Notifications');
-                    } else {
-                      navigation.navigate('SubmitInquiry');
-                    }
-                  }}
-                >
-                  <MaterialIcons
-                    name={
-                      activeAlertBanner.type === 'high_demand_alert' ||
-                      (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
-                        ? 'notifications'
-                        : activeAlertBanner.type === 'inquiry_approved'
-                        ? 'verified'
-                        : 'replay'
-                    }
-                    size={14}
-                    color="#ffffff"
-                  />
-
-                  <Text style={styles.floatingBannerActionBtnText}>
-                    {activeAlertBanner.type === 'high_demand_alert' ||
-                    (activeAlertBanner.title && activeAlertBanner.title.includes('High Demand'))
-                      ? 'View Alert'
-                      : activeAlertBanner.type === 'inquiry_approved'
-                      ? 'View Status'
-                      : 'Re-submit Now'}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.floatingBannerDismissBtn}
-                  onPress={() => setActiveAlertBanner(null)}
-                >
-                  <Text style={styles.floatingBannerDismissBtnText}>Dismiss</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.floatingBannerCloseIcon}
-              onPress={() => setActiveAlertBanner(null)}
-            >
-              <MaterialIcons name="close" size={18} color="#9ca3af" />
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
-      )}
+      <ProviderNotificationBanner notification={activeAlertBanner} navigation={navigation} onDismiss={() => setActiveAlertBanner(null)} />
 
       <Tab.Navigator
         tabBar={props => <ProviderTabBar {...props} C={C} />}

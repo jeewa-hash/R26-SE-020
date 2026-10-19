@@ -21,6 +21,7 @@ export const buildDurationPredictionPayload = ({
 }) => ({
   serviceCategory: String(
     firstDefined(
+      providerQuotation.durationTaskContext?.serviceCategory,
       requestQuotation.serviceCategory,
       requestQuotation.detectedCategory,
       providerQuotation.serviceCategory,
@@ -31,6 +32,7 @@ export const buildDurationPredictionPayload = ({
 
   serviceType: String(
     firstDefined(
+      providerQuotation.durationTaskContext?.serviceType,
       requestQuotation.serviceType,
       requestQuotation.serviceSubcategory,
       providerQuotation.serviceType,
@@ -42,6 +44,7 @@ export const buildDurationPredictionPayload = ({
 
   taskName: String(
     firstDefined(
+      providerQuotation.durationTaskContext?.taskName,
       requestQuotation.taskName,
       requestQuotation.detectedTask,
       requestQuotation.detectedObject,

@@ -6,16 +6,10 @@ import {
   ActivityIndicator,
   StyleSheet,
   AppState,
-  LogBox,
   Platform,
 } from 'react-native';
 
-LogBox.ignoreLogs([
-  'expo-notifications: Android Push notifications',
-  'Android Push notifications (remote notifications)',
-  'Push notifications functionality provided by expo-notifications was removed from Expo Go',
-  'warnOfExpoGoPushUsage',
-]);
+
 import {
   NavigationContainer,
   useNavigationContainerRef,
@@ -65,6 +59,7 @@ import BoostSuccessScreen from './pages/BoostSuccess';
 import ProfileScreen from './pages/ProfileScreen';
 import ProviderJobDetailsScreen from './pages/IT22129376/ProviderJobDetailsScreen';
 import ProviderRequestDetailsScreen from './pages/IT22129376/ProviderRequestDetailsScreen';
+import ProviderQuotationDetailsScreen from './pages/IT22129376/ProviderQuotationDetailsScreen';
 import ProviderQuotationFormScreen from './pages/IT22129376/ProviderQuotationFormScreen';
 import ServicesListScreen from './pages/ServicesListScreen';
 import ServiceFormScreen from './pages/ServiceFormScreen';import ProviderAvailabilityScreen from './pages/IT22129376/ProviderAvailabilityScreen';
@@ -233,6 +228,7 @@ function AppContent() {
             <Stack.Screen name="IT22129376ProviderJobDetails" component={ProviderJobDetailsScreen} />
             <Stack.Screen name="IT22129376ProviderRequestDetails" component={ProviderRequestDetailsScreen} />
             <Stack.Screen name="IT22129376ProviderQuotationForm" component={ProviderQuotationFormScreen} />
+            <Stack.Screen name="IT22129376ProviderQuotationDetails" component={ProviderQuotationDetailsScreen} />
             <Stack.Screen
               name="ServicesList"
               component={ServicesListScreen}

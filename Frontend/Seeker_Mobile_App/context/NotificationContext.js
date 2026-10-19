@@ -1,325 +1,170 @@
-// context/NotificationContext.js
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import io from 'socket.io-client';
 import Toast from 'react-native-toast-message';
 import { IP_ADDRESS, AUTH_SERVICE_URL, PROVIDER_SERVICE_URL } from '../config';
 import { navigate } from '../utils/navigationService';
+import { useAuth } from './AuthContext';
+import { getUserIdFromJwt } from '../screens/IT22129376/services/seekerAuthStorage';
+import { fetchSeekerWithTimeout as fetch } from '../utils/seekerHttp';
+import { mergeSeekerNotifications, notificationKey, seekerNotificationDestination } from '../utils/seekerNotifications';
 
 const NotificationContext = createContext();
-
 export const useNotification = () => useContext(NotificationContext);
-
-const NOTIFICATION_SOCKET_URL = PROVIDER_SERVICE_URL;
-const QUOTATIONS_URL = `${PROVIDER_SERVICE_URL}/api/provider/quotations/seeker/me`;
-const AUTH_NOTIFICATIONS_URL = AUTH_SERVICE_URL
-  ? `${AUTH_SERVICE_URL}/seeker/notifications`
-  : `http://${IP_ADDRESS}:4003/seeker/notifications`;
-const SEEN_NOTIFS_STORAGE_KEY = 'seeker_seen_notification_ids';
-const READ_QUOTES_KEY = 'readQuotes';
+const ORIGIN = AUTH_SERVICE_URL || 'https://r26-auth-service.onrender.com';
+const INBOX = `${ORIGIN}/seeker/notifications`;
+const QUOTES = `${PROVIDER_SERVICE_URL}/api/provider/quotations/seeker/me`;
 
 export const NotificationProvider = ({ children }) => {
+  const { user, isReady } = useAuth();
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [socket, setSocket] = useState(null);
-  const seenNotifsRef = useRef(new Set());
-  const initialLoadRef = useRef(true);
-
-  // ─────────────────────────────────────────────────────────────
-  // Load seen notification IDs from AsyncStorage
-  // ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const loadSeenIds = async () => {
-      try {
-        const stored = await AsyncStorage.getItem(SEEN_NOTIFS_STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            seenNotifsRef.current = new Set(parsed);
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load seen notification IDs:', err);
-      }
-    };
-    loadSeenIds();
+  const [syncError, setSyncError] = useState(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const sources = useRef({ auth: [], quotes: [] });
+  const identity = useRef({ token: null, owner: null });
+  const seen = useRef(new Set());
+  const read = useRef(new Set());
+  const hidden = useRef(new Set());
+  const initial = useRef(true);
+  const revision = useRef(0);
+  const pending = useRef(null);
+  const readNotification = useRef(() => {});
+  const storageKey = name => `seeker_notifications:${identity.current.owner}:${name}`;
+  const publish = useCallback(() => {
+    setNotifications(mergeSeekerNotifications(sources.current.auth, sources.current.quotes, read.current, hidden.current));
   }, []);
 
-  const saveSeenIds = async () => {
-    try {
-      const arr = Array.from(seenNotifsRef.current).slice(-200); // keep last 200 IDs
-      await AsyncStorage.setItem(SEEN_NOTIFS_STORAGE_KEY, JSON.stringify(arr));
-    } catch (err) {
-      console.warn('Failed to save seen notification IDs:', err);
-    }
-  };
-
-  // ─────────────────────────────────────────────────────────────
-  // Show in-app Pop-up Notification (Toast Banner)
-  // ─────────────────────────────────────────────────────────────
-  const showPopupNotification = useCallback(({
-    type = 'info',
-    title,
-    message,
-    data = {},
-    actionText,
-    onPress,
-  }) => {
-    // Map to valid toast type
-    const toastType = ['quote', 'bid', 'booking', 'message', 'high_demand_alert', 'popupSuccess', 'popupError', 'popupInfo'].includes(type)
-      ? type
-      : 'popupInfo';
-
-    const defaultPressHandler = () => {
-      if (onPress) {
-        onPress();
-        return;
-      }
-
-      // Default navigation mappings
-      if (type === 'quote' || data?.type === 'quote' || data?.type === 'NEW_QUOTATION') {
-        const reqId = data?.providerRequestId || data?.metadata?.providerRequestId || data?.requestId;
-        if (reqId) {
-          navigate('RequestQuotationDetails', {
-            requestId: reqId,
-            providerId: data?.providerId || data?.metadata?.providerId,
-          });
-        } else {
-          navigate('NotificationScreen');
-        }
-      } else if (type === 'bid' || data?.type === 'bid') {
-        navigate('BiddingScreen', { postId: data?.postId });
-      } else if (type === 'booking' || data?.type === 'booking') {
-        navigate('BookingsScreen');
-      } else if (type === 'message' || data?.type === 'message') {
-        if (data?.chatId) {
-          navigate('ChatScreen', { chatId: data.chatId });
-        } else {
-          navigate('ChatListScreen');
-        }
-      } else if (type === 'high_demand_alert') {
-        navigate('SeasonalDemandsScreen');
-      } else {
-        navigate('NotificationScreen');
-      }
-    };
-
-    Toast.show({
-      type: toastType,
-      text1: title || 'Notification',
-      text2: message || '',
-      position: 'top',
-      visibilityTime: 5000,
-      autoHide: true,
-      topOffset: 45,
-      props: {
-        actionText: actionText || 'View details',
-        data,
-      },
-      onPress: defaultPressHandler,
+  const showPopupNotification = useCallback(({ type = 'info', title, message, data = {}, actionText, onPress }) => {
+    const toastType = ['quote', 'bid', 'booking', 'message', 'high_demand_alert', 'popupSuccess', 'popupError', 'popupInfo'].includes(type) ? type : 'popupInfo';
+    Toast.show({ type: toastType, text1: title || 'Notification', text2: message || '', position: 'top', visibilityTime: 5000, autoHide: true, topOffset: 45,
+      props: { actionText: actionText || 'View details', data },
+      onPress: () => { if (data._id) readNotification.current(data._id); if (onPress) return onPress(); const target = seekerNotificationDestination({ ...data, type: data.type || type }); navigate(target.name, target.params); },
     });
   }, []);
 
-  // ─────────────────────────────────────────────────────────────
-  // Fetch & synchronize quotations & notifications
-  // ─────────────────────────────────────────────────────────────
   const syncNotifications = useCallback(async (notifyNew = false) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (!token) return;
-
-      let quoteNotifs = [];
-      let authNotifs = [];
-      const savedReadQuoteIds = await AsyncStorage.getItem(READ_QUOTES_KEY);
-      const readQuoteIds = new Set(savedReadQuoteIds ? JSON.parse(savedReadQuoteIds) : []);
-
-      // 1. Fetch quotations
-      try {
-        const quoteRes = await fetch(QUOTATIONS_URL, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const quoteData = await quoteRes.json();
-        if (quoteData.success && Array.isArray(quoteData.data)) {
-          quoteNotifs = quoteData.data.map((quote) => {
-            const id = `quote_${quote._id}`;
-            return {
-              _id: id,
-              type: 'quote',
-              title: `New Quotation: LKR ${quote.price}`,
-              message: quote.notes || `Duration: ${quote.durationText || '1 day'}`,
-              createdAt: quote.createdAt,
-              isRead: readQuoteIds.has(id),
-              quoteId: quote._id,
-              providerRequestId: quote.providerRequestId,
-              providerId: quote.providerId?._id || quote.providerId,
-              providerName: quote.providerId?.name || 'Service Provider',
-              price: quote.price,
-              duration: quote.durationText,
-              status: quote.status,
-            };
-          });
-        }
-      } catch (err) {
-        // quiet fail for offline/microservice down
+    const token = identity.current.token;
+    if (!token) return false;
+    if (pending.current) return pending.current;
+    const version = revision.current;
+    const task = (async () => {
+      const headers = { Authorization: `Bearer ${token}` };
+      const results = await Promise.allSettled([fetch(INBOX, { headers }), fetch(QUOTES, { headers })].map(async promise => {
+        const response = await promise;
+        const data = await response.json();
+        if (!response.ok) throw new Error('Unable to refresh notifications.');
+        return data;
+      }));
+      if (version !== revision.current || token !== identity.current.token) return false;
+      let failures = 0;
+      const auth = results[0], quotes = results[1];
+      if (auth.status === 'fulfilled' && (Array.isArray(auth.value) || Array.isArray(auth.value?.data))) sources.current.auth = Array.isArray(auth.value) ? auth.value : auth.value.data;
+      else failures++;
+      if (quotes.status === 'fulfilled' && Array.isArray(quotes.value?.data)) sources.current.quotes = quotes.value.data.map(quote => ({
+        _id: `quote_${quote._id}`, type: 'quote', title: `New Quotation: LKR ${quote.price}`, message: quote.notes || `Duration: ${quote.durationText || 'Not provided'}`,
+        createdAt: quote.createdAt, isRead: false, quoteId: quote._id, providerRequestId: quote.providerRequestId, providerId: quote.providerId?._id || quote.providerId, status: quote.status,
+      }));
+      else failures++;
+      const all = mergeSeekerNotifications(sources.current.auth, sources.current.quotes, read.current, hidden.current);
+      for (const item of all) {
+        const key = notificationKey(item);
+        if (!seen.current.has(key) && notifyNew && !initial.current && !item.isRead) showPopupNotification({ type: item.type, title: item.title, message: item.message, data: item });
+        seen.current.add(key);
       }
-
-      // 2. Fetch auth notifications
-      try {
-        const authRes = await fetch(AUTH_NOTIFICATIONS_URL, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (authRes.ok) {
-          const authData = await authRes.json();
-          authNotifs = Array.isArray(authData) ? authData : (authData.data || []);
-        }
-      } catch (err) {
-        // quiet fail
-      }
-
-      const all = [...quoteNotifs, ...authNotifs].sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-      );
-
-      // Check for new items to trigger popup notification
-      if (notifyNew && !initialLoadRef.current) {
-        for (const item of all) {
-          if (!seenNotifsRef.current.has(item._id)) {
-            seenNotifsRef.current.add(item._id);
-            // Trigger pop up notification
-            showPopupNotification({
-              type: item.type,
-              title: item.title,
-              message: item.message,
-              data: item,
-            });
-          }
-        }
-        saveSeenIds();
-      } else if (initialLoadRef.current) {
-        // Mark all existing as seen so we don't spam popups on cold app startup
-        all.forEach((item) => seenNotifsRef.current.add(item._id));
-        saveSeenIds();
-        initialLoadRef.current = false;
-      }
-
+      if (!failures) initial.current = false;
       setNotifications(all);
-      setUnreadCount(all.filter((n) => !n.isRead).length);
-    } catch (err) {
-      console.warn('Error syncing notifications:', err);
-    }
+      setInitialLoading(false);
+      setSyncError(failures ? 'Some notifications could not be refreshed. Showing the latest available information.' : null);
+      await AsyncStorage.setItem(storageKey('seen'), JSON.stringify([...seen.current].slice(-300)));
+      return failures === 0;
+    })();
+    pending.current = task;
+    try { return await task; } catch { if (version === revision.current) { setInitialLoading(false); setSyncError('Unable to refresh notifications. Pull down to retry.'); } return false; }
+    finally { if (pending.current === task) pending.current = null; }
   }, [showPopupNotification]);
 
-  // ─────────────────────────────────────────────────────────────
-  // Connect to Real-time Notification Socket
-  // ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    let activeSocket = null;
-
-    const setupSocket = async () => {
-      try {
-        const token = await AsyncStorage.getItem('userToken');
-        if (!token) return;
-
-        activeSocket = io(NOTIFICATION_SOCKET_URL, {
-          transports: ['websocket'],
-          auth: { token },
-        });
-
-        activeSocket.on('connect', () => {
-          console.log('✅ Notification socket connected');
-        });
-
-        // Real-time notification event handler
-        activeSocket.on('notification', (notif) => {
-          console.log('🔔 Real-time notification received:', notif);
-
-          const notifId = notif._id || `socket_${Date.now()}`;
-          seenNotifsRef.current.add(notifId);
-          saveSeenIds();
-
-          // Standardize payload
-          let type = 'info';
-          if (notif.type === 'NEW_QUOTATION' || notif.type === 'quote') type = 'quote';
-          else if (notif.type === 'bid') type = 'bid';
-          else if (notif.type === 'booking') type = 'booking';
-          else if (notif.type === 'message') type = 'message';
-
-          showPopupNotification({
-            type,
-            title: notif.title || 'New Notification',
-            message: notif.message || '',
-            data: notif,
-          });
-
-          // Sync full list
-          syncNotifications(false);
-        });
-
-        setSocket(activeSocket);
-      } catch (e) {
-        console.warn('Socket setup error:', e);
-      }
+    let disposed = false, connection = null, currentToken = null;
+    const reset = () => {
+      revision.current++; pending.current = null;
+      identity.current = { token: null, owner: null };
+      sources.current = { auth: [], quotes: [] }; seen.current = new Set(); read.current = new Set(); hidden.current = new Set(); initial.current = true;
+      setNotifications([]); setSocket(null); setSyncError(null); setInitialLoading(true);
     };
-
-    setupSocket();
-    syncNotifications(false);
-
-    // Periodic polling backup (every 15s)
-    const interval = setInterval(() => {
-      syncNotifications(true);
-    }, 15000);
-
-    return () => {
-      clearInterval(interval);
-      if (activeSocket) {
-        activeSocket.disconnect();
-      }
+    reset();
+    if (!isReady) return;
+    const setup = async () => {
+      const token = await AsyncStorage.getItem('userToken');
+      if (disposed) return;
+      if (token === currentToken) { if (!token) setInitialLoading(false); return; }
+      currentToken = token; connection?.disconnect(); reset();
+      if (!token) { setInitialLoading(false); return; }
+      const owner = getUserIdFromJwt(token);
+      if (!owner) { setInitialLoading(false); return; }
+      const values = await AsyncStorage.multiGet(['seen', 'read', 'hidden'].map(name => `seeker_notifications:${owner}:${name}`));
+      if (disposed || currentToken !== token) return;
+      const parse = value => { try { return JSON.parse(value || '[]'); } catch { return []; } };
+      const legacyRead = values[1][1] === null ? await AsyncStorage.getItem('readQuotes') : null;
+      if (disposed || currentToken !== token) return;
+      seen.current = new Set(parse(values[0][1])); read.current = new Set(parse(values[1][1] || legacyRead)); hidden.current = new Set(parse(values[2][1]));
+      identity.current = { token, owner };
+      connection = io(ORIGIN, { transports: ['websocket'], auth: { token } });
+      connection.on('connect', () => syncNotifications(false));
+      connection.on('notification', item => {
+        if (disposed || token !== identity.current.token || !item?._id) return;
+        const key = notificationKey(item), fresh = !seen.current.has(key);
+        seen.current.add(key);
+        sources.current.auth = [item, ...sources.current.auth.filter(row => String(row._id) !== String(item._id))];
+        revision.current++; pending.current = null; publish();
+        if (fresh && !item.isRead) showPopupNotification({ type: item.type, title: item.title, message: item.message, data: item });
+        AsyncStorage.setItem(storageKey('seen'), JSON.stringify([...seen.current].slice(-300))).catch(() => {});
+        syncNotifications(false);
+      });
+      setSocket(connection);
+      await syncNotifications(false);
     };
-  }, [syncNotifications, showPopupNotification]);
+    setup().catch(() => { if (!disposed) { setInitialLoading(false); setSyncError('Unable to connect to notifications.'); } });
+    const timer = setInterval(async () => { try { await setup(); if (!disposed) await syncNotifications(true); } catch { /* Keep previously loaded inbox. */ } }, 15000);
+    return () => { disposed = true; clearInterval(timer); connection?.disconnect(); reset(); };
+  }, [user?.id, user?._id, isReady, syncNotifications, showPopupNotification, publish]);
 
-  // ─────────────────────────────────────────────────────────────
-  // Manual helpers
-  // ─────────────────────────────────────────────────────────────
-  const markAsRead = async (id) => {
-    if (String(id).startsWith('quote_')) {
-      try {
-        const savedReadQuoteIds = await AsyncStorage.getItem(READ_QUOTES_KEY);
-        const readQuoteIds = savedReadQuoteIds ? JSON.parse(savedReadQuoteIds) : [];
-        if (!readQuoteIds.includes(id)) {
-          await AsyncStorage.setItem(READ_QUOTES_KEY, JSON.stringify([...readQuoteIds, id]));
-        }
-      } catch (err) {
-        console.warn('Failed to save read quote ID:', err);
-      }
-    }
-
-    setNotifications((prev) =>
-      prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
-    );
-    setUnreadCount((prev) => {
-      const notification = notifications.find((item) => item._id === id);
-      return notification?.isRead ? prev : Math.max(0, prev - 1);
-    });
+  const mutate = async (suffix, method) => {
+    const token = identity.current.token;
+    if (!token) throw new Error('Please sign in again.');
+    const response = await fetch(`${INBOX}${suffix}`, { method, headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error('Unable to update notifications. Please retry.');
+    if (token !== identity.current.token) throw new Error('Your account changed. Please refresh.');
+    revision.current++; pending.current = null;
   };
-
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    setUnreadCount(0);
+  const markAsRead = async id => {
+    if (!identity.current.token) return false;
+    try {
+      if (!String(id).startsWith('quote_')) await mutate(`/${id}/read`, 'PATCH');
+      const next = new Set(read.current); next.add(String(id));
+      const item = notifications.find(n => String(n._id) === String(id));
+      const quoteId = item?.quoteId || item?.metadata?.quotationId;
+      if (quoteId) next.add(`quote_${quoteId}`);
+      await AsyncStorage.setItem(storageKey('read'), JSON.stringify([...next]));
+      read.current = next; publish(); return true;
+    } catch { return false; }
   };
-
-  return (
-    <NotificationContext.Provider
-      value={{
-        notifications,
-        unreadCount,
-        showPopupNotification,
-        syncNotifications,
-        markAsRead,
-        markAllAsRead,
-        socket,
-      }}
-    >
-      {children}
-    </NotificationContext.Provider>
-  );
+  readNotification.current = markAsRead;
+  const markAllAsRead = async () => {
+    try {
+      await mutate('/read-all', 'PATCH');
+      const next = new Set([...read.current, ...notifications.map(n => String(n._id)), ...notifications.map(n => n.quoteId || n.metadata?.quotationId).filter(Boolean).map(id => `quote_${id}`)]);
+      await AsyncStorage.setItem(storageKey('read'), JSON.stringify([...next]));
+      read.current = next; publish(); return true;
+    } catch { return false; }
+  };
+  const clearNotifications = async () => {
+    try {
+      await mutate('', 'DELETE');
+      const next = new Set([...hidden.current, ...sources.current.quotes.map(n => String(n._id)), ...notifications.map(n => n.quoteId || n.metadata?.quotationId).filter(Boolean).map(id => `quote_${id}`)]);
+      await AsyncStorage.setItem(storageKey('hidden'), JSON.stringify([...next]));
+      hidden.current = next; sources.current = { auth: [], quotes: [] }; publish(); return true;
+    } catch { return false; }
+  };
+  return <NotificationContext.Provider value={{ notifications, loading: initialLoading, unreadCount: notifications.filter(n => !n.isRead).length, syncError, socket, showPopupNotification, syncNotifications, markAsRead, markAllAsRead, clearNotifications }}>{children}</NotificationContext.Provider>;
 };

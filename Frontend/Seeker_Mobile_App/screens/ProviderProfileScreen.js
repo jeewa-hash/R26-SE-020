@@ -1,3 +1,4 @@
+import { showRequestSent } from '../utils/seekerFeedback';
 import PageHeader from '../components/PageHeader';
 // screens/ProviderProfileScreen.js
 
@@ -99,7 +100,7 @@ export default function ProviderProfileScreen({ route, navigation }) {
 
       try {
         const response = await fetch(
-          `http://${IP_ADDRESS}:5001/api/inquiries/check-bookable/${providerId}`
+          `https://r26-admin-service.onrender.com/api/inquiries/check-bookable/${providerId}`
         );
         if (!response.ok) return;
 
@@ -790,13 +791,8 @@ export default function ProviderProfileScreen({ route, navigation }) {
                   borderColor: P.emerald,
                 },
               ]}
-              onPress={() =>
-                Alert.alert(
-                  'Quotation Requested',
-                  `You have already sent a quotation request to ${providerName}. Only 1 quotation request is allowed per provider for this service requirement.`
-                )
-              }
-              activeOpacity={0.85}
+              disabled
+              accessibilityState={{ disabled: true }}
             >
               <Ionicons
                 name="checkmark-circle"
@@ -851,14 +847,12 @@ export default function ProviderProfileScreen({ route, navigation }) {
         defaultLocation={finalDecision?.summary?.provider_matching?.criteria?.service_location || ''}
         defaultUrgency={finalDecision?.summary?.urgency_level || 'Normal'}
         onClose={() => setQuotationModalVisible(false)}
+        onAlreadyRequested={() => { setIsRequested(true); setQuotationModalVisible(false); onQuotationRequested?.(providerId); }}
         onSuccess={() => {
           setQuotationModalVisible(false);
           setIsRequested(true);
           onQuotationRequested?.(providerId);
-          Alert.alert(
-            'Request sent',
-            'Quotation request sent successfully. You can track provider responses in My Jobs.'
-          );
+          showRequestSent(navigation);
         }}
       />
     </SafeAreaView>

@@ -14,19 +14,23 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
-import * as Notifications from 'expo-notifications';
+import { isRunningInExpoGo } from 'expo';
+
+// Expo Go uses the existing in-app socket banners. Load native notifications only in a standalone/development build.
+const Notifications = Platform.OS !== 'web' && !isRunningInExpoGo() ? require('expo-notifications') : null;
 import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { ThemeContext } from '../context/ThemeContext';
 import { getStoredProviderAuth } from './IT22129376/services/providerAuthStorage';
 
-const API_URL = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
-const ADMIN_API_URL = ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
+const API_URL = AUTH_SERVICE_URL || 'https://r26-auth-service.onrender.com';
+const ADMIN_API_URL = ADMIN_SERVICE_URL || 'https://r26-admin-service.onrender.com';
 
 // Configure foreground system notification behavior safely
 try {
-  Notifications.setNotificationHandler({
+  Notifications?.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
     }),
@@ -154,6 +158,7 @@ export default function NotificationScreen({ navigation }) {
 
   // Request system notification permissions & set Android Notification Channel safely
   const registerForPushNotificationsAsync = async () => {
+    if (!Notifications) return;
     try {
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
@@ -178,6 +183,7 @@ export default function NotificationScreen({ navigation }) {
 
   // Helper to trigger system notification popups in phone's top bar
   const triggerSystemNotification = async (title, body, data = {}) => {
+    if (!Notifications) return;
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -196,15 +202,18 @@ export default function NotificationScreen({ navigation }) {
   // Real-time WebSocket setup with system tray notifications
   const setupSocketConnection = async () => {
     try {
-      const { providerId: userId } = await getStoredProviderAuth();
+      const { providerId: userId, token } = await getStoredProviderAuth();
       if (!userId) return;
 
       socketRef.current = io(API_URL, {
-        transports: ['websocket'],
+        transports: ['polling', 'websocket'],
+        tryAllTransports: true,
+        auth: { token },
         reconnection: true,
       });
 
       socketRef.current.on('connect', () => {
+        fetchNotifications(false);
         if (userId) {
           socketRef.current.emit('join_notification_room', userId);
           socketRef.current.emit('join', userId);
@@ -239,6 +248,8 @@ export default function NotificationScreen({ navigation }) {
 
   const resolveCategory = (type) => {
     if (!type) return 'admin';
+    type = type.toLowerCase();
+    if (type.includes('quote') || type.includes('request')) return 'orders';
     if (
       type.includes('inquiry') ||
       type.includes('account') ||
@@ -352,7 +363,7 @@ export default function NotificationScreen({ navigation }) {
 
   const markAsRead = async (id) => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const { token } = await getStoredProviderAuth();
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
       );
@@ -370,7 +381,7 @@ export default function NotificationScreen({ navigation }) {
 
   const markAllAsRead = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const { token } = await getStoredProviderAuth();
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
 
       if (token) {
@@ -386,7 +397,7 @@ export default function NotificationScreen({ navigation }) {
 
   const clearAll = async () => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
+      const { token } = await getStoredProviderAuth();
       setNotifications([]);
 
       if (token) {
@@ -419,7 +430,13 @@ export default function NotificationScreen({ navigation }) {
   const handleNotificationPress = (item) => {
     if (!item.isRead) markAsRead(item._id);
 
-    if (item.type === 'inquiry_rejected' || item.type === 'inquiry_approved') {
+    if (item.metadata?.bookingId) {
+      navigation.navigate('IT22129376ProviderJobDetails', { bookingId: item.metadata.bookingId });
+    } else if (item.metadata?.quotationId) {
+      navigation.navigate('IT22129376ProviderQuotationDetails', { quotationId: item.metadata.quotationId });
+    } else if (item.metadata?.providerRequestId) {
+      navigation.navigate('IT22129376ProviderRequestDetails', { requestId: item.metadata.providerRequestId });
+    } else if (item.type === 'inquiry_rejected' || item.type === 'inquiry_approved') {
       navigation.navigate('SubmitInquiry');
     } else if (item.category === 'messages' && item.chatId) {
       navigation.navigate('ChatScreen', { chatId: item.chatId });

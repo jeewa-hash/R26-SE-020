@@ -347,7 +347,7 @@ export default function HistoryScreen({ navigation }) {
       {/* Header */}
       <PageHeader title={<>Service History</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity
           style={styles.pointsNavButton}
-          onPress={() => navigation.navigate('StarPoints')}
+          onPress={() => navigation.navigate('StarPointsScreen')}
         >
           <Ionicons name="star" size={22} color={textColor} />
         </TouchableOpacity></>} />
@@ -390,7 +390,7 @@ export default function HistoryScreen({ navigation }) {
       {/* Section Title */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Completed Jobs</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('StarPoints')}>
+        <TouchableOpacity onPress={() => navigation.navigate('StarPointsScreen')}>
           <Text style={styles.seeAllText}>View Points</Text>
         </TouchableOpacity>
       </View>

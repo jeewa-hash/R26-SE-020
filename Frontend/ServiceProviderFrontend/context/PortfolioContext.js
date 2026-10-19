@@ -1,3 +1,4 @@
+import { resolvePortfolioImage } from '../utils/portfolioMedia';
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG } from '../config';
@@ -11,17 +12,7 @@ export function PortfolioProvider({ children }) {
   const [loading, setLoading] = useState(false);
 
   // Helper to resolve full image url
-  const resolveImageUrl = (imgDoc) => {
-    if (!imgDoc) return '';
-    const raw = imgDoc.image_url || imgDoc.uri || '';
-    if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('file://')) {
-      return raw;
-    }
-    if (raw.startsWith('/uploads/')) {
-      return `${CONFIG.ML_SERVICE_URL}${raw}`;
-    }
-    return raw;
-  };
+  const resolveImageUrl = imgDoc => resolvePortfolioImage(imgDoc?.image_url || imgDoc?.uri, CONFIG.ML_SERVICE_URL);
 
   // Fetch portfolio items and categories from ML Engine backend
   const loadPortfolio = useCallback(async () => {

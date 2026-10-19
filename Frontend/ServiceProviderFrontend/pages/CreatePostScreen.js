@@ -127,7 +127,7 @@ export default function CreatePostScreen({ navigation }) {
 
         // Check penalty score & restrictions
         try {
-          const adminUrl = CONFIG.ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
+          const adminUrl = CONFIG.ADMIN_SERVICE_URL || 'https://r26-admin-service.onrender.com';
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 1500);
           try {

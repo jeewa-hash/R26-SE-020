@@ -12,7 +12,7 @@ const getQuoteId = (quote) => quote?._id || quote?.id || quote?.externalQuotatio
 const getRequestId = (quote) => quote?.externalRequestQuotationId || quote?.requestQuotationId || quote?.providerRequestId || quote?.requestId;
 const getAmount = (quote) => quote?.quotedPrice || quote?.price || quote?.finalAmount || 0;
 const getTitle = (quote) => quote?.title || quote?.serviceSubcategory || quote?.serviceSubCategory || quote?.subcategory || 'Provider Quote';
-const getProvider = (quote) => quote?.providerSnapshot?.name || quote?.providerName || quote?.providerId || 'Provider';
+const getProvider = (quote) => quote?.providerSnapshot?.name || quote?.providerName || quote?.providerId?.name || 'Provider';
 const getNote = (quote) => quote?.note || quote?.notes || 'Provider quotation received.';
 const getBudget = (quote) => quote?.seekerBudget || quote?.request?.seekerBudgetAmount || quote?.request?.budgetAmount || quote?.request?.budget || 0;
 
@@ -35,6 +35,7 @@ export default function QuoteDetailsScreen({ route, navigation }) {
     );
   }
 
+  const canConfirm = !route.params?.bookingLinked && !['REJECTED', 'CANCELLED', 'EXPIRED'].includes(String(quote.status).toUpperCase()) && quote.coordinationId && ['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus || quote.coordinationDecision);
   const normalizedQuote = {
     ...quote,
     externalQuotationId: getQuoteId(quote),
@@ -48,8 +49,8 @@ export default function QuoteDetailsScreen({ route, navigation }) {
       navigation={navigation}
       footer={
         <ActionButton
-          label={quote.coordinationId && ['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus) ? 'Select & Continue to Confirmation' : 'Awaiting Provider Validation'}
-          disabled={!quote.coordinationId || !['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus)}
+          label={route.params?.bookingLinked ? 'Booking Already Confirmed' : canConfirm ? 'Review & Confirm Booking' : 'Offer Unavailable / Awaiting Validation'}
+          disabled={!canConfirm}
           icon="rule"
           onPress={() => navigation.navigate('IT22129376ConfirmJob', { quote: normalizedQuote })}
         />

@@ -27,3 +27,8 @@ export const predictDuration = async (payload) => {
     return null;
   }
 };
+
+export const getDurationTaskCatalog = async () => {
+  const response = await axios.get(`${ML_SERVICE_BASE_URL}/model-info`, { timeout: 5000 });
+  return response.data.taskCatalog || [];
+};

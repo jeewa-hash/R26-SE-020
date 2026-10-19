@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { ThemeContext } from '../context/ThemeContext';
+import { confirm, notify, openProviderInbox } from '../utils/providerFlowUi';
+import { buildProviderSessions, sessionGuidance } from '../utils/providerSessions';
+import { canQuoteRequest } from '../utils/providerFlowState';
 import HeaderSection from '../components/HeaderSection';
 import { getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 import {
@@ -34,7 +37,7 @@ import {
   isOngoingBooking,
 } from '../services/providerFlowApi';
 
-const TABS = ['Ongoing', 'Requests', 'Quotes', 'Scheduled', 'History'];
+const TABS = ['Sessions', 'History'];
 
 const dateKey = (date) => date.toISOString().slice(0, 10);
 
@@ -101,15 +104,15 @@ const getReminderText = (booking) => {
   if (!start) return '';
   const minutesUntilStart = (start.getTime() - Date.now()) / 60000;
   if (minutesUntilStart >= 0 && minutesUntilStart <= 15) {
-    return 'Your job starts in 15 minutes. Please confirm readiness or report a delay.';
+    return 'Your job starts within 15 minutes. Open the booking to confirm readiness and check the start window.';
   }
   if (minutesUntilStart < 0) {
-    return 'This job is scheduled to start now. Please start the job or report a delay.';
+    return 'The scheduled start time has passed. Open the booking to check whether it can still be started.';
   }
   return '';
 };
 
-export default function ProviderCalendarScreen({ navigation }) {
+export default function ProviderCalendarScreen({ navigation, route }) {
   const { isDark } = useContext(ThemeContext) || { isDark: false };
   const C = {
     bg: isDark ? '#0C0F0D' : '#F5FAF6',
@@ -120,7 +123,10 @@ export default function ProviderCalendarScreen({ navigation }) {
     soft: isDark ? '#273449' : '#F1F5F9',
   };
   const [providerId, setProviderId] = useState(null);
-  const [activeTab, setActiveTab] = useState('Ongoing');
+  const [activeTab, setActiveTab] = useState('Sessions');
+  const [sessionFilter, setSessionFilter] = useState(null);
+  const [updating, setUpdating] = useState(false);
+  useEffect(() => { if (route?.params?.tab) setActiveTab(route.params.tab === 'History' ? 'History' : 'Sessions'); }, [route?.params?.tab]);
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
   const [requests, setRequests] = useState([]);
   const [quotations, setQuotations] = useState([]);
@@ -129,6 +135,8 @@ export default function ProviderCalendarScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const sessions = useMemo(() => buildProviderSessions(requests, quotations, [...bookings, ...ongoingBookings]).filter(session => !session.booking || !['COMPLETED', 'CANCELLED', 'EXPIRED'].includes(getBookingStatus(session.booking))), [requests, quotations, bookings, ongoingBookings]);
 
   const dates = useMemo(() => nextSevenDays(), []);
 
@@ -136,23 +144,28 @@ export default function ProviderCalendarScreen({ navigation }) {
     try {
       setError('');
       let failedRequests = 0;
+      const failed = {};
       const [requestRows, quotationRows, bookingRows, ongoingRows] = await Promise.all([
         getProviderRequests(id).catch((error) => {
+          failed.requests = true;
           failedRequests += 1;
           console.log('Provider requests load failed:', error?.message);
           return [];
         }),
         getProviderQuotations().catch((error) => {
+          failed.quotations = true;
           failedRequests += 1;
           console.log('Provider quotations load failed:', error?.message);
           return [];
         }),
         getProviderBookings(id).catch((error) => {
+          failed.bookings = true;
           failedRequests += 1;
           console.log('Provider jobs load failed:', error?.message);
           return [];
         }),
         getProviderOngoingBookings(id).catch((error) => {
+          failed.ongoing = true;
           failedRequests += 1;
           console.log('Provider ongoing load failed:', error?.message);
           return [];
@@ -166,23 +179,16 @@ export default function ProviderCalendarScreen({ navigation }) {
         ? ongoingRows.filter((item) => matchesProvider(item, id))
         : myBookings.filter(isOngoingBooking);
 
-      console.log('Provider requests raw count:', requestRows.length);
-      console.log('Provider requests filtered count:', myRequests.length);
-      console.log('Provider quotations raw count:', quotationRows.length);
-      console.log('Provider quotations filtered count:', myQuotations.length);
-      console.log('Provider bookings raw count:', bookingRows.length);
-      console.log('Provider bookings filtered count:', myBookings.length);
-      console.log('Provider ongoing raw count:', ongoingRows.length);
-      console.log('Provider ongoing filtered count:', myOngoing.length);
 
-      if (failedRequests === 4) {
-        setError('Unable to load data right now. Please check your connection and try again.');
+      if (failedRequests > 0) {
+        setError(failedRequests === 4 ? 'Unable to load your jobs. Please try again.' : 'Some requests, quotations or bookings could not be loaded. Refresh to retry.');
       }
 
-      setRequests(myRequests);
-      setQuotations(myQuotations);
-      setBookings(myBookings);
-      setOngoingBookings(myOngoing);
+      if (!failed.requests) setRequests(myRequests);
+      if (!failed.quotations) setQuotations(myQuotations);
+      if (!failed.bookings) setBookings(myBookings);
+      if (!failed.ongoing || !failed.bookings) setOngoingBookings(myOngoing);
+      setLastUpdated(new Date());
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -192,7 +198,6 @@ export default function ProviderCalendarScreen({ navigation }) {
   const initialize = useCallback(async () => {
     setLoading(true);
     const { token, providerId: id, role } = await getStoredProviderAuth();
-    console.log('LOGGED PROVIDER ID:', id);
     if (!token || !id || !String(role || '').toLowerCase().includes('provider')) {
       setLoading(false);
       Alert.alert('Login Required', 'Provider ID not found. Please login again.');
@@ -225,14 +230,16 @@ export default function ProviderCalendarScreen({ navigation }) {
   }, [bookings]);
 
   const pendingRequests = useMemo(() => {
-    return requests.filter((item) => String(item?.status || '').toLowerCase() === 'pending');
-  }, [requests]);
+    return requests.filter((item) => String(item?.status || '').toLowerCase() === 'pending' && !quotations.some(quote => idsEqual(quote.providerRequestId, item._id || item.id) || (item.sessionId && quote.externalSessionId && item.sessionId === quote.externalSessionId)));
+  }, [requests, quotations]);
 
   const submitQuote = (request) => {
     navigation.navigate('IT22129376ProviderQuotationForm', { request });
   };
 
   const updateBooking = async (booking, action, body = {}) => {
+    if (updating) return;
+    setUpdating(true);
     try {
       const bookingId = getBookingId(booking);
       if (!bookingId) {
@@ -247,46 +254,97 @@ export default function ProviderCalendarScreen({ navigation }) {
         'report-delay': 'Delay reported successfully.',
         complete: 'Job completed successfully.',
       };
-      Alert.alert('Success', messages[action] || 'Job updated successfully.');
+      notify('Success', messages[action] || 'Job updated successfully.');
       await loadProviderFlow(providerId);
+      if (action === 'complete') setActiveTab('History');
     } catch (error) {
-      Alert.alert('Update Failed', error?.message || 'Unable to update this job right now. Please try again.');
-    }
+      notify('Update Failed', error?.message || 'Unable to update this job right now. Please try again.');
+    } finally { setUpdating(false); }
   };
 
-  const confirmStart = (booking) => {
-    Alert.alert('Start Job', 'Start this job now?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Start', onPress: () => updateBooking(booking, 'start') },
-    ]);
-  };
-
-  const confirmDelay = (booking) => {
-    Alert.alert(
-      'Report Delay',
-      'Report a 30 minute delay for this job? You can edit this from backend later if needed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Report',
-          onPress: () => updateBooking(booking, 'report-delay', {
-            delayReason: 'Provider needs additional time',
-            extraTimeMinutes: 30,
-          }),
-        },
-      ]
-    );
-  };
-
-  const confirmComplete = (booking) => {
-    Alert.alert('Complete Job', 'Mark this job as completed?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Complete', onPress: () => updateBooking(booking, 'complete') },
-    ]);
-  };
+  const confirmStart = booking => confirm('Start Job', 'Start this job now?', () => updateBooking(booking, 'start'));
+  const confirmDelay = booking => openBooking(booking);
+  const confirmComplete = booking => confirm('Complete Job', 'Mark this job as completed?', () => updateBooking(booking, 'complete'));
 
   const openBooking = (booking) => {
     navigation.navigate('IT22129376ProviderJobDetails', { booking });
+  };
+
+  const renderGuidance = guidance => (
+    <View style={[styles.guidance, { backgroundColor: C.soft }]}>
+      <Text style={[styles.guidanceTitle, { color: C.text }]}>{guidance.title}</Text>
+      <Text style={[styles.guidanceOwner, { color: guidance.owner === 'You' ? '#15803D' : C.muted }]}>Next: {guidance.owner}</Text>
+      <Text style={[styles.guidanceMessage, { color: C.muted }]}>{guidance.message}</Text>
+    </View>
+  );
+  const openSession = session => {
+    if (session.booking) return openBooking(session.booking);
+    if (session.quotation) return navigation.navigate('IT22129376ProviderQuotationDetails', { quotation: session.quotation });
+    navigation.navigate('IT22129376ProviderRequestDetails', { request: session.request });
+  };
+  const renderSessions = () => {
+    const filterOptions = [
+      { key: 'attention', label: 'Needs you', icon: 'alert-circle-outline', groups: ['attention'] },
+      { key: 'waiting', label: 'Waiting for customer', icon: 'time-outline', groups: ['waiting'] },
+      { key: 'confirmed', label: 'Confirmed bookings', icon: 'calendar-outline', groups: ['booked', 'working'] },
+    ];
+    const selected = filterOptions.find(option => option.key === sessionFilter);
+    const visible = selected ? sessions.filter(session => selected.groups.includes(session.guidance.group)) : sessions;
+    const tones = isDark ? {
+      attention: { color: '#FCD34D', bg: '#3B311B', border: '#6B5425', label: 'Needs you' },
+      waiting: { color: '#93C5FD', bg: '#1E3047', border: '#365577', label: 'With customer' },
+      booked: { color: '#86EFAC', bg: '#203C2B', border: '#3B674A', label: 'Upcoming' },
+      working: { color: '#C4B5FD', bg: '#33294B', border: '#5B487C', label: 'In progress' },
+      closed: { color: '#CBD5E1', bg: '#29313C', border: '#475569', label: 'Closed' },
+    } : {
+      attention: { color: '#92400E', bg: '#FFFBEB', border: '#F3D898', label: 'Needs you' },
+      waiting: { color: '#1D4ED8', bg: '#EFF6FF', border: '#BFD5F5', label: 'With customer' },
+      booked: { color: '#166534', bg: '#EDF7F0', border: '#B5DCC0', label: 'Upcoming' },
+      working: { color: '#6D28D9', bg: '#F5F3FF', border: '#D8CCF3', label: 'In progress' },
+      closed: { color: '#475569', bg: '#F1F5F9', border: '#CBD5E1', label: 'Closed' },
+    };
+    return <>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+        {filterOptions.map(option => {
+          const active = sessionFilter === option.key;
+          const tone = tones[option.groups[0]];
+          const count = sessions.filter(session => option.groups.includes(session.guidance.group)).length;
+          return <TouchableOpacity key={option.key} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`${option.label}, ${count} sessions${active ? '. Tap to show all' : ''}`} onPress={() => setSessionFilter(active ? null : option.key)} style={{ flex: 1, padding: 11, minHeight: 112, borderWidth: active ? 2 : 1, borderRadius: 15, borderColor: active ? tone.color : C.border, backgroundColor: active ? tone.bg : C.card, gap: 7 }}>
+            <Ionicons name={option.icon} size={19} color={tone.color} />
+            <Text style={{ color: active ? tone.color : C.text, fontSize: 23, fontWeight: '700' }}>{count}</Text>
+            <Text style={{ color: active ? tone.color : C.muted, fontSize: 11, fontWeight: active ? '700' : '500', lineHeight: 15 }}>{option.label}</Text>
+          </TouchableOpacity>;
+        })}
+      </View>
+      <View style={styles.filterToolbar}>
+        <Text style={{ color: C.text, fontSize: 14, fontWeight: '600', flex: 1 }}>{selected ? selected.label : 'All current sessions'} · {visible.length}</Text>
+        {selected ? <TouchableOpacity accessibilityRole="button" onPress={() => setSessionFilter(null)} style={{ padding: 8 }}><Text style={{ color: isDark ? '#86EFAC' : '#166534', fontWeight: '600', fontSize: 12 }}>Show all</Text></TouchableOpacity> : null}
+      </View>
+      {visible.length === 0 ? renderEmpty('layers-outline', selected ? `No sessions · ${selected.label.toLowerCase()}` : 'No service sessions yet', selected ? 'Choose another box or tap Show all to view your other sessions.' : 'When a customer requests your quotation, track its progress here. Completed jobs are in History.') : visible.map(session => {
+        const tone = tones[session.guidance.group] || tones.closed;
+        const row = session.request || session.booking || session.quotation;
+        const start = session.booking ? getBookingStartDate(session.booking) : new Date(session.quotation?.proposedStartTime || session.request?.preferredStartTime || '');
+        return <View key={session.key} style={[styles.card, { backgroundColor: C.card, borderColor: tone.border }]}>
+          <View style={styles.sessionHeading}>
+            <View style={[styles.sessionStateIcon, { backgroundColor: tone.bg }]}><Ionicons name={session.booking ? 'calendar-outline' : session.quotation ? 'document-text-outline' : 'mail-outline'} size={21} color={tone.color} /></View>
+            <View style={{ flex: 1 }}><Text style={[styles.sessionEyebrow, { color: C.muted }]}>{session.booking ? 'CONFIRMED SERVICE' : session.quotation ? 'QUOTATION' : 'NEW REQUEST'}</Text><Text style={[styles.cardTitle, { color: C.text }]}>{getHumanServiceTitle(row)}</Text></View>
+          </View>
+          {getHumanSeekerName(session.booking || row) !== 'Customer' ? <Text style={[styles.cardSubText, { color: C.muted }]}>{getHumanSeekerName(session.booking || row)}</Text> : null}
+          <View style={[styles.sessionStatus, { borderColor: C.border }]}>
+            <View style={[styles.sessionStatusBadge, { backgroundColor: tone.bg }]}><View style={[styles.sessionDot, { backgroundColor: tone.color }]} /><Text style={{ color: tone.color, fontSize: 11, fontWeight: '700' }}>{tone.label}</Text></View>
+            <Text style={[styles.sessionStatusTitle, { color: C.text }]}>{session.guidance.title.replace(/seeker/gi, 'customer')}</Text>
+          </View>
+          <Text style={[styles.sessionExplanation, { color: C.muted }]}>{session.guidance.message.replace(/seeker/gi, 'customer')}</Text>
+          <View style={styles.sessionMeta}><Ionicons name="time-outline" size={16} color={C.muted} /><Text style={[styles.detailText, { color: C.muted, flex: 1 }]}>{start && Number.isFinite(start.getTime()) ? start.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Start time not chosen'}</Text></View>
+          <View style={styles.sessionMeta}><Ionicons name="location-outline" size={16} color={C.muted} /><Text style={[styles.detailText, { color: C.muted, flex: 1 }]}>{getHumanLocation(session.booking || row)}</Text></View>
+          <View style={[styles.sessionActionRow, { borderColor: C.border }]}>
+            <View style={{ flex: 1 }}><Text style={[styles.sessionEyebrow, { color: C.muted }]}>{session.booking ? 'AGREED AMOUNT' : session.quotation ? 'YOUR PRICE' : 'NEXT STEP'}</Text><Text style={[styles.sessionAmount, { color: C.text }]}>{session.booking || session.quotation ? formatMoney(session.booking?.finalAmount ?? session.quotation?.price) : 'Prepare your quote'}</Text></View>
+            <TouchableOpacity accessibilityRole="button" style={styles.sessionOpenButton} onPress={() => openSession(session)}><Text style={styles.primaryButtonText}>{session.booking ? 'Manage Job' : session.quotation ? 'View Quote' : 'Review'}</Text><Ionicons name="arrow-forward" size={16} color="#FFFFFF" /></TouchableOpacity>
+          </View>
+          {session.request && session.guidance.kind !== 'request' ? <TouchableOpacity accessibilityRole="button" style={styles.originalRequestLink} onPress={() => navigation.navigate('IT22129376ProviderRequestDetails', { request: session.request })}><Text style={[styles.secondaryButtonText, { fontSize: 12 }]}>View original request</Text></TouchableOpacity> : null}
+        </View>;
+      })}
+    </>;
   };
 
   const renderStatusBadge = (status) => {
@@ -304,9 +362,25 @@ export default function ProviderCalendarScreen({ navigation }) {
     const end = getBookingEndDate(booking);
     const reminder = getReminderText(booking);
     const delayImpact = booking?.delayInfo?.delayImpactStatus;
+    if (!showActions) {
+      const tone = status === 'COMPLETED' ? { color: isDark ? '#86EFAC' : '#166534', bg: isDark ? '#203C2B' : '#EDF7F0', icon: 'checkmark-circle-outline' }
+        : status === 'EXPIRED' ? { color: isDark ? '#FCD34D' : '#92400E', bg: isDark ? '#3B311B' : '#FFFBEB', icon: 'time-outline' }
+        : { color: isDark ? '#CBD5E1' : '#64748B', bg: isDark ? '#29313C' : '#F1F5F9', icon: 'close-circle-outline' };
+      const date = status === 'COMPLETED' && (booking.completedAt || booking.actualEndTime) ? new Date(booking.completedAt || booking.actualEndTime) : start;
+      return <View key={getBookingId(booking)} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
+        <View style={styles.historyTop}><View style={[styles.historyIcon, { backgroundColor: tone.bg }]}><Ionicons name={tone.icon} size={24} color={tone.color} /></View><View style={{ flex: 1 }}><Text style={[styles.historyLabel, { color: tone.color }]}>{statusLabel(status)}</Text><Text style={[styles.historyDate, { color: C.muted }]}>{date && Number.isFinite(date.getTime()) ? date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Date not recorded'}</Text></View></View>
+        <Text style={[styles.cardTitle, { color: C.text, marginTop: 13 }]}>{getHumanServiceTitle(booking)}</Text>
+        <View style={styles.sessionMeta}><Ionicons name="location-outline" size={15} color={C.muted} /><Text style={[styles.detailText, { color: C.muted, flex: 1 }]}>{getHumanLocation(booking)}</Text></View>
+        {getHumanSeekerName(booking) !== 'Customer' ? <Text style={[styles.historyDate, { color: C.muted }]}>{getHumanSeekerName(booking)}</Text> : null}
+        {status === 'EXPIRED' && booking.pendingRescheduleId ? <Text style={[styles.sessionExplanation, { color: C.muted }]}>A new time is waiting for your review.</Text> : null}
+        <View style={[styles.sessionActionRow, { borderColor: C.border }]}><View style={{ flex: 1 }}><Text style={[styles.sessionEyebrow, { color: C.muted }]}>{status === 'COMPLETED' ? 'SERVICE AMOUNT' : 'QUOTED AMOUNT'}</Text><Text style={[styles.sessionAmount, { color: C.text }]}>{formatMoney(booking.finalAmount ?? booking.amount ?? booking.price)}</Text></View><TouchableOpacity accessibilityRole="button" style={[styles.historyOpen, { borderColor: C.border }]} onPress={() => openBooking(booking)}><Text style={[styles.secondaryButtonText, { color: C.text }]}>{booking.pendingRescheduleId ? 'Review Time' : 'Details'}</Text><Ionicons name="arrow-forward" size={16} color={C.muted} /></TouchableOpacity></View>
+      </View>;
+    }
+
 
     return (
       <View key={getBookingId(booking)} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
+        {renderGuidance(sessionGuidance({ booking }))}
         {reminder ? (
           <View style={styles.reminderBanner}>
             <Ionicons name="notifications-outline" size={16} color="#B45309" />
@@ -359,12 +433,12 @@ export default function ProviderCalendarScreen({ navigation }) {
               <Text style={styles.secondaryButtonText}>View Job</Text>
             </TouchableOpacity>
             {['CONFIRMED', 'RESCHEDULED'].includes(status) ? (
-              <TouchableOpacity style={styles.primaryButton} onPress={() => confirmStart(booking)}>
+              <TouchableOpacity style={styles.primaryButton} disabled={updating} onPress={() => confirmStart(booking)}>
                 <Text style={styles.primaryButtonText}>Start</Text>
               </TouchableOpacity>
             ) : null}
             {status === 'ON_THE_WAY' ? (
-              <TouchableOpacity style={styles.primaryButton} onPress={() => confirmStart(booking)}>
+              <TouchableOpacity style={styles.primaryButton} disabled={updating} onPress={() => confirmStart(booking)}>
                 <Text style={styles.primaryButtonText}>Start</Text>
               </TouchableOpacity>
             ) : null}
@@ -373,18 +447,18 @@ export default function ProviderCalendarScreen({ navigation }) {
                 <TouchableOpacity style={styles.warningButton} onPress={() => confirmDelay(booking)}>
                   <Text style={styles.warningButtonText}>Delay</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.successButton} onPress={() => confirmComplete(booking)}>
+                <TouchableOpacity style={styles.successButton} disabled={updating} onPress={() => confirmComplete(booking)}>
                   <Text style={styles.successButtonText}>Complete</Text>
                 </TouchableOpacity>
               </>
             ) : null}
             {status === 'DELAY_REPORTED' ? (
-              <TouchableOpacity style={styles.successButton} onPress={() => confirmComplete(booking)}>
+              <TouchableOpacity style={styles.successButton} disabled={updating} onPress={() => confirmComplete(booking)}>
                 <Text style={styles.successButtonText}>Complete</Text>
               </TouchableOpacity>
             ) : null}
           </View>
-        ) : null}
+        ) : <TouchableOpacity style={styles.fullSecondaryButton} onPress={() => openBooking(booking)}><Text style={styles.secondaryButtonText}>View Job Details</Text></TouchableOpacity>}
       </View>
     );
   };
@@ -412,8 +486,9 @@ export default function ProviderCalendarScreen({ navigation }) {
           <Text style={[styles.detailText, { color: C.muted }]}>Budget: {formatMoney(request.seekerBudgetAmount)}</Text>
         </View>
       ) : null}
-      <TouchableOpacity style={styles.fullPrimaryButton} onPress={() => submitQuote(request)}>
-        <Text style={styles.primaryButtonText}>Submit Quotation</Text>
+      {renderGuidance(sessionGuidance({ request }))}
+      <TouchableOpacity disabled={!canQuoteRequest(request)} style={[styles.fullPrimaryButton, !canQuoteRequest(request) && { opacity: .5 }]} onPress={() => submitQuote(request)}>
+        <Text style={styles.primaryButtonText}>{request.rescheduleRequestedAt ? 'Waiting for New Time' : 'Submit Quotation'}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.fullSecondaryButton} onPress={() => navigation.navigate('IT22129376ProviderRequestDetails', { request })}>
         <Text style={styles.secondaryButtonText}>View Details</Text>
@@ -436,7 +511,9 @@ export default function ProviderCalendarScreen({ navigation }) {
         </View>
         {hourly ? <Text style={[styles.detailText, { color: C.muted }]}>Rate: LKR {Math.round(hourly).toLocaleString()}/hr</Text> : null}
         {quotation?.notes ? <Text style={[styles.detailText, { color: C.muted }]}>Note: {quotation.notes}</Text> : null}
+        {renderGuidance(sessionGuidance({ quotation, request: requests.find(request => idsEqual(request._id || request.id, quotation.providerRequestId)) }))}
         {quotation?.coordinationStatus ? <Text style={[styles.detailText, { color: C.muted }]}>Availability: {statusLabel(quotation.coordinationStatus)}</Text> : null}
+        <TouchableOpacity style={styles.fullPrimaryButton} onPress={() => navigation.navigate('IT22129376ProviderQuotationDetails', { quotation })}><Text style={styles.primaryButtonText}>View Quotation & Next Steps</Text></TouchableOpacity>
       </View>
     );
   };
@@ -484,28 +561,12 @@ export default function ProviderCalendarScreen({ navigation }) {
     );
   };
 
-  const scheduledBookings = bookings.filter(booking => ['CONFIRMED', 'RESCHEDULED', 'RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED'].includes(getBookingStatus(booking)));
-  const tabCounts = { Ongoing: ongoingBookings.length, Requests: pendingRequests.length, Quotes: quotations.length, Scheduled: scheduledBookings.length, History: historyBookings.length };
+  const tabCounts = { Sessions: sessions.length, History: historyBookings.length };
 
   const renderBody = () => {
-    if (activeTab === 'Scheduled') return scheduledBookings.length ? scheduledBookings.map(booking => renderBookingCard(booking, true)) : renderEmpty('calendar-outline', 'No scheduled jobs.', 'Confirmed bookings will appear here.');
-    if (activeTab === 'Ongoing') {
-      return ongoingBookings.length === 0
-        ? renderEmpty('briefcase-outline', 'No ongoing jobs right now.', 'Jobs you start or jobs scheduled soon will appear here.')
-        : ongoingBookings.map((booking) => renderBookingCard(booking, true));
-    }
-    if (activeTab === 'Requests') {
-      return pendingRequests.length === 0
-        ? renderEmpty('document-text-outline', 'No incoming requests yet.', 'New quotation requests assigned to you will appear here.')
-        : pendingRequests.map(renderRequestCard);
-    }
-    if (activeTab === 'Quotes') {
-      return quotations.length === 0
-        ? renderEmpty('receipt-outline', 'No quotations sent yet.', 'Submitted quotations will appear here.')
-        : quotations.map(renderQuotationCard);
-    }
+    if (activeTab === 'Sessions') return renderSessions();
     return historyBookings.length === 0
-      ? renderEmpty('time-outline', 'Completed and cancelled jobs will appear here.', 'Your job history is currently empty.')
+      ? renderEmpty('time-outline', 'Completed, cancelled and expired jobs appear here.', 'Your job history is currently empty.')
       : historyBookings.map((booking) => renderBookingCard(booking, false));
   };
 
@@ -517,28 +578,29 @@ export default function ProviderCalendarScreen({ navigation }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         )}
       >
-        <HeaderSection navigation={navigation} onInboxPress={() => navigation.navigate('InboxScreen')} />
+        <HeaderSection navigation={navigation} onInboxPress={() => openProviderInbox(navigation)} />
         <View style={[styles.header, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
           <View style={styles.headerTextWrap}>
             <Text style={[styles.headerTitle, { color: C.text }]}>My Jobs</Text>
-            <Text style={[styles.headerSubtitle, { color: C.muted }]}>Requests, quotes and ongoing work</Text>
+            <Text style={[styles.headerSubtitle, { color: C.muted }]}>See what happens next for every service</Text>
+            {lastUpdated ? <Text style={[styles.headerSubtitle, { color: C.muted }]}>Last checked {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Refresh for new decisions</Text> : null}
           </View>
-          <TouchableOpacity style={[styles.refreshButton, { backgroundColor: C.soft }]} onPress={onRefresh}>
+          <TouchableOpacity style={[styles.refreshButton, { backgroundColor: C.soft }]} disabled={refreshing || loading} accessibilityLabel="Refresh all job statuses" onPress={onRefresh}>
             <Ionicons name="refresh" size={20} color="#166534" />
           </TouchableOpacity>
         </View>
 
         <View style={[styles.tabsWrap, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 8 }}>
             {TABS.map((tab) => {
               const active = activeTab === tab;
               return (
-                <TouchableOpacity key={tab} style={[styles.tabPill, { backgroundColor: C.soft }, active && styles.tabPillActive]} onPress={() => setActiveTab(tab)}>
+                <TouchableOpacity key={tab} accessibilityRole="tab" accessibilityState={{ selected: active }} style={[styles.tabPill, { backgroundColor: C.soft, flex: 1, marginHorizontal: 0, alignItems: 'center' }, active && styles.tabPillActive]} onPress={() => setActiveTab(tab)}>
                   <Text style={[styles.tabText, { color: C.muted }, active && styles.tabTextActive]}>{tab} ({tabCounts[tab]})</Text>
                 </TouchableOpacity>
               );
             })}
-          </ScrollView>
+          </View>
         </View>
 
         <View style={styles.contentContainer}>
@@ -547,12 +609,13 @@ export default function ProviderCalendarScreen({ navigation }) {
               <ActivityIndicator size="large" color="#15803D" />
               <Text style={[styles.loadingText, { color: C.muted }]}>Loading provider jobs...</Text>
             </View>
-          ) : error ? (
-            <View style={[styles.emptyContainer, { backgroundColor: C.card, borderColor: C.border }]}>
-              <Ionicons name="cloud-offline-outline" size={46} color="#9CA3AF" />
-              <Text style={[styles.emptyTitle, { color: C.text }]}>{error}</Text>
-            </View>
-          ) : renderBody()}
+          ) : <>
+            {error ? <View style={[styles.emptyContainer, { backgroundColor: C.card, borderColor: C.border }]}>
+              <Text accessibilityRole="alert" style={[styles.emptyTitle, { color: C.text }]}>{error}</Text>
+              <TouchableOpacity style={styles.fullPrimaryButton} onPress={onRefresh}><Text style={styles.primaryButtonText}>Retry Loading</Text></TouchableOpacity>
+            </View> : null}
+            {renderBody()}
+          </>}
         </View>
       </ScrollView>
     </View>
@@ -560,6 +623,20 @@ export default function ProviderCalendarScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  historyTop: { flexDirection: 'row', alignItems: 'center', gap: 11 }, historyIcon: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }, historyLabel: { fontSize: 12, fontWeight: '700' }, historyDate: { fontSize: 12, marginTop: 4 }, historyOpen: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 14 },
+  sessionStatusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
+  sessionOverview: { flexDirection: 'row', gap: 8, marginBottom: 8 }, overviewTile: { flex: 1, borderRadius: 14, borderWidth: 1, padding: 12, gap: 5 }, overviewCount: { fontSize: 23, fontWeight: '700' }, overviewLabel: { fontSize: 11, lineHeight: 16 },
+  sessionHeading: { flexDirection: 'row', gap: 11, alignItems: 'flex-start' }, sessionStateIcon: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }, sessionEyebrow: { fontSize: 9, fontWeight: '700', letterSpacing: .7, marginBottom: 4 },
+  sessionStatus: { gap: 9, paddingTop: 14, marginTop: 15, borderTopWidth: 1 }, sessionDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#15803D' }, sessionStatusTitle: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600' }, sessionExplanation: { fontSize: 12, lineHeight: 19, marginTop: 7, marginBottom: 8 }, sessionMeta: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 7 },
+  sessionActionRow: { borderTopWidth: 1, marginTop: 16, paddingTop: 14, flexDirection: 'row', gap: 10, alignItems: 'center' }, sessionAmount: { fontSize: 16, fontWeight: '700' }, sessionOpenButton: { backgroundColor: '#15803D', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 11, flexDirection: 'row', alignItems: 'center', gap: 7 }, originalRequestLink: { alignSelf: 'flex-start', paddingTop: 14, paddingBottom: 3 },
+  filterToolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16 },
+  filterSelector: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
+  filterOverlay: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
+  filterSheet: { width: '100%', maxWidth: 560, maxHeight: '75%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36, borderWidth: 1 },
+  filterSheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  filterOption: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth },
+  guidance: { padding: 12, borderRadius: 12, marginTop: 12 }, guidanceTitle: { fontSize: 15, fontWeight: '700' }, guidanceOwner: { fontSize: 12, fontWeight: '700', marginTop: 5 }, guidanceMessage: { fontSize: 13, lineHeight: 19, marginTop: 5 },
+  stageRow: { flexDirection: 'row', gap: 6, marginTop: 16, marginBottom: 4 }, stageItem: { flex: 1, gap: 5 }, stageLine: { height: 4, borderRadius: 3 },
   container: { flex: 1, minHeight: 0, backgroundColor: '#F5FAF6' },
   header: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 0.5 },
   headerTextWrap: { flex: 1 },

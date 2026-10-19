@@ -9,6 +9,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use('/internal/notifications', require('./routes/lifecycleNotifications'));
 app.use('/uploads', express.static('uploads'));
 
 const MONGO_URI = process.env.MONGO_URI;

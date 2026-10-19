@@ -1,3 +1,4 @@
+import { UPLOAD_DIR } from './utils/uploadPaths.js';
 import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
@@ -26,7 +27,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // static
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(UPLOAD_DIR));
 
 // root health check
 app.get("/", (req, res) => {

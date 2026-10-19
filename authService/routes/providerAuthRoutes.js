@@ -61,6 +61,7 @@ router.delete('/notifications', providerAuthController.verifyProvider, providerA
 router.patch('/notifications/:id/read', providerAuthController.verifyProvider, providerAuthController.markNotificationAsRead);
 
 //get user profile by ID
+router.patch('/profile/duration-task', providerAuthController.verifyProvider, providerAuthController.saveDurationTaskProfile);
 router.get('/profile', providerAuthController.verifyProvider, providerAuthController.getProfile);
 router.get('/providers', providerAuthController.getAllProviders);
 

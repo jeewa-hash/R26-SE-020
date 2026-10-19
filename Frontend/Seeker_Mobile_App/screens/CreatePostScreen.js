@@ -1,3 +1,4 @@
+import { appendPostImage, resolvePostImageUrl } from '../utils/postMedia';
 import PageHeader from '../components/PageHeader';
 // screens/CreatePostScreen.js
 
@@ -144,6 +145,7 @@ export default function CreatePostScreen() {
   const [urgency, setUrgency] = useState('');
   const [requiredDate, setRequiredDate] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImageAsset, setSelectedImageAsset] = useState(null);
   const [showRequiredDatePicker, setShowRequiredDatePicker] = useState(false);
   const [formErrors, setFormErrors] = useState({});
 
@@ -171,12 +173,7 @@ export default function CreatePostScreen() {
   const [activeField, setActiveField] = useState(null);
 
   // Image URL helper
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return null;
-    const image = String(imagePath);
-    if (image.startsWith('http://') || image.startsWith('https://')) return image;
-    return `${API_BASE_URL}/${image.replace(/\\/g, '/')}`;
-  };
+  const getImageUrl = imagePath => resolvePostImageUrl(imagePath, API_BASE_URL);
 
   const extractDetailsFromInput = (value) => {
     const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -278,7 +275,9 @@ export default function CreatePostScreen() {
 
       if (!result.canceled && result.assets?.length) {
         setSelectedImage(result.assets[0].uri);
+        setSelectedImageAsset(result.assets[0]);
         setPreviewData(null);
+        setPreviewVersions({});
       }
     } catch (error) {
       console.error('IMAGE PICKER ERROR:', error);
@@ -288,6 +287,8 @@ export default function CreatePostScreen() {
 
   const removeImage = () => {
     setSelectedImage(null);
+    setSelectedImageAsset(null);
+    setPreviewVersions({});
     setOriginalImagePath(null);
     setPreviewData(null);
   };
@@ -489,16 +490,9 @@ export default function CreatePostScreen() {
 
     try {
       const formData = new FormData();
-      if (
-        selectedImage &&
-        includeImage &&
-        !/^https?:\/\//i.test(selectedImage)
-      ) {
-        formData.append('image', {
-          uri: selectedImage,
-          type: 'image/jpeg',
-          name: 'post.jpg',
-        });
+      const shouldUploadPhoto = Boolean(selectedImage && includeImage && (selectedImageAsset || !originalImagePath));
+      if (shouldUploadPhoto) {
+        await appendPostImage(formData, selectedImageAsset || { uri: selectedImage }, Platform.OS);
       }
 
       formData.append('title', title || '');
@@ -531,10 +525,11 @@ export default function CreatePostScreen() {
         return;
       }
 
-      if (response.status >= 200 && response.status < 300 && data.success && data.preview) {
+      if (response.ok && data.success && data.preview) {
+        if (shouldUploadPhoto && !data.preview.image) throw new Error('The photo did not upload. Please select it again and retry the preview.');
         const enhancedPreview = {
           ...data.preview,
-          image: data.preview.image || previewData?.image || null,
+          image: selectedImage ? (data.preview.image || previewData?.image || originalImagePath || null) : null,
           location: resolvedLocation,
           urgency: resolvedUrgency,
           requiredDate: resolvedDate,
@@ -623,14 +618,14 @@ export default function CreatePostScreen() {
     const seekerId = loggedUser.userId;
     let finalImagePath = null;
 
-    if (isEditMode) {
-      if (previewData?.image && selectedImage !== getImageUrl(originalImagePath)) {
-        finalImagePath = previewData.image;
-      } else if (originalImagePath) {
-        finalImagePath = originalImagePath;
-      }
-    } else {
-      finalImagePath = previewData?.image || null;
+    if (selectedImageAsset && (!previewData?.image || previewData.image === originalImagePath)) {
+      Alert.alert('Photo not uploaded', 'Generate a fresh preview to upload the changed photo before publishing.');
+      return;
+    }
+    finalImagePath = selectedImage ? (previewData?.image || originalImagePath || null) : null;
+    if (selectedImage && !finalImagePath) {
+      Alert.alert('Photo not uploaded', 'Generate the preview again to upload your selected photo before publishing.');
+      return;
     }
 
     const payload = {

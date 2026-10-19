@@ -65,7 +65,7 @@ export default function ProfileOfProvider({ route, navigation }) {
       const pId = providerId || provider._id || provider.id;
       if (!pId) return;
       try {
-        const adminUrl = `http://${IP_ADDRESS}:5001`;
+        const adminUrl = 'https://r26-admin-service.onrender.com';
         const res = await fetch(`${adminUrl}/api/inquiries/check-bookable/${pId}`);
         if (res.ok) {
           const data = await res.json();

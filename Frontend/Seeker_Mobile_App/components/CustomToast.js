@@ -19,7 +19,7 @@ const NOTIFICATION_THEMES = {
     accentColor: '#F59E0B',
     bgColor: '#FFFFFF',
     iconBg: '#F59E0B18',
-    iconFamily: 'Ionicons',
+    iconFamily: 'MaterialIcons',
     iconName: 'gavel',
     badge: 'New Bid',
   },

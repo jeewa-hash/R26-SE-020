@@ -1,3 +1,4 @@
+import useRequestedQuotations from '../hooks/useRequestedQuotations';
 import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect, useContext } from 'react';
 import {
@@ -92,12 +93,15 @@ const getAvatarGradient = (char) => {
   return AVATAR_GRADIENTS[code % AVATAR_GRADIENTS.length];
 };
 
-export default function FeedScreen({ navigation }) {
+export default function FeedScreen({ navigation, embedded = false, limit, refreshKey = 0 }) {
   const { isDarkMode } = useTheme();
   const { language } = useContext(LanguageContext) || { language: 'en' };
   const isSi = language === 'si';
+  const { checking: checkingRequests, isRequested, markRequested } = useRequestedQuotations();
+  const adSessionId = ad => ad?.sessionId || `AD-${ad?.postId || ad?.id}`;
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [likedAds, setLikedAds] = useState({});
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -159,6 +163,7 @@ export default function FeedScreen({ navigation }) {
   const fetchAds = async () => {
     try {
       setLoading(true);
+      setLoadError(false);
 
       const userId = await getCurrentUserId();
       setCurrentUserId(userId);
@@ -239,8 +244,11 @@ export default function FeedScreen({ navigation }) {
       setAds(formattedAds);
     } catch (error) {
       console.log('FETCH ADS ERROR:', error);
-      Alert.alert('Error', 'Could not fetch ads. Please check your connection.');
-      setAds([]);
+      setLoadError(true);
+      if (!embedded) {
+        Alert.alert('Error', 'Could not fetch ads. Please check your connection.');
+        setAds([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -264,7 +272,7 @@ export default function FeedScreen({ navigation }) {
       fetchAds();
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, refreshKey]);
 
   // ======================================================
   // HANDLE LIKE TOGGLE
@@ -337,6 +345,7 @@ export default function FeedScreen({ navigation }) {
   // OPEN REQUEST QUOTE MODAL
   // ======================================================
   const handleOpenQuoteModal = ad => {
+    if (checkingRequests || isRequested(ad.providerId, adSessionId(ad))) return;
     setSelectedAdForQuote(ad);
     setQuoteNotes(`I would like to request a quote for ${ad.title}.`);
     setQuoteLocation(ad.location || '');
@@ -560,7 +569,9 @@ export default function FeedScreen({ navigation }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.requestQuoteButton}
+            style={[styles.requestQuoteButton, (checkingRequests || isRequested(ad.providerId, adSessionId(ad))) && { opacity: 0.55 }]}
+            disabled={checkingRequests || isRequested(ad.providerId, adSessionId(ad))}
+            accessibilityState={{ disabled: checkingRequests || isRequested(ad.providerId, adSessionId(ad)) }}
             onPress={() => handleOpenQuoteModal(ad)}
             activeOpacity={0.85}
           >
@@ -572,7 +583,7 @@ export default function FeedScreen({ navigation }) {
             >
               <Ionicons name="document-text" size={16} color={P.white} />
               <Text style={styles.requestQuoteText}>
-                {isSi ? 'මිල ගණන් ඉල්ලන්න' : 'Request Quote'}
+                {isRequested(ad.providerId, adSessionId(ad)) ? (isSi ? 'ඉල්ලා ඇත' : 'Requested') : checkingRequests ? 'Checking…' : (isSi ? 'මිල ගණන් ඉල්ලන්න' : 'Request Quote')}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -584,6 +595,9 @@ export default function FeedScreen({ navigation }) {
   // ======================================================
   // LOADING
   // ======================================================
+  const Container = embedded ? View : SafeAreaView;
+  const Content = embedded ? View : ScrollView;
+  if (loading && embedded) return <View style={{ padding: 24, alignItems: 'center' }}><ActivityIndicator color="#6366F1" /><Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>{isSi ? 'දැන්වීම් පූරණය වෙමින් පවතී...' : 'Loading provider posts…'}</Text></View>;
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
@@ -614,50 +628,34 @@ export default function FeedScreen({ navigation }) {
   // MAIN UI
   // ======================================================
   return (
-    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      <StatusBar
+    <Container style={embedded ? undefined : [styles.container, isDarkMode && styles.containerDark]}>
+      {!embedded && <StatusBar
         barStyle="light-content"
-        backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep}
-      />
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#4338CA'}
+      />}
 
-      <PageHeader
-        title={<>{isSi ? 'සේවා දැන්වීම්' : 'Provider Ads'}</>}
-        onBack={() => navigation.goBack()}
-        renderActions={({ textColor }) => (
-          <TouchableOpacity
-            style={styles.headerRefreshBtn}
-            onPress={onRefresh}
-            activeOpacity={0.75}
-          >
-            <Ionicons name="refresh-outline" size={22} color={textColor} />
-          </TouchableOpacity>
-        )}
-      />
+      {!embedded && <PageHeader title={<>{isSi ? 'සේවා දැන්වීම්' : 'Provider Ads'}</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh provider ads" style={styles.headerRefreshBtn} onPress={onRefresh} activeOpacity={0.75}><Ionicons name="refresh-outline" size={22} color={textColor} /></TouchableOpacity>} />}
 
-      <ScrollView
-        style={styles.feedContainer}
-        contentContainerStyle={styles.feedContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
+      <Content
+        style={embedded ? undefined : styles.feedContainer}
+        {...(!embedded ? { refreshControl:
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
             colors={[P.indigo]}
             tintColor={isDarkMode ? P.indigoLight : P.indigo}
           />
-        }
+        } : {})}
       >
-        {ads.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <View
-              style={[styles.emptyIconRing, isDarkMode && { backgroundColor: P.indigoSoftDark }]}
-            >
+        <View style={[styles.feedContent, embedded && { paddingBottom: 0 }]}>
+          {embedded && loadError ? <TouchableOpacity accessibilityRole="button" onPress={fetchAds} style={{ padding: 16 }}><Text style={[styles.emptyText, isDarkMode && styles.textDark]}>Unable to load provider posts. Tap to retry.</Text></TouchableOpacity> : null}
+          {ads.length === 0 && !loadError ? (
+            <View style={styles.emptyContainer}>
               <Ionicons
                 name="newspaper-outline"
                 size={44}
                 color={isDarkMode ? P.indigoLight : P.indigo}
               />
-            </View>
             <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
               {isSi ? 'දැනට දැන්වීම් කිසිවක් නැත' : 'No ads available'}
             </Text>
@@ -676,11 +674,12 @@ export default function FeedScreen({ navigation }) {
                 {isSi ? 'නැවත උත්සාහ කරන්න' : 'Refresh'}
               </Text>
             </TouchableOpacity>
-          </View>
-        ) : (
-          ads.map(renderAd)
-        )}
-      </ScrollView>
+            </View>
+          ) : (
+            (limit ? ads.slice(0, limit) : ads).map(renderAd)
+          )}
+        </View>
+      </Content>
 
       <RequestQuotationModal
         visible={quoteModalVisible}
@@ -698,15 +697,17 @@ export default function FeedScreen({ navigation }) {
         defaultLocation={quoteLocation || selectedAdForQuote?.location || ""}
         defaultUrgency={selectedAdForQuote?.urgency || "Normal"}
         onClose={() => setQuoteModalVisible(false)}
+        onAlreadyRequested={() => { markRequested(selectedAdForQuote?.providerId, adSessionId(selectedAdForQuote)); setQuoteModalVisible(false); }}
         onSuccess={() => {
+          markRequested(selectedAdForQuote?.providerId, adSessionId(selectedAdForQuote));
           setQuoteModalVisible(false);
           setSelectedAdForQuote(null);
           Alert.alert("Request sent", "Quotation request sent successfully. You can track provider responses in My Jobs.");
         }}
       />
 
-      <BottomNav />
-    </SafeAreaView>
+      {!embedded && <BottomNav />}
+    </Container>
   );
 }
 
@@ -929,6 +930,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
   },
+  emptyText: { fontSize: 14, color: '#64748B', lineHeight: 20, textAlign: 'center' },
   emptyTitle: {
     fontSize: 17,
     fontWeight: '800',

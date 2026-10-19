@@ -1,3 +1,4 @@
+import { fetchSeekerWithTimeout } from '../../../utils/seekerHttp';
 import { CONFIG } from '../../../config';
 
 import { buildAuthHeaders } from './seekerAuthStorage';
@@ -246,7 +247,7 @@ export const createSeekerRescheduleSuggestion = async ({
 }) => {
   if (!bookingId) throw new Error('A confirmed booking is required before rescheduling.');
   const headers = await buildAuthHeaders();
-  const response = await fetch(
+  const response = await fetchSeekerWithTimeout(
     `${SERVICE_COORDINATION_SERVICE_URL}/reschedules/bookings/${bookingId}/reschedule`,
     {
       method: 'POST',
