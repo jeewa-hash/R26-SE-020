@@ -58,7 +58,7 @@ export default function ProviderProfileScreen({ route, navigation }) {
 
       try {
         const response = await fetch(
-          `http://${IP_ADDRESS}:5001/api/inquiries/check-bookable/${providerId}`
+          `https://r26-admin-service.onrender.com/api/inquiries/check-bookable/${providerId}`
         );
         if (!response.ok) return;
 

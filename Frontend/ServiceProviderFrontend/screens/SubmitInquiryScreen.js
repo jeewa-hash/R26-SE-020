@@ -15,7 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { IP_ADDRESS, ADMIN_SERVICE_URL } from '../config';
 import { getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 
-const ADMIN_API_URL = ADMIN_SERVICE_URL || `http://${IP_ADDRESS}:5001`;
+const ADMIN_API_URL = ADMIN_SERVICE_URL || 'https://r26-admin-service.onrender.com';
 
 export default function SubmitInquiryScreen({ navigation, route }) {
   const [missedServices, setMissedServices] = useState(route.params?.missedServices || []);

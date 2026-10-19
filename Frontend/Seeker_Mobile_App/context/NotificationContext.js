@@ -11,7 +11,7 @@ import { mergeSeekerNotifications, notificationKey, seekerNotificationDestinatio
 
 const NotificationContext = createContext();
 export const useNotification = () => useContext(NotificationContext);
-const ORIGIN = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
+const ORIGIN = AUTH_SERVICE_URL || 'https://r26-auth-service.onrender.com';
 const INBOX = `${ORIGIN}/seeker/notifications`;
 const QUOTES = `${PROVIDER_SERVICE_URL}/api/provider/quotations/seeker/me`;
 

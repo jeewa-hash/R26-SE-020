@@ -6,9 +6,9 @@ import { Picker } from '@react-native-picker/picker';
 import MapPicker from '../components/MapPicker';
 import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
-import { IP_ADDRESS } from '../config';
+import { AUTH_SERVICE_URL } from '../config';
 
-const API_URL = `http://${IP_ADDRESS}:4003`;
+const API_URL = AUTH_SERVICE_URL;
 
 const DISTRICTS = [
   "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", "Galle", "Gampaha",

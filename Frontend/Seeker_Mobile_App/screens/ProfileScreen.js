@@ -28,7 +28,7 @@ import { confirmLogout } from '../utils/confirmLogout';
 import { LanguageContext } from '../context/LanguageContext';
 import { IP_ADDRESS, AUTH_SERVICE_URL as LIVE_AUTH_URL } from '../config';
 
-const BASE_AUTH_URL = LIVE_AUTH_URL || `http://${IP_ADDRESS}:4003`;
+const BASE_AUTH_URL = LIVE_AUTH_URL || 'https://r26-auth-service.onrender.com';
 const AUTH_SERVICE_URL = `${BASE_AUTH_URL}/seeker`;
 
 const getProfileImage = (imagePath) => {
