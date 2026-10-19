@@ -78,11 +78,10 @@ serviceSchema.index({ providerId: 1, nameLower: 1 }, { unique: true });
 serviceSchema.index({ providerId: 1, createdAt: -1 });
 serviceSchema.index({ category: 1, isActive: 1 });
 
-serviceSchema.pre("save", function (next) {
+serviceSchema.pre("save", function () {
   if (this.isModified("name")) {
     this.nameLower = this.name.toLowerCase().trim();
   }
-  next();
 });
 
 export default mongoose.model("Service", serviceSchema);

@@ -33,6 +33,7 @@ const adPostSchema = new mongoose.Schema(
     specificLabel: { type: String, default: null },
     category: { type: String, default: "home service" },
     tags: { type: [String], default: [] },
+    images: { type: [String], default: [] },
 
     tone: { type: String, default: "professional" },
     language: { type: String, enum: ["en", "si", "ta"], default: "en" },

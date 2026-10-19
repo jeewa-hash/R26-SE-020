@@ -1,4 +1,5 @@
 import Service from "../models/Service.js";
+import { generateServiceDetailsWithGemini } from "../services/geminiServices.js";
 
 const CATEGORY_META_MAP = {
   plumbing: { icon: "plumbing", color: "#2563EB", categoryGroup: "plumbing" },
@@ -411,6 +412,27 @@ export const getServiceCategoryMeta = async (req, res) => {
     res.json({
       success: true,
       data: meta,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+export const generateAiServiceDetails = async (req, res) => {
+  try {
+    const { name, category, categoryGroup, language } = req.body;
+    const result = await generateServiceDetailsWithGemini({ name, category, categoryGroup, language });
+    const meta = getCategoryMeta(result.name, result.category);
+
+    res.json({
+      success: true,
+      data: {
+        ...result,
+        meta: {
+          icon: meta.icon,
+          color: meta.color,
+        },
+      },
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

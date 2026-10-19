@@ -8,6 +8,7 @@ import {
 import { Text, FAB, Surface } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeContext } from '../context/ThemeContext';
 import { usePortfolioUpload } from '../hooks/usePortfolioUpload';
@@ -32,6 +33,7 @@ const getInitials = (name) =>
   name.split(' ').map((n) => n[0]).join('').toUpperCase();
 
 export default function ProfileScreen({ navigation }) {
+  const { t } = useTranslation();
   const { isDark } = useContext(ThemeContext);
   const { portfolioImages, portfolioCategories, specialization, loadPortfolio, getAllTags } = usePortfolio();
   const {
@@ -435,7 +437,7 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
-          <Text style={[styles.sectionTitle, { color: C.text }]}>About Me</Text>
+          <Text style={[styles.sectionTitle, { color: C.text }]}>{t('aboutMe', 'About Me')}</Text>
           <Text style={[styles.bioText, { color: C.textSub }]}>
             {profile.bio}
           </Text>
@@ -446,7 +448,7 @@ export default function ProfileScreen({ navigation }) {
 
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: C.text }]}>Skills & Expertise</Text>
+            <Text style={[styles.sectionTitle, { color: C.text }]}>{t('skills', 'Skills & Expertise')}</Text>
             <Text style={[styles.countBadgeTextSmall, { color: C.textSub }]}>
               {profileSkills.length} Total Tags
             </Text>
@@ -491,9 +493,9 @@ export default function ProfileScreen({ navigation }) {
                 {/* ── Portfolio Section ── */}
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: C.text }]}>Portfolio</Text>
+            <Text style={[styles.sectionTitle, { color: C.text }]}>{t('portfolio', 'Portfolio')}</Text>
             <TouchableOpacity onPress={() => navigation.getParent()?.navigate('PortfolioGallery')}>
-              <Text style={{ fontSize: 13, color: '#166534', fontWeight: '600' }}>View Gallery →</Text>
+              <Text style={{ fontSize: 13, color: '#166534', fontWeight: '600' }}>{t('viewAll', 'View Gallery')} →</Text>
             </TouchableOpacity>
           </View>
 
@@ -574,7 +576,7 @@ export default function ProfileScreen({ navigation }) {
 
         <View style={[styles.section, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: C.text }]}>Reviews</Text>
+            <Text style={[styles.sectionTitle, { color: C.text }]}>{t('reviews', 'Reviews')}</Text>
             <View style={styles.ratingPill}>
               <MaterialIcons name="star" size={13} color="#F59E0B" />
               <Text style={styles.ratingPillText}>{reviews.length ? (reviews.reduce((sum, r) => sum + Number(r.rating || 0), 0) / reviews.length).toFixed(1) : '0.0'} · {reviews.length} reviews</Text>

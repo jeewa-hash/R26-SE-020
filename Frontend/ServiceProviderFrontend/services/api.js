@@ -84,4 +84,15 @@ export const bookingsAPI = {
   rescheduleBooking: (id, newData) => coordinationApi.put(`/bookings/${id}/reschedule`, newData),
 };
 
+export const servicesAPI = {
+  getProviderServices: (params) => providerApi.get('/api/provider/services/provider', { params }),
+  getServiceById: (id) => providerApi.get(`/api/provider/services/${id}`),
+  createService: (serviceData) => providerApi.post('/api/provider/services', serviceData),
+  updateService: (id, serviceData) => providerApi.put(`/api/provider/services/${id}`, serviceData),
+  deleteService: (id) => providerApi.delete(`/api/provider/services/${id}`),
+  toggleActive: (id) => providerApi.patch(`/api/provider/services/${id}/toggle-active`),
+  checkAvailability: (name) => providerApi.post('/api/provider/services/check-availability', { name }),
+  generateAiDetails: (data) => providerApi.post('/api/provider/services/generate-ai-details', data),
+};
+
 export default providerApi;

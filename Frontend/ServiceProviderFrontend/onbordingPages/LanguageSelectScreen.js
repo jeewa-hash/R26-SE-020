@@ -9,6 +9,7 @@ import { Colors } from '../theme';
 const languages = [
   { id: 'en', label: 'English', native: 'English' },
   { id: 'si', label: 'Sinhala', native: 'සිංහල' },
+  { id: 'ta', label: 'Tamil', native: 'தமிழ்' },
 ];
 
 export default function LanguageSelectScreen({ navigation }) {
@@ -23,6 +24,7 @@ export default function LanguageSelectScreen({ navigation }) {
 
   const handleContinue = async () => {
     await AsyncStorage.setItem('selectedLanguage', selectedLang);
+    await AsyncStorage.setItem('language', selectedLang);
     navigation.reset({
       index: 0,
       routes: [{ name: 'MainApp' }],

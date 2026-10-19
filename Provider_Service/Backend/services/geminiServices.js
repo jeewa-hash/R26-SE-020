@@ -189,3 +189,86 @@ export const generateAIContent = async (adData) => {
     return generateFallbackContent(adData);
   }
 };
+
+export const generateServiceDetailsWithGemini = async ({ name, category, categoryGroup, language = "en" }) => {
+  const langPromptInstruction = {
+    si: `LANGUAGE INSTRUCTION: Write the "description", "name", and "tags" entirely in natural, fluent, and professional Sinhala (සිංහල බසින්). Ensure standard Sinhala spelling and clear sentence structure suitable for clients in Sri Lanka.`,
+    ta: `LANGUAGE INSTRUCTION: Write the "description", "name", and "tags" entirely in natural, fluent, and professional Tamil (தமிழ் மொழியில்). Ensure standard Tamil spelling and polite tone suitable for clients in Sri Lanka.`,
+    en: `LANGUAGE INSTRUCTION: Write the "description", "name", and "tags" in fluent, professional English.`,
+  }[language] || `LANGUAGE INSTRUCTION: Write in fluent, professional English.`;
+
+  const prompt = `You are a professional service business consultant for local home and trade services in Sri Lanka.
+Create detailed, appealing, and realistic service details for a service provider.
+Service Name: "${name || category || 'Home Service'}"
+Category: "${category || 'home service'}"
+Category Group: "${categoryGroup || 'other'}"
+
+${langPromptInstruction}
+
+Respond in STRICT JSON with no markdown formatting or code blocks:
+{
+  "name": "Refined professional service name (in requested language)",
+  "description": "Write a compelling 2-3 paragraph professional service description in the requested language. Highlight the scope of work, what is included, high standards of quality and safety, professional equipment used, reliability, and full customer satisfaction guarantee.",
+  "category": "${category || 'home service'}",
+  "categoryGroup": "${categoryGroup || 'other'}",
+  "suggestedBasePrice": 2500,
+  "priceUnit": "job",
+  "tags": ["Tag1", "Tag2", "Tag3", "Tag4", "Tag5"]
+}
+
+The suggestedBasePrice must be a realistic number in Sri Lankan Rupees (LKR) between 1500 and 15000.
+The priceUnit must be one of: "hour", "day", "job", "sqft", "item".
+Tags must be an array of 4-6 short phrases in the requested language.`;
+
+  try {
+    const response = await callGemini(prompt);
+    const rawText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawText) throw new Error("Gemini returned no content");
+    const parsed = JSON.parse(stripCodeFences(rawText));
+
+    return {
+      name: parsed.name || name || "Professional Service",
+      description: parsed.description || "",
+      category: parsed.category || category || "home service",
+      categoryGroup: parsed.categoryGroup || categoryGroup || "other",
+      basePrice: Number(parsed.suggestedBasePrice || parsed.basePrice) || 2500,
+      priceUnit: ["hour", "day", "job", "sqft", "item"].includes(parsed.priceUnit) ? parsed.priceUnit : "job",
+      tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+    };
+  } catch (err) {
+    console.warn("⚠️ Gemini service generation failed, using intelligent fallback:", err.message);
+    const svcName = name || category || "Professional Home Service";
+
+    if (language === "si") {
+      return {
+        name: svcName,
+        description: `විශ්වාසනීය හා උසස් තත්ත්වයේ ${svcName} සේවාව. පළපුරුදු කාර්මික ශිල්පීන් විසින් නවීන උපකරණ යොදා ගනිමින් කාර්යක්ෂමව සහ ආරක්ෂිතව සේවාව සපයනු ලැබේ. පාරිභෝගික තෘප්තිය 100% ක් තහවුරු කරනු ලබන අතර, සාධාරණ මිල ගණන් සහ කඩිනම් සේවාව අපගේ ප්‍රමුඛතාවයි.`,
+        category: category || "home service",
+        categoryGroup: categoryGroup || "other",
+        basePrice: 2500,
+        priceUnit: "job",
+        tags: ["විශ්වාසනීය සේවාව", "පළපුරුදු ශිල්පීන්", "කඩිනම් සේවය", "සාධාරණ මිල", "තත්ත්ව සහතිකය"],
+      };
+    } else if (language === "ta") {
+      return {
+        name: svcName,
+        description: `நம்பகமான மற்றும் உயர்தர ${svcName} சேவை. அனுபவம் வாய்ந்த நிபுணர்களால் நவீன உபகரணங்களைப் பயன்படுத்தி விரைவாகவும் பாதுகாப்பாகவும் சேவை வழங்கப்படுகிறது. முழுமையான வாடிக்கையாளர் திருப்தி உத்தரவாதம் அளிக்கப்படுகிறது. நியாயமான கட்டணம் மற்றும் சிறந்த சேவை.`,
+        category: category || "home service",
+        categoryGroup: categoryGroup || "other",
+        basePrice: 2500,
+        priceUnit: "job",
+        tags: ["நம்பகமான சேவை", "அனுபவம் வாய்ந்தவர்கள்", "விரைவான சேவை", "நியாயமான விலை", "தரமான வேலை"],
+      };
+    }
+
+    return {
+      name: svcName,
+      description: `Comprehensive and reliable ${svcName} tailored to deliver exceptional quality and peace of mind. We use professional-grade equipment and industry-approved standards to ensure lasting results. Fully dedicated to customer satisfaction with prompt and courteous support.`,
+      category: category || "home service",
+      categoryGroup: categoryGroup || "other",
+      basePrice: 2500,
+      priceUnit: "job",
+      tags: ["Quality Guaranteed", "Experienced Staff", "Fast Service", "Verified Pro", "Satisfaction Guaranteed"],
+    };
+  }
+};

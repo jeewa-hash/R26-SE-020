@@ -9,14 +9,19 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
+  Image,
+  Modal,
 } from 'react-native';
-import { Text, Button, Card, Chip, IconButton, Switch, Surface } from 'react-native-paper';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
+import { Text, Button, Card, Chip, IconButton, Surface } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { ThemeContext } from '../context/ThemeContext';
 import { CONFIG, IP_ADDRESS } from '../config';
+import { usePortfolio } from '../context/PortfolioContext';
 
 const { width } = Dimensions.get('window');
 
@@ -29,10 +34,9 @@ const TONES = [
 ];
 
 const LANGUAGES = ["en", "si", "ta"];
-const CATEGORIES = ["home service", "plumbing", "electrical", "carpentry", "cleaning"];
-
 export default function CreatePostScreen({ navigation }) {
   const { isDark } = useContext(ThemeContext);
+  const { portfolioImages = [] } = usePortfolio() || {};
   const [loading, setLoading] = useState(false);
   const [generatedBy, setGeneratedBy] = useState(null);
   const [providerInfo, setProviderInfo] = useState({
@@ -44,17 +48,58 @@ export default function CreatePostScreen({ navigation }) {
   const [form, setForm] = useState({
     serviceLabel: '',
     specificLabel: '',
-    category: 'home service',
     tags: [],
     tone: 'professional',
     language: 'en',
     extraInfo: '',
-    generateImage: false,
+    selectedImages: [],
   });
+  const [imagePickerVisible, setImagePickerVisible] = useState(false);
   const [result, setResult] = useState(null);
+  const [generatedPostId, setGeneratedPostId] = useState(null);
+  const [regenerating, setRegenerating] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [penaltyRestricted, setPenaltyRestricted] = useState(false);
   const [penaltyRatio, setPenaltyRatio] = useState('3/3');
+
+  const pickGalleryImages = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert('Permission required', 'Gallery permission is required to select images.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      setForm((prev) => ({ ...prev, selectedImages: [...prev.selectedImages, ...result.assets.map((a) => a.uri)] }));
+    }
+    setImagePickerVisible(false);
+  };
+
+  const selectPortfolioImage = (image) => {
+    if (!image?.uri) return;
+    setForm((prev) => ({
+      ...prev,
+      selectedImages: prev.selectedImages.includes(image.uri)
+        ? prev.selectedImages.filter((uri) => uri !== image.uri)
+        : [...prev.selectedImages, image.uri],
+    }));
+  };
+
+  const useCurrentLocation = async () => {
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (permission.status !== 'granted') {
+      Alert.alert('Permission required', 'Location permission is required.');
+      return;
+    }
+    const position = await Location.getCurrentPositionAsync({});
+    const [place] = await Location.reverseGeocodeAsync(position.coords);
+    const location = [place?.city, place?.district, place?.region].filter(Boolean).join(', ');
+    if (location) setProviderInfo((prev) => ({ ...prev, location }));
+  };
 
   // Theme-based colors
   const C = isDark ? {
@@ -233,10 +278,10 @@ export default function CreatePostScreen({ navigation }) {
           contact: providerInfo.contact,
           tone: form.tone,
           language: form.language,
-          category: form.category,
+          category: 'home service',
           tags: form.tags,
           extraInfo: form.extraInfo,
-          generateImage: form.generateImage,
+          images: form.selectedImages,
           platforms: ["facebook", "instagram"],
         },
         {
@@ -249,6 +294,7 @@ export default function CreatePostScreen({ navigation }) {
         const generatedPosts = response.data.data?.posts || [];
         const source = response.data.generatedBy || 'gemini';
         setGeneratedBy(source);
+        setGeneratedPostId(response.data.data?._id || null);
 
         const captions = generatedPosts
           .map((post) => {
@@ -329,6 +375,72 @@ export default function CreatePostScreen({ navigation }) {
   const handleCopy = (text) => {
     Clipboard.setString(text);
     Alert.alert('Copied!', 'Post content copied to clipboard.');
+  };
+
+  const handleRejectGenerated = () => {
+    Alert.alert('Reject generated content?', 'The generated draft will be removed from this screen.', [
+      { text: 'Keep Draft', style: 'cancel' },
+      { text: 'Reject', style: 'destructive', onPress: async () => {
+        try {
+          if (generatedPostId) {
+            const token = await AsyncStorage.getItem('userToken');
+            await axios.delete(`${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/${generatedPostId}`, {
+              headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            });
+          }
+          setResult(null);
+          setGeneratedBy(null);
+          setGeneratedPostId(null);
+        } catch (err) {
+          Alert.alert('Reject failed', 'The generated post could not be removed from the server.');
+        }
+      } },
+    ]);
+  };
+
+  const handleRegenerateEdited = async () => {
+    if (!result?.trim()) return Alert.alert('Draft required', 'Edit or enter some content before regenerating.');
+    setRegenerating(true);
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      const providerId = await AsyncStorage.getItem('userId');
+      const response = await axios.post(
+        `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/generate`,
+        {
+          providerId,
+          providerName: providerInfo.providerName,
+          serviceLabel: form.serviceLabel,
+          specificLabel: form.specificLabel,
+          location: providerInfo.location,
+          contact: providerInfo.contact,
+          tone: form.tone,
+          language: form.language,
+          category: 'home service',
+          tags: form.tags,
+          extraInfo: form.extraInfo,
+          draftContent: result,
+          images: form.selectedImages,
+          platforms: ['facebook', 'instagram'],
+        },
+        { headers: token ? { Authorization: `Bearer ${token}` } : undefined, timeout: 45000 }
+      );
+      const posts = response.data?.data?.posts || [];
+      if (generatedPostId && response.data?.data?._id && response.data.data._id !== generatedPostId) {
+        const token = await AsyncStorage.getItem('userToken');
+        await axios.delete(`${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/${generatedPostId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+      }
+      setGeneratedPostId(response.data?.data?._id || generatedPostId);
+      const captions = posts.map((post) => post?.caption || post?.content || '').filter(Boolean);
+      if (!captions.length) throw new Error('No regenerated content returned');
+      setResult(captions.join('\n\n'));
+      setGeneratedBy(response.data.generatedBy || 'gemini');
+    } catch (err) {
+      Alert.alert('Regeneration failed', err.response?.data?.error || err.message || 'Please try again.');
+    } finally {
+      setRegenerating(false);
+    }
   };
 
   const addTag = () => {
@@ -440,35 +552,6 @@ export default function CreatePostScreen({ navigation }) {
                 onChangeText={(v) => setForm({...form, serviceLabel: v})}
               />
             </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <View style={styles.labelRow}>
-              <MaterialIcons name="category" size={16} color={C.primary} />
-              <Text style={[styles.label, { color: C.text }]}>Category</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-              {CATEGORIES.map(cat => (
-                <TouchableOpacity
-                  key={cat}
-                  onPress={() => setForm({...form, category: cat})}
-                  style={[
-                    styles.categoryChip,
-                    {
-                      backgroundColor: form.category === cat ? C.primary : C.card,
-                      borderColor: form.category === cat ? C.primary : C.cardBorder,
-                    }
-                  ]}
-                >
-                  <Text style={[
-                    styles.categoryChipText,
-                    { color: form.category === cat ? C.white : C.textSecondary }
-                  ]}>
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
           </View>
 
           <View style={styles.inputGroup}>
@@ -599,19 +682,75 @@ export default function CreatePostScreen({ navigation }) {
             </View>
           </View>
 
-          <View style={[styles.switchRow, { borderTopColor: C.cardBorder }]}>
-            <View style={styles.switchLabel}>
-              <MaterialIcons name="image" size={20} color={C.primary} />
-              <Text style={[styles.switchText, { color: C.text }]}>Generate Image</Text>
+          <View style={[styles.inputGroup, { borderTopColor: C.cardBorder, borderTopWidth: 1, paddingTop: 14 }]}>
+            <View style={styles.labelRow}>
+              <MaterialIcons name="location-on" size={20} color={C.primary} />
+              <Text style={[styles.label, { color: C.text }]}>Service Location</Text>
             </View>
-            <Switch
-              value={form.generateImage}
-              onValueChange={(v) => setForm({...form, generateImage: v})}
-              trackColor={{ false: C.cardBorder, true: C.primary }}
-              thumbColor={form.generateImage ? C.white : C.textMuted}
-            />
+            <View style={styles.locationRow}>
+              <TextInput
+                style={[styles.input, styles.locationInput, { color: C.text, backgroundColor: C.input, borderColor: C.inputBorder }]}
+                value={providerInfo.location}
+                onChangeText={(location) => setProviderInfo((prev) => ({ ...prev, location }))}
+                placeholder="Enter service location"
+                placeholderTextColor={C.textMuted}
+              />
+              <TouchableOpacity style={[styles.locationButton, { backgroundColor: C.primary }]} onPress={useCurrentLocation}>
+                <MaterialIcons name="my-location" size={18} color={C.white} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.labelRow}>
+              <MaterialIcons name="photo-library" size={20} color={C.primary} />
+              <Text style={[styles.label, { color: C.text }]}>Post Images</Text>
+            </View>
+            <TouchableOpacity style={[styles.addImagesButton, { borderColor: C.primary }]} onPress={() => setImagePickerVisible(true)}>
+              <MaterialIcons name="add-photo-alternate" size={20} color={C.primary} />
+              <Text style={{ color: C.primary, fontWeight: '700' }}>Choose Gallery or Saved Images</Text>
+            </TouchableOpacity>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+              {form.selectedImages.map((uri, index) => (
+                <View key={`${uri}-${index}`} style={styles.selectedImageWrap}>
+                  <Image source={{ uri }} style={styles.selectedImage} />
+                  <TouchableOpacity style={styles.removeImageButton} onPress={() => setForm((prev) => ({ ...prev, selectedImages: prev.selectedImages.filter((_, i) => i !== index) }))}>
+                    <MaterialIcons name="close" size={14} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
           </View>
         </View>
+
+        <Modal visible={imagePickerVisible} transparent animationType="slide" onRequestClose={() => setImagePickerVisible(false)}>
+          <View style={styles.imageModalBackdrop}>
+            <View style={[styles.imageModal, { backgroundColor: C.card }]}>
+              <Text style={[styles.modalTitle, { color: C.text }]}>Choose Post Images</Text>
+              <TouchableOpacity style={[styles.modalOption, { borderColor: C.border }]} onPress={pickGalleryImages}>
+                <MaterialIcons name="photo-library" size={24} color={C.primary} />
+                <Text style={[styles.modalOptionText, { color: C.text }]}>Select from phone gallery</Text>
+              </TouchableOpacity>
+              <Text style={[styles.fieldHint, { color: C.textSecondary, marginTop: 16 }]}>Saved portfolio images</Text>
+              <ScrollView style={{ maxHeight: 230 }}>
+                <View style={styles.savedImagesGrid}>
+                  {portfolioImages.map((image) => {
+                    const selected = form.selectedImages.includes(image.uri);
+                    return (
+                      <TouchableOpacity key={image.id || image.uri} onPress={() => selectPortfolioImage(image)} style={[styles.savedImageWrap, selected && styles.savedImageSelected]}>
+                        <Image source={{ uri: image.uri }} style={styles.savedImage} />
+                        {selected && <View style={styles.savedImageCheck}><MaterialIcons name="check" size={16} color="#fff" /></View>}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+              <TouchableOpacity style={[styles.modalCloseButton, { backgroundColor: C.primary }]} onPress={() => setImagePickerVisible(false)}>
+                <Text style={{ color: C.white, fontWeight: '700' }}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {/* Generate Button */}
         <TouchableOpacity
@@ -678,21 +817,36 @@ export default function CreatePostScreen({ navigation }) {
                       <Text style={[styles.retryChipText, { color: C.primary }]}>Re-try AI</Text>
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity style={[styles.copyButton, { backgroundColor: C.primaryLight }]}>
+                  <TouchableOpacity style={[styles.copyButton, { backgroundColor: C.primaryLight }]} onPress={() => handleCopy(result)}>
                     <MaterialIcons name="content-copy" size={18} color={C.primary} />
                   </TouchableOpacity>
                 </View>
               </View>
-              <View style={[styles.resultTextContainer, { backgroundColor: C.input }]}>
-                <Text style={[styles.resultText, { color: C.text }]}>{result}</Text>
+              <View style={[styles.resultTextContainer, { backgroundColor: C.input }]}> 
+                <TextInput
+                  style={[styles.resultText, { color: C.text }]}
+                  value={result}
+                  onChangeText={setResult}
+                  multiline
+                  textAlignVertical="top"
+                  placeholder="Edit the generated content..."
+                  placeholderTextColor={C.textMuted}
+                />
               </View>
-              <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: C.primary }]}
-                onPress={() => navigation.navigate('Profile')}
-              >
-                <MaterialIcons name="save" size={18} color={C.white} />
-                <Text style={styles.saveButtonText}>Save to Feed</Text>
-              </TouchableOpacity>
+              <View style={styles.resultButtonRow}>
+                <TouchableOpacity style={[styles.resultSecondaryButton, { borderColor: C.danger }]} onPress={handleRejectGenerated}>
+                  <MaterialIcons name="delete-outline" size={18} color={C.danger} />
+                  <Text style={[styles.resultSecondaryButtonText, { color: C.danger }]}>Reject</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.resultSecondaryButton, { borderColor: C.primary }]} onPress={handleRegenerateEdited} disabled={regenerating}>
+                  {regenerating ? <ActivityIndicator size="small" color={C.primary} /> : <MaterialIcons name="refresh" size={18} color={C.primary} />}
+                  <Text style={[styles.resultSecondaryButtonText, { color: C.primary }]}>Regenerate</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.saveButton, { backgroundColor: C.primary }]} onPress={() => navigation.navigate('Profile')}>
+                  <MaterialIcons name="save" size={18} color={C.white} />
+                  <Text style={styles.saveButtonText}>Accept</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </Surface>
         )}
@@ -1039,8 +1193,31 @@ const styles = StyleSheet.create({
   resultText: {
     fontSize: 15,
     lineHeight: 22,
+    minHeight: 150,
+    padding: 0,
+  },
+  resultButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  resultSecondaryButton: {
+    flex: 1,
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  resultSecondaryButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   saveButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1053,6 +1230,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  locationInput: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  locationButton: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  addImagesButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderStyle: 'dashed', borderRadius: 10, padding: 12 },
+  selectedImageWrap: { width: 76, height: 76, borderRadius: 10, marginRight: 8, overflow: 'hidden', position: 'relative' },
+  selectedImage: { width: '100%', height: '100%' },
+  removeImageButton: { position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center' },
+  imageModalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  imageModal: { borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, maxHeight: '75%' },
+  modalTitle: { fontSize: 18, fontWeight: '800', marginBottom: 14 },
+  modalOption: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 10, padding: 12 },
+  modalOptionText: { fontSize: 14, fontWeight: '600' },
+  savedImagesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
+  savedImageWrap: { width: 78, height: 78, borderRadius: 10, overflow: 'hidden', position: 'relative', borderWidth: 2, borderColor: 'transparent' },
+  savedImageSelected: { borderColor: '#15803D' },
+  savedImage: { width: '100%', height: '100%' },
+  savedImageCheck: { position: 'absolute', right: 4, top: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: '#15803D', alignItems: 'center', justifyContent: 'center' },
+  modalCloseButton: { alignItems: 'center', padding: 12, borderRadius: 10, marginTop: 16 },
 
   // Penalty Alert
   penaltyAlertCard: {

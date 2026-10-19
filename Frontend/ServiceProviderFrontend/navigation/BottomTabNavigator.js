@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 
 import { BottomInsetContext } from '../context/BottomInsetContext';
 import { ThemeContext } from '../context/ThemeContext';
@@ -49,11 +50,11 @@ function HomeStack() {
 }
 
 const TABS = [
-  { name: 'HomeTab', label: 'Home', icon: 'home-outline', iconActive: 'home' },
-  { name: 'Bookings', label: 'My Jobs', icon: 'briefcase-outline', iconActive: 'briefcase' },
-  { name: 'CalendarTab', label: 'Calendar', icon: 'calendar-month-outline', iconActive: 'calendar-month' },
-  { name: 'Earnings', label: 'Earnings', icon: 'wallet-outline', iconActive: 'wallet' },
-  { name: 'Profile', label: 'Profile', icon: 'account-outline', iconActive: 'account' },
+  { name: 'HomeTab', label: 'Home', tKey: 'home', icon: 'home-outline', iconActive: 'home' },
+  { name: 'Bookings', label: 'My Jobs', tKey: 'myJobs', icon: 'briefcase-outline', iconActive: 'briefcase' },
+  { name: 'CalendarTab', label: 'Calendar', tKey: 'calendar', icon: 'calendar-month-outline', iconActive: 'calendar-month' },
+  { name: 'Earnings', label: 'Earnings', tKey: 'earnings', icon: 'wallet-outline', iconActive: 'wallet' },
+  { name: 'Profile', label: 'Profile', tKey: 'profile', icon: 'account-outline', iconActive: 'account' },
 ];
 
 const SCREENS = {
@@ -96,6 +97,7 @@ const DARK = {
 
 function ProviderTabBar({ state, navigation, C }) {
   const bottomInset = useContext(BottomInsetContext);
+  const { t } = useTranslation();
   const currentRoute = state.routes[state.index];
   if (['ChatScreen', 'QuotationTemplate', 'InboxScreen'].includes(getFocusedRouteNameFromRoute(currentRoute))) return null;
   return (
@@ -104,11 +106,12 @@ function ProviderTabBar({ state, navigation, C }) {
         const tab = TABS.find(item => item.name === route.name);
         if (!tab) return null;
         const focused = state.index === index;
+        const translatedLabel = tab.tKey ? t(tab.tKey, tab.label) : tab.label;
         return <TouchableOpacity
           key={route.key}
           style={styles.tabButton}
           accessibilityRole="button"
-          accessibilityLabel={tab.label}
+          accessibilityLabel={translatedLabel}
           accessibilityState={{ selected: focused }}
           activeOpacity={0.7}
           onPress={() => {
@@ -116,7 +119,7 @@ function ProviderTabBar({ state, navigation, C }) {
             if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
           }}
           onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
-        ><TabItem {...tab} focused={focused} C={C} /></TouchableOpacity>;
+        ><TabItem {...tab} label={translatedLabel} focused={focused} C={C} /></TouchableOpacity>;
       })}
     </View>
   );

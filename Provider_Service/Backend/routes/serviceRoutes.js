@@ -8,11 +8,13 @@ import {
   toggleServiceActive,
   checkServiceAvailability,
   getServiceCategoryMeta,
+  generateAiServiceDetails,
 } from "../controllers/serviceController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+router.post("/generate-ai-details", generateAiServiceDetails);
 router.post("/check-availability", protect(["ServiceProvider"]), checkServiceAvailability);
 router.get("/category-meta", getServiceCategoryMeta);
 

@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
 import { ThemeContext } from '../context/ThemeContext';
+import { LanguageContext } from '../context/LanguageContext';
 import { useUnread } from '../context/UnreadContext';
 import ProfileHeader from '../navigation/ProfileHeader';
 import { CONFIG } from '../config';
@@ -40,10 +41,22 @@ function HomeHeaderContent({
 }) {
   const insets = useSafeAreaInsets();
   const { i18n } = useTranslation();
-  const isSi = i18n.language === 'si';
+  const langCtx = useContext(LanguageContext);
+  const currentLang = langCtx?.language || i18n.language || 'en';
+  const isSi = currentLang === 'si';
+  const isTa = currentLang === 'ta';
   const theme = useContext(ThemeContext) || {};
   const isDark = theme.isDark ?? false;
   const toggleTheme = theme.toggleTheme ?? (() => {});
+
+  const cycleLanguage = () => {
+    const next = currentLang === 'en' ? 'si' : currentLang === 'si' ? 'ta' : 'en';
+    if (langCtx?.setLanguage) {
+      langCtx.setLanguage(next);
+    } else {
+      i18n.changeLanguage(next);
+    }
+  };
 
   const { unreadCount = 0, setUnreadCount } = useUnread() || {};
 
@@ -158,10 +171,10 @@ function HomeHeaderContent({
         <LinearGradient colors={isDark ? ['#0C0F0D', '#152119'] : ['#166534', '#15803D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.brandHeader, { paddingTop: 18 + insets.top, paddingLeft: 18 + insets.left, paddingRight: 18 + insets.right }]}>
           <View style={styles.brandArea}>
             <Text style={styles.brandName}>WorkWave</Text>
-            <Text style={styles.brandTagline}>{isSi ? 'ඔබේ සේවා ව්‍යාපාරය' : 'Your Service Business'}</Text>
+            <Text style={styles.brandTagline}>{isSi ? 'ඔබේ සේවා ව්‍යාපාරය' : isTa ? 'உங்கள் சேவை வணிகம்' : 'Your Service Business'}</Text>
           </View>
           <View style={[styles.headerActionsPill, { backgroundColor: isDark ? '#1A251E' : '#FFFFFF' }]}>
-            <TouchableOpacity accessibilityLabel="Change language" onPress={() => i18n.changeLanguage(isSi ? 'en' : 'si')} style={[styles.languageButton, { backgroundColor: isDark ? '#293A2E' : '#EAF7EE' }]}><Text style={{ color: isDark ? '#B5DCC0' : '#166534', fontSize: 11, fontWeight: '700' }}>{isSi ? 'සිං' : 'EN'}</Text></TouchableOpacity>
+            <TouchableOpacity accessibilityLabel="Change language" onPress={cycleLanguage} style={[styles.languageButton, { backgroundColor: isDark ? '#293A2E' : '#EAF7EE' }]}><Text style={{ color: isDark ? '#B5DCC0' : '#166534', fontSize: 11, fontWeight: '700' }}>{isSi ? 'සිං' : isTa ? 'த' : 'EN'}</Text></TouchableOpacity>
             <TouchableOpacity accessibilityLabel="Toggle theme" style={styles.pillButton} onPress={toggleTheme}><MaterialCommunityIcons name={isDark ? 'weather-night' : 'weather-sunny'} size={21} color={isDark ? '#86C99A' : '#D97706'} /></TouchableOpacity>
             <TouchableOpacity accessibilityLabel="Messages" style={styles.pillButton} onPress={handleInboxPress}><MaterialIcons name="chat-bubble-outline" size={21} color={isDark ? '#D4EBDD' : '#334C70'} />{unreadCount > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View> : null}</TouchableOpacity>
             <TouchableOpacity accessibilityLabel="Notifications" style={styles.pillButton} onPress={() => navigation.navigate('HomeTab', { screen: 'Notifications' })}><MaterialIcons name="notifications-none" size={23} color={isDark ? '#D4EBDD' : '#334C70'} /></TouchableOpacity>
