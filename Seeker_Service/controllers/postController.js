@@ -1,5 +1,5 @@
 import Post from "../models/Post.js";
-import { analyzeImageWithGemini } from "../utils/gemini.js";
+import { analyzeImageWithGemini, rankRelevantPosts } from "../utils/gemini.js";
 import fs from "fs";
 import axios from "axios";
 
@@ -13,6 +13,12 @@ const AUTH_SERVICE_URL = (
 )
   .replace(/\/+$/, "")
   .replace(/\/seeker$/i, "");
+
+const postPipelineLog = (event, details = {}) => {
+  if (process.env.POST_PIPELINE_DEBUG === "true") {
+    console.info(`[post-pipeline] ${event}`, details);
+  }
+};
 
 
 // =======================================================
@@ -310,6 +316,12 @@ export const previewPost = async (req, res) => {
       requiredDate,
     } = req.body;
 
+    postPipelineLog("preview.started", {
+      hasUserId: Boolean(userId),
+      hasImage: Boolean(req.file),
+      providedFields: [title && "title", description && "description", location && "location", requiredDate && "requiredDate", urgency && "urgency"].filter(Boolean),
+    });
+
     if (!req.file && !String(title || description || "").trim()) {
       return res.status(400).json({
         success: false,
@@ -331,22 +343,43 @@ export const previewPost = async (req, res) => {
           .limit(50)
           .select("title description category tags createdAt")
           .lean();
-        const terms = new Set(
-          `${title || ""} ${description || ""}`
-            .toLowerCase()
-            .match(/[a-z0-9]{3,}/g) || []
-        );
-        const relevantPosts = pastPosts
-          .map((post) => {
-            const postTerms = `${post.title || ""} ${post.description || ""} ${post.category || ""} ${(post.tags || []).join(" ")}`
-              .toLowerCase()
-              .match(/[a-z0-9]{3,}/g) || [];
-            const overlap = postTerms.filter((term) => terms.has(term)).length;
-            return { post, score: overlap / Math.max(1, new Set(postTerms).size) };
-          })
-          .filter((item) => item.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 3);
+        postPipelineLog("rag.history_loaded", { postCount: pastPosts.length });
+        let relevantPosts = [];
+        if (pastPosts.length) {
+          const searchQuery = `${title || ""} ${description || ""} ${location || ""}`.trim();
+          try {
+            relevantPosts = await rankRelevantPosts(searchQuery, pastPosts, 3);
+            postPipelineLog("rag.hybrid_retrieval_completed", {
+              method: "embeddings+unicode-keywords",
+              selectedCount: relevantPosts.length,
+              scores: relevantPosts.map(({ score, semanticScore, lexicalScore }) => ({
+                combined: Number(score.toFixed(3)),
+                semantic: Number(semanticScore.toFixed(3)),
+                keyword: Number(lexicalScore.toFixed(3)),
+              })),
+            });
+          } catch (embeddingError) {
+            // Keep post generation available when the optional embedding API is unavailable.
+            postPipelineLog("rag.embedding_failed_using_keyword_fallback", {
+              code: embeddingError.code || "unknown",
+              status: embeddingError.response?.status || null,
+            });
+            const terms = new Set(searchQuery.toLocaleLowerCase().match(/[\p{L}\p{N}]{2,}/gu) || []);
+            relevantPosts = pastPosts
+              .map((post) => {
+                const postText = `${post.title || ""} ${post.description || ""} ${post.category || ""} ${(post.tags || []).join(" ")}`;
+                const postTerms = new Set(postText.toLocaleLowerCase().match(/[\p{L}\p{N}]{2,}/gu) || []);
+                const overlap = [...terms].filter((term) => postTerms.has(term)).length;
+                return { post, score: overlap / Math.sqrt(Math.max(1, terms.size * postTerms.size)) };
+              })
+              .filter((item) => item.score > 0)
+              .sort((a, b) => b.score - a.score)
+              .slice(0, 3);
+            postPipelineLog("rag.keyword_fallback_completed", { selectedCount: relevantPosts.length });
+          }
+        } else {
+          postPipelineLog("rag.no_history_posts");
+        }
 
         if (relevantPosts.length) {
           contextData += "Relevant prior user posts retrieved for personalization (not facts about this new request):\n";
@@ -357,6 +390,8 @@ export const previewPost = async (req, res) => {
       } catch (err) {
         console.error("Failed to fetch context data for user:", err.message);
       }
+    } else {
+      postPipelineLog("rag.skipped_no_user_id");
     }
 
     const imageBase64 = req.file
@@ -371,6 +406,12 @@ export const previewPost = async (req, res) => {
       language,
       { location, urgency, requiredDate }
     );
+    postPipelineLog("preview.completed", {
+      hasTitle: Boolean(aiData.title),
+      hasDescription: Boolean(aiData.description),
+      category: aiData.category || "General",
+      tagCount: aiData.tags?.length || 0,
+    });
 
     res.status(200).json({
       success: true,
