@@ -23,6 +23,42 @@ const canAccessBooking = (req, booking) => {
 const ACTIVE_BOOKING_STATUSES = ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED"];
 const START_WINDOW_MINUTES = 45;
 
+const awardPointsForCompletedBooking = async (booking) => {
+  const finalAmount = Number(booking.finalAmount) || 0;
+  if (finalAmount <= 0) {
+    return { success: false, message: "Skipped because finalAmount is zero or invalid" };
+  }
+
+  const seekerServiceUrl = (
+    process.env.SEEKER_SERVICE_URL ||
+    process.env.SEEKER_SERVICE_BASE_URL ||
+    "http://127.0.0.1:6000"
+  ).replace(/\/$/, "");
+
+  try {
+    const response = await axios.post(
+      `${seekerServiceUrl}/api/rewards/internal/bookings/award`,
+      {
+        bookingId: booking._id.toString(),
+        seekerId: booking.seekerId.toString(),
+        finalAmount,
+        bookingStatus: booking.bookingStatus,
+      },
+      {
+        headers: { "x-reward-service-key": process.env.REWARD_SERVICE_KEY },
+        timeout: 15000,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Failed to award booking points:", error.response?.data || error.message);
+    return {
+      success: false,
+      error: error.response?.data?.error || error.message,
+    };
+  }
+};
+
 const getComparableId = (value) => value?.toString?.() || String(value || "");
 
 const addMinutes = (date, minutes) => new Date(date.getTime() + Number(minutes || 0) * 60 * 1000);
@@ -943,39 +979,8 @@ export const completeBooking = async (req, res) => {
     booking.timeline.push({ status: "COMPLETED", message: "Job completed successfully", at: new Date() });
     await booking.save();
 
-    // -------- Award points automatically --------
-    let reward = null;
-    const finalAmount = Number(booking.finalAmount) || 0;
-    if (finalAmount > 0) {
-      try {
-        const seekerServiceUrl = (process.env.SEEKER_SERVICE_URL || "http://127.0.0.1:6000").replace(/\/$/, "");
-        const rewardResponse = await axios.post(
-          `${seekerServiceUrl}/api/rewards/internal/bookings/award`,
-          {
-            bookingId: booking._id.toString(),
-            seekerId: booking.seekerId.toString(),
-            finalAmount,
-            bookingStatus: booking.bookingStatus,
-          },
-          {
-            headers: {
-              "x-reward-service-key": process.env.REWARD_SERVICE_KEY,
-            },
-          }
-        );
-        reward = rewardResponse.data;
-      } catch (rewardError) {
-        // Log the error but do NOT roll back the completion.
-        // The reward endpoint is idempotent – it can be retried later.
-        console.error("Failed to award booking points:", rewardError.response?.data || rewardError.message);
-        reward = {
-          success: false,
-          error: rewardError.response?.data?.error || rewardError.message,
-        };
-      }
-    } else {
-      reward = { success: false, message: "Skipped – finalAmount is zero or invalid" };
-    }
+    // Award immediately; the idempotent endpoint can also be retried later.
+    const reward = await awardPointsForCompletedBooking(booking);
 
     return res.status(200).json({
       success: true,
@@ -989,6 +994,41 @@ export const completeBooking = async (req, res) => {
       success: false,
       message: "Failed to complete booking",
       error: error.message,
+    });
+  }
+};
+
+/**
+ * Retry rewards for this seeker's completed bookings. The reward service
+ * deduplicates by booking ID, so this is safe to call whenever points load.
+ */
+export const reconcileCompletedBookingRewards = async (req, res) => {
+  try {
+    const bookings = await Booking.find({
+      seekerId: req.user.id,
+      bookingStatus: "COMPLETED",
+      finalAmount: { $gt: 0 },
+    }).select("_id seekerId bookingStatus finalAmount");
+
+    const results = [];
+    for (const booking of bookings) {
+      results.push({
+        bookingId: booking._id.toString(),
+        ...(await awardPointsForCompletedBooking(booking)),
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      checked: bookings.length,
+      awarded: results.filter((result) => result.success === true).length,
+      results,
+    });
+  } catch (error) {
+    console.error("Failed to reconcile completed booking rewards:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to reconcile rewards for completed bookings.",
     });
   }
 };

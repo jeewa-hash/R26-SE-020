@@ -95,6 +95,20 @@ export default function StarPointsScreen({ navigation }) {
       if (!token) throw new Error('Please log in again to view your Star Points.');
 
       const headers = { Authorization: `Bearer ${token}` };
+      // Retry any missed rewards for completed bookings before reading the balance.
+      // The backend deduplicates by booking ID, so this is safe on every screen visit.
+      try {
+        const reconcileResponse = await fetch(
+          `${API_BASE_URL}/coordination/bookings/me/rewards/reconcile`,
+          { method: 'POST', headers }
+        );
+        if (!reconcileResponse.ok) {
+          console.warn('Could not reconcile completed booking rewards:', reconcileResponse.status);
+        }
+      } catch (reconcileError) {
+        console.warn('Could not reconcile completed booking rewards:', reconcileError.message);
+      }
+
       const [balanceResponse, historyResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/api/rewards/balance`, { headers }),
         fetch(`${API_BASE_URL}/api/rewards/history?page=1&limit=50`, { headers }),
