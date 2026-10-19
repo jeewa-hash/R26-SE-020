@@ -1,4 +1,7 @@
 import PageHeader from '../components/PageHeader';
+import { APP_THEME } from '../context/ThemeContext';
+
+const P = APP_THEME.light;
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -48,7 +51,7 @@ export default function NotificationsScreen() {
       time: '1 hour ago',
       read: false,
       icon: 'chatbubble',
-      iconColor: '#667eea',
+      iconColor: '#4F46E5',
       action: 'View Message',
     },
     {
@@ -283,7 +286,7 @@ export default function NotificationsScreen() {
 
       {/* Header */}
       <PageHeader title={<>Notifications</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity onPress={handleMarkAllAsRead} style={styles.headerAction}>
-                <Ionicons name="mail-open-outline" size={22} color="#667eea" />
+                <Ionicons name="mail-open-outline" size={22} color={P.accent} />
               </TouchableOpacity>
 <TouchableOpacity onPress={handleDeleteAll} style={styles.headerAction}>
                 <Ionicons name="trash-outline" size={22} color="#EF4444" />
@@ -420,7 +423,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: P.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -463,7 +466,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   activeTab: {
-    backgroundColor: '#667eea',
+    backgroundColor: P.accent,
   },
   tabText: {
     fontSize: 14,
@@ -508,7 +511,7 @@ const styles = StyleSheet.create({
   unreadCard: {
     backgroundColor: '#F9F5FF',
     borderLeftWidth: 3,
-    borderLeftColor: '#667eea',
+    borderLeftColor: P.accent,
   },
   notificationIcon: {
     width: 50,
@@ -533,7 +536,7 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   unreadTitle: {
-    color: '#667eea',
+    color: P.accent,
   },
   notificationTime: {
     fontSize: 11,
@@ -553,7 +556,7 @@ const styles = StyleSheet.create({
   notificationAction: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#667eea',
+    color: P.accent,
   },
   unreadDot: {
     width: 8,

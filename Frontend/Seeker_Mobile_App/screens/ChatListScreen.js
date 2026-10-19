@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   timeText: { fontSize: 11, color: '#9CA3AF' },
   messageRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   lastMessage: { flex: 1, fontSize: 13, color: '#6B7280', marginRight: 8 },
-  unreadBadge: { backgroundColor: '#667eea', minWidth: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
+  unreadBadge: { backgroundColor: '#4F46E5', minWidth: 22, height: 22, borderRadius: 11, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6 },
   unreadText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingTop: 100 },
   emptyText: { fontSize: 18, fontWeight: '600', color: '#1F2937', marginTop: 16 },

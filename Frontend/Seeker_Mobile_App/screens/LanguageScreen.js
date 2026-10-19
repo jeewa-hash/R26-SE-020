@@ -70,14 +70,14 @@ export default function LanguageScreen({ navigation }) {
       name: "English",
       nativeName: "English",
       description: "Connect with professionals globally",
-      color: "#667eea",
+      color: "#4F46E5",
     },
     {
       id: "si",
       name: "Sinhala",
       nativeName: "සිංහල",
       description: "ස්වදේශීය සේවා සපයන්නන් සමඟ සම්බන්ධ වන්න",
-      color: "#764ba2",
+      color: "#4338CA",
     },
   ];
 
@@ -103,8 +103,8 @@ export default function LanguageScreen({ navigation }) {
           <View style={styles.featuresGrid}>
             {features.map((feature, index) => (
               <View key={index} style={[styles.featureCard, { backgroundColor: C.card, borderColor: C.border }]}>
-                <View style={[styles.featureIcon, { backgroundColor: "#667eea15" }]}>
-                  <Ionicons name={feature.icon} size={24} color="#667eea" />
+                <View style={[styles.featureIcon, { backgroundColor: "#4F46E515" }]}>
+                  <Ionicons name={feature.icon} size={24} color="#4F46E5" />
                 </View>
                 <Text style={[styles.featureTitle, { color: C.text }]}>{feature.title}</Text>
                 <Text style={[styles.featureDesc, { color: C.muted }]}>{feature.desc}</Text>
@@ -164,7 +164,7 @@ export default function LanguageScreen({ navigation }) {
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={['#667eea', '#764ba2']}
+              colors={['#4F46E5', '#4338CA']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.getStartedGradient}
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     borderRadius: 16,
     overflow: "hidden",
-    shadowColor: "#667eea",
+    shadowColor: "#4F46E5",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     fontSize: 12,
-    color: "#667eea",
+    color: "#4F46E5",
     fontWeight: "500",
   },
   footerDot: {

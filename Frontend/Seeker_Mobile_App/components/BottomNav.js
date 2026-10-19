@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
+import { APP_THEME } from '../context/ThemeContext';
 import { LanguageContext } from '../context/LanguageContext';
 
 const HIDDEN_ROUTES = new Set([
@@ -11,6 +12,7 @@ const HIDDEN_ROUTES = new Set([
 
 const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
   const { isDarkMode } = useTheme();
+  const colors = isDarkMode ? APP_THEME.dark : APP_THEME.light;
   const { language } = useContext(LanguageContext) || { language: 'en' };
   const isSi = language === 'si';
 
@@ -77,8 +79,8 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
     }
   };
 
-  const inactiveColor = isDarkMode ? '#94A3B8' : '#64748B';
-  const activeColor = isDarkMode ? '#818cf8' : '#4F46E5';
+  const inactiveColor = colors.muted;
+  const activeColor = colors.accent;
   const activeBg = isDarkMode ? 'rgba(129, 140, 248, 0.15)' : 'rgba(79, 70, 229, 0.1)';
 
   return (
@@ -98,7 +100,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
               accessibilityLabel={item.label}
             >
               <LinearGradient
-                colors={isDarkMode ? ['#818cf8', '#6366f1'] : ['#4F46E5', '#7C3AED']}
+                colors={[colors.accent, colors.accentDeep]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[styles.createButton, { borderColor: isDarkMode ? '#17192C' : '#ffffff' }]}
@@ -147,19 +149,19 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
 };
 
 const styles = StyleSheet.create({
-  navContainer: { flexShrink: 0, backgroundColor: '#ffffff' },
-  navContainerDark: { backgroundColor: '#17192C' },
+  navContainer: { flexShrink: 0, backgroundColor: APP_THEME.light.surface },
+  navContainerDark: { backgroundColor: APP_THEME.dark.surface },
   bottomNav: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 76,
     paddingVertical: 8,
     paddingHorizontal: 2,
-    backgroundColor: '#ffffff',
+    backgroundColor: APP_THEME.light.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: APP_THEME.light.border,
   },
-  bottomNavDark: { backgroundColor: '#17192C', borderTopColor: '#302E49' },
+  bottomNavDark: { backgroundColor: APP_THEME.dark.surface, borderTopColor: APP_THEME.dark.border },
   navItem: {
     flex: 1,
     minWidth: 0,

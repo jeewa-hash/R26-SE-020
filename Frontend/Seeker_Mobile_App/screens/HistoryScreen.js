@@ -18,13 +18,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS, COORDINATION_SERVICE_URL } from '../config';
+import { API_BASE_URL as SEEKER_SERVICE_URL } from '../config';
 
 // -------------------- API Base URLs --------------------
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
-
-const COORDINATION_API_BASE_URL = COORDINATION_SERVICE_URL;
-
 export default function HistoryScreen({ navigation }) {
   const { isDarkMode } = useTheme();
 
@@ -56,7 +52,7 @@ export default function HistoryScreen({ navigation }) {
   // ---------- Load reward points ----------
   const loadRewardPoints = async (token) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/rewards/history?page=1&limit=500`, {
+      const response = await fetch(`${SEEKER_SERVICE_URL}/api/rewards/history?page=1&limit=500`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -81,7 +77,7 @@ export default function HistoryScreen({ navigation }) {
   // ---------- Load user feedback ----------
   const loadUserFeedback = async (token) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/feedback/user/me`, {
+      const response = await fetch(`${SEEKER_SERVICE_URL}/feedback/user/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -110,7 +106,7 @@ export default function HistoryScreen({ navigation }) {
       }
 
       // 1. Fetch completed bookings from ServiceCoordinationService
-      const response = await fetch(`${COORDINATION_API_BASE_URL}/bookings/seeker/me`, {
+      const response = await fetch(`${SEEKER_SERVICE_URL}/coordination/bookings/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -194,8 +190,8 @@ export default function HistoryScreen({ navigation }) {
 
       setCompletedServices(completed);
 
-      // 2. Load rewards & feedback in parallel
-      await Promise.all([loadRewardPoints(token), loadUserFeedback(token)]);
+      // Optional details should not keep the booking list in its loading state.
+      void Promise.all([loadRewardPoints(token), loadUserFeedback(token)]);
     } catch (error) {
       console.error('Error loading booking history:', error);
       Alert.alert('Error', error.message || 'Unable to load booking history.');
@@ -270,7 +266,7 @@ export default function HistoryScreen({ navigation }) {
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <StatusBar
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
         />
         <PageHeader title={<>Service History</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity style={styles.pointsNavButton}>
             <Ionicons name="star" size={22} color={textColor} />
@@ -290,7 +286,7 @@ export default function HistoryScreen({ navigation }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
       />
 
       {/* Header */}
@@ -304,8 +300,8 @@ export default function HistoryScreen({ navigation }) {
       {/* Stats Cards - More prominent and clear */}
       <View style={[styles.statsContainer, isDarkMode && styles.statsContainerDark]}>
         <View style={styles.statCard}>
-          <View style={[styles.statIconWrapper, { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' }]}>
-            <Ionicons name="checkmark-done-circle" size={22} color="#667eea" />
+          <View style={[styles.statIconWrapper, { backgroundColor: isDarkMode ? '#2d3561' : '#4F46E515' }]}>
+            <Ionicons name="checkmark-done-circle" size={22} color="#4F46E5" />
           </View>
           <Text style={[styles.statNumber, isDarkMode && styles.textDark]}>{completedServices.length}</Text>
           <Text style={[styles.statLabel, isDarkMode && styles.textMutedDark]}>Completed</Text>
@@ -352,8 +348,8 @@ export default function HistoryScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#667eea']}
-            tintColor={isDarkMode ? '#667eea' : '#667eea'}
+            colors={['#4F46E5']}
+            tintColor={isDarkMode ? '#4F46E5' : '#4F46E5'}
           />
         }
       >
@@ -374,10 +370,10 @@ export default function HistoryScreen({ navigation }) {
                     <View
                       style={[
                         styles.categoryIcon,
-                        { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' },
+                        { backgroundColor: isDarkMode ? '#2d3561' : '#4F46E515' },
                       ]}
                     >
-                      <Ionicons name="construct-outline" size={14} color="#667eea" />
+                      <Ionicons name="construct-outline" size={14} color="#4F46E5" />
                     </View>
                     <Text style={[styles.serviceCategory, isDarkMode && styles.textDark]}>
                       {service.category}
@@ -413,7 +409,7 @@ export default function HistoryScreen({ navigation }) {
                     <Image source={{ uri: service.providerImage }} style={styles.providerAvatar} />
                   ) : (
                     <View style={styles.providerAvatarPlaceholder}>
-                      <Ionicons name="person" size={18} color="#667eea" />
+                      <Ionicons name="person" size={18} color="#4F46E5" />
                     </View>
                   )}
                   <View style={styles.providerInfo}>
@@ -539,7 +535,7 @@ export default function HistoryScreen({ navigation }) {
               onPress={() => navigation.navigate('Home')}
             >
               <LinearGradient
-                colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#667eea', '#764ba2']}
+                colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#4F46E5', '#4338CA']}
                 style={styles.exploreGradient}
               >
                 <Text style={styles.exploreButtonText}>Explore Services</Text>
@@ -657,7 +653,7 @@ const styles = StyleSheet.create({
   },
   seeAllText: {
     fontSize: 13,
-    color: '#667eea',
+    color: '#4F46E5',
     fontWeight: '600',
   },
   content: {
@@ -703,7 +699,7 @@ const styles = StyleSheet.create({
   },
   serviceCategory: {
     fontSize: 12,
-    color: '#667eea',
+    color: '#4F46E5',
     fontWeight: '700',
     textTransform: 'uppercase',
   },
@@ -762,7 +758,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#667eea20',
+    backgroundColor: '#4F46E520',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
@@ -917,7 +913,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#667eea',
+    backgroundColor: '#4F46E5',
   },
   rehireButtonText: {
     fontSize: 13,

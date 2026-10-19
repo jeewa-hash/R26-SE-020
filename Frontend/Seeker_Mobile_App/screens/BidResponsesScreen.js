@@ -17,6 +17,9 @@ import {
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';//done
+import { APP_THEME } from '../context/ThemeContext';
+
+const P = APP_THEME.light;
 
 export default function BidResponsesScreen() {
   const navigation = useNavigation();
@@ -162,11 +165,11 @@ export default function BidResponsesScreen() {
         </Text>
         <View style={styles.bidInfoRow}>
           <View style={styles.bidInfoTag}>
-            <Ionicons name="cash-outline" size={14} color="#667eea" />
+            <Ionicons name="cash-outline" size={14} color={P.accent} />
             <Text style={styles.bidInfoTagText}>{bid?.budget || "Budget not set"}</Text>
           </View>
           <View style={styles.bidInfoTag}>
-            <Ionicons name="location-outline" size={14} color="#667eea" />
+            <Ionicons name="location-outline" size={14} color={P.accent} />
             <Text style={styles.bidInfoTagText}>{bid?.location || "Anywhere"}</Text>
           </View>
         </View>
@@ -239,7 +242,7 @@ export default function BidResponsesScreen() {
                 {/* Message - Expandable */}
                 <TouchableOpacity onPress={() => toggleExpand(response.id)} activeOpacity={0.7}>
                   <View style={styles.messageContainer}>
-                    <Ionicons name="chatbubble-outline" size={16} color="#667eea" />
+                    <Ionicons name="chatbubble-outline" size={16} color={P.accent} />
                     <Text style={styles.messageText} numberOfLines={expandedResponse === response.id ? undefined : 2}>
                       {response.message}
                     </Text>
@@ -259,7 +262,7 @@ export default function BidResponsesScreen() {
                     style={styles.chatAction}
                     onPress={() => handleChatWithProvider(response)}
                   >
-                    <Ionicons name="chatbubble-outline" size={18} color="#667eea" />
+                    <Ionicons name="chatbubble-outline" size={18} color={P.accent} />
                     <Text style={styles.chatActionText}>Chat</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -273,7 +276,7 @@ export default function BidResponsesScreen() {
                     onPress={() => handleAcceptResponse(response)}
                   >
                     <LinearGradient
-                      colors={['#667eea', '#764ba2']}
+                      colors={[P.accent, P.accentDeep]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.acceptGradient}
@@ -381,7 +384,7 @@ export default function BidResponsesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: P.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -536,7 +539,7 @@ const styles = StyleSheet.create({
   priceValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#667eea',
+    color: P.accent,
   },
   quoteRow: {
     flexDirection: 'row',
@@ -592,12 +595,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#667eea',
+    borderColor: P.accent,
   },
   chatActionText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#667eea',
+    color: P.accent,
   },
   declineAction: {
     flex: 1,
@@ -658,7 +661,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   contactAction: {
-    backgroundColor: '#667eea',
+    backgroundColor: P.accent,
     width: 40,
     height: 40,
     borderRadius: 20,

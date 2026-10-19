@@ -14,6 +14,7 @@ import feedbackRoutes from "./routes/feedbackRoutes.js";
 import requestQuotationRoutes from "./routes/requestQuotationRoutes.js";
 import rewardRoutes from "./routes/rewardRoutes.js";
 import serviceSessionRoutes from "./routes/serviceSessionRoutes.js";
+import coordinationRoutes from "./routes/coordinationRoutes.js";
 
 dotenv.config();
 
@@ -45,6 +46,7 @@ app.use("/feedbacks", feedbackRoutes);
 app.use("/request-quotations", requestQuotationRoutes);
 app.use("/api/rewards", rewardRoutes);
 app.use("/service-sessions", serviceSessionRoutes);
+app.use("/coordination", coordinationRoutes);
 
 
 

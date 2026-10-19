@@ -60,7 +60,7 @@ export default function RescheduleScreen({ navigation, route }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar 
         barStyle={isDarkMode ? "light-content" : "dark-content"} 
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"} 
+        backgroundColor={isDarkMode ? "#1a1a2e" : "#4F46E5"} 
       />
       
       {/* Header */}
@@ -76,7 +76,7 @@ export default function RescheduleScreen({ navigation, route }) {
           style={styles.bookingCard}
         >
           <View style={styles.bookingIcon}>
-            <Ionicons name="calendar-outline" size={24} color="#667eea" />
+            <Ionicons name="calendar-outline" size={24} color="#4F46E5" />
           </View>
           <View style={styles.bookingInfo}>
             <Text style={[styles.bookingTitle, isDarkMode && styles.textDark]}>{booking.title}</Text>
@@ -92,13 +92,13 @@ export default function RescheduleScreen({ navigation, route }) {
           <Text style={[styles.currentLabel, isDarkMode && styles.textMutedDark]}>Current Schedule</Text>
           <View style={styles.currentInfo}>
             <View style={styles.currentInfoItem}>
-              <Ionicons name="calendar-outline" size={16} color="#667eea" />
+              <Ionicons name="calendar-outline" size={16} color="#4F46E5" />
               <Text style={[styles.currentInfoText, isDarkMode && styles.textDark]}>
                 {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </Text>
             </View>
             <View style={styles.currentInfoItem}>
-              <Ionicons name="time-outline" size={16} color="#667eea" />
+              <Ionicons name="time-outline" size={16} color="#4F46E5" />
               <Text style={[styles.currentInfoText, isDarkMode && styles.textDark]}>2:00 PM</Text>
             </View>
           </View>
@@ -111,7 +111,7 @@ export default function RescheduleScreen({ navigation, route }) {
             style={styles.pickerGradient}
           >
             <View style={styles.pickerIconWrapper}>
-              <Ionicons name="calendar" size={24} color="#667eea" />
+              <Ionicons name="calendar" size={24} color="#4F46E5" />
             </View>
             <View style={styles.pickerInfo}>
               <Text style={[styles.pickerLabel, isDarkMode && styles.textMutedDark]}>Select New Date</Text>
@@ -128,7 +128,7 @@ export default function RescheduleScreen({ navigation, route }) {
             style={styles.pickerGradient}
           >
             <View style={styles.pickerIconWrapper}>
-              <Ionicons name="time" size={24} color="#667eea" />
+              <Ionicons name="time" size={24} color="#4F46E5" />
             </View>
             <View style={styles.pickerInfo}>
               <Text style={[styles.pickerLabel, isDarkMode && styles.textMutedDark]}>Select New Time</Text>
@@ -144,7 +144,7 @@ export default function RescheduleScreen({ navigation, route }) {
           <View style={styles.summaryInfo}>
             <View style={styles.summaryItem}>
               <View style={styles.summaryIcon}>
-                <Ionicons name="calendar" size={18} color="#667eea" />
+                <Ionicons name="calendar" size={18} color="#4F46E5" />
               </View>
               <View>
                 <Text style={[styles.summaryLabel, isDarkMode && styles.textMutedDark]}>Date</Text>
@@ -153,7 +153,7 @@ export default function RescheduleScreen({ navigation, route }) {
             </View>
             <View style={styles.summaryItem}>
               <View style={styles.summaryIcon}>
-                <Ionicons name="time" size={18} color="#667eea" />
+                <Ionicons name="time" size={18} color="#4F46E5" />
               </View>
               <View>
                 <Text style={[styles.summaryLabel, isDarkMode && styles.textMutedDark]}>Time</Text>
@@ -174,7 +174,7 @@ export default function RescheduleScreen({ navigation, route }) {
         {/* Submit Button */}
         <TouchableOpacity style={styles.rescheduleButton} onPress={handleReschedule} activeOpacity={0.9}>
           <LinearGradient
-            colors={['#667eea', '#764ba2']}
+            colors={['#4F46E5', '#4338CA']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.rescheduleGradient}
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#667eea15',
+    backgroundColor: '#4F46E515',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#667eea15',
+    backgroundColor: '#4F46E515',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#667eea15',
+    backgroundColor: '#4F46E515',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   rescheduleButton: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#667eea',
+    shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,

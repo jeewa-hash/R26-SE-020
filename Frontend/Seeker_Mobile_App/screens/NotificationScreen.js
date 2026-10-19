@@ -319,7 +319,7 @@ export default function NotificationScreen({ navigation }) {
       <SafeAreaView style={[styles.safeArea, isDarkMode && styles.safeAreaDark]}>
         <StatusBar
           barStyle="light-content"
-          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
         />
         <PageHeader title={<>Notifications</>} onBack={() => navigation.goBack()} />
         <View style={styles.center}>
@@ -334,7 +334,7 @@ export default function NotificationScreen({ navigation }) {
     <SafeAreaView style={[styles.safeArea, isDarkMode && styles.safeAreaDark]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
       />
 
       {/* ========== GRADIENT HEADER ========== */}

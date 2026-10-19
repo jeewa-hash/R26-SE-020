@@ -4,6 +4,9 @@ import { View, Text, StyleSheet, SafeAreaView, ScrollView, Dimensions } from 're
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import BottomNav from '../components/BottomNav';
+import { APP_THEME } from '../context/ThemeContext';
+
+const P = APP_THEME.light;
 
 const { width } = Dimensions.get('window');
 
@@ -35,7 +38,7 @@ export default function SpendAnalyticsScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Total Spend Card */}
         <LinearGradient
-          colors={['#667eea', '#764ba2']}
+          colors={[P.accent, P.accentDeep]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.totalCard}
@@ -57,7 +60,7 @@ export default function SpendAnalyticsScreen({ navigation }) {
                       styles.bar, 
                       { 
                         height: (item.amount / maxAmount) * 120,
-                        backgroundColor: item.amount === maxAmount ? '#667eea' : '#E0E7FF'
+                        backgroundColor: item.amount === maxAmount ? P.accent : P.accentSoft
                       }
                     ]} 
                   />
@@ -93,7 +96,7 @@ export default function SpendAnalyticsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { flex: 1, backgroundColor: P.canvas },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#ffffff20', justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '600', color: '#fff' },
@@ -115,7 +118,7 @@ const styles = StyleSheet.create({
   categoryHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   categoryDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
   categoryName: { flex: 1, fontSize: 14, color: '#1F2937' },
-  categoryAmount: { fontSize: 14, fontWeight: '600', color: '#667eea' },
+  categoryAmount: { fontSize: 14, fontWeight: '600', color: P.accent },
   progressBarContainer: { height: 6, backgroundColor: '#F3F4F6', borderRadius: 3, overflow: 'hidden', marginBottom: 4 },
   progressBar: { height: '100%', borderRadius: 3 },
   categoryPercentage: { fontSize: 11, color: '#9CA3AF', textAlign: 'right' },
