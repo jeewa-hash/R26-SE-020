@@ -1,3 +1,4 @@
+import DurationModelEvidence from '../../components/DurationModelEvidence';
 import { Ionicons } from '@expo/vector-icons';
 import { sessionGuidance } from '../../utils/providerSessions';
 import React, { useCallback, useContext, useState } from 'react';
@@ -5,7 +6,7 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View, StyleSheet
 import { useFocusEffect } from '@react-navigation/native';
 import ProviderPageHeader from '../../components/ProviderPageHeader';
 import { ThemeContext } from '../../context/ThemeContext';
-import { getProviderQuotationById, getProviderRequestById, getProviderBookings, retryProviderQuotation, askSeekerToReschedule, getHumanServiceTitle, statusLabel } from '../../services/providerFlowApi';
+import { getCoordinationEvidence, getProviderQuotationById, getProviderRequestById, getProviderBookings, retryProviderQuotation, askSeekerToReschedule, getHumanServiceTitle, statusLabel } from '../../services/providerFlowApi';
 import { getStoredProviderAuth } from './services/providerAuthStorage';
 import { bookingForQuote, idOf } from '../../utils/providerFlowState';
 import { confirm, notify, openProviderTab } from '../../utils/providerFlowUi';
@@ -14,6 +15,7 @@ export default function ProviderQuotationDetailsScreen({ route, navigation }) {
   const { isDark } = useContext(ThemeContext) || {};
   const [quote, setQuote] = useState(route.params?.quotation || {});
   const [request, setRequest] = useState(null);
+  const [modelEvaluation, setModelEvaluation] = useState(null);
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -25,6 +27,10 @@ export default function ProviderQuotationDetailsScreen({ route, navigation }) {
       if (!quoteId) throw new Error('Quotation ID is missing. Return to My Jobs and refresh.');
       const latest = await getProviderQuotationById(quoteId);
       setQuote(latest);
+      if (latest.coordinationId) {
+        try { const evidence = await getCoordinationEvidence(latest.coordinationId); setModelEvaluation(evidence.scheduleEvaluation || null); }
+        catch { setModelEvaluation(null); }
+      } else setModelEvaluation(null);
       const { providerId } = await getStoredProviderAuth();
       const requestId = idOf(latest.providerRequestId || latest.externalRequestQuotationId);
       const results = await Promise.allSettled([
@@ -85,6 +91,7 @@ export default function ProviderQuotationDetailsScreen({ route, navigation }) {
         <View style={styles.scheduleRow}><View style={[styles.icon, { backgroundColor: C.tint }]}><Ionicons name="calendar-outline" size={23} color="#15803D" /></View><View style={styles.flex}><Text style={[styles.label, { color: C.muted }]}>Requested start</Text><Text style={[styles.date, { color: C.text }]}>{hasDate ? date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'Not provided'}</Text>{hasDate ? <Text style={[styles.time, { color: C.text }]}>{date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</Text> : null}</View></View>
         <View style={[styles.notes, { borderColor: C.border }]}><Text style={[styles.availabilityTitle, { color: C.text }]}>{availability[0]}</Text><Text style={[styles.body, { color: C.muted }]}>{availability[1]}</Text></View>
       </View>
+      <DurationModelEvidence evaluation={modelEvaluation} isDark={isDark} />
       <View style={card}><Text style={[styles.sectionTitle, { color: C.text }]}>Related details</Text>
         {request ? secondary('Original Request', 'document-text-outline', () => navigation.navigate('IT22129376ProviderRequestDetails', { request })) : null}
         {sent && ready && !request?.rescheduleRequestedAt && !booking ? secondary('Recheck Availability', 'refresh-outline', () => action(() => retryProviderQuotation(quoteId)), Boolean(error)) : null}

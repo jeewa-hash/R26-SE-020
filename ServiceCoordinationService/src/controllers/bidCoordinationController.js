@@ -33,7 +33,7 @@ export const validateQuotationSchedule = async (req, res) => {
     if (request.rescheduleRequestedAt) return res.status(409).json({ message: 'Waiting for the seeker to choose a new time.' });
     const start = new Date(request.preferredStartTime);
     if (!request.preferredStartTime || !Number.isFinite(start.getTime()) || start <= new Date()) return res.status(400).json({ message: 'The seeker must choose a future start time before you can quote.' });
-    const payload = buildDurationPredictionPayload({ requestQuotation: request, providerQuotation: { providerId: req.user.id } });
+    const payload = buildDurationPredictionPayload({ requestQuotation: request, providerQuotation: { providerId: req.user.id, ...req.body.modelContext } });
     const prediction = await predictDuration(payload);
     const predicted = Number(prediction?.predictedDurationMins);
     const duration = Number.isFinite(predicted) && predicted > 0 ? predicted : estimateServiceDuration({ serviceCategory: payload.serviceCategory, serviceSubcategory: payload.serviceType, taskName: payload.taskName, urgency: request.urgencyLevel }).averageDurationHours * 60;
@@ -229,6 +229,13 @@ export const checkBidCoordination = async (req, res) => {
 
     scheduleEvaluationData = {
       ...scheduleEvaluationData,
+      modelEvidence: { capturedAt: new Date(), submittedPayload: durationPayload, inputSources: providerQuotation.modelInputSources || {}, taskHistorySnapshot: providerQuotation.taskHistorySnapshot || null,
+        prediction: hasMlDuration ? durationPrediction : null,
+        source: durationPredictionSource, modelVersion: durationModelVersion,
+        predictedDurationMins, bufferMinutes,
+        requiredWindowStart: scheduleEvaluationData.requiredWindowStart,
+        requiredWindowEnd: scheduleEvaluationData.requiredWindowEnd,
+      },
       distanceFromPreviousBookingKm: travelInfo.distanceKm,
       estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
       gapFromPreviousBookingMins,
@@ -394,6 +401,11 @@ export const getBidCoordinationById = async (req, res) => {
         success: false,
         message: "Bid coordination not found.",
       });
+    }
+
+    const identityField = req.user?.role === 'Seeker' ? 'seekerId' : 'providerId';
+    if (req.user?.role !== 'Admin' && String(coordination[identityField]) !== String(req.user?.id)) {
+      return res.status(403).json({ success: false, message: 'Only participants can view this coordination and model evidence.' });
     }
 
     const priceEvaluation = await BidPriceEvaluation.findOne({

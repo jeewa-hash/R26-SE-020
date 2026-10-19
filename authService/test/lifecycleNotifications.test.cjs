@@ -99,3 +99,25 @@ test('booking saves notify both participants only for lifecycle or readiness cha
   assert.equal(published.length, 4);
   assert.ok(published.slice(2).every(n => n.metadata.status === 'READY'));
 });
+
+test('reschedule confirmation notifies both participants with the new appointment', async () => {
+  const published = [];
+  function Schema() {}
+  Schema.Types = { ObjectId: String };
+  Schema.prototype.pre = () => {};
+  Schema.prototype.post = () => {};
+  Schema.prototype.index = () => {};
+  const context = { mongoose: { Schema, model: () => ({}) }, publishLifecycleNotification: async payload => published.push(payload) };
+  const source = fs.readFileSync(path.join(__dirname, '../../ServiceCoordinationService/src/models/Booking.js'), 'utf8').replace(/^import .*;\n/gm, '').replace(/export default mongoose.model[^\n]+/, '').replace(/export /g, '');
+  vm.runInNewContext(source, context);
+  await context.notifyBookingLifecycle({ _id: 'booking', providerId: 'provider', seekerId: 'seeker', scheduledStartTime: '2030-01-01T03:30:00.000Z', updatedAt: new Date() }, 'RESCHEDULED');
+  assert.equal(published.length, 2);
+  assert.deepEqual(published.map(row => row.role), ['ServiceProvider', 'Seeker']);
+  for (const row of published) {
+    assert.equal(row.title, 'New service time confirmed');
+    assert.match(row.message, /9:00 am/i);
+    assert.equal(row.metadata.bookingId, 'booking');
+    assert.equal(row.metadata.status, 'RESCHEDULED');
+    assert.equal(row.metadata.scheduledStartTime, '2030-01-01T03:30:00.000Z');
+  }
+});

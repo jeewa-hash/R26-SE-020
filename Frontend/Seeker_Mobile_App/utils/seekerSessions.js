@@ -31,7 +31,7 @@ export function seekerSessionGuidance(session = {}) {
       RESCHEDULING_REQUIRED: ['Schedule needs attention', 'You', 'A conflict affects this booking. Review the available reschedule options.', 'Review Options', 2, 'attention', 'Scheduled'],
       COMPLETED: ['Service completed', 'You', 'The provider marked this job complete. Review the job details and leave feedback.', 'View Completed Job', 3, 'closed', 'History'],
       CANCELLED: ['Booking cancelled', 'No action', 'This booking is closed. The provider will not attend this booking.', 'View Cancellation', 2, 'closed', 'History'],
-      EXPIRED: ['Booking expired', 'You', 'This booking did not start within its start window. Review its details before arranging another service.', 'View Expired Booking', 2, 'closed', 'History'],
+      EXPIRED: booking.pendingRescheduleId ? ['New time awaiting approval', 'Provider', 'Your service remains expired while the provider reviews the new time. You will be notified of their decision.', 'View Time Request', 2, 'waiting', 'History'] : ['Booking expired', 'You', 'Work did not start within 45 minutes of the scheduled time. Request a new time for the provider to review.', 'Request a New Time', 2, 'closed', 'History'],
     };
     return describe(...(states[state] || ['Check booking status', 'Review needed', 'Refresh the session and review the latest booking before making changes.', 'View Booking', 2, 'attention', 'Scheduled']), 'booking');
   }

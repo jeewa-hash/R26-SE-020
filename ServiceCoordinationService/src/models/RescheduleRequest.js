@@ -38,6 +38,7 @@ const suggestedSlotSchema = new mongoose.Schema(
 
 const rescheduleRequestSchema = new mongoose.Schema(
   {
+    previousBookingStatus: { type: String, default: "CONFIRMED" },
     bookingId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Booking",

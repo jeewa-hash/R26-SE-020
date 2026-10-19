@@ -1,0 +1,60 @@
+{
+  "target": "actual_duration_mins",
+  "model": "Ridge regression",
+  "features": [
+    "service_category",
+    "service_type",
+    "task_name",
+    "years_experience",
+    "task_frequency_per_month",
+    "planned_team_size"
+  ],
+  "manual_duration_inputs_used": false,
+  "split": {
+    "method": "GroupShuffleSplit",
+    "random_state": 42,
+    "train_rows": 1267,
+    "test_rows": 289,
+    "train_providers": 267,
+    "test_providers": 67,
+    "provider_overlap": 0
+  },
+  "reproduced_holdout": {
+    "MAE_minutes": 11.95230008855183,
+    "RMSE_minutes": 16.706955347732684,
+    "R2": 0.9655914532508695
+  },
+  "task_median_baseline": {
+    "MAE_minutes": 11.288927335640139,
+    "RMSE_minutes": 15.505468395795413,
+    "R2": 0.9703625054592251
+  },
+  "saved_model_replay": {
+    "MAE_minutes": 11.952300088551782,
+    "RMSE_minutes": 16.70695534773265,
+    "R2": 0.9655914532508696
+  },
+  "saved_model_matches_reproduced_predictions": true,
+  "grouped_cv": {
+    "folds": 5,
+    "MAE_minutes_mean": 12.556881205821568,
+    "MAE_minutes_std": 0.487527790336491,
+    "R2_mean": 0.9540553229199624
+  },
+  "fingerprints": {
+    "dataset_sha256": "2ec76498f46c5a1d54e69642e972c84b8fd8a2ad7706066484bbbe0928d5850d",
+    "saved_model_sha256": "340fa7bcadecea4fe4fecbe07aad34c30510162dce456b9d4baacf646e7b01bc"
+  },
+  "environment": {
+    "python": "3.14.4",
+    "sklearn": "1.8.0"
+  },
+  "limitations": [
+    "Dataset collection provenance has not been independently verified.",
+    "Holdout measures this dataset, not guaranteed production accuracy.",
+    "R2 is not an accuracy percentage.",
+    "Saved-model replay is not independent evaluation unless its training split is confirmed; compare the reproduction match.",
+    "Task median may outperform Ridge and must be shown.",
+    "Live missing values and unseen categories can reduce reliability."
+  ]
+}

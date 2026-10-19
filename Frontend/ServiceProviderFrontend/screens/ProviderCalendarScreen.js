@@ -9,8 +9,6 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
-  Modal,
-  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -39,7 +37,7 @@ import {
   isOngoingBooking,
 } from '../services/providerFlowApi';
 
-const TABS = ['Sessions', 'Ongoing', 'Requests', 'Quotes', 'Scheduled', 'History'];
+const TABS = ['Sessions', 'History'];
 
 const dateKey = (date) => date.toISOString().slice(0, 10);
 
@@ -126,8 +124,9 @@ export default function ProviderCalendarScreen({ navigation, route }) {
   };
   const [providerId, setProviderId] = useState(null);
   const [activeTab, setActiveTab] = useState('Sessions');
+  const [sessionFilter, setSessionFilter] = useState(null);
   const [updating, setUpdating] = useState(false);
-  useEffect(() => { if (TABS.includes(route?.params?.tab)) setActiveTab(route.params.tab); }, [route?.params?.tab]);
+  useEffect(() => { if (route?.params?.tab) setActiveTab(route.params.tab === 'History' ? 'History' : 'Sessions'); }, [route?.params?.tab]);
   const [selectedDate, setSelectedDate] = useState(dateKey(new Date()));
   const [requests, setRequests] = useState([]);
   const [quotations, setQuotations] = useState([]);
@@ -136,10 +135,8 @@ export default function ProviderCalendarScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [sessionFilter, setSessionFilter] = useState('All');
-  const [filterVisible, setFilterVisible] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const sessions = useMemo(() => buildProviderSessions(requests, quotations, [...bookings, ...ongoingBookings]).filter(session => !session.booking || getBookingStatus(session.booking) !== 'COMPLETED'), [requests, quotations, bookings, ongoingBookings]);
+  const sessions = useMemo(() => buildProviderSessions(requests, quotations, [...bookings, ...ongoingBookings]).filter(session => !session.booking || !['COMPLETED', 'CANCELLED', 'EXPIRED'].includes(getBookingStatus(session.booking))), [requests, quotations, bookings, ongoingBookings]);
 
   const dates = useMemo(() => nextSevenDays(), []);
 
@@ -286,53 +283,56 @@ export default function ProviderCalendarScreen({ navigation, route }) {
     navigation.navigate('IT22129376ProviderRequestDetails', { request: session.request });
   };
   const renderSessions = () => {
-    const filters = { All: null, 'Needs you': 'attention', 'Waiting for seeker': 'waiting', Booked: 'booked', 'In progress': 'working', Closed: 'closed' };
-    const visible = sessions.filter(session => !filters[sessionFilter] || session.guidance.group === filters[sessionFilter]);
+    const filterOptions = [
+      { key: 'attention', label: 'Needs you', icon: 'alert-circle-outline', groups: ['attention'] },
+      { key: 'waiting', label: 'Waiting for customer', icon: 'time-outline', groups: ['waiting'] },
+      { key: 'confirmed', label: 'Confirmed bookings', icon: 'calendar-outline', groups: ['booked', 'working'] },
+    ];
+    const selected = filterOptions.find(option => option.key === sessionFilter);
+    const visible = selected ? sessions.filter(session => selected.groups.includes(session.guidance.group)) : sessions;
+    const tones = isDark ? {
+      attention: { color: '#FCD34D', bg: '#3B311B', border: '#6B5425', label: 'Needs you' },
+      waiting: { color: '#93C5FD', bg: '#1E3047', border: '#365577', label: 'With customer' },
+      booked: { color: '#86EFAC', bg: '#203C2B', border: '#3B674A', label: 'Upcoming' },
+      working: { color: '#C4B5FD', bg: '#33294B', border: '#5B487C', label: 'In progress' },
+      closed: { color: '#CBD5E1', bg: '#29313C', border: '#475569', label: 'Closed' },
+    } : {
+      attention: { color: '#92400E', bg: '#FFFBEB', border: '#F3D898', label: 'Needs you' },
+      waiting: { color: '#1D4ED8', bg: '#EFF6FF', border: '#BFD5F5', label: 'With customer' },
+      booked: { color: '#166534', bg: '#EDF7F0', border: '#B5DCC0', label: 'Upcoming' },
+      working: { color: '#6D28D9', bg: '#F5F3FF', border: '#D8CCF3', label: 'In progress' },
+      closed: { color: '#475569', bg: '#F1F5F9', border: '#CBD5E1', label: 'Closed' },
+    };
     return <>
-      <View style={styles.sessionOverview}>
-        {[['Needs you', 'attention', 'alert-circle-outline'], ['In progress', 'working', 'construct-outline'], ['Waiting for seeker', 'waiting', 'time-outline']].map(([label, group, icon]) => <TouchableOpacity key={group} accessibilityRole="button" accessibilityLabel={`${label}, ${sessions.filter(item => item.guidance.group === group).length} sessions`} onPress={() => setSessionFilter(label)} style={[styles.overviewTile, { backgroundColor: sessionFilter === label ? (isDark ? '#24402C' : '#E8F4EC') : C.card, borderColor: sessionFilter === label ? '#15803D' : C.border }]}><Ionicons name={icon} size={18} color="#15803D" /><Text style={[styles.overviewCount, { color: C.text }]}>{sessions.filter(item => item.guidance.group === group).length}</Text><Text style={[styles.overviewLabel, { color: C.muted }]}>{label === 'Waiting for seeker' ? 'With customer' : label}</Text></TouchableOpacity>)}
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+        {filterOptions.map(option => {
+          const active = sessionFilter === option.key;
+          const tone = tones[option.groups[0]];
+          const count = sessions.filter(session => option.groups.includes(session.guidance.group)).length;
+          return <TouchableOpacity key={option.key} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={`${option.label}, ${count} sessions${active ? '. Tap to show all' : ''}`} onPress={() => setSessionFilter(active ? null : option.key)} style={{ flex: 1, padding: 11, minHeight: 112, borderWidth: active ? 2 : 1, borderRadius: 15, borderColor: active ? tone.color : C.border, backgroundColor: active ? tone.bg : C.card, gap: 7 }}>
+            <Ionicons name={option.icon} size={19} color={tone.color} />
+            <Text style={{ color: active ? tone.color : C.text, fontSize: 23, fontWeight: '700' }}>{count}</Text>
+            <Text style={{ color: active ? tone.color : C.muted, fontSize: 11, fontWeight: active ? '700' : '500', lineHeight: 15 }}>{option.label}</Text>
+          </TouchableOpacity>;
+        })}
       </View>
       <View style={styles.filterToolbar}>
-        <Text style={{ color: C.muted, fontSize: 13 }}>{visible.length} {visible.length === 1 ? 'session' : 'sessions'}</Text>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Filter sessions. Showing ${sessionFilter}`} accessibilityState={{ expanded: filterVisible }} onPress={() => setFilterVisible(true)} style={[styles.filterSelector, { backgroundColor: C.card, borderColor: C.border }]}>
-          <Ionicons name="options-outline" size={17} color={C.text} />
-          <Text style={{ color: C.text, fontSize: 13, fontWeight: '600' }}>Show: {sessionFilter === 'All' ? 'All sessions' : sessionFilter}</Text>
-          <Ionicons name="chevron-down" size={15} color={C.muted} />
-        </TouchableOpacity>
+        <Text style={{ color: C.text, fontSize: 14, fontWeight: '600', flex: 1 }}>{selected ? selected.label : 'All current sessions'} · {visible.length}</Text>
+        {selected ? <TouchableOpacity accessibilityRole="button" onPress={() => setSessionFilter(null)} style={{ padding: 8 }}><Text style={{ color: isDark ? '#86EFAC' : '#166534', fontWeight: '600', fontSize: 12 }}>Show all</Text></TouchableOpacity> : null}
       </View>
-      <Modal visible={filterVisible} transparent animationType="slide" onRequestClose={() => setFilterVisible(false)}>
-        <View style={styles.filterOverlay}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close session filters" onPress={() => setFilterVisible(false)} style={StyleSheet.absoluteFillObject} />
-          <View accessibilityViewIsModal style={[styles.filterSheet, { backgroundColor: C.card, borderColor: C.border }]}>
-            <View style={styles.filterSheetHeader}>
-              <Text accessibilityRole="header" style={{ color: C.text, fontSize: 19, fontWeight: '700' }}>Show sessions</Text>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close filters" style={{ padding: 10 }} onPress={() => setFilterVisible(false)}><Ionicons name="close" size={22} color={C.text} /></TouchableOpacity>
-            </View>
-            <ScrollView>
-              {Object.entries(filters).map(([label, group]) => {
-                const selected = sessionFilter === label;
-                const count = group ? sessions.filter(session => session.guidance.group === group).length : sessions.length;
-                return <TouchableOpacity key={label} accessibilityRole="radio" accessibilityState={{ checked: selected }} onPress={() => { setSessionFilter(label); setFilterVisible(false); }} style={[styles.filterOption, { borderBottomColor: C.border }]}>
-                  <Ionicons name={selected ? 'radio-button-on' : 'radio-button-off'} size={22} color={selected ? '#15803D' : C.muted} />
-                  <Text style={{ flex: 1, color: C.text, fontSize: 15, fontWeight: selected ? '700' : '400' }}>{label === 'All' ? 'All sessions' : label}</Text>
-                  <Text style={{ color: C.muted }}>{count}</Text>
-                </TouchableOpacity>;
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-      {visible.length === 0 ? renderEmpty('layers-outline', sessionFilter === 'All' ? 'No service sessions yet' : `No sessions: ${sessionFilter.toLowerCase()}`, sessionFilter === 'All' ? 'Apply to a service post on Home. When a seeker requests your quotation, its progress will appear here.' : 'Choose another filter to see your other sessions.') : visible.map(session => {
+      {visible.length === 0 ? renderEmpty('layers-outline', selected ? `No sessions · ${selected.label.toLowerCase()}` : 'No service sessions yet', selected ? 'Choose another box or tap Show all to view your other sessions.' : 'When a customer requests your quotation, track its progress here. Completed jobs are in History.') : visible.map(session => {
+        const tone = tones[session.guidance.group] || tones.closed;
         const row = session.request || session.booking || session.quotation;
         const start = session.booking ? getBookingStartDate(session.booking) : new Date(session.quotation?.proposedStartTime || session.request?.preferredStartTime || '');
-        return <View key={session.key} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
+        return <View key={session.key} style={[styles.card, { backgroundColor: C.card, borderColor: tone.border }]}>
           <View style={styles.sessionHeading}>
-            <View style={[styles.sessionStateIcon, { backgroundColor: isDark ? '#24402C' : '#EAF6EE' }]}><Ionicons name={session.booking ? 'calendar-outline' : session.quotation ? 'document-text-outline' : 'mail-outline'} size={21} color="#15803D" /></View>
+            <View style={[styles.sessionStateIcon, { backgroundColor: tone.bg }]}><Ionicons name={session.booking ? 'calendar-outline' : session.quotation ? 'document-text-outline' : 'mail-outline'} size={21} color={tone.color} /></View>
             <View style={{ flex: 1 }}><Text style={[styles.sessionEyebrow, { color: C.muted }]}>{session.booking ? 'CONFIRMED SERVICE' : session.quotation ? 'QUOTATION' : 'NEW REQUEST'}</Text><Text style={[styles.cardTitle, { color: C.text }]}>{getHumanServiceTitle(row)}</Text></View>
           </View>
           {getHumanSeekerName(session.booking || row) !== 'Customer' ? <Text style={[styles.cardSubText, { color: C.muted }]}>{getHumanSeekerName(session.booking || row)}</Text> : null}
           <View style={[styles.sessionStatus, { borderColor: C.border }]}>
-            <View style={styles.sessionDot} /><Text style={[styles.sessionStatusTitle, { color: C.text }]}>{session.guidance.title.replace(/seeker/gi, 'customer')}</Text>
+            <View style={[styles.sessionStatusBadge, { backgroundColor: tone.bg }]}><View style={[styles.sessionDot, { backgroundColor: tone.color }]} /><Text style={{ color: tone.color, fontSize: 11, fontWeight: '700' }}>{tone.label}</Text></View>
+            <Text style={[styles.sessionStatusTitle, { color: C.text }]}>{session.guidance.title.replace(/seeker/gi, 'customer')}</Text>
           </View>
           <Text style={[styles.sessionExplanation, { color: C.muted }]}>{session.guidance.message.replace(/seeker/gi, 'customer')}</Text>
           <View style={styles.sessionMeta}><Ionicons name="time-outline" size={16} color={C.muted} /><Text style={[styles.detailText, { color: C.muted, flex: 1 }]}>{start && Number.isFinite(start.getTime()) ? start.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Start time not chosen'}</Text></View>
@@ -362,6 +362,21 @@ export default function ProviderCalendarScreen({ navigation, route }) {
     const end = getBookingEndDate(booking);
     const reminder = getReminderText(booking);
     const delayImpact = booking?.delayInfo?.delayImpactStatus;
+    if (!showActions) {
+      const tone = status === 'COMPLETED' ? { color: isDark ? '#86EFAC' : '#166534', bg: isDark ? '#203C2B' : '#EDF7F0', icon: 'checkmark-circle-outline' }
+        : status === 'EXPIRED' ? { color: isDark ? '#FCD34D' : '#92400E', bg: isDark ? '#3B311B' : '#FFFBEB', icon: 'time-outline' }
+        : { color: isDark ? '#CBD5E1' : '#64748B', bg: isDark ? '#29313C' : '#F1F5F9', icon: 'close-circle-outline' };
+      const date = status === 'COMPLETED' && (booking.completedAt || booking.actualEndTime) ? new Date(booking.completedAt || booking.actualEndTime) : start;
+      return <View key={getBookingId(booking)} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
+        <View style={styles.historyTop}><View style={[styles.historyIcon, { backgroundColor: tone.bg }]}><Ionicons name={tone.icon} size={24} color={tone.color} /></View><View style={{ flex: 1 }}><Text style={[styles.historyLabel, { color: tone.color }]}>{statusLabel(status)}</Text><Text style={[styles.historyDate, { color: C.muted }]}>{date && Number.isFinite(date.getTime()) ? date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Date not recorded'}</Text></View></View>
+        <Text style={[styles.cardTitle, { color: C.text, marginTop: 13 }]}>{getHumanServiceTitle(booking)}</Text>
+        <View style={styles.sessionMeta}><Ionicons name="location-outline" size={15} color={C.muted} /><Text style={[styles.detailText, { color: C.muted, flex: 1 }]}>{getHumanLocation(booking)}</Text></View>
+        {getHumanSeekerName(booking) !== 'Customer' ? <Text style={[styles.historyDate, { color: C.muted }]}>{getHumanSeekerName(booking)}</Text> : null}
+        {status === 'EXPIRED' && booking.pendingRescheduleId ? <Text style={[styles.sessionExplanation, { color: C.muted }]}>A new time is waiting for your review.</Text> : null}
+        <View style={[styles.sessionActionRow, { borderColor: C.border }]}><View style={{ flex: 1 }}><Text style={[styles.sessionEyebrow, { color: C.muted }]}>{status === 'COMPLETED' ? 'SERVICE AMOUNT' : 'QUOTED AMOUNT'}</Text><Text style={[styles.sessionAmount, { color: C.text }]}>{formatMoney(booking.finalAmount ?? booking.amount ?? booking.price)}</Text></View><TouchableOpacity accessibilityRole="button" style={[styles.historyOpen, { borderColor: C.border }]} onPress={() => openBooking(booking)}><Text style={[styles.secondaryButtonText, { color: C.text }]}>{booking.pendingRescheduleId ? 'Review Time' : 'Details'}</Text><Ionicons name="arrow-forward" size={16} color={C.muted} /></TouchableOpacity></View>
+      </View>;
+    }
+
 
     return (
       <View key={getBookingId(booking)} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
@@ -546,29 +561,12 @@ export default function ProviderCalendarScreen({ navigation, route }) {
     );
   };
 
-  const scheduledBookings = bookings.filter(booking => ['CONFIRMED', 'RESCHEDULED', 'RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED'].includes(getBookingStatus(booking)));
-  const tabCounts = { Sessions: sessions.length, Ongoing: ongoingBookings.length, Requests: pendingRequests.length, Quotes: quotations.length, Scheduled: scheduledBookings.length, History: historyBookings.length };
+  const tabCounts = { Sessions: sessions.length, History: historyBookings.length };
 
   const renderBody = () => {
     if (activeTab === 'Sessions') return renderSessions();
-    if (activeTab === 'Scheduled') return scheduledBookings.length ? scheduledBookings.map(booking => renderBookingCard(booking, true)) : renderEmpty('calendar-outline', 'No scheduled jobs.', 'Confirmed bookings will appear here.');
-    if (activeTab === 'Ongoing') {
-      return ongoingBookings.length === 0
-        ? renderEmpty('briefcase-outline', 'No ongoing jobs right now.', 'Jobs you start or jobs scheduled soon will appear here.')
-        : ongoingBookings.map((booking) => renderBookingCard(booking, true));
-    }
-    if (activeTab === 'Requests') {
-      return pendingRequests.length === 0
-        ? renderEmpty('document-text-outline', 'No incoming requests yet.', 'New quotation requests assigned to you will appear here.')
-        : pendingRequests.map(renderRequestCard);
-    }
-    if (activeTab === 'Quotes') {
-      return quotations.length === 0
-        ? renderEmpty('receipt-outline', 'No quotations sent yet.', 'Submitted quotations will appear here.')
-        : quotations.map(renderQuotationCard);
-    }
     return historyBookings.length === 0
-      ? renderEmpty('time-outline', 'Completed and cancelled jobs will appear here.', 'Your job history is currently empty.')
+      ? renderEmpty('time-outline', 'Completed, cancelled and expired jobs appear here.', 'Your job history is currently empty.')
       : historyBookings.map((booking) => renderBookingCard(booking, false));
   };
 
@@ -593,16 +591,16 @@ export default function ProviderCalendarScreen({ navigation, route }) {
         </View>
 
         <View style={[styles.tabsWrap, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 8 }}>
             {TABS.map((tab) => {
               const active = activeTab === tab;
               return (
-                <TouchableOpacity key={tab} style={[styles.tabPill, { backgroundColor: C.soft }, active && styles.tabPillActive]} onPress={() => setActiveTab(tab)}>
-                  <Text style={[styles.tabText, { color: C.muted }, active && styles.tabTextActive]}>{{ Sessions: 'Sessions', Ongoing: 'Active Jobs', Requests: 'New Requests', Quotes: 'Quotations', Scheduled: 'Upcoming', History: 'History' }[tab]} ({tabCounts[tab]})</Text>
+                <TouchableOpacity key={tab} accessibilityRole="tab" accessibilityState={{ selected: active }} style={[styles.tabPill, { backgroundColor: C.soft, flex: 1, marginHorizontal: 0, alignItems: 'center' }, active && styles.tabPillActive]} onPress={() => setActiveTab(tab)}>
+                  <Text style={[styles.tabText, { color: C.muted }, active && styles.tabTextActive]}>{tab} ({tabCounts[tab]})</Text>
                 </TouchableOpacity>
               );
             })}
-          </ScrollView>
+          </View>
         </View>
 
         <View style={styles.contentContainer}>
@@ -625,9 +623,11 @@ export default function ProviderCalendarScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
+  historyTop: { flexDirection: 'row', alignItems: 'center', gap: 11 }, historyIcon: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }, historyLabel: { fontSize: 12, fontWeight: '700' }, historyDate: { fontSize: 12, marginTop: 4 }, historyOpen: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 14 },
+  sessionStatusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
   sessionOverview: { flexDirection: 'row', gap: 8, marginBottom: 8 }, overviewTile: { flex: 1, borderRadius: 14, borderWidth: 1, padding: 12, gap: 5 }, overviewCount: { fontSize: 23, fontWeight: '700' }, overviewLabel: { fontSize: 11, lineHeight: 16 },
   sessionHeading: { flexDirection: 'row', gap: 11, alignItems: 'flex-start' }, sessionStateIcon: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }, sessionEyebrow: { fontSize: 9, fontWeight: '700', letterSpacing: .7, marginBottom: 4 },
-  sessionStatus: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingTop: 14, marginTop: 15, borderTopWidth: 1 }, sessionDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#15803D' }, sessionStatusTitle: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600' }, sessionExplanation: { fontSize: 12, lineHeight: 19, marginTop: 7, marginBottom: 8 }, sessionMeta: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 7 },
+  sessionStatus: { gap: 9, paddingTop: 14, marginTop: 15, borderTopWidth: 1 }, sessionDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#15803D' }, sessionStatusTitle: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600' }, sessionExplanation: { fontSize: 12, lineHeight: 19, marginTop: 7, marginBottom: 8 }, sessionMeta: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 7 },
   sessionActionRow: { borderTopWidth: 1, marginTop: 16, paddingTop: 14, flexDirection: 'row', gap: 10, alignItems: 'center' }, sessionAmount: { fontSize: 16, fontWeight: '700' }, sessionOpenButton: { backgroundColor: '#15803D', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 11, flexDirection: 'row', alignItems: 'center', gap: 7 }, originalRequestLink: { alignSelf: 'flex-start', paddingTop: 14, paddingBottom: 3 },
   filterToolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16 },
   filterSelector: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },

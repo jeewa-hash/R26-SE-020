@@ -3,8 +3,8 @@
 
 export const IP_ADDRESS = process.env.EXPO_PUBLIC_API_HOST || '192.168.8.101';
 
-// Chat service (port 6001)
-export const API_BASE_URL = process.env.EXPO_PUBLIC_SEEKER_SERVICE_URL || `http://${IP_ADDRESS}:6001`;
+// Chat service (port 6000)
+export const API_BASE_URL = process.env.EXPO_PUBLIC_SEEKER_SERVICE_URL || `http://${IP_ADDRESS}:6000`;
 export const SOCKET_URL = API_BASE_URL; // Socket.IO uses the same Seeker service
 
 

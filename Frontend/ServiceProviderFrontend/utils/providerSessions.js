@@ -17,7 +17,7 @@ export function sessionGuidance({ request, quotation, booking }) {
       RESCHEDULING_REQUIRED: ['Booking time needs attention', 'Review needed', 'Open the booking to review the conflict and reschedule options before continuing.', 'Review Booking', 2, 'attention'],
       COMPLETED: ['Job completed', 'No action', 'This job is finished. View its activity and earnings from the booking details.', 'View Completed Job', 3, 'closed'],
       CANCELLED: ['Booking cancelled', 'No action', 'This booking is cancelled. Do not travel or start work for this booking.', 'View Cancellation', 2, 'closed'],
-      EXPIRED: ['Booking expired', 'No action', 'This booking expired and cannot be started. Review its details for the recorded status.', 'View Expired Job', 2, 'closed'],
+      EXPIRED: booking.pendingRescheduleId ? ['Review new time request', 'You', 'The customer proposed a new time for this expired service. Review and approve availability before it can be scheduled again.', 'Review New Time', 2, 'attention'] : ['Booking expired', 'No action', 'This booking expired. The customer can request a new time; it remains expired until you approve that request.', 'View Expired Job', 2, 'closed'],
     };
     return describe(states[status] || ['Review booking status', 'Review needed', 'Refresh and open the booking to check the latest status before taking action.', 'View Booking', 2, 'attention'], 'booking');
   }

@@ -53,6 +53,7 @@ export const createRequestQuotation = async (req, res) => {
     let finalPostId = postId || null;
     const adLookupId = postId || providerId;
     let providerAdResolved = false;
+    let serviceContext = { category: detectedCategory, serviceType: req.body.serviceType || detectedCategory, taskName: req.body.taskName || detectedObject, source: 'Service request' };
 
     if (mongoose.Types.ObjectId.isValid(adLookupId)) {
       try {
@@ -63,6 +64,7 @@ export const createRequestQuotation = async (req, res) => {
           finalProviderId = maybePost.providerId?._id || maybePost.providerId;
           finalPostId = maybePost._id;
           providerAdResolved = true;
+          serviceContext = { category: maybePost.category || detectedCategory, serviceType: maybePost.serviceLabel || detectedCategory, taskName: maybePost.specificLabel || maybePost.serviceLabel || detectedObject, source: 'Provider post' };
         }
       } catch (lookupError) {
         if (postId) {
@@ -194,8 +196,9 @@ export const createRequestQuotation = async (req, res) => {
       providerId: finalProviderId,
       postId: finalPostId,
       sessionId,
-      detectedCategory,
-      detectedObject,
+      detectedCategory: serviceContext.category,
+      detectedObject: serviceContext.taskName,
+      serviceContext,
       modelConfidence,
       stepBreakdown,
       briefDescription,

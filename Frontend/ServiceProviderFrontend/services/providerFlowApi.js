@@ -433,3 +433,20 @@ export const askSeekerToReschedule = async (id, reason) => requestFirstSuccess({
   urls: SEEKER_URLS, paths: [`/request-quotations/${id}/reschedule-request`],
   options: { method: 'PATCH', body: JSON.stringify({ reason }) }, label: 'request a new time',
 });
+
+export const getCoordinationEvidence = async id => {
+  const result = await requestFirstSuccess({ urls: COORDINATION_URLS, paths: [`/bid-coordinations/${id}`], label: 'duration estimate details' });
+  return result.data || result;
+};
+
+export const getDurationTasks = async () => {
+  const result = await requestFirstSuccess({ urls: COORDINATION_URLS, paths: ['/duration/model-tasks'], label: 'model tasks' });
+  return result.data || [];
+};
+
+export const getProviderModelProfile = async () => {
+  const result = await requestFirstSuccess({ urls: [CONFIG.AUTH_SERVICE_URL], paths: ['/profile'], label: 'Provider task profile' });
+  return result.provider;
+};
+
+export const getProviderTaskHistory = async () => requestFirstSuccess({ urls: COORDINATION_URLS, paths: ['/duration/provider-task-history'], label: 'Completed task history' });

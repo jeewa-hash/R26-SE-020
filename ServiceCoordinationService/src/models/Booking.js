@@ -16,6 +16,7 @@ export const BOOKING_STATUS_VALUES = [
 
 const bookingSchema = new mongoose.Schema(
   {
+    pendingRescheduleId: { type: mongoose.Schema.Types.ObjectId, default: null },
     postId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
@@ -277,12 +278,18 @@ bookingSchema.pre('save', function () {
   this.$locals.notifyReady = this.isModified('providerReadyConfirmed') && this.providerReadyConfirmed;
 });
 export async function notifyBookingLifecycle(doc, status) {
-  const copy = status === 'READY' ? ['Provider ready', 'The provider confirmed readiness for this booking.'] : bookingMessages[status];
+  let copy = status === 'READY' ? ['Provider ready', 'The provider confirmed readiness for this booking.'] : bookingMessages[status];
+  if (status === 'RESCHEDULED' && doc.scheduledStartTime) {
+    const when = new Date(doc.scheduledStartTime).toLocaleString('en-GB', {
+      timeZone: 'Asia/Colombo', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+    copy = ['New service time confirmed', `Your service is now scheduled for ${when} (Sri Lanka time). Open the job to review the updated schedule.`];
+  }
   if (!copy) return;
   await Promise.all([['ServiceProvider', doc.providerId], ['Seeker', doc.seekerId]].map(([role, recipientId]) =>
     publishLifecycleNotification({ recipientId: String(recipientId), role,
-      eventId: `booking:${doc._id}:${status}:${doc.updatedAt?.toISOString()}:${recipientId}`,
-      type: 'booking', title: copy[0], message: copy[1], metadata: { bookingId: String(doc._id), status },
+      eventId: status === 'EXPIRED' && doc.scheduledStartTime ? `booking-start:${doc._id}:${new Date(doc.scheduledStartTime).toISOString()}:EXPIRED:${recipientId}` : `booking:${doc._id}:${status}:${doc.updatedAt?.toISOString()}:${recipientId}`,
+      type: 'booking', title: copy[0], message: copy[1], metadata: { bookingId: String(doc._id), status, scheduledStartTime: doc.scheduledStartTime ? new Date(doc.scheduledStartTime).toISOString() : null },
     })));
 }
 bookingSchema.post('save', async function (doc) {

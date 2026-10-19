@@ -5,7 +5,7 @@ import Notification from "../models/Notification.js";
 import { sendRealtimeNotification } from "../sockets/notificationSocket.js";
 import axios from "axios";
 
-const SEEKER_SERVICE_URL = (process.env.SEEKER_SERVICE_URL || "http://localhost:6001").replace(/\/$/, "");
+const SEEKER_SERVICE_URL = (process.env.SEEKER_SERVICE_URL || "http://localhost:6000").replace(/\/$/, "");
 
 export const createQuotation = async (req, res) => {
   try {
@@ -29,6 +29,19 @@ export const createQuotation = async (req, res) => {
       serviceSubcategory = "",
     } = req.body;
 
+    const modelContext = {};
+    if (req.body.durationTaskContext) {
+      const fields = ['serviceCategory', 'serviceType', 'taskName'];
+      if (fields.some(key => typeof req.body.durationTaskContext[key] !== 'string' || !req.body.durationTaskContext[key].trim() || req.body.durationTaskContext[key].length > 180)) return res.status(400).json({ message: 'Choose a valid duration-model service and task.' });
+      modelContext.durationTaskContext = Object.fromEntries(fields.map(key => [key, req.body.durationTaskContext[key].trim()]));
+    }
+    for (const [key, minimum] of [['yearsExperience', 0], ['taskFrequencyPerMonth', 0], ['plannedTeamSize', 1]]) {
+      const value = req.body[key];
+      if (value == null || value === '') { modelContext[key] = null; continue; }
+      const number = Number(value);
+      if (!Number.isFinite(number) || number < minimum || (key !== 'yearsExperience' && !Number.isInteger(number))) return res.status(400).json({ message: `${key} must be a valid number of at least ${minimum}.` });
+      modelContext[key] = number;
+    }
     if (!mongoose.Types.ObjectId.isValid(providerRequestId)) return res.status(400).json({ message: 'A valid request ID is required.' });
     if (!Number.isFinite(Number(price)) || Number(price) <= 0) return res.status(400).json({ message: 'Price must be a number greater than zero.' });
     const requestResponse = await axios.get(`${SEEKER_SERVICE_URL}/request-quotations/${providerRequestId}`, { timeout: 10000 });
@@ -46,9 +59,57 @@ export const createQuotation = async (req, res) => {
     const existing = await Quotation.findOne({ providerId, externalSessionId });
     if (existing) return res.status(409).json({ message: 'You have already submitted your one quotation for this session.', quotationId: existing._id });
     const coordinationUrl = (process.env.COORDINATION_SERVICE_URL || 'http://localhost:5010').replace(/\/$/, '');
-    await axios.post(`${coordinationUrl}/bid-coordinations/validate-quotation`, { providerRequestId }, {
+    const authUrl = (process.env.AUTH_SERVICE_URL || 'http://localhost:4003').replace(/\/$/, '');
+    const headers = { Authorization: req.headers.authorization };
+    const [profileResponse, catalogueResponse, historyResponse] = await Promise.all([
+      axios.get(`${authUrl}/profile`, { headers, timeout: 10000 }),
+      axios.get(`${coordinationUrl}/duration/model-tasks`, { timeout: 10000 }),
+      axios.get(`${coordinationUrl}/duration/provider-task-history`, { headers, timeout: 10000 }).catch(() => null),
+    ]);
+    const profile = profileResponse.data.provider;
+    if (!profile || String(profile._id) !== String(providerId)) return res.status(403).json({ message: 'Provider profile identity does not match.' });
+    const catalogue = catalogueResponse.data.data || [];
+    // Resolve model context from the service request, never ask the provider to classify it again.
+    const normalize = value => String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+    const originalCategory = request.serviceContext?.category || request.detectedCategory || request.serviceCategory || profile.category || 'Unknown';
+    const originalType = request.serviceContext?.serviceType || request.serviceType || request.serviceSubcategory || originalCategory;
+    const originalTask = request.serviceContext?.taskName || request.taskName || request.detectedTask || request.detectedObject || originalType;
+    const aliases = {
+      plumbing: ['Repairing', 'Plumbing Repair'], 'plumbing services': ['Repairing', 'Plumbing Repair'],
+      electrical: ['Repairing', 'Electrical Repair'], 'electrical services': ['Repairing', 'Electrical Repair'],
+      electrician: ['Repairing', 'Electrical Repair'], 'furniture repair': ['Repairing', 'Furniture Repair'],
+      'roofing repair': ['Repairing', 'Roofing Repair'], 'painting & renovation': ['Repairing', 'Painting & Renovation'],
+      cleaning: ['Cleaning', originalType], 'cleaning services': ['Cleaning', originalType],
+      gardening: ['Gardening', originalType], 'gardening services': ['Gardening', originalType],
+    };
+    const mapped = aliases[normalize(originalCategory)];
+    const candidates = catalogue.filter(row => normalize(row.task_name) === normalize(originalTask) && (!mapped || row.service_category === mapped[0]));
+    const canonical = candidates.length === 1 ? candidates[0] : null;
+    const task = { serviceCategory: canonical?.service_category || mapped?.[0] || originalCategory,
+      serviceType: canonical?.service_type || mapped?.[1] || originalType,
+      taskName: canonical?.task_name || originalTask };
+    modelContext.durationTaskContext = task;
+    const matches = row => row.serviceCategory === task.serviceCategory && row.serviceType === task.serviceType && row.taskName === task.taskName;
+    const history = historyResponse?.data;
+    const historyTask = history?.tasks?.find(matches);
+    modelContext.taskHistorySnapshot = history ? { completedCount: historyTask?.completedCount || 0, windowStart: history.windowStart, windowEnd: history.windowEnd, unmatchedCompletedJobs: history.unmatchedCompletedJobs, source: history.source } : { source: 'Unavailable' };
+    const savedTask = (profile.durationTaskProfiles || []).find(matches);
+    modelContext.modelInputSources = { serviceCategory: `${request.serviceContext?.source || 'Service request'} · category`, serviceType: canonical ? 'Exact catalogue match from request' : mapped ? 'Service category mapping' : 'Service request', taskName: canonical ? 'Exact catalogue match from request' : 'Service request · outside catalogue if flagged' };
+    const declaredExperience = modelContext.yearsExperience;
+    modelContext.yearsExperience = savedTask?.yearsExperience ?? declaredExperience ?? null;
+    modelContext.modelInputSources.yearsExperience = savedTask?.yearsExperience != null ? 'Saved provider task profile' : declaredExperience != null ? 'Provider declared for this task' : 'Missing · training median';
+    // Platform activity is an observed proxy, not a declaration of outside work.
+    modelContext.taskFrequencyPerMonth = history ? historyTask?.completedCount || 0 : null;
+    modelContext.modelInputSources.taskFrequencyPerMonth = history ? 'Completed platform bookings · last 30 days (proxy)' : 'History unavailable · training median';
+    if (modelContext.yearsExperience > 80 || modelContext.taskFrequencyPerMonth > 1000) return res.status(400).json({ message: 'Check experience (0–80 years) and monthly frequency (0–1000).' });
+    modelContext.modelInputSources.plannedTeamSize = modelContext.plannedTeamSize == null ? 'Default team of one' : 'Provider confirmed for this job';
+    modelContext.plannedTeamSize ??= 1;
+    await axios.post(`${coordinationUrl}/bid-coordinations/validate-quotation`, { providerRequestId, modelContext }, {
       headers: { Authorization: req.headers.authorization }, timeout: 30000,
     });
+
+    // Reuse declared values next time; never substitute platform job counts for total task frequency.
+    if (declaredExperience != null && modelContext.taskFrequencyPerMonth != null) await axios.patch(`${authUrl}/profile/duration-task`, { ...task, yearsExperience: modelContext.yearsExperience, taskFrequencyPerMonth: modelContext.taskFrequencyPerMonth }, { headers, timeout: 15000 });
 
     const providerSnapshot = {
       providerId,
@@ -74,6 +135,7 @@ export const createQuotation = async (req, res) => {
     // 1. Create Quotation in Database
     let quotation = await Quotation.create({
       workflowVersion: 2,
+      ...modelContext,
       providerRequestId,
       externalSessionId, // Chaw: save ServiceSession reference
       seekerId,

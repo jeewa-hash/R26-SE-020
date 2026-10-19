@@ -9,13 +9,15 @@ export async function publishLifecycleNotification(payload) {
   if (!base || !secret) {
     if (!warnedMissingConfig) console.warn('Lifecycle notifications disabled: configure AUTH_SERVICE_URL and NOTIFICATION_SERVICE_SECRET');
     warnedMissingConfig = true;
-    return;
+    return false;
   }
   try {
     await axios.post(`${base.replace(/\/$/, '')}/internal/notifications`, payload, {
       headers: { 'x-notification-secret': secret }, timeout: 5000,
     });
+    return true;
   } catch (error) {
     console.warn('Lifecycle notification delivery failed', error.response?.status || error.code || 'unavailable');
+    return false;
   }
 }

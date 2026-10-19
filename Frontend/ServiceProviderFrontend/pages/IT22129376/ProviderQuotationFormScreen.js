@@ -21,6 +21,8 @@ export default function ProviderQuotationFormScreen({ route, navigation }) {
   const [refreshingRequest, setRefreshingRequest] = useState(true);
   const [requestError, setRequestError] = useState('');
   const requestId = request._id || request.id || request.requestQuotationId;
+  const durationTaskContext = { serviceCategory: request.serviceContext?.category || request.detectedCategory || request.serviceCategory || 'Service', serviceType: request.serviceContext?.serviceType || request.serviceType || request.detectedCategory || 'Service', taskName: request.serviceContext?.taskName || request.taskName || request.detectedTask || request.detectedObject || 'Service request' };
+  const [modelContext, setModelContext] = useState({ plannedTeamSize: '1' });
   const [price, setPrice] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -67,11 +69,15 @@ export default function ProviderQuotationFormScreen({ route, navigation }) {
   const submit = async () => {
     if (saving || submitted || refreshingRequest || requestError) return;
     if (!Number.isFinite(Number(price)) || Number(price) <= 0) return notify('Invalid price', 'Enter a price greater than zero.');
+    for (const [key, value] of Object.entries(modelContext)) {
+      const number = Number(value), minimum = key === 'plannedTeamSize' ? 1 : 0;
+      if (value !== '' && (!Number.isFinite(number) || number < minimum || (key !== 'yearsExperience' && !Number.isInteger(number)))) return notify('Check task details', 'Enter valid experience, monthly frequency and team size.');
+    }
     if (!canQuoteRequest(request)) return notify('Request unavailable', 'This request is no longer awaiting a quotation or is waiting for a new time.');
     if (!validTime || request.rescheduleRequestedAt) return notify('Start time needed', 'Ask the seeker to choose a future start time before submitting.');
     setSaving(true);
     try {
-      const result = await submitProviderQuotation({ providerRequestId: requestId, price: Number(price), notes });
+      const result = await submitProviderQuotation({ providerRequestId: requestId, price: Number(price), notes, plannedTeamSize: Number(modelContext.plannedTeamSize) });
       setSubmitted(true);
       if (result.validationPending) {
         setPendingQuoteId(result._id || result.id);
@@ -93,6 +99,14 @@ export default function ProviderQuotationFormScreen({ route, navigation }) {
       {request.rescheduleRequestedAt ? <Text style={{ color: C.muted }}>Waiting for the seeker to choose a new time.</Text> : null}
       <Text style={[styles.label, { color: C.muted }]}>Your quotation (LKR)</Text>
       <TextInput accessibilityLabel="Quotation price" style={[styles.input, { color: C.text, backgroundColor: C.card, borderColor: C.border }]} value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="Enter your total price" placeholderTextColor={C.muted} editable={!saving && !submitted} />
+      <View style={[styles.summary, { backgroundColor: C.card, borderColor: C.border }]}>
+        <Text style={{ color: C.muted, fontSize: 12, fontWeight: '600' }}>SERVICE FROM THE REQUEST</Text>
+        <Text style={{ color: C.text, fontSize: 17, fontWeight: '700' }}>{durationTaskContext.taskName}</Text>
+        <Text style={{ color: C.muted }}>{durationTaskContext.serviceCategory}</Text>
+      </View>
+      <View style={[styles.summary, { backgroundColor: C.card, borderColor: C.border }]}>
+        <View style={styles.summaryRow}><View style={{ flex: 1 }}><Text style={{ color: C.text, fontWeight: '600' }}>People working on this job</Text><Text style={{ color: C.muted, fontSize: 12 }}>Include yourself</Text></View><TouchableOpacity accessibilityLabel="Remove team member" disabled={saving || submitted || Number(modelContext.plannedTeamSize) <= 1} onPress={() => setModelContext(current => ({ ...current, plannedTeamSize: String(Math.max(1, Number(current.plannedTeamSize) - 1)) }))} style={styles.stepper}><Text style={{ color: C.text, fontSize: 22 }}>−</Text></TouchableOpacity><Text style={{ color: C.text, fontWeight: '700', fontSize: 18 }}>{modelContext.plannedTeamSize}</Text><TouchableOpacity accessibilityLabel="Add team member" disabled={saving || submitted} onPress={() => setModelContext(current => ({ ...current, plannedTeamSize: String(Number(current.plannedTeamSize) + 1) }))} style={styles.stepper}><Text style={{ color: C.text, fontSize: 22 }}>+</Text></TouchableOpacity></View>
+      </View>
       <Text style={[styles.label, { color: C.muted }]}>Note / reason for requesting a new time</Text>
       <TextInput accessibilityLabel="Quotation note" style={[styles.input, { color: C.text, backgroundColor: C.card, borderColor: C.border }]} value={notes} onChangeText={setNotes} multiline placeholder="Optional note" placeholderTextColor={C.muted} />
       <TouchableOpacity style={[styles.button, styles.secondary]} onPress={() => navigation.navigate('ProviderAvailability')} disabled={saving}><Text style={styles.buttonText}>Manage Working Hours</Text></TouchableOpacity>
@@ -104,4 +118,4 @@ export default function ProviderQuotationFormScreen({ route, navigation }) {
     </ScrollView>
   </View>;
 }
-const styles = StyleSheet.create({ container: { flex: 1 }, content: { padding: 20, gap: 12 }, label: { fontSize: 14, fontWeight: '600', marginTop: 8 }, time: { fontSize: 18 }, input: { borderWidth: 1, padding: 12, borderRadius: 12, fontSize: 16 }, button: { backgroundColor: '#15803D', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 8 }, secondary: { backgroundColor: '#475569' }, buttonText: { color: '#fff', fontWeight: '600', textAlign: 'center' }, disabled: { opacity: 0.5 } });
+const styles = StyleSheet.create({ container: { flex: 1 }, summary: { padding: 16, borderRadius: 16, borderWidth: 1, gap: 14 }, summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }, stepper: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#E8F5EC', alignItems: 'center', justifyContent: 'center' }, content: { padding: 20, gap: 12 }, label: { fontSize: 14, fontWeight: '600', marginTop: 8 }, time: { fontSize: 18 }, input: { borderWidth: 1, padding: 12, borderRadius: 12, fontSize: 16 }, button: { backgroundColor: '#15803D', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 8 }, secondary: { backgroundColor: '#475569' }, buttonText: { color: '#fff', fontWeight: '600', textAlign: 'center' }, disabled: { opacity: 0.5 } });

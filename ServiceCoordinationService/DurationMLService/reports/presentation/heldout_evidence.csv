@@ -1,0 +1,290 @@
+provider_id,service_category,service_type,task_name,years_experience,task_frequency_per_month,planned_team_size,actual_duration_mins,predicted_duration_mins,absolute_error_mins,task_median_prediction_mins
+P004,Gardening,Planting Services,Plant Flowers,5,5,1,65,67.64310635463704,2.643106354637041,60.0
+P004,Gardening,Planting Services,Plant Small Tree,5,5,1,60,55.60615336038215,4.393846639617848,50.0
+P004,Gardening,Planting Services,Prepare Planting Area,5,5,1,130,101.32331920948201,28.67668079051799,97.5
+P006,Gardening,Garden Cleaning,General Garden Cleaning,21,5,1,140,123.14882813942233,16.851171860577665,115.0
+P006,Gardening,Garden Maintenance,Mow Lawn,21,14,1,65,72.9672139589222,7.967213958922201,85.0
+P006,Gardening,Garden Maintenance,Remove Weeds,21,9,1,80,81.46127331600593,1.4612733160059292,85.0
+P006,Gardening,Garden Maintenance,Prune Plants,21,9,1,65,64.63610107234061,0.3638989276593918,65.0
+P009,Repairing,Plumbing Repair,Repair Tap,6,5,3,45,33.329714032535264,11.670285967464736,30.0
+P009,Repairing,Plumbing Repair,Clean Water Tank,6,2,3,155,134.6980610490961,20.30193895090389,135.0
+P009,Repairing,Plumbing Repair,Repair Water Tank Connection,6,3,3,65,62.31623711648309,2.6837628835169127,55.0
+P009,Repairing,Plumbing Repair,Install Sink Plumbing,6,3,3,105,80.90630158944157,24.09369841055843,85.0
+P009,Repairing,Plumbing Repair,Install Bathroom Pipe,6,2,3,160,125.50907510933968,34.490924890660324,145.0
+P011,Repairing,Plumbing Repair,Install Water Pipe,18,3,1,130,118.63387057565225,11.366129424347747,125.0
+P011,Repairing,Plumbing Repair,Repair Water Tank Connection,18,4,1,50,65.21166690571596,15.211666905715958,55.0
+P011,Repairing,Plumbing Repair,Repair Sink Plumbing,18,8,1,55,60.72023364962617,5.7202336496261665,62.5
+P011,Repairing,Plumbing Repair,Install Sink Plumbing,18,3,1,75,85.4871430504654,10.487143050465406,85.0
+P011,Repairing,Plumbing Repair,Repair Toilet Plumbing,18,4,1,65,66.37263555660236,1.3726355566023614,60.0
+P011,Repairing,Plumbing Repair,Replace Toilet Pipe,18,2,1,80,83.2601369650545,3.2601369650544996,80.0
+P018,Repairing,Plumbing Repair,Install Water Pipe,8,1,1,130,126.22752138302221,3.772478616977793,125.0
+P018,Repairing,Plumbing Repair,Replace Water Pipe,8,2,1,135,121.38154337451647,13.618456625483532,125.0
+P018,Repairing,Plumbing Repair,Replace Tap,8,8,1,30,43.631362420618984,13.631362420618984,35.0
+P018,Repairing,Plumbing Repair,Repair Tap,8,6,1,30,40.44797128555618,10.447971285556179,30.0
+P018,Repairing,Plumbing Repair,Repair Bathroom Pipe,8,5,1,80,77.20219784713001,2.7978021528699912,70.0
+P028,Repairing,Electrical Repair,Replace Ceiling Fan,7,3,1,75,74.53657515659187,0.4634248434081343,72.5
+P028,Repairing,Electrical Repair,Install Light Fitting,7,6,1,60,55.46333279031202,4.536667209687977,45.0
+P028,Repairing,Electrical Repair,Install Power Socket,7,5,1,45,47.203827620458085,2.2038276204580853,40.0
+P028,Repairing,Electrical Repair,Replace Power Socket,7,7,1,25,43.49375188773452,18.49375188773452,27.5
+P028,Repairing,Electrical Repair,Repair Distribution Board,7,1,1,150,113.48386607083377,36.51613392916623,117.5
+P036,Care Support,Personal Assistance,Daily Household Assistance,4,6,1,170,169.5581771359891,0.4418228640109021,170.0
+P045,Repairing,Plumbing Repair,Install Tap,7,3,2,35,50.49582458075945,15.495824580759447,40.0
+P045,Repairing,Plumbing Repair,Replace Tap,7,7,2,45,40.91493963000403,4.085060369995972,35.0
+P045,Repairing,Plumbing Repair,Clean Water Tank,7,2,2,135,139.09989551150207,4.099895511502069,135.0
+P045,Repairing,Plumbing Repair,Install Bathroom Pipe,7,2,2,140,129.9109095717456,10.089090428254394,145.0
+P048,Repairing,Painting & Renovation,Paint Interior Wall,9,2,2,120,140.0278092182335,20.0278092182335,130.0
+P048,Repairing,Painting & Renovation,Paint Exterior Wall,9,2,2,230,238.64823938114864,8.648239381148642,255.0
+P048,Repairing,Painting & Renovation,Paint Ceiling,9,2,2,110,123.08985171925039,13.08985171925039,120.0
+P048,Repairing,Painting & Renovation,Repair Wall Crack,9,5,2,80,93.10178673199647,13.10178673199647,72.5
+P048,Repairing,Painting & Renovation,Minor Renovation Work,9,2,2,250,249.38446730982085,0.6155326901791511,250.0
+P050,Repairing,Furniture Repair,Repair Wooden Chair,4,4,3,50,54.058737231129925,4.058737231129925,47.5
+P050,Repairing,Furniture Repair,Repair Dining Table,4,3,3,95,86.12578841914228,8.874211580857718,95.0
+P050,Repairing,Furniture Repair,Repair Cabinet,4,6,3,105,80.39079319302255,24.609206806977454,90.0
+P060,Gardening,Landscaping & Design,Basic Landscaping,4,1,4,270,269.14439367354953,0.8556063264504701,267.5
+P060,Gardening,Landscaping & Design,Landscape Existing Garden,4,2,4,360,378.9457026589193,18.945702658919288,410.0
+P060,Gardening,Planting Services,Plant Flowers,4,7,4,50,50.222214131079696,0.22221413107969568,60.0
+P060,Gardening,Planting Services,Plant Vegetables,4,6,4,70,83.29234273787185,13.292342737871849,90.0
+P060,Gardening,Planting Services,Plant Garden Plants,4,5,4,70,63.100794767125706,6.899205232874294,70.0
+P062,Cleaning,Office Cleaning,Clean Small Office,11,8,2,100,116.0385987190954,16.038598719095404,115.0
+P062,Cleaning,Office Cleaning,Clean Medium Office,11,5,2,155,192.64503844890152,37.645038448901516,190.0
+P062,Cleaning,Office Cleaning,Clean Retail Shop,11,5,2,120,144.3365868258541,24.336586825854113,140.0
+P062,Cleaning,Office Cleaning,Deep Clean Office,11,3,2,240,301.61367271459363,61.61367271459363,305.0
+P062,Cleaning,Office Cleaning,Clean Office Floors,11,7,2,80,95.89058344126968,15.890583441269683,85.0
+P062,Cleaning,Post-Construction Cleaning,Post-Construction House Cleaning,11,2,2,345,334.35079318648656,10.649206813513445,345.0
+P062,Cleaning,Post-Construction Cleaning,Remove Construction Dust,11,2,2,185,184.84428442273918,0.1557155772608212,175.0
+P062,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,11,3,2,160,192.78282793075726,32.782827930757264,195.0
+P065,Care Support,Pet Care,Feed Pet,3,12,1,35,34.72767307716444,0.2723269228355605,25.0
+P065,Care Support,Pet Care,Pet Grooming,3,7,1,85,84.4204970417392,0.5795029582608038,82.5
+P065,Care Support,Pet Care,Pet Cleaning,3,8,1,50,55.09705745778406,5.097057457784061,57.5
+P068,Repairing,Painting & Renovation,Paint Interior Wall,5,1,5,120,128.93000024918547,8.930000249185468,130.0
+P068,Repairing,Painting & Renovation,Paint Exterior Wall,5,5,5,230,220.80878372493677,9.191216275063226,255.0
+P068,Repairing,Painting & Renovation,Paint Whole House,5,2,5,475,435.020992550057,39.979007449943026,485.0
+P068,Repairing,Painting & Renovation,Replace Damaged Tile,5,1,5,90,82.71361777076825,7.286382229231748,80.0
+P077,Gardening,Garden Maintenance,Water Plants,6,12,2,30,46.596714546393045,16.596714546393045,40.0
+P077,Gardening,Garden Maintenance,Trim Shrubs,6,3,2,100,90.08206083729493,9.917939162705068,80.0
+P077,Gardening,Garden Maintenance,Cut Grass,6,7,2,110,97.61203776846878,12.387962231531219,95.0
+P077,Gardening,Garden Maintenance,Mow Lawn,6,6,2,95,87.96063132014723,7.039368679852771,85.0
+P077,Gardening,Garden Maintenance,Remove Weeds,6,3,2,85,93.08386733364904,8.083867333649039,85.0
+P077,Gardening,Garden Maintenance,General Garden Maintenance,6,11,2,160,139.3694228560218,20.6305771439782,147.5
+P078,Gardening,Garden Maintenance,Water Plants,8,12,1,35,50.57626626242018,15.576266262420177,40.0
+P078,Gardening,Garden Maintenance,Cut Grass,8,8,1,100,99.90617781270495,0.09382218729504643,95.0
+P078,Gardening,Garden Maintenance,General Garden Maintenance,8,4,1,155,155.14685627458567,0.14685627458567296,147.5
+P080,Care Support,Personal Assistance,Daily Household Assistance,14,10,2,165,153.76958577625248,11.230414223747516,170.0
+P080,Care Support,Personal Assistance,Errand Assistance,14,8,2,85,91.82355367904823,6.823553679048231,100.0
+P081,Gardening,Garden Maintenance,Water Plants,6,12,1,50,51.4208317551778,1.420831755177801,40.0
+P081,Gardening,Garden Maintenance,General Garden Maintenance,6,5,1,150,154.30601009555232,4.306010095552324,147.5
+P081,Gardening,Planting Services,Plant Large Tree,6,2,1,130,112.39043180009948,17.609568199900522,107.5
+P082,Repairing,Plumbing Repair,Install Water Pipe,5,2,2,130,120.98484074158293,9.015159258417071,125.0
+P082,Repairing,Plumbing Repair,Repair Tap,5,7,2,25,35.205290644116886,10.205290644116886,30.0
+P082,Repairing,Plumbing Repair,Clear Blocked Drain,5,4,2,80,84.54686416238029,4.546864162380288,75.0
+P091,Care Support,Personal Assistance,Daily Household Assistance,6,10,1,155,161.97196495606767,6.971964956067666,170.0
+P091,Care Support,Personal Assistance,Errand Assistance,6,10,1,90,96.65510951528148,6.655109515281481,100.0
+P102,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,15,4,1,75,78.12680278871227,3.1268027887122685,70.0
+P102,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,15,4,1,85,84.19056400592021,0.8094359940797915,80.0
+P102,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,15,6,1,65,59.533791833103095,5.466208166896905,55.0
+P109,Repairing,Electrical Repair,Replace Ceiling Fan,6,2,1,70,76.64426957476164,6.644269574761637,72.5
+P109,Repairing,Electrical Repair,Replace Light Fitting,6,9,1,20,43.382009095509716,23.382009095509716,30.0
+P109,Repairing,Electrical Repair,Install Switch,6,8,1,40,38.09022532559867,1.9097746744013335,25.0
+P109,Repairing,Electrical Repair,Replace Power Socket,6,8,1,30,42.23062296232237,12.230622962322371,27.5
+P109,Repairing,Electrical Repair,Repair Power Socket,6,5,1,40,49.24475232977787,9.244752329777867,40.0
+P109,Repairing,Electrical Repair,Repair Television,6,2,1,95,95.48835528779858,0.4883552877985835,95.0
+P109,Repairing,Electrical Repair,Diagnose Refrigerator Fault,6,2,1,65,65.69292472431343,0.6929247243134284,55.0
+P116,Care Support,Elderly Care,Medication Assistance,25,12,2,15,25.158970251102787,10.158970251102787,30.0
+P117,Cleaning,House Cleaning,General House Cleaning,5,6,2,155,147.30127287652243,7.698727123477568,140.0
+P117,Cleaning,House Cleaning,Mop and Clean Floors,5,13,2,65,65.45891203820894,0.4589120382089362,60.0
+P117,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,5,4,2,115,107.69930578105955,7.30069421894045,110.0
+P118,Care Support,Personal Assistance,Daily Household Assistance,8,11,2,140,154.61787058273435,14.617870582734355,170.0
+P118,Care Support,Personal Assistance,Errand Assistance,8,13,2,80,85.93019179836624,5.930191798366238,100.0
+P121,Gardening,Garden Cleaning,General Garden Cleaning,11,3,1,115,130.7424789467923,15.74247894679229,115.0
+P121,Gardening,Planting Services,Plant Flowers,11,10,1,70,56.6823515174094,13.317648482590599,60.0
+P121,Gardening,Planting Services,Plant Vegetables,11,4,1,75,98.17953848315636,23.179538483156364,90.0
+P121,Gardening,Planting Services,Plant Small Tree,11,3,1,60,56.44328022569125,3.5567197743087533,50.0
+P122,Cleaning,Kitchen Cleaning,Clean Kitchen Cabinets,6,5,3,90,73.66525197732854,16.334748022671462,80.0
+P122,Cleaning,Kitchen Cleaning,Degrease Cooking Area,6,6,3,65,62.196885077559884,2.803114922440116,70.0
+P122,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,6,5,3,35,35.24800737828346,0.24800737828346087,27.5
+P127,Repairing,Plumbing Repair,Repair Leaking Pipe,21,5,1,65,67.48795221542001,2.487952215420009,60.0
+P127,Repairing,Plumbing Repair,Repair Water Leak,21,4,1,50,70.9765224465935,20.976522446593506,70.0
+P127,Repairing,Plumbing Repair,Install Tap,21,6,1,40,44.351748324868055,4.351748324868055,40.0
+P127,Repairing,Plumbing Repair,Repair Tap,21,9,1,15,29.90206056725883,14.902060567258829,30.0
+P127,Repairing,Plumbing Repair,Install Water Tank,21,3,1,165,158.9564155853725,6.043584414627503,165.0
+P127,Repairing,Plumbing Repair,Clear Blocked Drain,21,9,1,80,74.18739907014937,5.812600929850632,75.0
+P127,Repairing,Plumbing Repair,Replace Toilet Pipe,21,2,1,70,81.99328872591809,11.993288725918092,80.0
+P127,Repairing,Plumbing Repair,Repair Bathroom Pipe,21,4,1,70,73.39793381599651,3.3979338159965096,70.0
+P135,Cleaning,House Cleaning,Clean Single Room,8,16,4,65,42.94739312404131,22.052606875958688,55.0
+P135,Cleaning,House Cleaning,Mop and Clean Floors,8,14,4,70,52.85841770971207,17.14158229028793,60.0
+P135,Cleaning,House Cleaning,Full Home Cleaning,8,6,4,175,197.491211060335,22.49121106033499,207.5
+P141,Repairing,Plumbing Repair,Repair Leaking Pipe,3,3,1,85,78.4598649938204,6.540135006179597,60.0
+P141,Repairing,Plumbing Repair,Replace Tap,3,5,1,35,50.79901116788588,15.79901116788588,35.0
+P141,Repairing,Plumbing Repair,Repair Tap,3,6,1,25,42.55938501745018,17.559385017450182,30.0
+P141,Repairing,Plumbing Repair,Clear Blocked Drain,3,8,1,75,83.47390017675879,8.47390017675879,75.0
+P141,Repairing,Plumbing Repair,Repair Sink Plumbing,3,4,1,60,73.79612153247209,13.796121532472085,62.5
+P141,Repairing,Plumbing Repair,Install Sink Plumbing,3,2,1,90,93.50679591793843,3.506795917938433,85.0
+P147,Care Support,Elderly Care,Medication Assistance,9,17,4,20,13.84020141663936,6.15979858336064,30.0
+P157,Care Support,Personal Assistance,Daily Household Assistance,13,8,1,160,162.38680907499796,2.386809074997956,170.0
+P157,Care Support,Personal Assistance,Errand Assistance,13,8,1,95,97.06995363421177,2.069953634211771,100.0
+P158,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,15,6,1,65,72.32592683072025,7.325926830720249,65.0
+P158,Cleaning,Move In/Out Cleaning,Move-In Cleaning,15,4,1,225,208.20328977880655,16.79671022119345,202.5
+P158,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,15,2,1,315,294.41349201664497,20.586507983355034,315.0
+P174,Cleaning,Office Cleaning,Deep Clean Office,7,1,1,325,311.4977442524755,13.502255747524487,305.0
+P174,Cleaning,Office Cleaning,Clean Office Floors,7,7,1,110,102.40383163556965,7.596168364430355,85.0
+P174,Cleaning,Post-Construction Cleaning,Remove Construction Dust,7,2,1,190,191.35753261703914,1.3575326170391406,175.0
+P179,Repairing,Furniture Repair,Repair Wooden Chair,4,5,2,45,57.1974427681237,12.1974427681237,47.5
+P179,Repairing,Furniture Repair,Repair Cupboard,4,3,2,90,93.91056496965817,3.910564969658168,95.0
+P179,Repairing,Painting & Renovation,Paint Exterior Wall,4,2,2,245,240.75965311304267,4.240346886957326,255.0
+P179,Repairing,Painting & Renovation,Repair Wall Crack,4,6,2,75,93.52778879209953,18.52778879209953,72.5
+P179,Repairing,Painting & Renovation,Repair Ceiling,4,3,2,120,145.72813937822323,25.728139378223233,135.0
+P179,Repairing,Roofing Repair,Repair Roof Leak,4,1,2,140,126.04436672481518,13.955633275184823,117.5
+P184,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,4,6,2,80,88.21004761553614,8.21004761553614,90.0
+P184,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,4,3,2,105,117.90806518466368,12.908065184663684,120.0
+P184,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,4,5,2,90,76.26238411830342,13.737615881696584,70.0
+P184,Cleaning,Sofa/Carpet/Curtain Cleaning,Steam Clean Curtains,4,2,2,110,111.49241187102027,1.4924118710202663,110.0
+P184,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,4,4,2,60,62.725608178067134,2.7256081780671337,55.0
+P192,Cleaning,Bathroom Cleaning,Clean Toilet,12,5,2,20,30.792549007282503,10.792549007282503,25.0
+P192,Cleaning,Bathroom Cleaning,Clean Washroom,12,6,2,45,47.19544332830927,2.195443328309267,40.0
+P192,Cleaning,Kitchen Cleaning,General Kitchen Cleaning,12,5,2,70,70.45406953286289,0.45406953286288854,65.0
+P192,Cleaning,Kitchen Cleaning,Clean Kitchen Cabinets,12,4,2,85,77.64108437963141,7.358915620368592,80.0
+P192,Cleaning,Kitchen Cleaning,Degrease Cooking Area,12,6,2,80,64.4873058080718,15.512694191928205,70.0
+P192,Cleaning,Kitchen Cleaning,Clean Kitchen Floor,12,7,2,30,34.16760476521344,4.16760476521344,27.5
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,12,7,2,95,83.14637397271474,11.853626027285259,90.0
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Sofa,12,7,2,105,107.78815652646942,2.7881565264694217,120.0
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,12,7,2,65,69.51329880369104,4.513298803691043,70.0
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Carpet,12,4,2,125,123.72321468466819,1.2767853153318072,117.5
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,12,5,2,80,78.94788336448092,1.0521166355190843,80.0
+P194,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,12,6,2,40,55.976522863454775,15.976522863454775,55.0
+P195,Repairing,Electrical Repair,Install Light Fitting,6,5,2,55,52.74690999969704,2.2530900003029615,45.0
+P195,Repairing,Electrical Repair,Repair Switch,6,6,2,30,33.00198980242884,3.001989802428838,30.0
+P195,Repairing,Electrical Repair,Replace Power Socket,6,9,2,35,35.72109408174667,0.7210940817466707,27.5
+P195,Repairing,Electrical Repair,Repair Electrical Wiring,6,2,2,120,104.81390521921163,15.186094780788366,107.5
+P195,Repairing,Electrical Repair,Install New Wiring,6,3,2,180,155.50525285966617,24.49474714033383,165.0
+P195,Repairing,Electrical Repair,Repair Air Conditioner,6,5,2,90,92.01550495447245,2.0155049544724477,100.0
+P196,Gardening,Garden Maintenance,Water Plants,16,25,2,35,20.463535349322513,14.536464650677487,40.0
+P196,Gardening,Garden Maintenance,Cut Grass,16,6,2,95,95.0746219764717,0.07462197647170399,95.0
+P196,Gardening,Landscaping & Design,Design Medium Garden,16,3,2,265,280.18014729667937,15.180147296679365,277.5
+P196,Gardening,Landscaping & Design,Basic Landscaping,16,2,2,260,272.03982346278246,12.039823462782465,267.5
+P196,Gardening,Landscaping & Design,Landscape Existing Garden,16,3,2,420,381.84113244815217,38.158867551847834,410.0
+P210,Gardening,Garden Maintenance,Water Plants,4,14,1,30,48.89457390435348,18.89457390435348,40.0
+P210,Gardening,Garden Maintenance,Cut Grass,4,9,1,115,99.9098971264292,15.0901028735708,95.0
+P210,Gardening,Garden Maintenance,Mow Lawn,4,10,1,60,86.88766733452573,26.88766733452573,85.0
+P212,Cleaning,House Cleaning,General House Cleaning,5,7,3,130,140.79174399594672,10.791743995946717,140.0
+P212,Cleaning,Move In/Out Cleaning,Move-In Cleaning,5,3,3,175,204.46329449681605,29.463294496816047,202.5
+P212,Cleaning,Move In/Out Cleaning,Move-Out Cleaning,5,8,3,225,193.53721179981096,31.46278820018904,197.5
+P212,Cleaning,Move In/Out Cleaning,Empty Property Deep Cleaning,5,2,3,295,288.98808506286355,6.011914937136453,315.0
+P212,Cleaning,Post-Construction Cleaning,Remove Construction Dust,5,3,3,155,180.86845202043628,25.86845202043628,175.0
+P212,Cleaning,Post-Construction Cleaning,Clean Newly Built Property,5,2,3,360,332.7318456653175,27.268154334682492,360.0
+P214,Gardening,Planting Services,Plant Flowers,12,4,4,40,51.90018717542216,11.900187175422161,60.0
+P214,Gardening,Planting Services,Plant Vegetables,12,9,4,80,74.85784575146853,5.142154248531469,90.0
+P214,Gardening,Planting Services,Plant Small Tree,12,5,4,35,38.1778225093763,3.1778225093762984,50.0
+P214,Gardening,Planting Services,Plant Large Tree,12,4,4,75,92.0135603518905,17.013560351890504,107.5
+P214,Gardening,Planting Services,Plant Garden Plants,12,6,4,60,58.03712112430432,1.9628788756956794,70.0
+P214,Gardening,Planting Services,Prepare Planting Area,12,3,4,75,87.26581170205809,12.265811702058087,97.5
+P226,Gardening,Landscaping & Design,Design Small Garden,2,4,5,190,213.08803851493664,23.088038514936642,225.0
+P226,Gardening,Landscaping & Design,Design Medium Garden,2,2,5,315,273.3051657914193,41.69483420858069,277.5
+P226,Gardening,Landscaping & Design,Set Up New Garden,2,2,5,265,266.63496413689364,1.6349641368936432,282.5
+P226,Gardening,Landscaping & Design,Basic Landscaping,2,2,5,225,263.47943028573144,38.47943028573144,267.5
+P226,Gardening,Landscaping & Design,Landscape Existing Garden,2,1,5,430,376.6515626146831,53.34843738531691,410.0
+P236,Repairing,Painting & Renovation,Paint Interior Wall,11,4,2,150,135.812420381894,14.187579618106014,130.0
+P236,Repairing,Painting & Renovation,Paint Room,11,3,2,180,193.28272974239408,13.282729742394082,192.5
+P236,Repairing,Painting & Renovation,Paint Whole House,11,1,2,495,448.6450593699294,46.35494063007059,485.0
+P236,Repairing,Painting & Renovation,Repair Wall Crack,11,4,2,90,93.94263291102983,3.9426329110298326,72.5
+P236,Repairing,Painting & Renovation,Repair Ceiling,11,3,2,150,142.7721601535716,7.227839846428395,135.0
+P236,Repairing,Painting & Renovation,Replace Damaged Tile,11,2,2,70,92.96686124705869,22.966861247058688,80.0
+P247,Gardening,Garden Maintenance,Water Plants,6,11,1,40,53.10624342696876,13.10624342696876,40.0
+P247,Gardening,Garden Maintenance,Trim Shrubs,6,12,1,95,79.73747299996101,15.262527000038986,80.0
+P247,Gardening,Garden Maintenance,Cut Grass,6,5,1,120,105.80697832083544,14.19302167916456,95.0
+P247,Gardening,Garden Maintenance,Mow Lawn,6,6,1,85,92.78474852893197,7.784748528931971,85.0
+P247,Gardening,Garden Maintenance,Remove Weeds,6,6,1,90,92.85174952706089,2.851749527060889,85.0
+P247,Gardening,Garden Maintenance,Trim Tree Branches,6,4,1,140,122.0015987127658,17.998401287234202,120.0
+P247,Gardening,Garden Maintenance,Prune Plants,6,8,1,90,72.65575393981362,17.34424606018638,65.0
+P266,Cleaning,Office Cleaning,Clean Small Office,4,8,4,105,109.34634352617755,4.346343526177549,115.0
+P266,Cleaning,Office Cleaning,Clean Office Floors,4,5,4,80,92.56915159193376,12.56915159193376,85.0
+P266,Cleaning,Post-Construction Cleaning,Clean Post-Renovation Area,4,1,4,185,189.46139608142136,4.461396081421356,195.0
+P266,Cleaning,Post-Construction Cleaning,Clean Newly Built Property,4,2,4,365,328.3300112029116,36.66998879708842,360.0
+P271,Care Support,Personal Assistance,Daily Household Assistance,6,11,1,165,160.2865532842767,4.7134467157233075,170.0
+P279,Repairing,Furniture Repair,Repair Dining Table,12,5,1,80,89.0249375220994,9.024937522099407,95.0
+P279,Repairing,Furniture Repair,Repair Sofa Frame,12,2,1,95,114.39015223630156,19.39015223630156,120.0
+P279,Repairing,Furniture Repair,Repair Cabinet,12,3,1,60,91.71700065493448,31.71700065493448,90.0
+P279,Repairing,Furniture Repair,Replace Door Hinges,12,10,1,40,35.34493138741702,4.65506861258298,35.0
+P279,Repairing,Furniture Repair,Repair Window Frame,12,2,1,95,95.41592541809194,0.4159254180919447,90.0
+P279,Repairing,Furniture Repair,Replace Furniture Hardware,12,9,1,35,31.989099231532634,3.0109007684673657,27.5
+P279,Repairing,Furniture Repair,Assemble Furniture,12,11,1,95,76.51023209498443,18.48976790501557,82.5
+P283,Care Support,Personal Assistance,Daily Household Assistance,9,7,3,155,156.11311731473467,1.1131173147346658,170.0
+P283,Care Support,Personal Assistance,Errand Assistance,9,12,3,90,82.36920351499366,7.630796485006343,100.0
+P292,Repairing,Electrical Repair,Replace Switch,7,9,2,15,31.388595498576535,16.388595498576535,25.0
+P292,Repairing,Electrical Repair,Repair Switch,7,8,2,25,29.208883712468122,4.208883712468122,30.0
+P292,Repairing,Electrical Repair,Install Power Socket,7,5,2,30,42.379710411673344,12.379710411673344,40.0
+P292,Repairing,Electrical Repair,Repair Distribution Board,7,2,2,110,106.97433719025807,3.025662809741931,117.5
+P292,Repairing,Electrical Repair,Service Air Conditioner,7,6,2,60,65.76114283702381,5.761142837023812,65.0
+P293,Repairing,Painting & Renovation,Paint Interior Wall,6,1,2,145,142.98006912916088,2.0199308708391186,130.0
+P293,Repairing,Painting & Renovation,Paint Exterior Wall,6,1,2,235,241.60049929207602,6.600499292076023,255.0
+P293,Repairing,Painting & Renovation,Paint Room,6,2,2,230,197.07955514607906,32.92044485392094,192.5
+P293,Repairing,Painting & Renovation,Paint Whole House,6,2,2,550,449.07106143003244,100.92893856996756,485.0
+P296,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Sofa,8,4,2,80,89.89173997360285,9.891739973602853,90.0
+P296,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Carpet,8,5,2,80,74.5732531327882,5.426746867211804,70.0
+P296,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Curtains,8,5,2,70,80.63701434999612,10.637014349996122,80.0
+P296,Cleaning,Sofa/Carpet/Curtain Cleaning,Clean Mattress,8,3,2,45,62.72188886434287,17.721888864342873,55.0
+P298,Repairing,Plumbing Repair,Repair Water Leak,10,6,1,60,72.25080931317842,12.250809313178422,70.0
+P298,Repairing,Plumbing Repair,Clear Blocked Drain,10,7,1,75,82.20333262389812,7.20333262389812,75.0
+P298,Repairing,Plumbing Repair,Repair Sink Plumbing,10,5,1,70,69.15473063602948,0.845269363970516,62.5
+P298,Repairing,Plumbing Repair,Repair Bathroom Pipe,10,7,1,80,72.98680901079048,7.013190989209519,70.0
+P299,Cleaning,House Cleaning,General House Cleaning,4,14,1,140,139.06437945735826,0.9356205426417432,140.0
+P299,Cleaning,House Cleaning,Clean Single Room,4,12,1,50,65.8505224230746,15.850522423074594,55.0
+P299,Cleaning,House Cleaning,Mop and Clean Floors,4,17,1,55,63.963665306208625,8.963665306208625,60.0
+P299,Cleaning,Sofa/Carpet/Curtain Cleaning,Deep Clean Mattress,4,3,1,90,105.73568828050294,15.735688280502941,95.0
+P308,Care Support,Elderly Care,Medication Assistance,3,13,1,20,37.58789620843025,17.58789620843025,30.0
+P308,Care Support,Personal Assistance,Daily Household Assistance,3,8,1,170,166.609636538786,3.390363461214008,170.0
+P317,Gardening,Planting Services,Plant Flowers,12,4,2,65,61.548421592991645,3.4515784070083555,60.0
+P317,Gardening,Planting Services,Plant Vegetables,12,6,2,100,89.56231518441089,10.437684815589108,90.0
+P317,Gardening,Planting Services,Plant Small Tree,12,7,2,50,44.455233583363864,5.544766416636136,50.0
+P317,Gardening,Planting Services,Plant Large Tree,12,3,2,130,103.34720644125095,26.652793558749053,107.5
+P317,Gardening,Planting Services,Plant Garden Plants,12,3,2,70,72.7415905572467,2.7415905572466954,70.0
+P318,Repairing,Electrical Repair,Replace Light Fitting,5,6,1,25,48.86052685726142,23.86052685726142,30.0
+P318,Repairing,Electrical Repair,Replace Power Socket,5,5,1,45,47.70914072407406,2.709140724074061,27.5
+P318,Repairing,Electrical Repair,Diagnose Television Fault,5,3,1,55,50.52686805547819,4.4731319445218105,37.5
+P318,Repairing,Electrical Repair,Diagnose Refrigerator Fault,5,2,1,45,66.11520747069224,21.11520747069224,55.0
+P318,Repairing,Electrical Repair,Repair Microwave Oven,5,3,1,55,65.92254578321844,10.922545783218439,60.0
+P322,Repairing,Painting & Renovation,Paint Exterior Wall,4,4,4,195,227.74059535189127,32.74059535189127,255.0
+P322,Repairing,Painting & Renovation,Paint Room,4,2,4,200,188.27588622126717,11.724113778732828,192.5
+P322,Repairing,Painting & Renovation,Paint Whole House,4,2,4,475,440.2673925052206,34.732607494779415,485.0
+P322,Repairing,Painting & Renovation,Prepare Wall Surface,4,3,4,95,101.26833073789531,6.268330737895312,100.0
+P322,Repairing,Painting & Renovation,Repair Ceiling,4,2,4,125,137.7653166324447,12.765316632444694,135.0
+P322,Repairing,Painting & Renovation,Replace Damaged Tile,4,5,4,70,81.21837103876796,11.218371038767955,80.0
+P322,Repairing,Painting & Renovation,Repair Floor Tile,4,3,4,110,120.98118934096891,10.98118934096891,130.0
+P322,Repairing,Painting & Renovation,Minor Renovation Work,4,2,4,270,241.8476466241454,28.152353375854602,250.0
+P331,Repairing,Electrical Repair,Install Light Fitting,8,4,1,40,58.41187338751514,18.411873387515143,45.0
+P331,Repairing,Electrical Repair,Replace Light Fitting,8,9,1,20,42.53744360275212,22.53744360275212,30.0
+P331,Repairing,Electrical Repair,Repair Switch,8,4,1,30,40.3523648620379,10.352364862037902,30.0
+P331,Repairing,Electrical Repair,Replace Power Socket,8,8,1,25,41.38605746956476,16.38605746956476,27.5
+P334,Repairing,Electrical Repair,Install New Wiring,16,4,1,220,154.4211309328719,65.5788690671281,165.0
+P334,Repairing,Electrical Repair,Replace Distribution Board Component,16,3,1,65,74.43997512238187,9.439975122381867,75.0
+P334,Repairing,Electrical Repair,Diagnose Television Fault,16,2,1,40,47.567169517102315,7.567169517102315,37.5
+P334,Repairing,Electrical Repair,Repair Microwave Oven,16,4,1,55,59.592023901260625,4.5920239012606245,60.0
+P334,Repairing,Electrical Repair,Repair Air Conditioner,16,4,1,95,94.30220637126011,0.6977936287398876,100.0
+P335,Care Support,Pet Care,Feed Pet,9,15,1,40,27.137741583518718,12.862258416481282,25.0
+P335,Care Support,Pet Care,Pet Grooming,9,9,1,85,78.51597721988446,6.484022780115538,82.5
+P335,Care Support,Pet Care,Bathe Pet,9,5,1,60,56.775439771288255,3.224560228711745,50.0
+P339,Repairing,Painting & Renovation,Paint Interior Wall,12,3,3,140,132.2514320985214,7.748567901478594,130.0
+P339,Repairing,Painting & Renovation,Paint Exterior Wall,12,3,3,225,230.87186226143655,5.871862261436547,255.0
+P339,Repairing,Painting & Renovation,Paint Whole House,12,2,3,470,441.7132477429749,28.286752257025114,485.0
+P339,Repairing,Painting & Renovation,Prepare Wall Surface,12,3,3,85,102.71418597564963,17.714185975649627,100.0
+P340,Cleaning,House Cleaning,General House Cleaning,10,6,2,150,145.1898591446284,4.8101408553716,140.0
+P340,Cleaning,House Cleaning,Deep Clean House,10,4,2,220,227.86404624174455,7.864046241744546,232.5
+P340,Cleaning,House Cleaning,Clean Single Room,10,9,2,55,63.54894375138992,8.54894375138992,55.0
+P340,Cleaning,House Cleaning,Full Home Cleaning,10,5,2,220,207.98029165693785,12.019708343062149,207.5
+P340,Cleaning,Office Cleaning,Clean Small Office,10,7,2,110,118.14629313726516,8.146293137265161,115.0
+P340,Cleaning,Office Cleaning,Clean Retail Shop,10,10,2,150,136.3318112132781,13.668188786721913,140.0
+P340,Cleaning,Office Cleaning,Deep Clean Office,10,4,2,305,300.3505437891815,4.649456210818528,305.0
+P340,Cleaning,Office Cleaning,Clean Office Floors,10,6,2,90,97.99827785943945,7.998277859439455,85.0
+P343,Repairing,Plumbing Repair,Install Water Pipe,8,3,1,125,122.85669803944029,2.143301960559711,125.0
+P343,Repairing,Plumbing Repair,Install Tap,8,7,1,40,48.15601235600154,8.15601235600154,40.0
+P343,Repairing,Plumbing Repair,Repair Water Tank Connection,8,3,1,60,71.11990604129495,11.119906041294954,55.0
+P343,Repairing,Plumbing Repair,Clear Blocked Drain,8,3,1,75,89.78954480381958,14.789544803819581,75.0
+P343,Repairing,Plumbing Repair,Repair Toilet Plumbing,8,7,1,60,65.53922800501752,5.53922800501752,60.0
+P343,Repairing,Plumbing Repair,Replace Toilet Pipe,8,2,1,70,87.48296442884254,17.482964428842536,80.0
+P346,Cleaning,Bathroom Cleaning,General Bathroom Cleaning,7,10,1,65,60.29258567780333,4.707414322196669,60.0
+P346,Cleaning,Bathroom Cleaning,Deep Clean Bathroom,7,7,1,80,85.09335884642974,5.093358846429737,90.0
+P346,Cleaning,Bathroom Cleaning,Clean Toilet,7,5,1,35,37.72807994796126,2.7280799479612625,25.0
+P346,Cleaning,Bathroom Cleaning,Clean Washroom,7,8,1,60,50.76015092540611,9.239849074593891,40.0
+P346,Cleaning,Bathroom Cleaning,Remove Bathroom Stains,7,3,1,85,65.8089314117135,19.191068588286498,55.0
+P346,Cleaning,House Cleaning,Full Home Cleaning,7,9,1,220,207.32961041769516,12.670389582304836,207.5
+P347,Care Support,Pet Care,Feed Pet,9,8,3,30,29.287388868485976,0.7126111315140236,25.0
+P347,Care Support,Pet Care,Bathe Pet,9,3,3,50,50.4980286973007,0.4980286973006969,50.0

@@ -1,6 +1,6 @@
 import { sessionGuidance } from '../../utils/providerSessions';
 import { COLORS } from './theme';
-import React, { useCallback, useContext, useState } from 'react';
+import React, { useCallback, useContext, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { bookingActions } from '../../utils/providerFlowState';
 import { confirm, notify, openProviderChat, openProviderTab } from '../../utils/providerFlowUi';
@@ -31,6 +31,8 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
   const [delayReason, setDelayReason] = useState('');
   const [showDelayForm, setShowDelayForm] = useState(false);
   const [extraMinutes, setExtraMinutes] = useState('30');
+  const [clockNow, setClockNow] = useState(Date.now());
+  useEffect(() => { const timer = setInterval(() => setClockNow(Date.now()), 15000); return () => clearInterval(timer); }, []);
   const [pendingReschedule, setPendingReschedule] = useState(null);
   const bookingId = getBookingId(booking) || getBookingId(initialBooking) || route?.params?.bookingId;
   const allowed = bookingActions(booking);
@@ -99,7 +101,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
     try {
       setUpdating(true);
       await rejectBookingReschedule(pendingReschedule?._id);
-      notify('Booking Kept', 'The current booking time remains unchanged.');
+      notify('Time request declined', status === 'EXPIRED' ? 'The service remains expired. The customer can propose another time.' : 'The current booking time remains unchanged.');
       await loadBooking();
     } catch (actionError) {
       notify('Update Failed', actionError?.message || 'Please try again.');
@@ -126,6 +128,8 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
   }
 
   const guidance = sessionGuidance({ booking });
+  const startWindowOpens = getBookingStartDate(booking);
+  const canStartNow = startWindowOpens && clockNow >= startWindowOpens.getTime() - 30 * 60000 && clockNow <= startWindowOpens.getTime() + 45 * 60000;
   const disabled = loading || updating || Boolean(error);
   const start = getBookingStartDate(booking), end = getBookingEndDate(booking);
   const working = ['IN_PROGRESS', 'DELAY_REPORTED'].includes(status);
@@ -170,7 +174,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
                 </TouchableOpacity>
               ))}
               <TouchableOpacity disabled={updating || loading} style={styles.warningButton} onPress={keepBooking}>
-                <Text style={styles.warningButtonText}>Keep Booking</Text>
+                <Text style={styles.warningButtonText}>{status === 'EXPIRED' ? 'Decline New Time' : 'Keep Current Time'}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -192,7 +196,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
         </View>
         {(booking.timeline || []).length ? <View style={card}><Text style={[styles.sectionTitle, text]}>Job activity</Text>{(booking.timeline || []).slice().reverse().map((event, index) => <View key={event._id || index} style={[styles.activity, { borderColor: C.border }]}><View style={styles.dot} /><View style={styles.flex}><Text style={[styles.body, text]}>{event.message || statusLabel(event.status)}</Text>{event.at ? <Text style={[styles.caption, muted]}>{formatDateTime(new Date(event.at))}</Text> : null}</View></View>)}</View> : null}
       </ScrollView>
-      {primary ? <View style={[styles.footer, { backgroundColor: C.card, borderColor: C.border }]}><TouchableOpacity accessibilityRole="button" disabled={disabled} style={[styles.primary, disabled && { opacity: .5 }]} onPress={() => confirmAction(primary.label, primary.prompt, primary.action)}>{updating ? <ActivityIndicator color="#FFFFFF" /> : <><Text style={styles.buttonText}>{primary.label}</Text><Ionicons name={working ? 'checkmark-circle-outline' : 'play-outline'} size={21} color="#FFFFFF" /></>}</TouchableOpacity></View> : null}
+      {primary ? <View style={[styles.footer, { backgroundColor: C.card, borderColor: C.border }]}><TouchableOpacity accessibilityRole="button" disabled={disabled || (primary.action === 'start' && !canStartNow)} style={[styles.primary, (disabled || (primary.action === 'start' && !canStartNow)) && { opacity: .5 }]} onPress={() => confirmAction(primary.label, primary.prompt, primary.action)}>{updating ? <ActivityIndicator color="#FFFFFF" /> : <><Text style={styles.buttonText}>{primary.action === 'start' && !canStartNow ? 'Start opens 30 min before schedule' : primary.label}</Text><Ionicons name={working ? 'checkmark-circle-outline' : 'play-outline'} size={21} color="#FFFFFF" /></>}</TouchableOpacity></View> : null}
     </View>
   );
 }

@@ -496,7 +496,7 @@ export default function FeedScreen({ navigation, embedded = false, limit, refres
           />
         } : {})}
       >
-        <View style={styles.feedContent}>
+        <View style={[styles.feedContent, embedded && { paddingBottom: 0 }]}>
           {embedded && loadError ? <TouchableOpacity accessibilityRole="button" onPress={fetchAds} style={{ padding: 16 }}><Text style={[styles.emptyText, isDarkMode && styles.textDark]}>Unable to load provider posts. Tap to retry.</Text></TouchableOpacity> : null}
           {ads.length === 0 && !loadError ? (
             <View style={styles.emptyContainer}>

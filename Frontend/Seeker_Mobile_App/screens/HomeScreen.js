@@ -626,58 +626,27 @@ export default function HomeScreen() {
     const renderSection = (booking, kind) => {
       const delayed = booking?.bookingStatus === 'DELAY_REPORTED';
       const traveling = booking?.bookingStatus === 'ON_THE_WAY';
-      const soon = kind === 'next' && booking === liveSummary?.startingSoonBooking;
-      const color = delayed ? '#D97706' : traveling ? '#7C3AED' : kind === 'current' ? '#2563EB' : soon ? '#7C3AED' : '#059669';
       const start = getBookingStartDate(booking);
       const end = getBookingEndDate(booking);
+      const status = delayed ? (isSi ? 'ප්‍රමාදයක් වාර්තා කර ඇත' : 'Delay reported') : traveling ? (isSi ? 'සේවකයා පැමිණෙමින් සිටී' : 'Provider on the way') : kind === 'current' ? (isSi ? 'සේවාව සිදු වෙමින් පවතී' : 'In progress') : (isSi ? 'මීළඟ සේවාව' : 'Upcoming');
       return (
-        <View style={styles.liveInnerSection}>
-          <View style={styles.liveInnerHeader}>
-            <Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>
-              {traveling 
-                ? (isSi ? 'සේවකයා පැමිණෙමින් සිටී' : 'Provider On the Way') 
-                : kind === 'current' 
-                  ? (isSi ? 'ක්‍රියාකාරී සේවාව' : 'In Progress Booking') 
-                  : (isSi ? 'මීළඟ සේවාව' : 'Next Booking')}
-            </Text>
-            <Text style={[styles.liveInnerStatus, { color }]}>
-              {traveling 
-                ? (isSi ? 'සේවකයා ඔබ වෙත ගමන් කරයි' : 'Provider is travelling to you') 
-                : kind === 'current' 
-                  ? (delayed ? (isSi ? 'ප්‍රමාදයක් වාර්තා කර ඇත' : 'Provider reported a delay') : (isSi ? 'සේවාව සිදු වෙමින් පවතී' : 'Service in progress')) 
-                  : (soon ? (isSi ? `ළඟදීම · ${getTimeRemainingLabel(start)}` : `Starting soon · ${getTimeRemainingLabel(start)}`) : getTimeRemainingLabel(start))}
-            </Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={`${getHumanServiceTitle(booking)} · ${status}. View service`} style={styles.liveCompactRow} onPress={() => openBookingDetails(booking)} activeOpacity={0.8}>
+          <View style={[styles.liveCompactIcon, { backgroundColor: isDarkMode ? '#302B49' : '#F1EEFF' }]}><Ionicons name={delayed ? 'time-outline' : traveling ? 'navigate-outline' : kind === 'current' ? 'construct-outline' : 'calendar-outline'} size={22} color={isDarkMode ? '#C4B5FD' : '#6D5AE6'} /></View>
+          <View style={{ flex: 1, gap: 5 }}>
+            <Text style={{ color: delayed ? '#B45309' : isDarkMode ? '#C4B5FD' : '#6D5AE6', fontSize: 12, fontWeight: '700' }}>{status}</Text>
+            <Text numberOfLines={2} style={[styles.liveServiceTitle, { marginBottom: 0 }, isDarkMode && styles.textDark]}>{getHumanServiceTitle(booking)}</Text>
+            <Text numberOfLines={1} style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{getHumanProviderName(booking)} · {getHumanLocation(booking)}</Text>
+            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{kind === 'current' && !traveling ? `${isSi ? 'අවසන් වීමට නියමිත: ' : 'Expected finish: '}${formatLiveTime(end)}` : `${isSi ? 'ආරම්භ වන්නේ: ' : 'Scheduled: '}${formatLiveTime(start)}`}</Text>
           </View>
-          <Text style={[styles.liveServiceTitle, isDarkMode && styles.textDark]}>{getHumanServiceTitle(booking)}</Text>
-          <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'සේවකයා: ' : 'Provider: '}{getHumanProviderName(booking)}</Text>
-          <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'ස්ථානය: ' : 'Location: '}{getHumanLocation(booking)}</Text>
-          {kind === 'current' ? (
-            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>
-              {traveling ? `${isSi ? 'ගමන ඇරඹුවේ: ' : 'On the way since: '}${formatLiveTime(booking.onTheWayAt)}` : delayed ? `${isSi ? 'හේතුව: ' : 'Reason: '}${booking?.delayInfo?.delayReason || (isSi ? 'සඳහන් කර නැත' : 'Not provided')}` : `${isSi ? 'ආරම්භ කළේ: ' : 'Started: '}${formatLiveTime(booking.actualStartTime || start)}`}
-            </Text>
-          ) : (
-            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'ආරම්භ වන්නේ: ' : 'Starts: '}{formatLiveTime(start)}</Text>
-          )}
-          {kind === 'current' && !traveling ? (
-            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'අවසන් වීමට නියමිත: ' : 'Expected end: '}{formatLiveTime(end)}</Text>
-          ) : null}
-          <TouchableOpacity style={[styles.liveDetailsButton, { backgroundColor: color }]} onPress={() => openBookingDetails(booking)}>
-            <Text style={styles.liveDetailsButtonText}>{isSi ? 'විස්තර බලන්න' : 'View Details'}</Text>
-          </TouchableOpacity>
-        </View>
+          <Ionicons name="chevron-forward" size={19} color={isDarkMode ? '#C4B5FD' : '#6D5AE6'} />
+        </TouchableOpacity>
       );
     };
-    const emptySection = (label, message) => (
-      <View style={styles.liveInnerSection}>
-        <Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>{label}</Text>
-        <Text style={[styles.liveDetail, styles.liveEmptyText, isDarkMode && styles.textMutedDark]}>{message}</Text>
-      </View>
-    );
     return (
       <View style={[styles.liveBookingCard, isDarkMode && styles.liveCardDark]}>
-        {ongoing ? renderSection(ongoing, 'current') : emptySection(isSi ? 'ක්‍රියාකාරී සේවාව' : 'In Progress Booking', isSi ? 'දැනට ක්‍රියාකාරී සේවාවක් නැත' : 'No in-progress booking')}
-        <View style={[styles.liveDivider, isDarkMode && styles.liveDividerDark]} />
-        {next ? renderSection(next, 'next') : emptySection(isSi ? 'මීළඟ සේවාව' : 'Next Booking', isSi ? 'ඉදිරි සේවාවක් නැත' : 'No upcoming confirmed booking')}
+        {ongoing ? renderSection(ongoing, 'current') : null}
+        {ongoing && next && String(ongoing._id || ongoing.id) !== String(next._id || next.id) ? <View style={[styles.liveDivider, isDarkMode && styles.liveDividerDark]} /> : null}
+        {next && (!ongoing || String(ongoing._id || ongoing.id) !== String(next._id || next.id)) ? renderSection(next, 'next') : null}
       </View>
     );
   };
@@ -883,15 +852,6 @@ export default function HomeScreen() {
           </View>
         </LinearGradient>
 
-        {(liveLoading || liveError || liveSummary?.delayedService || liveSummary?.currentService || liveSummary?.onTheWayService || liveSummary?.startingSoonBooking || liveSummary?.nextBooking) ? (
-        <View style={styles.liveSection}>
-          <Text style={[styles.liveSectionTitle, isDarkMode && styles.textDark]}>
-            {isSi ? 'ක්‍රියාකාරී සේවා තත්ත්වය' : 'Live Booking Status'}
-          </Text>
-          {renderLiveBooking()}
-        </View>
-        ) : null}
-
         <View style={styles.searchWrapper}>
           <View
             style={[
@@ -944,6 +904,16 @@ export default function HomeScreen() {
 
 
         </View>
+
+        {(liveLoading || liveError || liveSummary?.delayedService || liveSummary?.currentService || liveSummary?.onTheWayService || liveSummary?.startingSoonBooking || liveSummary?.nextBooking) ? (
+        <View style={styles.liveSection}>
+          <Text style={[styles.liveSectionTitle, isDarkMode && styles.textDark]}>
+            {isSi ? 'ක්‍රියාකාරී සේවා තත්ත්වය' : 'Your service updates'}
+          </Text>
+          {renderLiveBooking()}
+        </View>
+        ) : null}
+
 
         {/* 4 Big Visual Quick Action Cards for High Accessibility & Clarity */}
         <View style={styles.quickGridContainer}>
@@ -1114,6 +1084,8 @@ const styles = StyleSheet.create({
   liveStateText: { color: '#6B7280', fontSize: 13, lineHeight: 19, textAlign: 'center' },
   liveRetry: { color: '#667eea', fontWeight: '800' },
   liveBookingCard: { borderRadius: 18, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFF', padding: 16 },
+  liveCompactRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 2 },
+  liveCompactIcon: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start' },
   liveInnerSection: { paddingVertical: 2 },
   liveInnerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 7 },
   liveInnerLabel: { color: '#111827', fontSize: 14, fontWeight: '600' },
@@ -1260,7 +1232,7 @@ const styles = StyleSheet.create({
 
   searchWrapper: {
     paddingHorizontal: 20,
-    marginTop: -20,
+    marginTop: 16,
   },
   searchContainer: {
     flexDirection: 'row',

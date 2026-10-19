@@ -3,8 +3,8 @@
 export const IP_ADDRESS = process.env.EXPO_PUBLIC_API_HOST || '192.168.8.101'; //'192.168.56.1'; //'192.168.1.38' 169.254.230.160; '172.28.31.24'; 
 
 export const CONFIG = {
-  API_BASE_URL: `http://${IP_ADDRESS}:6001`,
-  SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6001`,
+  API_BASE_URL: `http://${IP_ADDRESS}:6000`,
+  SEEKER_SERVICE_URL: `http://${IP_ADDRESS}:6000`,
   // Core APIs default to the local laptop for device testing.
   AUTH_SERVICE_URL: process.env.EXPO_PUBLIC_AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`,
   ADMIN_SERVICE_URL: 'https://r26-admin-service.onrender.com',

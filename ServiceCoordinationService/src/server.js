@@ -1,3 +1,4 @@
+import { startBookingReminderWorker } from './services/bookingReminderService.js';
 import express from "express";
 import cors from "cors";
 import dns from "node:dns";
@@ -28,7 +29,7 @@ const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS ||
 app.use(cors({ origin: corsOrigins }));
 app.use(express.json());
 
-connectDB();
+connectDB().then(() => startBookingReminderWorker());
 
 app.get("/health", (req, res) => {
   res.status(200).json({
