@@ -1,5 +1,19 @@
 # Production job-flow notifications
 
+## Verified production blocker
+
+The latest read-only checks returned **404** for auth `/internal/notifications/health`, seeker `/health/notifications`, and provider `/health/notifications`. An intentionally invalid empty POST to auth `/internal/notifications` also returned **404**, confirming that the hosted auth service at the configured URL does not currently expose the notification publisher. No account notification was created by that probe.
+
+The notification fixes are committed on branch **IT22129376-DurationML-Migration**. Switching mobile URLs or configuring a secret cannot install backend code. In the hosting dashboards:
+
+1. **Render auth service:** check its connected repository, deploy branch, and root directory (`authService`). Deploy the latest commit containing the notification routes from the branch above, or merge those fixes into the configured deployment branch first. Use the existing production database/JWT configuration and set the shared NOTIFICATION_SERVICE_SECRET.
+2. **Railway seeker service:** check the source branch and root (`Seeker_Service`), set PORT=6000, set AUTH_SERVICE_URL=https://r26-auth-service.onrender.com and the same shared secret, then redeploy the updated code.
+3. **Railway provider service:** check the source branch and root (`Provider_Service/Backend`), set the same auth URL and secret, then redeploy the updated code.
+4. **EKS coordination:** the notification URL and secret reference have been applied already; deploy the updated coordination image to install the retry worker and protected health route. Environment configuration does not update the image's source code.
+5. Rerun the protected diagnostics below. Each health endpoint must respond successfully before testing a new provider response in the apps. Restart Expo after environment changes and re-login to production auth.
+
+Render/Railway management is not connected to this workspace, so their source settings and environment variables must be changed by an account with hosting access. Admin app/service configuration is unchanged.
+
 ## Production requirements
 
 All four backends must have the **same server-only NOTIFICATION_SERVICE_SECRET**:
@@ -59,9 +73,15 @@ node --test authService/test/lifecycleNotifications.test.cjs authService/test/li
 
 These use local sockets and test doubles and do not send production account notifications. A Mongo-backed deployment and physical devices still need the production walkthrough above.
 
+## Current environment
+
+The workspace is switched back to hosted auth, seeker, provider and coordination endpoints. Both mobile apps' ignored `.env.local` files now select those deployed services, and the seeker backend port is restored to **6000**. Local notification test backends have been stopped. Admin app/configuration is unchanged.
+
+Run `python3 scripts/setup-production-environment.py` to restore these settings after local testing. The duration ML URL in production coordination configuration is the existing in-cluster `http://duration-ml-service:8001`, matching its Kubernetes manifest. This script does not deploy code or change Render/Railway environment dashboards. Restart Metro after switching environments, and sign in against the selected auth service.
+
 ## Local development
 
-The current local test setup uses auth `4003`, seeker `6001`, provider `3002`, coordination `5010`, and duration ML `8001`. Both apps have ignored `.env.local` overrides using laptop LAN IP `192.168.8.101`; tracked deployed defaults and EAS production profiles remain unchanged.
+The optional local test setup uses auth `4003`, seeker `6000`, provider `3002`, coordination `5010`, and duration ML `8001`. Running the local setup script creates ignored `.env.local` overrides using the supplied laptop LAN IP; tracked deployed defaults and EAS production profiles remain unchanged.
 
 To configure this again (or after a Wi-Fi/IP change), run:
 
@@ -70,7 +90,7 @@ python3 scripts/setup-local-notifications.py --host 192.168.8.101
 python3 scripts/start-local-services.py
 ```
 
-The setup script aligns the local notification/JWT configuration without printing secrets. The start script verifies port owners belong to this checkout before restarting only the four backend services; it also stops the old seeker listener on 6000. Local process IDs and logs are stored under ignored `.local-build/local-services/`. It does not restart or reconfigure the duration model, admin service, or hosted services. Databases remain those already configured in the local `.env` files.
+The setup script aligns the local notification/JWT configuration without printing secrets. The start script verifies port owners belong to this checkout before restarting only the four backend services; it also stops the old seeker listener on 6001. Local process IDs and logs are stored under ignored `.local-build/local-services/`. It does not restart or reconfigure the duration model, admin service, or hosted services. Databases remain those already configured in the local `.env` files.
 
 Restart Expo with `npx expo start --clear` in each app folder and sign out/in so the token comes from local auth. Use a provider response on a new post to verify the seeker receives the foreground banner and persisted inbox entry.
 

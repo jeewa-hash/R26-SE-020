@@ -19,6 +19,9 @@ await Promise.all(targets.map(async ([name, url]) => {
     const body = await response.json().catch(() => ({}));
     const healthy = response.ok && body.configured && body.databaseReady && (name === 'auth hub' ? body.socketReady : body.workerStarted);
     const result = { service: name, httpStatus: response.status, healthy: Boolean(healthy) };
+    if (response.status === 404) result.nextStep = 'Deploy the updated notification backend from the branch containing the fixes; verify the hosting project root and branch.';
+    else if (response.status === 401) result.nextStep = 'Configure the same NOTIFICATION_SERVICE_SECRET on the auth hub and all three publishers, then restart them.';
+    else if (!healthy) result.nextStep = 'Check service configuration, database connection and worker startup in hosting logs.';
     if (Number.isInteger(body.pending)) result.pending = body.pending;
     if (Number.isInteger(body.failed)) result.failed = body.failed;
     console.log(JSON.stringify(result));
