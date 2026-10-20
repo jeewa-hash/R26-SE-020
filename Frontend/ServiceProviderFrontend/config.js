@@ -11,9 +11,8 @@ export const CONFIG = {
   API_BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://r26-se-020-production-db02.up.railway.app',
   AUTH_SERVICE_URL: process.env.EXPO_PUBLIC_AUTH_SERVICE_URL || 'https://r26-auth-service.onrender.com',
   ADMIN_SERVICE_URL: process.env.EXPO_PUBLIC_ADMIN_SERVICE_URL || 'https://r26-admin-service.onrender.com',
-
-  // Other Services
-  COORDINATION_SERVICE_URL: process.env.EXPO_PUBLIC_COORDINATION_SERVICE_URL || `http://${IP_ADDRESS}:5010`,
+  COORDINATION_SERVICE_URL: (process.env.EXPO_PUBLIC_COORDINATION_API_URL ||
+  'http://k8s-default-coordina-f35bbe8d02-1683340780.ap-southeast-2.elb.amazonaws.com').replace(/\/+$/, ''),
 };
 
 export const ADMIN_SERVICE_URL = CONFIG.ADMIN_SERVICE_URL;
