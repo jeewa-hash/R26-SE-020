@@ -1,3 +1,4 @@
+import { publishLifecycleNotification } from '../utils/lifecycleNotifications.js';
 import mongoose from "mongoose";
 
 export const BOOKING_STATUS_VALUES = [
@@ -15,6 +16,7 @@ export const BOOKING_STATUS_VALUES = [
 
 const bookingSchema = new mongoose.Schema(
   {
+    pendingRescheduleId: { type: mongoose.Schema.Types.ObjectId, default: null },
     postId: {
       type: mongoose.Schema.Types.ObjectId,
       default: null,
@@ -258,5 +260,41 @@ const bookingSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+const bookingMessages = {
+  CONFIRMED: ['Booking confirmed', 'Your booking is confirmed. Review its scheduled time.'],
+  ON_THE_WAY: ['Provider on the way', 'The provider is travelling to the job.'],
+  IN_PROGRESS: ['Work started', 'Work on this booking has started.'],
+  DELAY_REPORTED: ['Job delayed', 'A delay was reported. Review the updated booking time.'],
+  RESCHEDULE_REQUESTED: ['New time requested', 'A schedule change needs review. Open the booking for details.'],
+  RESCHEDULING_REQUIRED: ['Schedule needs attention', 'A scheduling conflict needs review.'],
+  RESCHEDULED: ['Booking rescheduled', 'The updated booking time is confirmed.'],
+  COMPLETED: ['Job completed', 'This booking is complete. Review its details.'],
+  CANCELLED: ['Booking cancelled', 'This booking has been cancelled.'],
+  EXPIRED: ['Booking expired', 'This booking expired without starting.'],
+};
+bookingSchema.pre('save', function () {
+  this.$locals.notifyStatus = this.isNew || this.isModified('bookingStatus');
+  this.$locals.notifyReady = this.isModified('providerReadyConfirmed') && this.providerReadyConfirmed;
+});
+export async function notifyBookingLifecycle(doc, status) {
+  let copy = status === 'READY' ? ['Provider ready', 'The provider confirmed readiness for this booking.'] : bookingMessages[status];
+  if (status === 'RESCHEDULED' && doc.scheduledStartTime) {
+    const when = new Date(doc.scheduledStartTime).toLocaleString('en-GB', {
+      timeZone: 'Asia/Colombo', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+    copy = ['New service time confirmed', `Your service is now scheduled for ${when} (Sri Lanka time). Open the job to review the updated schedule.`];
+  }
+  if (!copy) return;
+  await Promise.all([['ServiceProvider', doc.providerId], ['Seeker', doc.seekerId]].map(([role, recipientId]) =>
+    publishLifecycleNotification({ recipientId: String(recipientId), role,
+      eventId: status === 'EXPIRED' && doc.scheduledStartTime ? `booking-start:${doc._id}:${new Date(doc.scheduledStartTime).toISOString()}:EXPIRED:${recipientId}` : `booking:${doc._id}:${status}:${doc.updatedAt?.toISOString()}:${recipientId}`,
+      type: 'booking', title: copy[0], message: copy[1], metadata: { bookingId: String(doc._id), status, scheduledStartTime: doc.scheduledStartTime ? new Date(doc.scheduledStartTime).toISOString() : null },
+    })));
+}
+bookingSchema.post('save', async function (doc) {
+  const status = doc.$locals.notifyStatus ? doc.bookingStatus : doc.$locals.notifyReady ? 'READY' : null;
+  await notifyBookingLifecycle(doc, status);
+});
 
 export default mongoose.model("Booking", bookingSchema);

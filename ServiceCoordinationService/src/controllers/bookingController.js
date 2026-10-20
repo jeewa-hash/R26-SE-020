@@ -1,5 +1,6 @@
+import { startWindow } from '../services/bookingStartPolicy.js';
 import { getRequestQuotationById } from "../clients/seekerServiceClient.js";
-import Booking from "../models/Booking.js";
+import Booking, { notifyBookingLifecycle } from "../models/Booking.js";
 import mongoose from "mongoose";
 import BidCoordination from "../models/BidCoordination.js";
 import BidPriceEvaluation from "../models/BidPriceEvaluation.js";
@@ -23,6 +24,42 @@ const canAccessBooking = (req, booking) => {
 const ACTIVE_BOOKING_STATUSES = ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED"];
 const START_WINDOW_MINUTES = 45;
 
+const awardPointsForCompletedBooking = async (booking) => {
+  const finalAmount = Number(booking.finalAmount) || 0;
+  if (finalAmount <= 0) {
+    return { success: false, message: "Skipped because finalAmount is zero or invalid" };
+  }
+
+  const seekerServiceUrl = (
+    process.env.SEEKER_SERVICE_URL ||
+    process.env.SEEKER_SERVICE_BASE_URL ||
+    "http://127.0.0.1:6000"
+  ).replace(/\/$/, "");
+
+  try {
+    const response = await axios.post(
+      `${seekerServiceUrl}/api/rewards/internal/bookings/award`,
+      {
+        bookingId: booking._id.toString(),
+        seekerId: booking.seekerId.toString(),
+        finalAmount,
+        bookingStatus: booking.bookingStatus,
+      },
+      {
+        headers: { "x-reward-service-key": process.env.REWARD_SERVICE_KEY },
+        timeout: 15000,
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Failed to award booking points:", error.response?.data || error.message);
+    return {
+      success: false,
+      error: error.response?.data?.error || error.message,
+    };
+  }
+};
+
 const getComparableId = (value) => value?.toString?.() || String(value || "");
 
 const addMinutes = (date, minutes) => new Date(date.getTime() + Number(minutes || 0) * 60 * 1000);
@@ -36,7 +73,7 @@ const getBookingStartDate = (booking) => {
   }
 
   if (booking.scheduledDate && booking.startTime) {
-    const fallbackStartTime = new Date(`${booking.scheduledDate}T${booking.startTime}:00`);
+    const fallbackStartTime = new Date(`${booking.scheduledDate}T${booking.startTime}:00+05:30`);
     if (!Number.isNaN(fallbackStartTime.getTime())) return fallbackStartTime;
   }
 
@@ -45,18 +82,21 @@ const getBookingStartDate = (booking) => {
 
 const expireMissedBookings = async (ownerQuery = {}) => {
   const cutoff = addMinutes(new Date(), -START_WINDOW_MINUTES);
-  await Booking.updateMany(
-    {
-      ...ownerQuery,
-      bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
-      scheduledStartTime: { $ne: null, $lt: cutoff },
-      actualStartTime: null,
-    },
-    {
-      $set: { bookingStatus: "EXPIRED", expiredAt: new Date() },
-      $push: { timeline: { status: "EXPIRED", message: "Booking expired because it was not started within 45 minutes", at: new Date() } },
-    }
-  );
+  const missedQuery = {
+    ...ownerQuery,
+    bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
+    scheduledStartTime: { $ne: null, $lt: cutoff },
+    actualStartTime: null,
+  };
+  const candidates = await Booking.find(missedQuery).select('_id');
+  for (const candidate of candidates) {
+    // Keep the state predicate on the write so a job started concurrently cannot expire.
+    const expired = await Booking.findOneAndUpdate({ ...missedQuery, _id: candidate._id }, {
+      $set: { bookingStatus: 'EXPIRED', expiredAt: new Date() },
+      $push: { timeline: { status: 'EXPIRED', message: 'Booking expired because it was not started within 45 minutes', at: new Date() } },
+    }, { new: true });
+    if (expired) await notifyBookingLifecycle(expired, 'EXPIRED');
+  }
   const fallbackCandidates = await Booking.find({
     ...ownerQuery,
     bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] },
@@ -69,22 +109,19 @@ const expireMissedBookings = async (ownerQuery = {}) => {
 const getStartWindowError = (booking, now = new Date()) => {
   const scheduledStart = getBookingStartDate(booking);
   if (!scheduledStart) return "Booking does not have a valid scheduled start time";
-  const opensAt = scheduledStart;
-  const expiresAt = addMinutes(scheduledStart, START_WINDOW_MINUTES);
-  if (now < opensAt) return "This action is available from the scheduled start time";
-  if (now > expiresAt) return "This booking has passed the 45-minute start window";
-  return "";
+  return startWindow(scheduledStart, now).message;
 };
 
 const expireBookingIfMissed = async (booking) => {
   if (!["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"].includes(booking.bookingStatus) || booking.actualStartTime) return false;
   const start = getBookingStartDate(booking);
   if (!start || new Date() <= addMinutes(start, START_WINDOW_MINUTES)) return false;
-  booking.bookingStatus = "EXPIRED";
-  booking.expiredAt = new Date();
-  booking.timeline.push({ status: "EXPIRED", message: "Booking expired because it was not started within 45 minutes", at: new Date() });
-  await booking.save();
-  return true;
+  const expired = await Booking.findOneAndUpdate({ _id: booking._id, bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] }, actualStartTime: null, scheduledStartTime: booking.scheduledStartTime }, {
+    $set: { bookingStatus: 'EXPIRED', expiredAt: new Date() },
+    $push: { timeline: { status: 'EXPIRED', message: 'Booking expired because it was not started within 45 minutes', at: new Date() } },
+  }, { new: true });
+  if (expired) await notifyBookingLifecycle(expired, 'EXPIRED');
+  return Boolean(expired);
 };
 
 const getOngoingWindowEnd = () => addMinutes(new Date(), 24 * 60);
@@ -142,7 +179,7 @@ const LIVE_SUMMARY_FIELDS = [
   "startTime", "endTime", "estimatedDurationHours", "finalAmount", "currency",
   "bookingStatus", "delayRiskLevel", "providerReadyConfirmed",
   "providerReadyConfirmedAt", "onTheWayAt", "onTheWayBy", "actualStartTime", "startedBy", "actualEndTime", "completedAt", "completedBy", "expiredAt",
-  "delayInfo", "timeline",
+  "delayInfo", "timeline", "pendingRescheduleId",
 ].join(" ");
 const LIVE_SUMMARY_PROJECTION = Object.fromEntries(
   LIVE_SUMMARY_FIELDS.split(" ").map((field) => [field, 1])
@@ -872,20 +909,17 @@ export const startBooking = async (req, res) => {
     const actualStartTime = new Date();
     const scheduledStartTime = getBookingStartDate(booking);
 
-    booking.bookingStatus = "IN_PROGRESS";
-    booking.actualStartTime = actualStartTime;
-    booking.startedBy = "PROVIDER";
-    booking.startDelayMinutes = scheduledStartTime
-      ? Math.max(0, minutesBetween(scheduledStartTime, actualStartTime))
-      : 0;
-    booking.timeline.push({ status: "IN_PROGRESS", message: "Provider started the job", at: new Date() });
-
-    await booking.save();
+    const started = await Booking.findOneAndUpdate({ _id: booking._id, bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY"] }, actualStartTime: null, scheduledStartTime: booking.scheduledStartTime }, {
+      $set: { bookingStatus: 'IN_PROGRESS', actualStartTime, startedBy: 'PROVIDER', startDelayMinutes: scheduledStartTime ? Math.max(0, minutesBetween(scheduledStartTime, actualStartTime)) : 0 },
+      $push: { timeline: { status: 'IN_PROGRESS', message: 'Provider started the job', at: actualStartTime } },
+    }, { new: true });
+    if (!started) return res.status(409).json({ success: false, message: 'Booking status changed. Refresh before starting.' });
+    await notifyBookingLifecycle(started, 'IN_PROGRESS');
 
     return res.status(200).json({
       success: true,
       message: "Booking started successfully",
-      data: booking,
+      data: started,
     });
   } catch (error) {
     return res.status(500).json({
@@ -943,39 +977,8 @@ export const completeBooking = async (req, res) => {
     booking.timeline.push({ status: "COMPLETED", message: "Job completed successfully", at: new Date() });
     await booking.save();
 
-    // -------- Award points automatically --------
-    let reward = null;
-    const finalAmount = Number(booking.finalAmount) || 0;
-    if (finalAmount > 0) {
-      try {
-        const seekerServiceUrl = (process.env.SEEKER_SERVICE_URL || "http://127.0.0.1:6000").replace(/\/$/, "");
-        const rewardResponse = await axios.post(
-          `${seekerServiceUrl}/api/rewards/internal/bookings/award`,
-          {
-            bookingId: booking._id.toString(),
-            seekerId: booking.seekerId.toString(),
-            finalAmount,
-            bookingStatus: booking.bookingStatus,
-          },
-          {
-            headers: {
-              "x-reward-service-key": process.env.REWARD_SERVICE_KEY,
-            },
-          }
-        );
-        reward = rewardResponse.data;
-      } catch (rewardError) {
-        // Log the error but do NOT roll back the completion.
-        // The reward endpoint is idempotent – it can be retried later.
-        console.error("Failed to award booking points:", rewardError.response?.data || rewardError.message);
-        reward = {
-          success: false,
-          error: rewardError.response?.data?.error || rewardError.message,
-        };
-      }
-    } else {
-      reward = { success: false, message: "Skipped – finalAmount is zero or invalid" };
-    }
+    // Award immediately; the idempotent endpoint can also be retried later.
+    const reward = await awardPointsForCompletedBooking(booking);
 
     return res.status(200).json({
       success: true,
@@ -989,6 +992,41 @@ export const completeBooking = async (req, res) => {
       success: false,
       message: "Failed to complete booking",
       error: error.message,
+    });
+  }
+};
+
+/**
+ * Retry rewards for this seeker's completed bookings. The reward service
+ * deduplicates by booking ID, so this is safe to call whenever points load.
+ */
+export const reconcileCompletedBookingRewards = async (req, res) => {
+  try {
+    const bookings = await Booking.find({
+      seekerId: req.user.id,
+      bookingStatus: "COMPLETED",
+      finalAmount: { $gt: 0 },
+    }).select("_id seekerId bookingStatus finalAmount");
+
+    const results = [];
+    for (const booking of bookings) {
+      results.push({
+        bookingId: booking._id.toString(),
+        ...(await awardPointsForCompletedBooking(booking)),
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      checked: bookings.length,
+      awarded: results.filter((result) => result.success === true).length,
+      results,
+    });
+  } catch (error) {
+    console.error("Failed to reconcile completed booking rewards:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to reconcile rewards for completed bookings.",
     });
   }
 };
@@ -1050,7 +1088,7 @@ export const reportBookingDelay = async (req, res) => {
 
     let delayImpactStatus = "NO_CONFLICT";
     let affectedNextBooking = null;
-    const bufferMinutes = 30;
+    const bufferMinutes = 15;
 
     if (nextBooking?.scheduledStartTime) {
       const nextStart = new Date(nextBooking.scheduledStartTime);

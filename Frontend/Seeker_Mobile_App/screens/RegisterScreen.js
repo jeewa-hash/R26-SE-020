@@ -10,7 +10,7 @@ import { IP_ADDRESS, AUTH_SERVICE_URL } from '../config';
 
 const API_URL = AUTH_SERVICE_URL
   ? `${AUTH_SERVICE_URL}/seeker`
-  : `http://${IP_ADDRESS}:4003/seeker`;
+  : `https://r26-auth-service.onrender.com/seeker`;
 
 const DISTRICTS = [
   "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", "Galle", "Gampaha", 
@@ -98,7 +98,7 @@ export default function RegisterScreen({ navigation }) {
 
   const pickProfileImageFromGallery = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.7,

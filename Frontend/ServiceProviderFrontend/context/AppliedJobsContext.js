@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getStoredProviderAuth, subscribeProviderSession } from '../pages/IT22129376/services/providerAuthStorage';
+import { getSeekerPosts } from '../services/seekerApi';
 import { JOB_STATUS } from '../constants/jobStatus';
 
 const AppliedJobsContext = createContext();
@@ -44,6 +45,31 @@ export function AppliedJobsProvider({ children }) {
         ? savedApplications.filter((job) => !['1', '2', '3', '4', '5'].includes(String(job.id))) : []);
       const savedPosts = storedAvailable ? JSON.parse(storedAvailable) : [];
       setAvailablePosts(Array.isArray(savedPosts) ? savedPosts : []);
+
+      // Device storage is a cache; applications saved by another device come from the API.
+      try {
+        const response = await getSeekerPosts(providerId);
+        if (version !== loadVersion.current) return;
+        if (response?.success && Array.isArray(response.posts) &&
+            response.posts.every((post) => typeof post.hasApplied === 'boolean')) {
+          const cached = new Map((Array.isArray(savedApplications) ? savedApplications : []).map((job) => [String(job.id), job]));
+          const synced = response.posts.filter((post) => post.hasApplied).map((post) => {
+            const id = String(post._id || post.id);
+            const previous = cached.get(id);
+            return {
+              ...previous,
+              ...post,
+              id,
+              status: previous?.status || JOB_STATUS.PENDING.key,
+              appliedAt: post.appliedAt || previous?.appliedAt,
+            };
+          });
+          setAppliedJobs(synced);
+          await AsyncStorage.setItem(`appliedJobs:${providerId}`, JSON.stringify(synced));
+        }
+      } catch (error) {
+        console.warn('Application sync failed; using device cache:', error.message);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {

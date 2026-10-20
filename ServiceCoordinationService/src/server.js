@@ -1,3 +1,4 @@
+import { startBookingReminderWorker } from './services/bookingReminderService.js';
 import express from "express";
 import cors from "cors";
 import dns from "node:dns";
@@ -19,12 +20,25 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
+// Local Expo web servers may use ports 8081–8083 when another app is running.
+const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS ||
+  "http://localhost:8081,http://127.0.0.1:8081,http://localhost:8082,http://127.0.0.1:8082,http://localhost:8083,http://127.0.0.1:8083")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+app.use(cors({ origin: corsOrigins }));
 app.use(express.json());
 
-connectDB();
+connectDB().then(() => startBookingReminderWorker());
 
 app.get("/health", (req, res) => {
+  res.status(200).json({
+    service: "Service Coordination Service",
+    status: "healthy",
+  });
+});
+
+app.get("/", (req, res) => {
   res.status(200).json({
     service: "Service Coordination Service",
     status: "healthy",

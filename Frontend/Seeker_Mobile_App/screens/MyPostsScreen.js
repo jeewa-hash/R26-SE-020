@@ -14,15 +14,50 @@ import {
   Platform,
   StatusBar,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { API_BASE_URL } from '../config';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
+// ─────────────────────────────────────────────────────────────
+// Shared palette — matches Home, Bookings, Profile, ProviderProfile
+// ─────────────────────────────────────────────────────────────
+const P = {
+  indigo: '#4F46E5',
+  indigoDeep: '#4338CA',
+  indigoSoft: '#EEF2FF',
+  indigoSoftDark: '#1E1B4B',
+  indigoLight: '#A5B4FC',
+  emerald: '#10B981',
+  emeraldDark: '#059669',
+  emeraldSoft: '#ECFDF5',
+  emeraldSoftDark: '#064E3B',
+  emeraldLight: '#34D399',
+  amber: '#D97706',
+  amberSoft: '#FFFBEB',
+  amberSoftDark: '#78350F',
+  amberLight: '#FBBF24',
+  rose: '#EF4444',
+  roseDark: '#991B1B',
+  roseSoft: '#FEF2F2',
+  roseSoftDark: '#7F1D1D',
+  roseLight: '#FCA5A5',
+  slate900: '#0F172A',
+  slate800: '#1E293B',
+  slate700: '#334155',
+  slate600: '#475569',
+  slate500: '#64748B',
+  slate400: '#94A3B8',
+  slate300: '#CBD5E1',
+  slate200: '#E2E8F0',
+  slate100: '#F1F5F9',
+  slate50: '#F8FAFC',
+  white: '#FFFFFF',
+};
 
 export default function FeedScreen({ navigation }) {
   const { isDarkMode } = useTheme();
@@ -211,7 +246,7 @@ export default function FeedScreen({ navigation }) {
     }
   };
 
-  // ─── VIEW RESPONSES – Navigate with Full Post Details ─────
+  // ─── VIEW RESPONSES ───────────────────────────────────────
   const handleViewResponses = (post) => {
     navigation.navigate('PostResponsesScreen', {
       postId: post.id,
@@ -240,39 +275,71 @@ export default function FeedScreen({ navigation }) {
     switch (String(urgency).toLowerCase()) {
       case 'high':
       case 'urgent':
-        return { bg: '#FEE2E2', color: '#EF4444', text: 'Urgent' };
+        return {
+          bg: isDarkMode ? P.roseSoftDark : P.roseSoft,
+          color: isDarkMode ? P.roseLight : P.rose,
+          icon: 'flame',
+          text: 'Urgent',
+        };
       case 'medium':
-        return { bg: '#FEF3C7', color: '#F59E0B', text: 'Medium' };
+        return {
+          bg: isDarkMode ? P.amberSoftDark : P.amberSoft,
+          color: isDarkMode ? P.amberLight : P.amber,
+          icon: 'flash',
+          text: 'Medium',
+        };
       case 'low':
-        return { bg: '#D1FAE5', color: '#10B981', text: 'Low' };
+        return {
+          bg: isDarkMode ? P.emeraldSoftDark : P.emeraldSoft,
+          color: isDarkMode ? P.emeraldLight : P.emerald,
+          icon: 'checkmark-circle',
+          text: 'Low',
+        };
       default:
-        return { bg: '#F3F4F6', color: '#6B7280', text: 'Normal' };
+        return {
+          bg: isDarkMode ? P.slate800 : P.slate100,
+          color: isDarkMode ? P.slate400 : P.slate500,
+          icon: 'ellipse-outline',
+          text: 'Normal',
+        };
     }
   };
+
+  // ─── HEADER (reused across all states) ────────────────────
+  const renderHeader = () => (
+    <PageHeader
+      title={<>My Posts</>}
+      onBack={() => navigation.navigate('ProfileScreen')}
+      renderActions={({ textColor }) => (
+        <TouchableOpacity
+          style={styles.headerActionBtn}
+          onPress={() => navigation.navigate('CreatePostScreen')}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="add" size={22} color={textColor} />
+        </TouchableOpacity>
+      )}
+    />
+  );
 
   // ─── LOADING ──────────────────────────────────────────────
   if (loading) {
     return (
-      <SafeAreaView
-        style={[
-          styles.container,
-          isDarkMode && styles.containerDark,
-        ]}
-      >
+      <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <StatusBar
-          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+          barStyle="light-content"
+          backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep}
         />
+        {renderHeader()}
 
-        <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
-            onPress={() => navigation.navigate('CreatePostScreen')}
+        <View style={styles.centerContainer}>
+          <View
+            style={[styles.loadingRing, isDarkMode && { backgroundColor: P.indigoSoftDark }]}
           >
-            <Ionicons name="add-circle" size={28} color={textColor} />
-          </TouchableOpacity></>} />
-
-        <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={P.indigo} />
+          </View>
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
-            Loading your posts...
+            Loading your posts…
           </Text>
         </View>
 
@@ -284,27 +351,25 @@ export default function FeedScreen({ navigation }) {
   // ─── NOT LOGGED IN ────────────────────────────────────────
   if (!userId || !token) {
     return (
-      <SafeAreaView
-        style={[
-          styles.container,
-          isDarkMode && styles.containerDark,
-        ]}
-      >
+      <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <StatusBar
-          barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+          barStyle="light-content"
+          backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep}
         />
-
-        <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
-            onPress={() => navigation.navigate('CreatePostScreen')}
-          >
-            <Ionicons name="add-circle" size={28} color={textColor} />
-          </TouchableOpacity></>} />
+        {renderHeader()}
 
         <View style={styles.centerContainer}>
-          <Ionicons name="lock-closed-outline" size={60} color="#D1D5DB" />
+          <View
+            style={[styles.emptyIconWrap, isDarkMode && { backgroundColor: P.slate800 }]}
+          >
+            <Ionicons
+              name="lock-closed-outline"
+              size={44}
+              color={isDarkMode ? P.slate500 : P.slate400}
+            />
+          </View>
           <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
-            Please Log In
+            Please log in
           </Text>
           <Text style={[styles.emptySubtext, isDarkMode && styles.textMutedDark]}>
             You need to be logged in to view your posts.
@@ -318,33 +383,41 @@ export default function FeedScreen({ navigation }) {
 
   // ─── MAIN UI ──────────────────────────────────────────────
   return (
-    <SafeAreaView
-      style={[
-        styles.container,
-        isDarkMode && styles.containerDark,
-      ]}
-    >
+    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        barStyle="light-content"
+        backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep}
       />
 
-      {/* HEADER */}
-      <PageHeader title={<>My Posts</>} onBack={() => navigation.navigate('ProfileScreen')} renderActions={({ textColor }) => <><TouchableOpacity
-          onPress={() => navigation.navigate('CreatePostScreen')}
-        >
-          <Ionicons name="add-circle" size={28} color={textColor} />
-        </TouchableOpacity></>} />
+      {renderHeader()}
 
-      {/* POSTS */}
+      {/* Post count summary strip */}
+      {posts.length > 0 && (
+        <View style={[styles.summaryStrip, isDarkMode && styles.summaryStripDark]}>
+          <View style={styles.summaryLeft}>
+            <Ionicons
+              name="documents-outline"
+              size={16}
+              color={isDarkMode ? P.indigoLight : P.indigo}
+            />
+            <Text style={[styles.summaryText, isDarkMode && styles.textDark]}>
+              {posts.length} {posts.length === 1 ? 'post' : 'posts'}
+            </Text>
+          </View>
+          <Text style={[styles.summaryHint, isDarkMode && styles.textMutedDark]}>
+            Tap a card to manage
+          </Text>
+        </View>
+      )}
+
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#667eea']}
-            tintColor={isDarkMode ? '#667eea' : '#667eea'}
+            colors={[P.indigo]}
+            tintColor={isDarkMode ? P.indigoLight : P.indigo}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -361,173 +434,139 @@ export default function FeedScreen({ navigation }) {
           return (
             <View
               key={post.id}
-              style={[
-                styles.postCard,
-                isDarkMode && styles.postCardDark,
-              ]}
+              style={[styles.postCard, isDarkMode && styles.postCardDark]}
             >
-              <LinearGradient
-                colors={
-                  isDarkMode
-                    ? ['#16213e', '#1a1a2e']
-                    : ['#fff', '#fefefe']
-                }
-                style={styles.cardGradient}
-              >
-                {/* HEADER */}
-                <View style={styles.cardHeader}>
-                  <View style={styles.categoryContainer}>
-                    <View
-                      style={[
-                        styles.categoryIcon,
-                        {
-                          backgroundColor: isDarkMode
-                            ? '#2d3561'
-                            : '#667eea15',
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name="briefcase-outline"
-                        size={14}
-                        color="#667eea"
-                      />
-                    </View>
-
-                    <Text
-                      style={[
-                        styles.postCategory,
-                        isDarkMode && styles.textDark,
-                      ]}
-                    >
-                      {post.category}
-                    </Text>
-                  </View>
-
+              {/* HEADER */}
+              <View style={styles.cardHeader}>
+                <View style={styles.categoryContainer}>
                   <View
                     style={[
-                      styles.urgencyBadge,
-                      { backgroundColor: urgency.bg },
+                      styles.categoryIcon,
+                      isDarkMode && { backgroundColor: P.indigoSoftDark },
                     ]}
                   >
                     <Ionicons
-                      name="alert-circle"
-                      size={12}
-                      color={urgency.color}
+                      name="briefcase"
+                      size={13}
+                      color={isDarkMode ? P.indigoLight : P.indigo}
                     />
-
-                    <Text
-                      style={[
-                        styles.urgencyText,
-                        { color: urgency.color },
-                      ]}
-                    >
-                      {urgency.text}
-                    </Text>
                   </View>
+
+                  <Text
+                    style={[styles.postCategory, isDarkMode && { color: P.indigoLight }]}
+                    numberOfLines={1}
+                  >
+                    {post.category}
+                  </Text>
                 </View>
 
-                {/* TITLE */}
-                <Text
-                  style={[
-                    styles.postTitle,
-                    isDarkMode && styles.textDark,
-                  ]}
-                >
-                  {post.title}
-                </Text>
+                <View style={[styles.urgencyBadge, { backgroundColor: urgency.bg }]}>
+                  <Ionicons name={urgency.icon} size={11} color={urgency.color} />
+                  <Text style={[styles.urgencyText, { color: urgency.color }]}>
+                    {urgency.text}
+                  </Text>
+                </View>
+              </View>
 
-                {/* DESCRIPTION */}
-                <Text
-                  numberOfLines={2}
-                  style={[
-                    styles.postDescription,
-                    isDarkMode && styles.textMutedDark,
-                  ]}
-                >
+              {/* TITLE */}
+              <Text style={[styles.postTitle, isDarkMode && styles.textDark]}>
+                {post.title}
+              </Text>
+
+              {/* DESCRIPTION — full content */}
+              {post.description ? (
+                <Text style={[styles.postDescription, isDarkMode && styles.textMutedDark]}>
                   {post.description}
                 </Text>
+              ) : null}
 
-                {/* IMAGE */}
-                {imageUrl && (
-                  <Image
-                    source={{ uri: imageUrl }}
-                    style={styles.postImage}
+              {/* IMAGE */}
+              {imageUrl && (
+                <Image source={{ uri: imageUrl }} style={styles.postImage} />
+              )}
+
+              {/* META ROW */}
+              <View style={[styles.postFooter, isDarkMode && styles.postFooterDark]}>
+                <View
+                  style={[
+                    styles.metaPill,
+                    isDarkMode && { backgroundColor: P.slate900, borderColor: P.slate700 },
+                  ]}
+                >
+                  <Ionicons
+                    name="calendar-outline"
+                    size={12}
+                    color={isDarkMode ? P.slate400 : P.slate500}
                   />
-                )}
-
-                {/* FOOTER */}
-                <View style={styles.postFooter}>
-                  <View style={styles.footerItem}>
-                    <Ionicons
-                      name="calendar-outline"
-                      size={14}
-                      color="#6B7280"
-                    />
-
-                    <Text
-                      style={[
-                        styles.footerText,
-                        isDarkMode && styles.textMutedDark,
-                      ]}
-                    >
-                      {post.date}
-                    </Text>
-                  </View>
-
-                  <View style={styles.footerItem}>
-                    <Ionicons
-                      name="time-outline"
-                      size={14}
-                      color="#6B7280"
-                    />
-
-                    <Text
-                      style={[
-                        styles.footerText,
-                        isDarkMode && styles.textMutedDark,
-                      ]}
-                    >
-                      {post.timeAgo}
-                    </Text>
-                  </View>
+                  <Text style={[styles.footerText, isDarkMode && styles.textMutedDark]}>
+                    {post.date}
+                  </Text>
                 </View>
 
-                {/* ─── ACTION BUTTONS (SMALLER & SIMPLER) ─── */}
-                <View style={styles.actionButtons}>
-                  {/* EDIT */}
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.editBtn, isDarkMode && styles.editBtnDark]}
-                    onPress={() => handleEditPost(post)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="create-outline" size={16} color="#667eea" />
-                    <Text style={[styles.actionBtnText, styles.editBtnText]}>Edit</Text>
-                  </TouchableOpacity>
-
-                  {/* DELETE */}
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.deleteBtn, isDarkMode && styles.deleteBtnDark]}
-                    onPress={() => handleDeletePost(post)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                    <Text style={[styles.actionBtnText, styles.deleteBtnText]}>Delete</Text>
-                  </TouchableOpacity>
-
-                  {/* RESPONSES */}
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.responsesBtn, isDarkMode && styles.responsesBtnDark]}
-                    onPress={() => handleViewResponses(post)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="people-outline" size={16} color="#10B981" />
-                    <Text style={[styles.actionBtnText, styles.responsesBtnText]}>
-                      Responses {post.responseCount > 0 ? `(${post.responseCount})` : ''}
-                    </Text>
-                  </TouchableOpacity>
+                <View
+                  style={[
+                    styles.metaPill,
+                    isDarkMode && { backgroundColor: P.slate900, borderColor: P.slate700 },
+                  ]}
+                >
+                  <Ionicons
+                    name="time-outline"
+                    size={12}
+                    color={isDarkMode ? P.slate400 : P.slate500}
+                  />
+                  <Text style={[styles.footerText, isDarkMode && styles.textMutedDark]}>
+                    {post.timeAgo}
+                  </Text>
                 </View>
-              </LinearGradient>
+              </View>
+
+              {/* ACTION BUTTONS */}
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.editBtn, isDarkMode && styles.editBtnDark]}
+                  onPress={() => handleEditPost(post)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons
+                    name="create-outline"
+                    size={15}
+                    color={isDarkMode ? P.indigoLight : P.indigo}
+                  />
+                  <Text style={[styles.actionBtnText, isDarkMode && { color: P.indigoLight }]}>
+                    Edit
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.deleteBtn, isDarkMode && styles.deleteBtnDark]}
+                  onPress={() => handleDeletePost(post)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={15}
+                    color={isDarkMode ? P.roseLight : P.rose}
+                  />
+                  <Text style={[styles.actionBtnText, isDarkMode && { color: P.roseLight }]}>
+                    Delete
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.responsesBtn, isDarkMode && styles.responsesBtnDark]}
+                  onPress={() => handleViewResponses(post)}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons
+                    name="people-outline"
+                    size={15}
+                    color={isDarkMode ? P.emeraldLight : P.emerald}
+                  />
+                  <Text style={[styles.actionBtnText, isDarkMode && { color: P.emeraldLight }]}>
+                    {post.responseCount > 0 ? `Responses (${post.responseCount})` : 'Responses'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           );
         })}
@@ -536,46 +575,36 @@ export default function FeedScreen({ navigation }) {
         {posts.length === 0 && (
           <View style={styles.emptyContainer}>
             <View
-              style={[
-                styles.emptyIcon,
-                isDarkMode && styles.emptyIconDark,
-              ]}
+              style={[styles.emptyIconWrap, isDarkMode && { backgroundColor: P.indigoSoftDark }]}
             >
               <Ionicons
                 name="newspaper-outline"
-                size={50}
-                color={isDarkMode ? '#2d3561' : '#D1D5DB'}
+                size={40}
+                color={isDarkMode ? P.indigoLight : P.indigo}
               />
             </View>
 
-            <Text
-              style={[
-                styles.emptyText,
-                isDarkMode && styles.textDark,
-              ]}
-            >
-              No Posts Yet
+            <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
+              No posts yet
             </Text>
 
-            <Text
-              style={[
-                styles.emptySubtext,
-                isDarkMode && styles.textMutedDark,
-              ]}
-            >
-              You haven't created any posts yet.
+            <Text style={[styles.emptySubtext, isDarkMode && styles.textMutedDark]}>
+              You haven't created any posts yet. Start by creating your first one.
             </Text>
 
             <TouchableOpacity
               style={styles.createPostButton}
               onPress={() => navigation.navigate('CreatePostScreen')}
+              activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#667eea', '#764ba2']}
+                colors={isDarkMode ? [P.indigoLight, P.indigo] : [P.indigo, P.indigoDeep]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
                 style={styles.createPostGradient}
               >
-                <Ionicons name="add" size={20} color="#fff" />
-                <Text style={styles.createPostText}>Create New Post</Text>
+                <Ionicons name="add" size={18} color={P.white} />
+                <Text style={styles.createPostText}>Create new post</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -589,44 +618,43 @@ export default function FeedScreen({ navigation }) {
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
+  container: { flex: 1, backgroundColor: P.slate50 },
+  containerDark: { backgroundColor: P.slate900 },
 
-  containerDark: {
-    backgroundColor: '#1a1a2e',
-  },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingTop: Platform.OS === 'ios' ? 12 : 16,
-  },
-
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-
-  backButton: {
-    width: 44,
-    height: 44,
+  headerActionBtn: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
+  // ── Summary strip ──
+  summaryStrip: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: P.white,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderColor: P.slate200,
+  },
+  summaryStripDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
+  summaryLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  summaryText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.1,
+  },
+  summaryHint: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: P.slate500,
   },
 
   content: {
@@ -634,274 +662,257 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
 
+  // ── Post card ──
   postCard: {
-    marginBottom: 16,
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    backgroundColor: P.white,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#64748B',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
   },
-
-  postCardDark: {
-    backgroundColor: '#16213e',
-  },
-
-  cardGradient: {
-    padding: 16,
-    borderRadius: 20,
-  },
+  postCardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
 
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
+    gap: 10,
   },
-
   categoryContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
   },
-
   categoryIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 8,
+    backgroundColor: P.indigoSoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   postCategory: {
-    fontSize: 12,
-    color: '#667eea',
-    fontWeight: '600',
+    fontSize: 11.5,
+    color: P.indigo,
+    fontWeight: '700',
+    letterSpacing: 0.1,
+    flexShrink: 1,
   },
-
   urgencyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 10,
     gap: 4,
   },
-
   urgencyText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.1,
   },
 
   postTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.2,
+    lineHeight: 21,
     marginBottom: 6,
   },
 
   postDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
+    fontSize: 13,
+    color: P.slate600,
+    lineHeight: 19,
     marginBottom: 12,
+    fontWeight: '500',
   },
 
   postImage: {
     width: '100%',
-    height: 160,
+    height: 180,
     borderRadius: 12,
     marginBottom: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: P.slate100,
   },
 
+  // ── Meta row ──
   postFooter: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 16,
-    paddingTop: 12,
+    gap: 6,
+    marginBottom: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: P.slate100,
   },
-
-  footerItem: {
+  postFooterDark: { borderTopColor: P.slate700 },
+  metaPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    backgroundColor: P.slate100,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: P.slate200,
   },
-
   footerText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: P.slate600,
+    fontWeight: '700',
   },
 
-  // ─── ACTION BUTTONS (SMALLER & SIMPLER) ────────────────
+  // ── Action buttons ──
   actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 6,
-    marginTop: 2,
   },
-
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    paddingVertical: 6,
-    borderRadius: 20,
+    height: 40,
+    borderRadius: 10,
     borderWidth: 1,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 1,
-    elevation: 0,
   },
-
   actionBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11.5,
+    fontWeight: '800',
+    letterSpacing: -0.1,
   },
 
-  // Edit button
+  // Edit
   editBtn: {
-    borderColor: '#667eea',
-    backgroundColor: '#EEF2FF',
+    borderColor: P.indigo,
+    backgroundColor: P.indigoSoft,
   },
   editBtnDark: {
-    borderColor: '#818cf8',
-    backgroundColor: '#242f4d',
-  },
-  editBtnText: {
-    color: '#667eea',
+    borderColor: P.indigo,
+    backgroundColor: P.indigoSoftDark,
   },
 
-  // Delete button
+  // Delete
   deleteBtn: {
     borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: P.roseSoft,
   },
   deleteBtnDark: {
-    borderColor: '#F87171',
-    backgroundColor: '#242f4d',
-  },
-  deleteBtnText: {
-    color: '#EF4444',
+    borderColor: P.roseDark,
+    backgroundColor: P.roseSoftDark,
   },
 
-  // Responses button
+  // Responses
   responsesBtn: {
     borderColor: '#6EE7B7',
-    backgroundColor: '#ECFDF5',
+    backgroundColor: P.emeraldSoft,
   },
   responsesBtnDark: {
-    borderColor: '#34D399',
-    backgroundColor: '#242f4d',
-  },
-  responsesBtnText: {
-    color: '#10B981',
+    borderColor: P.emeraldDark,
+    backgroundColor: P.emeraldSoftDark,
   },
 
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 60,
-    paddingBottom: 40,
-  },
-
-  emptyIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-
-  emptyIconDark: {
-    backgroundColor: '#16213e',
-  },
-
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-
-  emptySubtext: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-
-  createPostButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-
-  createPostGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    gap: 8,
-  },
-
-  createPostText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  loadingText: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-
+  // ── Empty / loading / not logged in ──
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 30,
   },
+  loadingRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: P.indigoSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  loadingText: {
+    fontSize: 13.5,
+    color: P.slate500,
+    fontWeight: '600',
+  },
 
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 50,
+    paddingBottom: 40,
+  },
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: P.indigoSoft,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 16,
+    fontSize: 17,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.2,
+    marginBottom: 6,
   },
-
   emptySubtext: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 13.5,
+    color: P.slate500,
     textAlign: 'center',
-    marginTop: 8,
+    lineHeight: 19,
+    paddingHorizontal: 12,
+    marginBottom: 20,
+    fontWeight: '500',
   },
 
-  textDark: {
-    color: '#fff',
+  createPostButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: P.indigo,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  createPostGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 8,
+    minHeight: 46,
+  },
+  createPostText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: P.white,
+    letterSpacing: 0.1,
   },
 
-  textMutedDark: {
-    color: '#9CA3AF',
-  },
+  // ── Utility ──
+  textDark: { color: P.slate50 },
+  textMutedDark: { color: P.slate400 },
 });

@@ -1,7 +1,14 @@
+import { AUTH_SERVICE_URL } from '../../config';
+import { attachProviderIdentity, providerDisplayName } from '../../utils/providerIdentity';
+import { useNotification } from '../../context/NotificationContext';
+import { useChat } from '../../context/ChatContext';
+import { openProviderConversation } from '../../utils/seekerChat';
+import { buildSeekerSessions, seekerSessionGuidance, seekerSessionOrigin, recordId } from '../../utils/seekerSessions';
 import PageHeader from '../../components/PageHeader';
 import RequestedTimeModal from './components/RequestedTimeModal';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import {
+  Image,
   ActivityIndicator,
   Alert,
   Modal,
@@ -25,11 +32,12 @@ import { useTheme } from '../../hooks/useTheme';
 import { COLORS, toneColors } from './theme';
 import { getStoredSeekerAuth } from './services/seekerAuthStorage';
 import {
-  createSeekerRescheduleSuggestion,
+  getSeekerProviderDirectory,
   getProviderQuotationsForSeeker,
   getSeekerBookings,
   getSeekerRequestQuotations,
-} from './services/myJobsApi';
+} from './services/seekerSessionApi';
+import { createSeekerRescheduleSuggestion } from './services/myJobsApi';
 
 const getRecordSessionId = (item) => String(
   item?.sessionId || item?.externalSessionId || item?.serviceSessionId || ''
@@ -103,19 +111,10 @@ const getLocation = (session) => {
   return 'Location not available';
 };
 
-const getProviderNameFromRequest = (request) => {
-  const provider = request?.provider || request?.providerId || request?.providerSnapshot;
-
-  return (
-    request?.providerName ||
-    request?.businessName ||
-    request?.providerSnapshot?.businessName ||
-    request?.providerSnapshot?.name ||
-    provider?.businessName ||
-    provider?.name ||
-    provider?.fullName ||
-    (provider?._id || provider?.id || provider ? `Provider · ${shortId(provider?._id || provider?.id || provider)}` : 'Provider')
-  );
+const getProviderNameFromRequest = providerDisplayName;
+const providerPhoto = request => {
+  const photo = request.providerSnapshot?.profileImage || request.provider?.profileImage || request.providerId?.profileImage;
+  return typeof photo === 'string' && photo ? (/^https?:\/\//i.test(photo) ? photo : `${AUTH_SERVICE_URL}/${photo.replace(/\\/g, '/').replace(/^\/+/, '')}`) : null;
 };
 
 const getProviderNameFromQuote = (quote) => {
@@ -127,6 +126,8 @@ const getProviderNameFromQuote = (quote) => {
     quote?.provider?.businessName ||
     quote?.provider?.name ||
     quote?.provider?.fullName ||
+    quote?.providerId?.businessName ||
+    quote?.providerId?.name ||
     'Provider'
   );
 };
@@ -179,10 +180,12 @@ function InfoRow({ icon, label, value, isDarkMode }) {
   );
 }
 
-function SectionCard({ title, icon, count, children, isDarkMode }) {
+function SectionCard({ title, icon, count, children, isDarkMode, defaultOpen = true }) {
+  const [expanded, setExpanded] = useState(defaultOpen);
+  useEffect(() => { setExpanded(defaultOpen); }, [defaultOpen]);
   return (
     <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
-      <View style={styles.sectionHeader}>
+      <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded }} accessibilityLabel={title} onPress={() => setExpanded(value => !value)} style={styles.sectionHeader}>
         <View style={styles.sectionTitleRow}>
           <MaterialIcons name={icon} size={21} color={COLORS.primary} />
           <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
@@ -195,15 +198,21 @@ function SectionCard({ title, icon, count, children, isDarkMode }) {
             <Text style={[styles.sectionCountText, isDarkMode && styles.accentTextDark]}>{count}</Text>
           </View>
         ) : null}
-      </View>
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
+      </TouchableOpacity>
 
-      {children}
+      {expanded ? children : null}
     </View>
   );
 }
 
 export default function SeekerServiceSessionDetailsScreen({ navigation, route }) {
+  const { socket } = useNotification() || {};
   const { isDarkMode } = useTheme();
+  const { createOrGetChat } = useChat();
+  const [activityExpanded, setActivityExpanded] = useState(false);
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [openingChat, setOpeningChat] = useState(false);
   const initialSession = route?.params?.session || {};
   const sessionId = route?.params?.sessionId || initialSession?.sessionId;
   const [timeRequest, setTimeRequest] = useState(null);
@@ -211,11 +220,21 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   const [selectedQuoteId, setSelectedQuoteId] = useState(null);
   const [comparisonVisible, setComparisonVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [rescheduleVisible, setRescheduleVisible] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [rescheduleVisible, setRescheduleVisible] = useState(Boolean(route?.params?.showReschedule));
   const [rescheduleDate, setRescheduleDate] = useState(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  const [rescheduleAlternatives, setRescheduleAlternatives] = useState([]);
+  const [rescheduleError, setRescheduleError] = useState('');
+  useEffect(() => { setRescheduleAlternatives([]); setRescheduleError(''); }, [rescheduleDate, rescheduleVisible]);
   const [rescheduleNote, setRescheduleNote] = useState('');
   const [pickerMode, setPickerMode] = useState(null);
   const [submittingReschedule, setSubmittingReschedule] = useState(false);
+
+  useEffect(() => {
+    setSession(route?.params?.session || {});
+    setSelectedQuoteId(null);
+    setComparisonVisible(false);
+  }, [sessionId, route?.params?.notificationId]);
 
   const loadRelatedData = useCallback(async () => {
     if (!sessionId) return;
@@ -223,35 +242,44 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
       setRefreshing(true);
       const auth = await getStoredSeekerAuth();
       if (!auth?.seekerId) return;
-      const [requestResult, quoteResult, bookingResult] = await Promise.all([
-        getSeekerRequestQuotations(auth.seekerId),
-        getProviderQuotationsForSeeker(),
-        getSeekerBookings(auth.seekerId),
+      const results = await Promise.allSettled([
+        getSeekerRequestQuotations(auth.seekerId), getProviderQuotationsForSeeker(), getSeekerBookings(auth.seekerId), getSeekerProviderDirectory(),
       ]);
-      const allRequests = requestResult?.requests || [];
-      const requests = allRequests.filter((item) => getRecordSessionId(item) === String(sessionId));
-      const requestIds = new Set(requests.map(getRequestId));
-      const quotations = (quoteResult?.quotations || []).filter((item) => (
-        getRecordSessionId(item) === String(sessionId) || requestIds.has(getQuoteRequestId(item))
-      ));
-      const bookings = (bookingResult?.bookings || []).filter((item) => getRecordSessionId(item) === String(sessionId));
-      setSession((current) => ({
-        ...current,
-        sessionId,
-        requests,
-        quotations,
-        bookings,
-        booking: bookings[0] || current?.booking || null,
-      }));
+      const failed = results.some(r => r.status === 'rejected' || r.value?.raw === null);
+      setLoadError(failed ? 'Some updates are unavailable. Showing the latest information loaded; refresh before confirming a change.' : null);
+      setSession(current => {
+        const keys = ['requests', 'quotations', 'bookings'];
+        const sources = {};
+        results.slice(0, 3).forEach((result, i) => { sources[keys[i]] = result.status === 'fulfilled' && result.value?.raw !== null ? result.value[keys[i]] || [] : current[keys[i]] || []; });
+        const directory = results[3]?.status === 'fulfilled' ? results[3].value : [];
+        sources.requests = sources.requests.map(request => attachProviderIdentity(request, directory));
+        const grouped = buildSeekerSessions(sources);
+        const knownRequests = new Set((current.requests || []).map(recordId));
+        const found = grouped.find(item => item.sessionId === String(sessionId) ||
+          (current.booking && item.bookings.some(b => recordId(b) === recordId(current.booking))) ||
+          item.requests.some(r => knownRequests.has(recordId(r))));
+        return found ? { ...current, ...found } : current;
+      });
+    } catch (error) {
+      setLoadError(error.message || 'Unable to refresh this session.');
     } finally {
       setRefreshing(false);
     }
-  }, [sessionId]);
+  }, [sessionId, route?.params?.notificationId]);
 
-  useFocusEffect(useCallback(() => { loadRelatedData(); }, [loadRelatedData]));
+  useFocusEffect(useCallback(() => {
+    loadRelatedData();
+    const timer = setInterval(loadRelatedData, 15000);
+    const onUpdate = item => { if (item?.type === 'booking' || item?.type === 'quote') loadRelatedData(); };
+    socket?.on('notification', onUpdate);
+    return () => { clearInterval(timer); socket?.off('notification', onUpdate); };
+  }, [loadRelatedData, socket]));
   const requests = Array.isArray(session.requests) ? session.requests : [];
   const quotations = Array.isArray(session.quotations) ? session.quotations : [];
   const booking = session.booking || null;
+  const guidance = seekerSessionGuidance(session);
+  const canReschedule = booking && !booking.pendingRescheduleId && !loadError && ['EXPIRED', 'CONFIRMED', 'RESCHEDULED', 'ON_THE_WAY', 'IN_PROGRESS', 'DELAY_REPORTED', 'RESCHEDULING_REQUIRED'].includes(String(booking.bookingStatus || booking.status).toUpperCase());
+  const canSelectQuote = quote => !booking && !loadError && !['REJECTED', 'CANCELLED', 'EXPIRED'].includes(String(quote.status).toUpperCase()) && quote.coordinationId && ['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus || quote.coordinationDecision);
 
   const sortedQuotes = useMemo(() => {
     return [...quotations].sort((a, b) => Number(getQuotePrice(a)) - Number(getQuotePrice(b)));
@@ -276,7 +304,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   };
 
   const handleSmartReviewQuote = (quote) => {
-    if (!quote.coordinationId || !['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus)) {
+    if (!canSelectQuote(quote)) {
       const message = 'This offer is not ready for confirmation. The provider must finish validation or ask you to choose a new time.';
       if (Platform.OS === 'web') window.alert(message); else Alert.alert('Offer pending', message);
       return;
@@ -285,8 +313,9 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   };
 
   const submitReschedule = async () => {
+    if (submittingReschedule) return;
     const quote = sortedQuotes.find((item) => String(item?.status || '').toUpperCase() === 'ACCEPTED') || sortedQuotes[0];
-    if (!booking?._id && !booking?.id) {
+    if (!canReschedule || (!booking?._id && !booking?.id)) {
       Alert.alert('Booking required', 'A reschedule suggestion can be sent after a booking is confirmed.');
       return;
     }
@@ -311,16 +340,28 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
       Alert.alert('Suggestion sent', 'The provider must review and confirm the new time. Your booking has not been changed yet.');
       await loadRelatedData();
     } catch (error) {
-      Alert.alert('Unable to suggest reschedule', error?.message || 'Please try again.');
+      setRescheduleError(error?.message || 'Please try again.');
+      setRescheduleAlternatives(Array.isArray(error?.data?.suggestedSlots) ? error.data.suggestedSlots : []);
     } finally {
       setSubmittingReschedule(false);
     }
+  };
+
+  const contactProvider = async () => {
+    if (openingChat || !booking) return;
+    setOpeningChat(true);
+    try {
+      const auth = await getStoredSeekerAuth();
+      await openProviderConversation({ navigation, createOrGetChat, seekerId: auth.seekerId, providerId: booking.providerId, providerName: booking.providerSnapshot?.name || booking.providerSnapshot?.businessName });
+    } catch (error) { if (Platform.OS === 'web') window.alert(error.message); else Alert.alert('Unable to open chat', error.message); }
+    finally { setOpeningChat(false); }
   };
 
   const handleOpenQuote = (quote) => {
     navigation.navigate('IT22129376QuoteDetails', {
       quote,
       quotationId: quote?._id || quote?.id || quote?.externalQuotationId,
+      bookingLinked: Boolean(booking),
       sessionId: session.sessionId,
     });
   };
@@ -337,8 +378,8 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
 
       <DetailsHeader
         isDarkMode={isDarkMode}
-        title="Request Details"
-        subtitle="Service session, provider requests and quotations"
+        title="Service Session"
+        subtitle="Your task, progress and next steps"
       />
 
 
@@ -355,7 +396,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           </Text>
 
           <Text style={[styles.mainSubtitle, isDarkMode && styles.textMutedDark]}>
-            Service Session ID: {String(session.sessionId || '')}
+            Started from: {seekerSessionOrigin(session).label}
           </Text>
 
           <View style={styles.chipRow}>
@@ -363,9 +404,9 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
               <Text style={styles.chipText}>{getCategory(session)}</Text>
             </View>
 
-            <View style={styles.chip}>
+            {getSubcategory(session) !== getTitle(session) && getSubcategory(session) !== getCategory(session) ? <View style={styles.chip}>
               <Text style={styles.chipText}>{getSubcategory(session)}</Text>
-            </View>
+            </View> : null}
           </View>
 
           <InfoRow
@@ -377,11 +418,15 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
 
           <InfoRow
             icon="time-outline"
-            label="Preferred Time"
-            value={formatDateTime(session.preferredStartTime || session.proposedStartTime)}
+            label={booking ? "Confirmed start" : "Requested start"}
+            value={formatDateTime(booking?.scheduledStartTime || session.preferredStartTime || session.proposedStartTime)}
             isDarkMode={isDarkMode}
           />
 
+          <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: detailsExpanded }} onPress={() => setDetailsExpanded(value => !value)} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingVertical: 10 }}>
+            <Text style={[styles.descriptionTitle, isDarkMode && styles.textDark]}>Task details</Text><Ionicons name={detailsExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
+          </TouchableOpacity>
+          {detailsExpanded && <>
           <InfoRow
             icon="calendar-outline"
             label="Created Date"
@@ -400,10 +445,30 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
               </Text>
             </View>
           ) : null}
+          </>}
         </View>
 
+        {loadError ? <Text accessibilityRole="alert" style={[styles.emptyText, isDarkMode && styles.textMutedDark]}>{loadError}</Text> : null}
+        <View style={[styles.sectionCard, isDarkMode && styles.sectionCardDark]}>
+          <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>{guidance.title}</Text>
+          <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Next: {guidance.owner}</Text>
+          <Text style={[styles.descriptionText, isDarkMode && styles.textMutedDark]}>{guidance.message}</Text>
+          {booking ? <>
+            <View style={{ marginTop: 14, gap: 8 }}>
+              <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Scheduled start: {booking.scheduledStartTime ? new Date(booking.scheduledStartTime).toLocaleString() : 'Not scheduled'}</Text>
+              {booking.actualStartTime ? <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Work started: {new Date(booking.actualStartTime).toLocaleString()}</Text> : null}
+              {booking.scheduledEndTime ? <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Planned finish: {new Date(booking.scheduledEndTime).toLocaleString()}</Text> : null}
+              {booking.delayInfo?.expectedEndTime ? <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Updated finish: {new Date(booking.delayInfo.expectedEndTime).toLocaleString()}</Text> : null}
+              {booking.delayInfo?.delayReason ? <Text style={[styles.descriptionText, isDarkMode && styles.textMutedDark]}>Delay update: {booking.delayInfo.delayReason}</Text> : null}
+            </View>
+            {(booking.timeline || []).length > 0 && <View style={{ marginTop: 16 }}><TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: activityExpanded }} onPress={() => setActivityExpanded(value => !value)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}><Text style={[styles.descriptionTitle, isDarkMode && styles.textDark]}>Service activity · {booking.timeline.length}</Text><Ionicons name={activityExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} /></TouchableOpacity>{activityExpanded && booking.timeline.slice().reverse().map((event, index) => <View key={event._id || index} style={{ paddingVertical: 8 }}><Text style={[styles.descriptionText, isDarkMode && styles.textDark]}>{event.message || String(event.status || '').replace(/_/g, ' ')}</Text>{event.at && <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>{new Date(event.at).toLocaleString()}</Text>}</View>)}</View>}
+
+            {booking.providerId && <TouchableOpacity disabled={openingChat} style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark]} onPress={contactProvider}><Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>{openingChat ? 'Opening conversation…' : 'Message Provider'}</Text></TouchableOpacity>}
+          </> : null}
+        </View>
         <SectionCard
-          title="Requested Providers"
+          title="Provider requests"
+          defaultOpen={!booking || requests.some(row => row.rescheduleRequestedAt && ['pending', 'quoted'].includes(String(row.status).toLowerCase()))}
           icon="groups"
           count={requests.length}
           isDarkMode={isDarkMode}
@@ -419,7 +484,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                 style={[styles.providerRow, isDarkMode && styles.providerRowDark]}
               >
                 <View style={[styles.providerIcon, isDarkMode && styles.providerIconDark]}>
-                  <Ionicons name="person-outline" size={19} color={COLORS.primary} />
+                  {providerPhoto(request) ? <Image source={{ uri: providerPhoto(request) }} style={{ width: 42, height: 42, borderRadius: 21 }} /> : <Ionicons name="person-outline" size={19} color={COLORS.primary} />}
                 </View>
 
                 <View style={{ flex: 1 }}>
@@ -428,12 +493,13 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                   </Text>
 
                   <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>
-                    {String(request?.status || 'pending').toLowerCase() === 'pending' ? 'Request Sent' : `Status: ${request?.status}`}
+                    {{ pending: 'Waiting for quotation', quoted: 'Quotation received', accepted: 'Quotation accepted', rejected: 'Request declined', cancelled: 'Request cancelled', expired: 'Request expired' }[String(request?.status || 'pending').toLowerCase()] || 'Request under review'}
                   </Text>
                   <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>
                     Requested start: {formatDateTime(request.preferredStartTime)}
                   </Text>
-                  {request.rescheduleRequestedAt ? <>
+                  {request.providerSnapshot?.district ? <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>{request.providerSnapshot.district}</Text> : null}
+                  {!booking && request.rescheduleRequestedAt && ['pending', 'quoted'].includes(String(request.status).toLowerCase()) ? <>
                     <Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>Provider requested a new time: {request.rescheduleReason}</Text>
                     <TouchableOpacity onPress={() => setTimeRequest(request)} style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark]}><Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>Choose New Date & Time</Text></TouchableOpacity>
                   </> : null}
@@ -446,7 +512,8 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
         </SectionCard>
 
         <SectionCard
-          title="Received Quotations"
+          title="Quotations"
+          defaultOpen={!booking}
           icon="request-quote"
           count={sortedQuotes.length}
           isDarkMode={isDarkMode}
@@ -524,7 +591,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                   <View style={[styles.quoteFooter, isDarkMode && styles.quoteFooterDark]}>
                     <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
                       <Text style={[styles.statusText, { color: tone.text }]}>
-                        {quote?.coordinationDecision || quote?.coordinationStatus || quote?.status || 'SENT'}
+                        {['REJECTED', 'EXPIRED', 'CANCELLED'].includes(String(quote.status).toUpperCase()) ? 'Offer closed' : String(quote.status).toUpperCase() === 'ACCEPTED' ? 'Price accepted' : canSelectQuote(quote) ? 'Ready to review' : 'Availability pending'}
                       </Text>
                     </View>
 
@@ -536,13 +603,13 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
                     accessibilityState={{ checked: selectedQuoteId === quoteId(quote) }}
                     accessibilityLabel={`Select quotation from ${getProviderNameFromQuote(quote)}`}
                     style={styles.selectionButton}
-                    onPress={() => setSelectedQuoteId(quoteId(quote))}
+                    disabled={!canSelectQuote(quote)} onPress={() => setSelectedQuoteId(quoteId(quote))}
                   >
                     <Ionicons name={selectedQuoteId === quoteId(quote) ? 'radio-button-on' : 'radio-button-off'} size={22} color={COLORS.primary} />
                     <Text style={[styles.quoteMetaText, isDarkMode && styles.textDark]}>{selectedQuoteId === quoteId(quote) ? 'Selected for review' : 'Select this quotation'}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark]} onPress={() => handleSmartReviewQuote(quote)}>
-                    <Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>Select & Continue to Confirmation</Text>
+                  <TouchableOpacity disabled={!canSelectQuote(quote)} style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark, !canSelectQuote(quote) && { opacity: 0.5 }]} onPress={() => handleSmartReviewQuote(quote)}>
+                    <Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>{booking ? 'Booking already linked' : canSelectQuote(quote) ? 'Review & Confirm Booking' : 'Awaiting availability / offer closed'}</Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
               );
@@ -566,7 +633,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           {comparisonVisible && canCompare ? (
             <ScrollView horizontal style={{ marginTop: 16 }}>
               {sortedQuotes.map((quote) => (
-                <TouchableOpacity key={quoteId(quote)} style={[styles.comparisonColumn, isDarkMode && styles.quoteCardDark, selectedQuoteId === quoteId(quote) && styles.selectedColumn]} onPress={() => setSelectedQuoteId(quoteId(quote))} accessibilityRole="radio" accessibilityState={{ checked: selectedQuoteId === quoteId(quote) }}>
+                <TouchableOpacity key={quoteId(quote)} style={[styles.comparisonColumn, isDarkMode && styles.quoteCardDark, selectedQuoteId === quoteId(quote) && styles.selectedColumn]} disabled={!canSelectQuote(quote)} onPress={() => setSelectedQuoteId(quoteId(quote))} accessibilityRole="radio" accessibilityState={{ checked: selectedQuoteId === quoteId(quote) }}>
                   <Text style={[styles.quoteProvider, isDarkMode && styles.textDark]}>{getProviderNameFromQuote(quote)}</Text>
                   <Text style={[styles.quoteMetaText, isDarkMode && styles.textDark]}>{formatMoney(getQuotePrice(quote))}</Text>
                   <Text style={[styles.quoteNote, isDarkMode && styles.textMutedDark]}>Proposed start: {formatDateTime(quote.proposedStartTime)}</Text>
@@ -577,7 +644,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
               ))}
             </ScrollView>
           ) : null}
-          {selectedQuote ? (
+          {selectedQuote && canSelectQuote(selectedQuote) ? (
             <TouchableOpacity style={styles.compareButton} onPress={() => handleSmartReviewQuote(selectedQuote)}>
               <Text style={styles.compareButtonText}>Continue with Selected Quotation</Text>
             </TouchableOpacity>
@@ -592,7 +659,8 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
 
         {booking ? (
           <SectionCard
-            title="Booking Status"
+            title="Booking details"
+            defaultOpen={false}
             icon="event-available"
             isDarkMode={isDarkMode}
           >
@@ -614,10 +682,10 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           </SectionCard>
         ) : null}
 
-        <TouchableOpacity style={[styles.rescheduleButton, !booking && styles.compareButtonDisabled]} onPress={() => booking ? setRescheduleVisible(true) : Alert.alert('Booking required', 'A confirmed booking is required before suggesting a reschedule.')}>
+        {canReschedule ? <TouchableOpacity style={styles.rescheduleButton} onPress={() => setRescheduleVisible(true)}>
           <Ionicons name="calendar-outline" size={19} color="#fff" />
-          <Text style={styles.compareButtonText}>Suggest Reschedule</Text>
-        </TouchableOpacity>
+          <Text style={styles.compareButtonText}>{booking?.bookingStatus === 'EXPIRED' ? 'Request a New Time' : 'Suggest a Different Time'}</Text>
+        </TouchableOpacity> : null}
 
         <View style={{ height: 110 }} />
       </ScrollView>
@@ -625,18 +693,30 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
       {timeRequest ? <RequestedTimeModal request={timeRequest} onClose={() => setTimeRequest(null)} onSaved={loadRelatedData} /> : null}
       <Modal visible={rescheduleVisible} transparent animationType="fade" onRequestClose={() => setRescheduleVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, isDarkMode && styles.sectionCardDark]}>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Suggest Reschedule</Text>
-            <Text style={[styles.modalHelp, isDarkMode && styles.textMutedDark]}>The provider will review this suggestion. It will not directly change the booking.</Text>
-            <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Suggested date</Text>
+          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: '90%', width: '100%', maxWidth: 520, alignSelf: 'center' }} contentContainerStyle={[styles.modalCard, isDarkMode && styles.sectionCardDark]}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Choose a new time</Text>
+            <Text style={[styles.modalHelp, isDarkMode && styles.textMutedDark]}>We check availability first. The provider must approve before your booking time changes.</Text>
+            <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Date</Text>
             <TouchableOpacity style={[styles.pickerButton, isDarkMode && styles.providerRowDark]} onPress={() => setPickerMode('date')}><Text style={[styles.infoValue, isDarkMode && styles.textDark]}>{rescheduleDate.toLocaleDateString()}</Text></TouchableOpacity>
-            <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Suggested time</Text>
+            <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Time</Text>
             <TouchableOpacity style={[styles.pickerButton, isDarkMode && styles.providerRowDark]} onPress={() => setPickerMode('time')}><Text style={[styles.infoValue, isDarkMode && styles.textDark]}>{rescheduleDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text></TouchableOpacity>
-            {pickerMode ? <DateTimePicker value={rescheduleDate} mode={pickerMode} minimumDate={pickerMode === 'date' ? new Date() : undefined} onChange={(event, value) => { setPickerMode(null); if (value) setRescheduleDate((current) => { const next = new Date(current); if (pickerMode === 'date') next.setFullYear(value.getFullYear(), value.getMonth(), value.getDate()); else next.setHours(value.getHours(), value.getMinutes(), 0, 0); return next; }); }} /> : null}
+            {pickerMode && Platform.OS !== 'web' ? <DateTimePicker value={rescheduleDate} mode={pickerMode} minimumDate={pickerMode === 'date' ? new Date() : undefined} onChange={(event, value) => { setPickerMode(null); if (value) setRescheduleDate((current) => { const next = new Date(current); if (pickerMode === 'date') next.setFullYear(value.getFullYear(), value.getMonth(), value.getDate()); else next.setHours(value.getHours(), value.getMinutes(), 0, 0); return next; }); }} /> : null}
             <Text style={[styles.infoLabel, isDarkMode && styles.textMutedDark]}>Note (optional)</Text>
+            {Platform.OS === 'web' && pickerMode ? React.createElement('input', {
+              type: pickerMode === 'date' ? 'date' : 'time',
+              'aria-label': pickerMode === 'date' ? 'New service date' : 'New service time',
+              value: pickerMode === 'date' ? `${rescheduleDate.getFullYear()}-${String(rescheduleDate.getMonth() + 1).padStart(2, '0')}-${String(rescheduleDate.getDate()).padStart(2, '0')}` : `${String(rescheduleDate.getHours()).padStart(2, '0')}:${String(rescheduleDate.getMinutes()).padStart(2, '0')}`,
+              onChange: event => {
+                if (!event.target.value) return;
+                const value = event.target.value;
+                setRescheduleDate(current => { const next = new Date(current); if (pickerMode === 'date') { const [y,m,d] = value.split('-').map(Number); next.setFullYear(y,m-1,d); } else { const [h,m] = value.split(':').map(Number); next.setHours(h,m,0,0); } return next; });
+              }, style: { padding: 12, marginBottom: 12, borderRadius: 10, width: '100%', boxSizing: 'border-box' },
+            }) : null}
+            {rescheduleError ? <Text accessibilityRole="alert" style={{ color: isDarkMode ? '#FCA5A5' : '#B91C1C', marginVertical: 10 }}>{rescheduleError}</Text> : null}
+            {rescheduleAlternatives.length > 0 ? <View style={{ gap: 8, marginVertical: 10 }}><Text style={[styles.descriptionTitle, isDarkMode && styles.textDark]}>Try an available time</Text>{rescheduleAlternatives.map(slot => <TouchableOpacity key={`${slot.date}:${slot.startTime}`} disabled={submittingReschedule} accessibilityRole="button" style={[styles.pickerButton, isDarkMode && styles.providerRowDark]} onPress={() => setRescheduleDate(new Date(`${slot.date}T${slot.startTime}:00+05:30`))}><Text style={[styles.infoValue, isDarkMode && styles.textDark]}>{formatDateTime(`${slot.date}T${slot.startTime}:00+05:30`)}</Text><Text style={[styles.providerMeta, isDarkMode && styles.textMutedDark]}>{slot.reason}</Text></TouchableOpacity>)}</View> : null}
             <TextInput style={[styles.noteInput, isDarkMode && styles.providerRowDark, isDarkMode && styles.textDark]} value={rescheduleNote} onChangeText={setRescheduleNote} placeholder="Why would you like a different time?" placeholderTextColor={isDarkMode ? COLORS.darkMuted : COLORS.muted} multiline />
-            <View style={styles.modalActions}><TouchableOpacity style={styles.modalCancel} onPress={() => setRescheduleVisible(false)}><Text style={[styles.modalCancelText, isDarkMode && styles.textMutedDark]}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.modalSubmit} onPress={submitReschedule} disabled={submittingReschedule}>{submittingReschedule ? <ActivityIndicator color="#fff" /> : <Text style={styles.compareButtonText}>Send Suggestion</Text>}</TouchableOpacity></View>
-          </View>
+            <View style={styles.modalActions}><TouchableOpacity style={styles.modalCancel} onPress={() => setRescheduleVisible(false)}><Text style={[styles.modalCancelText, isDarkMode && styles.textMutedDark]}>Cancel</Text></TouchableOpacity><TouchableOpacity style={styles.modalSubmit} onPress={submitReschedule} disabled={submittingReschedule}>{submittingReschedule ? <ActivityIndicator color="#fff" /> : <Text style={styles.compareButtonText}>Check & Send Request</Text>}</TouchableOpacity></View>
+          </ScrollView>
         </View>
       </Modal>
     </SafeAreaView>

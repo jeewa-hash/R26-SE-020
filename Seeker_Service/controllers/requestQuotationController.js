@@ -1,3 +1,4 @@
+import { publishLifecycleNotification } from '../utils/lifecycleNotifications.js';
 import mongoose from "mongoose";
 import axios from "axios";
 import RequestQuotation from "../models/RequestQuotation.js";
@@ -52,16 +53,18 @@ export const createRequestQuotation = async (req, res) => {
     let finalPostId = postId || null;
     const adLookupId = postId || providerId;
     let providerAdResolved = false;
+    let serviceContext = { category: detectedCategory, serviceType: req.body.serviceType || detectedCategory, taskName: req.body.taskName || detectedObject, source: 'Service request' };
 
     if (mongoose.Types.ObjectId.isValid(adLookupId)) {
       try {
-        const providerServiceUrl = (process.env.PROVIDER_SERVICE_URL || "http://127.0.0.1:3002").replace(/\/$/, "");
+        const providerServiceUrl = (process.env.PROVIDER_SERVICE_URL || "https://r26-se-020-production.up.railway.app").replace(/\/$/, "");
         const adResponse = await axios.get(`${providerServiceUrl}/api/provider/ads/${adLookupId}`, { timeout: 3000 });
         const maybePost = adResponse.data?.data || adResponse.data?.post || adResponse.data;
         if (maybePost?._id && maybePost?.providerId) {
           finalProviderId = maybePost.providerId?._id || maybePost.providerId;
           finalPostId = maybePost._id;
           providerAdResolved = true;
+          serviceContext = { category: maybePost.category || detectedCategory, serviceType: maybePost.serviceLabel || detectedCategory, taskName: maybePost.specificLabel || maybePost.serviceLabel || detectedObject, source: 'Provider post' };
         }
       } catch (lookupError) {
         if (postId) {
@@ -193,8 +196,9 @@ export const createRequestQuotation = async (req, res) => {
       providerId: finalProviderId,
       postId: finalPostId,
       sessionId,
-      detectedCategory,
-      detectedObject,
+      detectedCategory: serviceContext.category,
+      detectedObject: serviceContext.taskName,
+      serviceContext,
       modelConfidence,
       stepBreakdown,
       briefDescription,
@@ -211,12 +215,21 @@ export const createRequestQuotation = async (req, res) => {
       status: "pending",
     });
 
+    await publishLifecycleNotification({ recipientId: String(request.providerId), role: 'ServiceProvider', eventId: `request:${request._id}:created`, type: 'quote', title: 'New quotation request', message: 'A seeker requested your price. Review the service and requested time.', metadata: { providerRequestId: String(request._id) } });
+    await publishLifecycleNotification({
+      recipientId: String(request.seekerId), role: 'Seeker',
+      eventId: `request:${request._id}:sent`, type: 'quote',
+      title: 'Quotation request sent',
+      message: 'Your request has been sent to the provider. You will be notified when they respond.',
+      metadata: { providerRequestId: String(request._id), sessionId: request.sessionId ? String(request.sessionId) : undefined },
+    });
     return res.status(201).json({
       success: true,
       message: "Request quotation sent successfully",
       request,
     });
   } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ success: false, message: 'You have already requested a quotation from this provider for this service.' });
     console.error("CREATE REQUEST QUOTATION ERROR:", error);
 
     return res.status(500).json({
@@ -379,6 +392,9 @@ export const updateRequestStatus = async (req, res) => {
 
     request.status = status;
     await request.save();
+    if (['rejected', 'cancelled', 'expired'].includes(status)) {
+      await publishLifecycleNotification({ recipientId: String(request.seekerId), role: 'Seeker', eventId: `request:${request._id}:${status}`, type: 'quote', title: `Quotation request ${status}`, message: 'Your quotation request is closed. Review its details before requesting another provider.', metadata: { providerRequestId: String(request._id) } });
+    }
 
     return res.status(200).json({
       success: true,
@@ -497,7 +513,8 @@ export const deleteRequestQuotation = async (req, res) => {
 export const getProviderRecommendations = async (req, res) => {
   try {
     const { seekerId } = req.params;
-    const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:4003";
+    const AUTH_SERVICE_URL =
+      process.env.AUTH_SERVICE_URL || "https://r26-auth-service.onrender.com";
 
     if (!seekerId) {
       return res.status(400).json({
@@ -854,6 +871,7 @@ export const requestQuotationReschedule = async (req, res) => {
     request.rescheduleReason = String(req.body.reason || 'Please choose a different start time.').slice(0, 1000);
     request.rescheduleRequestedAt = new Date();
     await request.save();
+    await publishLifecycleNotification({ recipientId: String(request.seekerId), role: 'Seeker', eventId: `request:${request._id}:reschedule:${request.updatedAt?.toISOString()}`, type: 'quote', title: 'Choose a new service time', message: request.rescheduleReason, metadata: { providerRequestId: String(request._id) } });
     res.json({ success: true, request });
   } catch (error) { res.status(400).json({ message: error.message }); }
 };
@@ -872,6 +890,7 @@ export const updateQuotationRequestedTime = async (req, res) => {
     request.rescheduleReason = '';
     request.rescheduleRequestedAt = null;
     await request.save();
+    await publishLifecycleNotification({ recipientId: String(request.providerId), role: 'ServiceProvider', eventId: `request:${request._id}:time:${request.updatedAt?.toISOString()}`, type: 'quote', title: 'Requested time updated', message: 'The seeker chose a new time. Review availability before continuing.', metadata: { providerRequestId: String(request._id) } });
     let validationPending = false;
     if (request.status === 'quoted') {
       try {

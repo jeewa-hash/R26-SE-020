@@ -1,4 +1,6 @@
 import 'react-native-gesture-handler';
+import FindServiceScreen from './screens/FindServiceScreen';
+import SeekerServicesScreen from './screens/SeekerServicesScreen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
@@ -17,6 +19,7 @@ import VerifyOTPScreen from './screens/VerifyOTPScreen';
 import HomeScreen from './screens/HomeScreen';
 import FollowUpScreen from './screens/FollowUpScreen';
 import ProvidersScreen from './screens/ProvidersScreen';
+import CategoryProvidersScreen from './screens/CategoryProvidersScreen';
 import FeedScreen from './screens/FeedScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import CreatePostScreen from './screens/CreatePostScreen';
@@ -88,6 +91,8 @@ function AppNavigator({ initialRouteName }) {
         cardStyle: Platform.OS === 'web' ? { flex: 1, minHeight: 0, height: '100%' } : undefined,
       }}
     >
+      <Stack.Screen name="FindService" component={FindServiceScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="SeekerServices" component={SeekerServicesScreen} options={{ headerShown: false }} />
       {/* Authentication Screens */}
       <Stack.Screen
         name="Login"
@@ -154,6 +159,12 @@ function AppNavigator({ initialRouteName }) {
       <Stack.Screen
         name="ProvidersScreen"
         component={ProvidersScreen}
+        options={{ headerShown: false }}
+      />
+
+      <Stack.Screen
+        name="CategoryProvidersScreen"
+        component={CategoryProvidersScreen}
         options={{ headerShown: false }}
       />
 
@@ -391,9 +402,9 @@ export default function App() {
 
   useEffect(() => {
     const bootstrapLanguage = async () => {
-      await loadLanguage();
-
       try {
+        await loadLanguage();
+
         const token = await AsyncStorage.getItem('userToken');
         const role = await AsyncStorage.getItem('userRole');
 
@@ -405,9 +416,9 @@ export default function App() {
       } catch (err) {
         console.log('Error bootstrapping auth:', err);
         setInitialRouteName('Login');
+      } finally {
+        setBootstrapped(true);
       }
-
-      setBootstrapped(true);
     };
 
     bootstrapLanguage();

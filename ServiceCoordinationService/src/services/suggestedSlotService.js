@@ -1,35 +1,16 @@
 import { validateProviderSchedule } from "./scheduleValidationService.js";
 
-const pad = (value) => String(value).padStart(2, "0");
-
-const formatDateToYMD = (date) => {
-  const d = new Date(date);
-
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(
-    d.getDate()
-  )}`;
-};
-
-const formatDateToHHMM = (date) => {
-  const d = new Date(date);
-
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
+import { toScheduleParts } from "../utils/timeUtils.js";
 
 const addMinutes = (date, minutes) => {
   return new Date(new Date(date).getTime() + minutes * 60 * 1000);
 };
 
 const buildSlotLabel = (slotStart, originalStart) => {
-  const start = new Date(slotStart);
-  const original = new Date(originalStart);
-
-  const sameDate =
-    start.getFullYear() === original.getFullYear() &&
-    start.getMonth() === original.getMonth() &&
-    start.getDate() === original.getDate();
-
-  const hour = start.getHours();
+  const start = toScheduleParts(slotStart);
+  const original = toScheduleParts(originalStart);
+  const sameDate = start.date === original.date;
+  const hour = Number(start.time.split(":")[0]);
 
   if (sameDate && hour < 12) return "Same day morning";
   if (sameDate && hour < 17) return "Same day afternoon";
@@ -45,7 +26,7 @@ export const generateSuggestedSlots = async ({
   providerId,
   originalStartTime,
   finalSchedulingDurationHours,
-  bufferMinutes = 30,
+  bufferMinutes = 15,
   maxSuggestions = 3,
 }) => {
   const originalStart = new Date(originalStartTime);
@@ -83,9 +64,12 @@ export const generateSuggestedSlots = async ({
     const slotStart = addMinutes(originalStart, offset);
     const slotEnd = addMinutes(slotStart, durationMinutes);
 
-    const requestedDate = formatDateToYMD(slotStart);
-    const requestedStartTime = formatDateToHHMM(slotStart);
-    const requestedEndTime = formatDateToHHMM(slotEnd);
+    const startParts = toScheduleParts(slotStart);
+    const endParts = toScheduleParts(slotEnd);
+    if (startParts.date !== endParts.date) continue;
+    const requestedDate = startParts.date;
+    const requestedStartTime = startParts.time;
+    const requestedEndTime = endParts.time;
 
     const validation = await validateProviderSchedule({
       providerId,

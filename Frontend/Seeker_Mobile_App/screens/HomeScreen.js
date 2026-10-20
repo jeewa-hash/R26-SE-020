@@ -1,4 +1,7 @@
+import FeedScreen from './FeedScreen';
+import { startServiceSearch } from '../utils/serviceSearchApi';
 import React, { useContext, useState, useRef, useEffect } from 'react';
+import axios from 'axios';
 import {
   View,
   Text,
@@ -7,6 +10,7 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  SafeAreaView,
   LayoutAnimation,
   Platform,
   UIManager,
@@ -18,7 +22,6 @@ import {
   RefreshControl,
 } from 'react-native';
 import { MaterialIcons, Ionicons, Feather } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,7 +33,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import { useNotification } from '../context/NotificationContext';
-import { AUTH_SERVICE_URL, API_BASE_URL, CONFIG, IP_ADDRESS } from '../config';
+import { AUTH_SERVICE_URL, API_BASE_URL, CONFIG, IP_ADDRESS, IMAGE_CLASSIFIER_URL, TEXT_MODEL_URL } from '../config';
 import {
   getBookingEndDate,
   getBookingStartDate,
@@ -50,6 +53,46 @@ if (
 }
 
 const { width } = Dimensions.get('window');
+
+// ─────────────────────────────────────────────────────────────
+// Design tokens
+// ─────────────────────────────────────────────────────────────
+const P = {
+  indigo: '#4F46E5',
+  indigoDeep: '#4338CA',
+  indigoDarkest: '#312E81',
+  indigoSoft: '#EEF2FF',
+  indigoSoftDark: '#1E1B4B',
+  indigoLight: '#A5B4FC',
+  emerald: '#10B981',
+  emeraldSoft: '#ECFDF5',
+  emeraldSoftDark: '#064E3B',
+  emeraldLight: '#34D399',
+  amber: '#F59E0B',
+  amberDeep: '#D97706',
+  amberSoft: '#FEF3C7',
+  amberSoftDark: '#78350F',
+  amberLight: '#FBBF24',
+  rose: '#EF4444',
+  roseSoft: '#FEF2F2',
+  roseSoftDark: '#7F1D1D',
+  roseLight: '#FCA5A5',
+  violet: '#7C3AED',
+  blue: '#2563EB',
+  cyan: '#06B6D4',
+  slate950: '#020617',
+  slate900: '#0F172A',
+  slate800: '#1E293B',
+  slate700: '#334155',
+  slate600: '#475569',
+  slate500: '#64748B',
+  slate400: '#94A3B8',
+  slate300: '#CBD5E1',
+  slate200: '#E2E8F0',
+  slate100: '#F1F5F9',
+  slate50: '#F8FAFC',
+  white: '#FFFFFF',
+};
 
 const CATEGORIES = [
   {
@@ -91,13 +134,13 @@ const CATEGORIES = [
 ];
 
 const AVATAR_GRADIENTS = [
-  ['#4f46e5', '#7c3aed'], // Indigo - Violet
-  ['#059669', '#10b981'], // Emerald
-  ['#d97706', '#f59e0b'], // Amber
-  ['#e11d48', '#fb7185'], // Rose
-  ['#0284c7', '#38bdf8'], // Sky
-  ['#7c3aed', '#c084fc'], // Purple
-  ['#ea580c', '#fb923c'], // Orange
+  ['#4f46e5', '#7c3aed'],
+  ['#059669', '#10b981'],
+  ['#d97706', '#f59e0b'],
+  ['#e11d48', '#fb7185'],
+  ['#0284c7', '#38bdf8'],
+  ['#7c3aed', '#c084fc'],
+  ['#ea580c', '#fb923c'],
 ];
 
 const getAvatarGradient = (char) => {
@@ -105,6 +148,9 @@ const getAvatarGradient = (char) => {
   return AVATAR_GRADIENTS[code % AVATAR_GRADIENTS.length];
 };
 
+// ============================================================
+// Slideshow (unchanged logic)
+// ============================================================
 const Slideshow = ({ isDarkMode }) => {
   const navigation = useNavigation();
   const flatListRef = useRef();
@@ -113,7 +159,6 @@ const Slideshow = ({ isDarkMode }) => {
   const [loading, setLoading] = useState(true);
   const [failedImages, setFailedImages] = useState({});
 
-  // Fetch Recommended Providers for the Logged-in Seeker
   useEffect(() => {
     let isMounted = true;
 
@@ -136,10 +181,9 @@ const Slideshow = ({ isDarkMode }) => {
           console.log('Error fetching from authService recommendations, trying fallback:', e.message);
         }
 
-        // Fallback to Seeker_Service endpoint if needed
         if (!response || !response.success) {
           try {
-            const fallbackUrl = `http://${IP_ADDRESS}:6000/request-quotations/recommendations/seeker/${userId || 'guest'}`;
+            const fallbackUrl = `${API_BASE_URL}/request-quotations/recommendations/seeker/${userId || 'guest'}`;
             const res2 = await fetch(fallbackUrl, {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -151,7 +195,6 @@ const Slideshow = ({ isDarkMode }) => {
           }
         }
 
-        // Second Fallback: Fetch general providers list if recommendations empty
         if (!response || !response.recommendations || response.recommendations.length === 0) {
           try {
             const provRes = await fetch(`${AUTH_SERVICE_URL}/providers`);
@@ -215,11 +258,7 @@ const Slideshow = ({ isDarkMode }) => {
             );
             setSlides(onlyVerified);
           } else {
-            // Default seasonal data if completely offline
-            const defaultMock = getSlideshowData().map((s) => ({
-              ...s,
-              isMock: true,
-            }));
+            const defaultMock = getSlideshowData().map((s) => ({ ...s, isMock: true }));
             setSlides(defaultMock);
           }
           setLoading(false);
@@ -240,7 +279,6 @@ const Slideshow = ({ isDarkMode }) => {
     };
   }, []);
 
-  // Automatic slide interval
   useEffect(() => {
     if (slides.length <= 1) return;
 
@@ -248,17 +286,13 @@ const Slideshow = ({ isDarkMode }) => {
       if (flatListRef.current && slides.length > 0) {
         const nextIndex = (currentIndex + 1) % slides.length;
         setCurrentIndex(nextIndex);
-        flatListRef.current.scrollToIndex({
-          index: nextIndex,
-          animated: true,
-        });
+        flatListRef.current.scrollToIndex({ index: nextIndex, animated: true });
       }
     }, 4500);
 
     return () => clearInterval(interval);
   }, [currentIndex, slides.length]);
 
-  // Navigate directly to profileOfProvider
   const handleNavigateToProvider = (item) => {
     if (item.isMock) {
       navigation.navigate('SeasonalDemandsScreen');
@@ -327,7 +361,7 @@ const Slideshow = ({ isDarkMode }) => {
           />
         ) : (
           <LinearGradient
-            colors={isDarkMode ? ['#0f172a', '#1e1b4b'] : avatarGradientColors}
+            colors={isDarkMode ? [P.slate900, P.indigoSoftDark] : avatarGradientColors}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.slideImage}
@@ -339,35 +373,33 @@ const Slideshow = ({ isDarkMode }) => {
         )}
 
         <LinearGradient
-          colors={['rgba(0,0,0,0.2)', 'rgba(15,23,42,0.92)']}
+          colors={['rgba(0,0,0,0.1)', 'rgba(15,23,42,0.92)']}
           style={styles.slideOverlay}
         >
-          {/* Top Recommendation Tag & Rating */}
           <View style={styles.slideHeaderRow}>
             <View style={styles.slideTagPill}>
               <Text style={styles.slideTagText}>
-                {item.isTopCategory ? 'Top Category' : (item.district || 'Recommended')}
+                {item.isTopCategory ? '⭐ Top Category' : '📍 ' + (item.district || 'Recommended')}
               </Text>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {item.isVerified && (
                 <View style={styles.slideVerifiedPill}>
-                  <Ionicons name="checkmark-circle" size={13} color="#10B981" />
+                  <Ionicons name="checkmark-circle" size={12} color={P.emeraldLight} />
                   <Text style={styles.slideVerifiedText}>Verified</Text>
                 </View>
               )}
 
               {(item.hasRealRating || (item.rating && item.reviewsCount > 0)) && item.rating ? (
                 <View style={styles.slideRatingPill}>
-                  <Ionicons name="star" size={13} color="#FBBF24" />
+                  <Ionicons name="star" size={12} color={P.amberLight} />
                   <Text style={styles.slideRatingText}>{Number(item.rating).toFixed(1)}</Text>
                 </View>
               ) : null}
             </View>
           </View>
 
-          {/* Provider Details */}
           <View style={styles.slideContent}>
             <View style={styles.slideProviderRow}>
               {hasValidImage ? (
@@ -402,7 +434,8 @@ const Slideshow = ({ isDarkMode }) => {
               onPress={() => handleNavigateToProvider(item)}
               activeOpacity={0.85}
             >
-              <Text style={styles.slideButtonText}>Explore Now →</Text>
+              <Text style={styles.slideButtonText}>View profile</Text>
+              <Feather name="arrow-right" size={13} color={P.white} />
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -443,6 +476,9 @@ const Slideshow = ({ isDarkMode }) => {
   );
 };
 
+// ============================================================
+// ServiceCard
+// ============================================================
 const ServiceCard = ({
   category,
   expanded,
@@ -470,13 +506,13 @@ const ServiceCard = ({
             <MaterialIcons name={category.icon} size={24} color="#fff" />
           </LinearGradient>
 
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.mainTitle, isDarkMode && styles.textDark]}>
               {title}
             </Text>
 
             <Text style={[styles.subtitleCount, isDarkMode && styles.textMutedDark]}>
-              {subcategories.length} {isSi ? 'සේවාවන් තිබේ' : 'services available'}
+              {subcategories.length} {isSi ? 'සේවාවන්' : 'services'}
             </Text>
           </View>
         </View>
@@ -486,12 +522,13 @@ const ServiceCard = ({
             styles.expandIcon,
             isDarkMode && styles.expandIconDark,
             expanded && styles.expandIconActive,
+            expanded && isDarkMode && { backgroundColor: P.indigoSoftDark },
           ]}
         >
           <MaterialIcons
             name={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
-            size={24}
-            color={isDarkMode ? '#818cf8' : '#4F46E5'}
+            size={20}
+            color={isDarkMode ? P.indigoLight : P.indigo}
           />
         </View>
       </TouchableOpacity>
@@ -502,11 +539,11 @@ const ServiceCard = ({
             <TouchableOpacity
               key={index}
               style={[styles.subThumbnail, isDarkMode && styles.subThumbnailDark]}
-              onPress={() => onSubPress(category.subcategories[index] || sub)}
+              onPress={() => onSubPress(category.subcategories[index] || sub, category.title)}
               activeOpacity={0.8}
             >
-              <View style={[styles.subIconCircle, { backgroundColor: `${category.color}15` }]}>
-                <MaterialIcons name="check-circle" size={14} color={category.color} />
+              <View style={[styles.subIconCircle, { backgroundColor: `${category.color}18` }]}>
+                <MaterialIcons name="check" size={12} color={category.color} />
               </View>
 
               <Text style={[styles.subText, isDarkMode && styles.textDark]} numberOfLines={1}>
@@ -518,18 +555,18 @@ const ServiceCard = ({
           {category.id === 1 && (
             <TouchableOpacity
               style={styles.specialUploadBtn}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               onPress={onImageUpload}
             >
               <LinearGradient
-                colors={isDarkMode ? ['#6366f1', '#4f46e5'] : ['#4F46E5', '#7C3AED']}
+                colors={isDarkMode ? [P.indigoLight, P.indigo] : [P.indigo, P.violet]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientButton}
               >
-                <Feather name="camera" size={18} color="#fff" />
+                <Feather name="camera" size={16} color="#fff" />
                 <Text style={styles.uploadText}>
-                  {isSi ? 'ඡායාරූපයක් යොමු කර පිළියම් සොයන්න' : 'Upload Photo for Repair'}
+                  {isSi ? 'ඡායාරූපයක් යොමු කරන්න' : 'Upload a photo for repair'}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -540,22 +577,30 @@ const ServiceCard = ({
   );
 };
 
+// ============================================================
+// HomeScreen
+// ============================================================
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { language, changeLanguage } = useContext(LanguageContext) || { language: 'en' };
   const isSi = language === 'si';
   const { isDarkMode, toggleTheme } = useTheme();
   const { unreadCount } = useChat();
-  const { unreadCount: notificationUnreadCount } = useNotification();
+  const {
+    unreadCount: notificationUnreadCount,
+    syncNotifications,
+  } = useNotification();
 
   const [expandedId, setExpandedId] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [liveSummary, setLiveSummary] = useState(null);
   const [liveLoading, setLiveLoading] = useState(true);
   const [liveError, setLiveError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [feedRefreshKey, setFeedRefreshKey] = useState(0);
 
   const navigation = useNavigation();
 
@@ -581,12 +626,14 @@ export default function HomeScreen() {
 
   useFocusEffect(React.useCallback(() => {
     loadLiveSummary(true);
+    syncNotifications(false);
     const interval = setInterval(() => loadLiveSummary(false), 30000);
     return () => clearInterval(interval);
-  }, [loadLiveSummary]));
+  }, [loadLiveSummary, syncNotifications]));
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
+    setFeedRefreshKey(current => current + 1);
     loadLiveSummary(false);
   }, [loadLiveSummary]);
 
@@ -594,12 +641,12 @@ export default function HomeScreen() {
     ? new Date(value).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
     : (isSi ? 'නියමිත කර නැත' : 'Not scheduled');
 
-  const openBookingDetails = (booking) => navigation.navigate('IT22129376ScheduledJobDetails', { booking });
+  const openBookingDetails = booking => navigation.navigate('SeekerServiceSessionDetails', { sessionId: String(booking.externalSessionId || booking.sessionId || `booking:${booking._id || booking.id}`), session: { booking, bookings: [booking] } });
 
   const renderLiveBooking = () => {
     if (liveLoading) return (
       <View style={[styles.liveStateCard, isDarkMode && styles.liveCardDark]}>
-        <ActivityIndicator color="#4F46E5" />
+        <ActivityIndicator color={P.indigo} />
         <Text style={[styles.liveStateText, isDarkMode && styles.textMutedDark]}>
           {isSi ? 'ඇණවුම් තත්ත්වය පරීක්ෂා කරමින්...' : 'Loading your booking status...'}
         </Text>
@@ -607,7 +654,7 @@ export default function HomeScreen() {
     );
     if (liveError) return (
       <View style={[styles.liveStateCard, isDarkMode && styles.liveCardDark]}>
-        <Ionicons name="warning-outline" size={26} color="#EF4444" />
+        <Ionicons name="warning-outline" size={24} color={P.rose} />
         <Text style={[styles.liveStateText, isDarkMode && styles.textMutedDark]}>
           {isSi ? 'ඇණවුම් තත්ත්වය ලබා ගැනීමට නොහැකි විය.' : 'Unable to load booking status right now.'}
         </Text>
@@ -619,61 +666,121 @@ export default function HomeScreen() {
 
     const ongoing = liveSummary?.delayedService || liveSummary?.currentService || liveSummary?.onTheWayService || null;
     const next = liveSummary?.startingSoonBooking || liveSummary?.nextBooking || null;
+
     const renderSection = (booking, kind) => {
       const delayed = booking?.bookingStatus === 'DELAY_REPORTED';
       const traveling = booking?.bookingStatus === 'ON_THE_WAY';
       const soon = kind === 'next' && booking === liveSummary?.startingSoonBooking;
-      const color = delayed ? '#D97706' : traveling ? '#7C3AED' : kind === 'current' ? '#2563EB' : soon ? '#7C3AED' : '#059669';
+      const color = delayed ? P.amberDeep : traveling ? P.violet : kind === 'current' ? P.blue : soon ? P.violet : P.emerald;
       const start = getBookingStartDate(booking);
       const end = getBookingEndDate(booking);
+
+      const statusText = traveling
+        ? (isSi ? 'සේවකයා ඔබ වෙත ගමන් කරයි' : 'Provider is on the way')
+        : kind === 'current'
+          ? (delayed
+              ? (isSi ? 'ප්‍රමාදයක් වාර්තා කර ඇත' : 'Provider reported a delay')
+              : (isSi ? 'සේවාව සිදු වෙමින් පවතී' : 'Service in progress'))
+          : soon
+            ? (isSi ? `ළඟදීම · ${getTimeRemainingLabel(start)}` : `Starting soon · ${getTimeRemainingLabel(start)}`)
+            : getTimeRemainingLabel(start);
+
+      const label = traveling
+        ? (isSi ? 'පැමිණෙමින්' : 'On the way')
+        : kind === 'current'
+          ? (isSi ? 'ක්‍රියාකාරී' : 'In progress')
+          : (isSi ? 'මීළඟ' : 'Upcoming');
+
       return (
         <View style={styles.liveInnerSection}>
           <View style={styles.liveInnerHeader}>
-            <Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>
-              {traveling 
-                ? (isSi ? 'සේවකයා පැමිණෙමින් සිටී' : 'Provider On the Way') 
-                : kind === 'current' 
-                  ? (isSi ? 'ක්‍රියාකාරී සේවාව' : 'In Progress Booking') 
-                  : (isSi ? 'මීළඟ සේවාව' : 'Next Booking')}
-            </Text>
-            <Text style={[styles.liveInnerStatus, { color }]}>
-              {traveling 
-                ? (isSi ? 'සේවකයා ඔබ වෙත ගමන් කරයි' : 'Provider is travelling to you') 
-                : kind === 'current' 
-                  ? (delayed ? (isSi ? 'ප්‍රමාදයක් වාර්තා කර ඇත' : 'Provider reported a delay') : (isSi ? 'සේවාව සිදු වෙමින් පවතී' : 'Service in progress')) 
-                  : (soon ? (isSi ? `ළඟදීම · ${getTimeRemainingLabel(start)}` : `Starting soon · ${getTimeRemainingLabel(start)}`) : getTimeRemainingLabel(start))}
+            <View style={[styles.liveStatusChip, { backgroundColor: `${color}12`, borderColor: `${color}40` }]}>
+              <View style={[styles.liveStatusDot, { backgroundColor: color }]} />
+              <Text style={[styles.liveStatusChipText, { color }]}>{label}</Text>
+            </View>
+            <Text style={[styles.liveTimeLabel, isDarkMode && styles.textMutedDark]} numberOfLines={1}>
+              {statusText}
             </Text>
           </View>
-          <Text style={[styles.liveServiceTitle, isDarkMode && styles.textDark]}>{getHumanServiceTitle(booking)}</Text>
-          <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'සේවකයා: ' : 'Provider: '}{getHumanProviderName(booking)}</Text>
-          <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'ස්ථානය: ' : 'Location: '}{getHumanLocation(booking)}</Text>
-          {kind === 'current' ? (
-            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>
-              {traveling ? `${isSi ? 'ගමන ඇරඹුවේ: ' : 'On the way since: '}${formatLiveTime(booking.onTheWayAt)}` : delayed ? `${isSi ? 'හේතුව: ' : 'Reason: '}${booking?.delayInfo?.delayReason || (isSi ? 'සඳහන් කර නැත' : 'Not provided')}` : `${isSi ? 'ආරම්භ කළේ: ' : 'Started: '}${formatLiveTime(booking.actualStartTime || start)}`}
+
+          <Text style={[styles.liveServiceTitle, isDarkMode && styles.textDark]}>
+            {getHumanServiceTitle(booking)}
+          </Text>
+
+          <View style={styles.liveMetaRow}>
+            <Ionicons name="person-outline" size={13} color={isDarkMode ? P.slate400 : P.slate500} />
+            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]} numberOfLines={1}>
+              {getHumanProviderName(booking)}
             </Text>
-          ) : (
-            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'ආරම්භ වන්නේ: ' : 'Starts: '}{formatLiveTime(start)}</Text>
+          </View>
+          <View style={styles.liveMetaRow}>
+            <Ionicons name="location-outline" size={13} color={isDarkMode ? P.slate400 : P.slate500} />
+            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]} numberOfLines={1}>
+              {getHumanLocation(booking)}
+            </Text>
+          </View>
+
+          <View style={styles.liveMetaRow}>
+            <Ionicons name="time-outline" size={13} color={isDarkMode ? P.slate400 : P.slate500} />
+            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>
+              {kind === 'current'
+                ? (traveling
+                    ? `${isSi ? 'ගමන ඇරඹුවේ ' : 'On the way since '}${formatLiveTime(booking.onTheWayAt)}`
+                    : delayed
+                      ? `${isSi ? 'හේතුව: ' : 'Reason: '}${booking?.delayInfo?.delayReason || (isSi ? 'සඳහන් කර නැත' : 'Not provided')}`
+                      : `${isSi ? 'ආරම්භ කළේ ' : 'Started '}${formatLiveTime(booking.actualStartTime || start)}`)
+                : `${isSi ? 'ආරම්භ වන්නේ ' : 'Starts '}${formatLiveTime(start)}`}
+            </Text>
+          </View>
+
+          {kind === 'current' && !traveling && (
+            <View style={styles.liveMetaRow}>
+              <Ionicons name="hourglass-outline" size={13} color={isDarkMode ? P.slate400 : P.slate500} />
+              <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>
+                {isSi ? 'අවසන් වීමට නියමිත ' : 'Expected end '}{formatLiveTime(end)}
+              </Text>
+            </View>
           )}
-          {kind === 'current' && !traveling ? (
-            <Text style={[styles.liveDetail, isDarkMode && styles.textMutedDark]}>{isSi ? 'අවසන් වීමට නියමිත: ' : 'Expected end: '}{formatLiveTime(end)}</Text>
-          ) : null}
-          <TouchableOpacity style={[styles.liveDetailsButton, { backgroundColor: color }]} onPress={() => openBookingDetails(booking)}>
-            <Text style={styles.liveDetailsButtonText}>{isSi ? 'විස්තර බලන්න' : 'View Details'}</Text>
+
+          <TouchableOpacity
+            style={[styles.liveDetailsButton, { backgroundColor: color }]}
+            onPress={() => openBookingDetails(booking)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.liveDetailsButtonText}>
+              {isSi ? 'විස්තර බලන්න' : 'View details'}
+            </Text>
+            <Feather name="arrow-right" size={13} color={P.white} />
           </TouchableOpacity>
         </View>
       );
     };
+
     const emptySection = (label, message) => (
       <View style={styles.liveInnerSection}>
-        <Text style={[styles.liveInnerLabel, isDarkMode && styles.textDark]}>{label}</Text>
+        <View style={[styles.liveStatusChip, { backgroundColor: isDarkMode ? P.slate700 : P.slate100, borderColor: 'transparent' }]}>
+          <View style={[styles.liveStatusDot, { backgroundColor: isDarkMode ? P.slate500 : P.slate400 }]} />
+          <Text style={[styles.liveStatusChipText, { color: isDarkMode ? P.slate400 : P.slate500 }]}>{label}</Text>
+        </View>
         <Text style={[styles.liveDetail, styles.liveEmptyText, isDarkMode && styles.textMutedDark]}>{message}</Text>
       </View>
     );
+
     return (
       <View style={[styles.liveBookingCard, isDarkMode && styles.liveCardDark]}>
-        {ongoing ? renderSection(ongoing, 'current') : emptySection(isSi ? 'ක්‍රියාකාරී සේවාව' : 'In Progress Booking', isSi ? 'දැනට ක්‍රියාකාරී සේවාවක් නැත' : 'No in-progress booking')}
+        {ongoing
+          ? renderSection(ongoing, 'current')
+          : emptySection(
+              isSi ? 'ක්‍රියාකාරී' : 'In progress',
+              isSi ? 'දැනට ක්‍රියාකාරී සේවාවක් නැත' : 'No in-progress booking'
+            )}
         <View style={[styles.liveDivider, isDarkMode && styles.liveDividerDark]} />
-        {next ? renderSection(next, 'next') : emptySection(isSi ? 'මීළඟ සේවාව' : 'Next Booking', isSi ? 'ඉදිරි සේවාවක් නැත' : 'No upcoming confirmed booking')}
+        {next
+          ? renderSection(next, 'next')
+          : emptySection(
+              isSi ? 'මීළඟ' : 'Upcoming',
+              isSi ? 'ඉදිරි සේවාවක් නැත' : 'No upcoming confirmed booking'
+            )}
       </View>
     );
   };
@@ -692,77 +799,19 @@ export default function HomeScreen() {
   const handleChatPress = () => navigation.navigate('ChatListScreen');
   const handleNotifications = () => navigation.navigate('NotificationScreen');
 
-  const handleSubCategoryPress = (subcategory) => {
-    Alert.alert('Service Selected', `${subcategory} service will be available soon`);
+  const handleSubCategoryPress = (subcategory, parentCategory) => {
+    navigation.navigate('CategoryProvidersScreen', { category: subcategory, parentCategory });
   };
 
   const handleSearch = async () => {
-    if (searchQuery.trim().length === 0) return;
-
+    if (!searchQuery.trim() || searching) return;
+    setSearching(true);
     try {
-      const token = await AsyncStorage.getItem('userToken');
-
-      if (!token) {
-        Alert.alert('Error', 'You are not logged in. Please log in again.');
-        return;
-      }
-
-      const appLanguage = language === 'si' ? 'si' : 'en';
-      const url = `${CONFIG.TEXT_MODEL_URL}/text-predict`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          text: searchQuery,
-          app_lan: appLanguage,
-        }),
-      });
-
-      if (response.status === 401) {
-        Alert.alert('Session Expired', 'Please log in again.');
-        return;
-      }
-
-      const responseText = await response.text();
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch {
-        console.error('Search returned a non-JSON response:', {
-          url,
-          status: response.status,
-          contentType: response.headers.get('content-type'),
-        });
-        Alert.alert(
-          'Search Service Error',
-          `The search service returned an unexpected response (HTTP ${response.status}). Check that the text ML service is running at ${CONFIG.TEXT_MODEL_URL}.`,
-        );
-        return;
-      }
-
-      if (!response.ok || !data || typeof data !== 'object') {
-        Alert.alert('Search Service Error', data?.error || data?.message || `Search failed (HTTP ${response.status}).`);
-        return;
-      }
-
-
-      if (data.session_id) {
-        navigation.navigate('FollowUpScreen', {
-          initialMessage: searchQuery,
-          backendResponse: data,
-          source: 'text',
-        });
-      } else {
-        Alert.alert('Error', data.error || 'Unable to process your request.');
-      }
+      const data = await startServiceSearch(searchQuery, language);
+      navigation.navigate('FollowUpScreen', { initialMessage: searchQuery.trim(), backendResponse: data, source: 'text' });
     } catch (error) {
-      console.error('Search error:', error);
-      Alert.alert('Network Error', 'Could not connect to the service.');
-    }
+      if (Platform.OS === 'web') window.alert(error.message); else Alert.alert('Unable to find services', error.message);
+    } finally { setSearching(false); }
   };
 
   const handleImageUpload = async () => {
@@ -782,47 +831,46 @@ export default function HomeScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         quality: 0.8,
       });
 
       if (result.canceled) return;
 
-      const imageUri = result.assets[0].uri;
+      const imageAsset = result.assets[0];
       const formData = new FormData();
-
       formData.append('file', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: 'photo.jpg',
+        uri: imageAsset.uri,
+        name: imageAsset.fileName || 'service-image.jpg',
+        type: imageAsset.mimeType || 'image/jpeg',
       });
-
       formData.append('app_lan', language === 'si' ? 'si' : 'en');
 
-      const response = await fetch(`${CONFIG.IMAGE_CLASSIFIER_URL}/predict`, {
-        method: 'POST',
-        body: formData,
+      const uploadResponse = await axios.post(`${IMAGE_CLASSIFIER_URL}/predict`, formData, {
         headers: {
           Accept: 'application/json',
           Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
         },
+        validateStatus: () => true,
       });
 
-      if (response.status === 401) {
+      if (uploadResponse.status === 401) {
         Alert.alert('Session Expired', 'Please log in again.');
         return;
       }
 
-      const responseText = await response.text();
       let data = {};
       try {
-        data = responseText ? JSON.parse(responseText) : {};
+        data = typeof uploadResponse.data === 'string'
+          ? JSON.parse(uploadResponse.data)
+          : uploadResponse.data || {};
       } catch {
-        throw new Error(`Image classifier returned an invalid response (${response.status}).`);
+        throw new Error(`Image classifier returned an invalid response (${uploadResponse.status}).`);
       }
-      if (!response.ok) {
-        throw new Error(data.detail || data.message || `Image classifier returned HTTP ${response.status}.`);
+      if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
+        throw new Error(data.detail || data.message || `Image classifier returned HTTP ${uploadResponse.status}.`);
       }
 
       if (data.session_id) {
@@ -848,7 +896,7 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error('IMAGE CLASSIFIER REQUEST FAILED:', {
-        url: `${CONFIG.IMAGE_CLASSIFIER_URL}/predict`,
+        url: `${IMAGE_CLASSIFIER_URL}/predict`,
         error: error?.message,
       });
       Alert.alert(
@@ -862,19 +910,26 @@ export default function HomeScreen() {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isDarkMode ? '#0f1121' : '#667eea'}
+        backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep}
       />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#667eea" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={P.indigo}
+          />
+        }
       >
+        {/* ── Header ── */}
         <LinearGradient
           colors={
             isDarkMode
-              ? ['#0f1121', '#1a1a2e', '#16213e']
-              : ['#4338CA', '#4F46E5', '#6366F1']
+              ? [P.slate900, '#141B31']
+              : [P.indigoDeep, P.indigo, '#5B58E8']
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -884,37 +939,21 @@ export default function HomeScreen() {
             <View style={styles.brandArea}>
               <Text style={styles.appName}>WorkWave</Text>
               <Text style={styles.appTagline}>
-                {isSi ? 'ඔබට අවශ්‍ය ඕනෑම සේවාවක්' : 'Verified Home & Local Services'}
+                {isSi ? 'ඔබට අවශ්‍ය ඕනෑම සේවාවක්' : 'Verified home & local services'}
               </Text>
             </View>
 
-            <View style={styles.headerActionsPill}>
-              {/* Language Switch Button */}
+            <View style={styles.headerActions}>
               <TouchableOpacity
-                style={styles.langBadgeBtn}
+                style={styles.langBtn}
                 onPress={toggleLanguage}
                 activeOpacity={0.8}
               >
-                <Text style={styles.langBadgeText}>
-                  {isSi ? 'සිං' : 'EN'}
-                </Text>
+                <Text style={styles.langBtnText}>{isSi ? 'සිං' : 'EN'}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.headerIconBtn}
-                onPress={toggleTheme}
-                accessibilityLabel="Toggle theme"
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name={isDarkMode ? 'moon' : 'sunny'}
-                  size={22}
-                  color={isDarkMode ? '#818cf8' : '#F59E0B'}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.headerIconBtn} accessibilityLabel="Messages" onPress={handleChatPress}>
-                <Ionicons name="chatbubble-ellipses-outline" size={22} color="#444" />
+              <TouchableOpacity style={styles.headerIconBtn} onPress={handleChatPress}>
+                <Ionicons name="chatbubble-outline" size={19} color={P.white} />
                 {totalUnreadMessages > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>
@@ -924,8 +963,8 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.headerIconBtn} accessibilityLabel="Notifications" onPress={handleNotifications}>
-                <Ionicons name="notifications-outline" size={22} color="#444" />
+              <TouchableOpacity style={styles.headerIconBtn} onPress={handleNotifications}>
+                <Ionicons name="notifications-outline" size={19} color={P.white} />
                 {notificationUnreadCount > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>
@@ -935,11 +974,22 @@ export default function HomeScreen() {
                 )}
               </TouchableOpacity>
 
-
+              <TouchableOpacity
+                style={styles.headerIconBtn}
+                onPress={toggleTheme}
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name={isDarkMode ? 'moon' : 'sunny'}
+                  size={19}
+                  color={P.white}
+                />
+              </TouchableOpacity>
             </View>
           </View>
         </LinearGradient>
 
+        {/* ── Search ── */}
         <View style={styles.searchWrapper}>
           <View
             style={[
@@ -950,17 +1000,22 @@ export default function HomeScreen() {
           >
             <Feather
               name="search"
-              size={20}
-              color={isDarkMode ? '#818cf8' : '#4F46E5'}
+              size={18}
+              color={isDarkMode ? P.slate400 : P.slate500}
             />
 
             <TextInput
-              placeholder={isSi ? 'සේවාවක් සොයන්න (උදා: ජලනල, විදුලි)...' : (t('search_placeholder') || 'Search for any service...')}
-              placeholderTextColor={isDarkMode ? '#6B7280' : '#94A3B8'}
+              placeholder={
+                isSi
+                  ? 'සේවාවක් සොයන්න (උදා: ජලනල)...'
+                  : (t('search_placeholder') || 'Search for a service...')
+              }
+              placeholderTextColor={isDarkMode ? P.slate500 : P.slate400}
               style={[styles.searchInput, isDarkMode && styles.textDark]}
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
+              editable={!searching}
               onSubmitEditing={handleSearch}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
@@ -973,22 +1028,21 @@ export default function HomeScreen() {
               >
                 <Feather
                   name="x"
-                  size={18}
-                  color={isDarkMode ? '#6B7280' : '#999'}
+                  size={16}
+                  color={isDarkMode ? P.slate500 : P.slate400}
                 />
               </TouchableOpacity>
             )}
 
             <TouchableOpacity
-              onPress={() => setShowFilters(!showFilters)}
+              accessibilityRole="button" accessibilityLabel={searching ? 'Finding services' : 'Find a service'}
+              disabled={searching}
+              onPress={() => searchQuery.trim() ? handleSearch() : navigation.navigate('FindService')}
               style={[styles.filterIcon, isDarkMode && styles.filterIconDark]}
             >
-              <Feather
-                name="sliders"
-                size={20}
-                color={isDarkMode ? '#818cf8' : '#4F46E5'}
-              />
+              {searching ? <ActivityIndicator size="small" color="#6366F1" /> : <Feather name="arrow-right" size={20} color={isDarkMode ? '#818cf8' : '#4F46E5'} />}
             </TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Search filters" accessibilityState={{ expanded: showFilters }} onPress={() => setShowFilters(value => !value)} style={{ padding: 6 }}><Feather name="sliders" size={17} color={isDarkMode ? P.slate400 : P.slate500} /></TouchableOpacity>
           </View>
 
           {showFilters && (
@@ -1002,93 +1056,79 @@ export default function HomeScreen() {
                 <Text style={styles.filterChipTextActive}>{isSi ? 'ලඟම' : 'Nearby'}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? 'ඉහළ ඇගයීම්' : 'Top Rated'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? 'අඩුම මිල' : 'Lowest Price'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? 'දැන් ලබාගත හැක' : 'Available Now'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.filterChip, isDarkMode && styles.filterChipDark]}>
-                <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
-                  {isSi ? '24/7 සහාය' : '24/7 Support'}
-                </Text>
-              </TouchableOpacity>
+              {[
+                { en: 'Top rated', si: 'ඉහළ ඇගයීම්' },
+                { en: 'Lowest price', si: 'අඩුම මිල' },
+                { en: 'Available now', si: 'දැන් ලබාගත හැක' },
+                { en: '24/7 support', si: '24/7 සහාය' },
+              ].map((chip, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.filterChip, isDarkMode && styles.filterChipDark]}
+                >
+                  <Text style={[styles.filterChipText, isDarkMode && styles.textMutedDark]}>
+                    {isSi ? chip.si : chip.en}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           )}
         </View>
 
-        {/* 4 Big Visual Quick Action Cards for High Accessibility & Clarity */}
+        {/* ── Quick actions ── */}
+        <View style={styles.sectionEyebrowWrap}>
+          <Text style={[styles.sectionEyebrow, isDarkMode && styles.textMutedDark]}>
+            {isSi ? 'ඉක්මන් ක්‍රියා' : 'Quick actions'}
+          </Text>
+        </View>
+
         <View style={styles.quickGridContainer}>
           <TouchableOpacity
             style={[styles.quickCard, isDarkMode && styles.quickCardDark]}
             onPress={handleImageUpload}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            <LinearGradient
-              colors={['#FF6B6B', '#EE5253']}
-              style={styles.quickIconCircle}
-            >
-              <MaterialIcons name="photo-camera" size={24} color="#fff" />
-            </LinearGradient>
+            <View style={[styles.quickIconTile, { backgroundColor: '#FFEBEE' }]}>
+              <MaterialIcons name="photo-camera" size={22} color="#E11D48" />
+            </View>
             <Text style={[styles.quickCardTitle, isDarkMode && styles.textDark]}>
-              {isSi ? 'කැඩුණු දේ' : 'Photo Repair'}
+              {isSi ? 'කැඩුණු දේ' : 'Photo repair'}
             </Text>
             <Text style={[styles.quickCardSub, isDarkMode && styles.textMutedDark]}>
-              {isSi ? 'ඡායාරූපයෙන්' : 'Snap photo'}
+              {isSi ? 'ඡායාරූපයෙන්' : 'Snap a photo'}
             </Text>
+            <Feather
+              name="chevron-right"
+              size={16}
+              color={isDarkMode ? P.slate500 : P.slate400}
+              style={styles.quickChevron}
+            />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.quickCard, isDarkMode && styles.quickCardDark]}
             onPress={handleCreatePress}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            <LinearGradient
-              colors={['#059669', '#10B981']}
-              style={styles.quickIconCircle}
-            >
-              <MaterialIcons name="post-add" size={24} color="#fff" />
-            </LinearGradient>
+            <View style={[styles.quickIconTile, { backgroundColor: P.emeraldSoft }]}>
+              <MaterialIcons name="post-add" size={22} color={P.emerald} />
+            </View>
             <Text style={[styles.quickCardTitle, isDarkMode && styles.textDark]}>
-              {isSi ? 'වැඩක් දාන්න' : 'Post Job'}
+              {isSi ? 'වැඩක් දාන්න' : 'Post a job'}
             </Text>
             <Text style={[styles.quickCardSub, isDarkMode && styles.textMutedDark]}>
-              {isSi ? 'මිල ගණන්' : 'Free quotes'}
+              {isSi ? 'මිල ගණන්' : 'Get free quotes'}
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.quickCard, isDarkMode && styles.quickCardDark]}
-            onPress={() => navigation.navigate('BookingsScreen')}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#D97706', '#F59E0B']}
-              style={styles.quickIconCircle}
-            >
-              <MaterialIcons name="event-note" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={[styles.quickCardTitle, isDarkMode && styles.textDark]}>
-              {isSi ? 'මගේ ඇණවුම්' : 'My Orders'}
-            </Text>
-            <Text style={[styles.quickCardSub, isDarkMode && styles.textMutedDark]}>
-              {isSi ? 'තත්ත්වය' : 'Track status'}
-            </Text>
+            <Feather
+              name="chevron-right"
+              size={16}
+              color={isDarkMode ? P.slate500 : P.slate400}
+              style={styles.quickChevron}
+            />
           </TouchableOpacity>
         </View>
 
+        {/* ── Banner ── */}
         <TouchableOpacity onPress={handleImageUpload} activeOpacity={0.9}>
           <LinearGradient
             colors={['#FF6B6B', '#FF8E53']}
@@ -1098,58 +1138,79 @@ export default function HomeScreen() {
           >
             <View style={styles.biddingContent}>
               <View style={styles.biddingIconContainer}>
-                <MaterialIcons name="photo-camera" size={30} color="#fff" />
+                <MaterialIcons name="photo-camera" size={22} color="#fff" />
               </View>
 
               <View style={styles.biddingTextContainer}>
                 <Text style={styles.biddingTitle}>
-                  {isSi ? 'කැඩුණු දෙයක් තිබේද?' : 'Need a Quick Repair?'}
+                  {isSi ? 'කැඩුණු දෙයක් තිබේද?' : 'Need a quick repair?'}
                 </Text>
                 <Text style={styles.biddingSubtitle}>
-                  {isSi ? 'ඡායාරූපයක් ගන්න, සේවකයා අපි සොයන්නෙමු' : 'Take a photo, AI finds the right expert instantly'}
+                  {isSi ? 'ඡායාරූපයක් ගන්න, AI සේවකයා සොයයි' : 'Take a photo, AI finds the right expert'}
                 </Text>
               </View>
 
               <View style={styles.biddingArrow}>
-                <Feather
-                  name="arrow-right"
-                  size={20}
-                  color="#fff"
-                />
+                <Feather name="arrow-right" size={16} color="#fff" />
               </View>
             </View>
           </LinearGradient>
         </TouchableOpacity>
 
+        {/* ── Live booking ── */}
         <View style={styles.liveSection}>
+          <Text style={[styles.sectionEyebrow, isDarkMode && styles.textMutedDark]}>
+            {isSi ? 'සක්‍රීය තත්ත්වය' : 'Live status'}
+          </Text>
           <Text style={[styles.liveSectionTitle, isDarkMode && styles.textDark]}>
-            {isSi ? 'ක්‍රියාකාරී සේවා තත්ත්වය' : 'Live Booking Status'}
+            {isSi ? 'ඔබගේ සේවා' : 'Your bookings'}
           </Text>
           {renderLiveBooking()}
         </View>
 
+        {/* ── Recommended ── */}
+        <View style={styles.slideshowHeader}>
+          <Text style={[styles.sectionEyebrow, isDarkMode && styles.textMutedDark]}>
+            {isSi ? 'නිර්දේශිත' : 'Recommended'}
+          </Text>
+          <Text style={[styles.slideshowTitle, isDarkMode && styles.textDark]}>
+            {isSi ? 'ඔබට ගැළපෙන සේවකයන්' : 'Top providers for you'}
+          </Text>
+        </View>
+
         <Slideshow isDarkMode={isDarkMode} />
+
+        {/* ── All Services ── */}
+        <View style={styles.sectionHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>{isSi ? 'සේවා සපයන්නන්ගේ පළ කිරීම්' : 'Provider Feed'}</Text>
+            <Text style={[styles.sectionSubtitle, isDarkMode && styles.textMutedDark]}>{isSi ? 'නවතම සේවා සහ මිල ගණන් ඉල්ලීම්' : 'Discover services and request a quotation'}</Text>
+          </View>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="View all provider posts" style={styles.seeAllBtn} onPress={() => navigation.navigate('FeedScreen')}>
+            <Text style={[styles.seeAllText, isDarkMode && styles.seeAllTextDark]}>{isSi ? 'සියල්ල' : 'View All'}</Text>
+            <Feather name="arrow-right" size={14} color={isDarkMode ? '#818cf8' : '#4F46E5'} />
+          </TouchableOpacity>
+        </View>
+        <FeedScreen navigation={navigation} embedded limit={3} refreshKey={feedRefreshKey} />
 
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
-              {isSi ? 'සියලු සේවා වර්ග' : (t('all_services') || 'All Services')}
+            <Text style={[styles.sectionEyebrow, isDarkMode && styles.textMutedDark]}>
+              {isSi ? 'කාණ්ඩ' : 'Categories'}
             </Text>
-
-            <Text style={[styles.sectionSubtitle, isDarkMode && styles.textMutedDark]}>
-              {isSi ? 'කාණ්ඩය අනුව තෝරන්න' : 'Browse by category'}
+            <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>
+              {isSi ? 'සියලු සේවා වර්ග' : (t('all_services') || 'All services')}
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.seeAllBtn}>
+          <TouchableOpacity style={styles.seeAllBtn} onPress={() => navigation.navigate('FindService')}>
             <Text style={[styles.seeAllText, isDarkMode && styles.seeAllTextDark]}>
-              {isSi ? 'සියල්ල' : (t('home_see_all') || 'See All')}
+              {isSi ? 'සියල්ල' : (t('home_see_all') || 'See all')}
             </Text>
-
             <Feather
               name="arrow-right"
-              size={14}
-              color={isDarkMode ? '#818cf8' : '#4F46E5'}
+              size={13}
+              color={isDarkMode ? P.indigoLight : P.indigo}
             />
           </TouchableOpacity>
         </View>
@@ -1173,259 +1234,226 @@ export default function HomeScreen() {
   );
 }
 
+// ============================================================
+// Styles
+// ============================================================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  containerDark: {
-    backgroundColor: '#0f1121',
-  },
-  scrollContent: {
-    paddingBottom: 80,
-  },
-  liveSection: { paddingHorizontal: 20, paddingTop: 18 },
-  liveSectionTitle: { fontSize: 19, fontWeight: '600', color: '#111827', marginBottom: 12 },
-  liveStateCard: { minHeight: 105, borderRadius: 18, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center', padding: 16, gap: 9 },
-  liveCardDark: { backgroundColor: '#1a1a2e', borderColor: '#30304A' },
-  liveStateText: { color: '#6B7280', fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  liveRetry: { color: '#667eea', fontWeight: '800' },
-  liveBookingCard: { borderRadius: 18, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFF', padding: 16 },
-  liveInnerSection: { paddingVertical: 2 },
-  liveInnerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 7 },
-  liveInnerLabel: { color: '#111827', fontSize: 14, fontWeight: '600' },
-  liveInnerStatus: { fontSize: 12, fontWeight: '500', flexShrink: 1, textAlign: 'right' },
-  liveDivider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 15 },
-  liveDividerDark: { backgroundColor: '#30304A' },
-  liveStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
-  liveStatusTitle: { fontSize: 14, fontWeight: '600', textTransform: 'uppercase' },
-  liveServiceTitle: { color: '#111827', fontSize: 18, fontWeight: '500', marginBottom: 8 },
-  liveDetail: { color: '#6B7280', fontSize: 13, lineHeight: 20 },
-  liveEmptyText: { marginTop: 8 },
-  liveRemaining: { fontSize: 13, fontWeight: '800', marginTop: 6 },
-  liveDetailsButton: { alignSelf: 'flex-start', borderRadius: 11, paddingHorizontal: 16, paddingVertical: 10, marginTop: 14 },
-  liveDetailsButtonText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
+  container: { flex: 1, backgroundColor: P.slate50 },
+  containerDark: { backgroundColor: P.slate900 },
+  scrollContent: { paddingBottom: 80 },
 
+  // ── Header ──
   headerGradient: {
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingBottom: 36,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 12 : (Platform.OS === 'ios' ? 48 : 20),
+    paddingTop:
+      Platform.OS === 'android'
+        ? (StatusBar.currentHeight || 28) + 14
+        : Platform.OS === 'ios'
+        ? 52
+        : 24,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
+    gap: 12,
   },
-  brandArea: {
-    flex: 1,
-    justifyContent: 'center',
-  },
+  brandArea: { flex: 1 },
   appName: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '900',
-    color: '#fff',
-    letterSpacing: -0.8,
+    color: P.white,
+    letterSpacing: -0.5,
   },
   appTagline: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.88)',
-    marginTop: 2,
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 3,
     fontWeight: '500',
+    letterSpacing: 0.1,
   },
-  headerActionsPill: {
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    paddingHorizontal: 8,
+    gap: 4,
+  },
+  langBtn: {
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  langBadgeBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  langBadgeText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#4338CA',
-  },
-  quickGridContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    marginTop: 18,
-    gap: 10,
-  },
-  quickCard: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  quickCardDark: {
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
-  },
-  quickIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    borderColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginRight: 2,
   },
-  quickCardTitle: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#0F172A',
-    textAlign: 'center',
-  },
-  quickCardSub: {
-    fontSize: 9.5,
-    color: '#64748B',
-    marginTop: 1.5,
-    textAlign: 'center',
-  },
+  langBtnText: { fontSize: 11.5, fontWeight: '800', color: P.white, letterSpacing: 0.3 },
   headerIconBtn: {
     position: 'relative',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   badge: {
     position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#EF4444',
+    top: -3,
+    right: -3,
+    backgroundColor: P.rose,
     borderRadius: 9,
-    minWidth: 17,
-    height: 17,
+    minWidth: 16,
+    height: 16,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 1.5,
-    borderColor: '#fff',
+    borderColor: P.indigoDeep,
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '800',
-  },
+  badgeText: { color: P.white, fontSize: 9, fontWeight: '800' },
 
+  // ── Search ──
   searchWrapper: {
     paddingHorizontal: 20,
-    marginTop: -20,
+    marginTop: -18,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
+    backgroundColor: P.white,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 48,
     gap: 10,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 10,
+      },
+      android: { elevation: 4 },
+    }),
   },
   searchContainerDark: {
-    backgroundColor: '#1a1a2e',
-    borderColor: '#2d3561',
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
+    backgroundColor: P.slate800,
+    borderColor: P.slate700,
   },
   searchContainerFocused: {
-    shadowOpacity: 0.15,
-    shadowRadius: 15,
-    borderWidth: 1,
-    borderColor: '#667eea20',
+    borderColor: P.indigoLight,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
-    color: '#333',
+    fontSize: 14.5,
+    color: P.slate900,
     paddingVertical: 0,
   },
-  clearBtn: {
-    padding: 2,
-  },
+  clearBtn: { padding: 2 },
   filterIcon: {
     paddingLeft: 8,
     borderLeftWidth: 1,
-    borderLeftColor: '#E5E7EB',
+    borderLeftColor: P.slate200,
   },
-  filterIconDark: {
-    borderLeftColor: '#2d3561',
-  },
-  filterChips: {
-    marginTop: 12,
-  },
-  filterChipsContent: {
-    paddingRight: 20,
-  },
+  filterIconDark: { borderLeftColor: P.slate700 },
+  filterChips: { marginTop: 12 },
+  filterChipsContent: { paddingRight: 20 },
   filterChip: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: P.slate100,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 20,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: P.slate200,
   },
-  filterChipDark: {
-    backgroundColor: '#242f4d',
-  },
+  filterChipDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
   filterChipActive: {
-    backgroundColor: '#667eea',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: P.indigo,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 20,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: P.indigo,
   },
-  filterChipText: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  filterChipTextActive: {
-    fontSize: 13,
-    color: '#fff',
-    fontWeight: '500',
+  filterChipText: { fontSize: 12.5, color: P.slate600, fontWeight: '600' },
+  filterChipTextActive: { fontSize: 12.5, color: P.white, fontWeight: '700' },
+
+  // ── Section eyebrow ──
+  sectionEyebrowWrap: { paddingHorizontal: 20, marginTop: 22 },
+  sectionEyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: P.slate500,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
 
+  // ── Quick actions ──
+  quickGridContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  quickCard: {
+    flex: 1,
+    backgroundColor: P.white,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+      },
+      android: { elevation: 1 },
+    }),
+  },
+  quickCardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
+  quickIconTile: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  quickCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.2,
+  },
+  quickCardSub: {
+    fontSize: 12,
+    color: P.slate500,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  quickChevron: {
+    position: 'absolute',
+    top: 16,
+    right: 12,
+  },
+
+  // ── Banner ──
   biddingBanner: {
     marginHorizontal: 20,
     marginTop: 20,
-    borderRadius: 16,
+    borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: '#FF6B6B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
   },
   biddingContent: {
     flexDirection: 'row',
@@ -1434,61 +1462,141 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   biddingIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#ffffff30',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  biddingTextContainer: {
-    flex: 1,
-  },
-  biddingTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 2,
-  },
-  biddingSubtitle: {
-    fontSize: 12,
-    color: '#ffffffCC',
-  },
+  biddingTextContainer: { flex: 1 },
+  biddingTitle: { fontSize: 15, fontWeight: '800', color: P.white, marginBottom: 2, letterSpacing: -0.2 },
+  biddingSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.9)', fontWeight: '500' },
   biddingArrow: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff20',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  slideshowContainer: {
-    marginTop: 20,
-    marginBottom: 10,
+  // ── Live booking ──
+  liveSection: { paddingHorizontal: 20, marginTop: 24 },
+  liveSectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.3,
+    marginBottom: 12,
   },
+  liveStateCard: {
+    minHeight: 100,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    backgroundColor: P.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 9,
+  },
+  liveCardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
+  liveStateText: { color: P.slate500, fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  liveRetry: { color: P.indigo, fontWeight: '800', fontSize: 13 },
+  liveBookingCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    backgroundColor: P.white,
+    padding: 16,
+  },
+  liveInnerSection: { paddingVertical: 2 },
+  liveInnerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 12,
+  },
+  liveStatusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+  },
+  liveStatusDot: { width: 6, height: 6, borderRadius: 3 },
+  liveStatusChipText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.1 },
+  liveTimeLabel: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: P.slate500,
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  liveDivider: { height: 1, backgroundColor: P.slate100, marginVertical: 16 },
+  liveDividerDark: { backgroundColor: P.slate700 },
+  liveServiceTitle: {
+    color: P.slate900,
+    fontSize: 15.5,
+    fontWeight: '800',
+    marginBottom: 8,
+    letterSpacing: -0.2,
+  },
+  liveMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  liveDetail: { color: P.slate500, fontSize: 12.5, fontWeight: '500', flexShrink: 1 },
+  liveEmptyText: { marginTop: 8 },
+  liveDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginTop: 12,
+  },
+  liveDetailsButtonText: { color: P.white, fontSize: 12.5, fontWeight: '800' },
+
+  // ── Slideshow ──
+  slideshowHeader: { paddingHorizontal: 20, marginTop: 24 },
+  slideshowTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.3,
+    marginBottom: 12,
+  },
+  slideshowContainer: { marginBottom: 10 },
   slideCard: {
     width: width - 32,
-    height: 195,
+    height: 185,
     marginHorizontal: 16,
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#1e1b4b',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.15,
-    shadowRadius: 14,
-    elevation: 6,
+    backgroundColor: P.indigoSoftDark,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+      },
+      android: { elevation: 3 },
+    }),
   },
-  slideCardDark: {
-    backgroundColor: '#0f1123',
-    borderColor: '#3730a3',
-    borderWidth: 1,
-  },
-  slideImage: {
-    width: '100%',
-    height: '100%',
-  },
+  slideCardDark: { backgroundColor: P.slate900, borderColor: P.indigoSoftDark, borderWidth: 1 },
+  slideImage: { width: '100%', height: '100%' },
   slideOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -1505,298 +1613,205 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   slideTagPill: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 14,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(255,255,255,0.25)',
   },
-  slideTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#fff',
-  },
+  slideTagText: { fontSize: 10.5, fontWeight: '700', color: P.white },
   slideVerifiedPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(16,185,129,0.25)',
-    paddingHorizontal: 8,
-    paddingVertical: 3.5,
-    borderRadius: 12,
+    backgroundColor: 'rgba(16,185,129,0.28)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(16,185,129,0.45)',
   },
-  slideVerifiedText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#10B981',
-  },
+  slideVerifiedText: { fontSize: 10.5, fontWeight: '700', color: P.emeraldLight },
   slideRatingPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 8,
-    paddingVertical: 3.5,
-    borderRadius: 12,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
   },
-  slideRatingText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#FBBF24',
-  },
-  slideContent: {
-    marginBottom: 4,
-  },
-  slideProviderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 10,
-  },
+  slideRatingText: { fontSize: 11, fontWeight: '800', color: P.amberLight },
+  slideContent: { marginBottom: 4 },
+  slideProviderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   slideAvatarThumb: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: '#fff',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: P.white,
   },
-  slideWatermarkWrap: {
-    position: 'absolute',
-    right: 15,
-    top: 5,
-    opacity: 0.18,
-  },
-  slideWatermarkInitial: {
-    fontSize: 140,
-    fontWeight: '900',
-    color: '#ffffff',
-  },
+  slideWatermarkWrap: { position: 'absolute', right: 15, top: 5, opacity: 0.15 },
+  slideWatermarkInitial: { fontSize: 140, fontWeight: '900', color: P.white },
   slideAvatarFallback: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1.5,
+    borderColor: P.white,
   },
-  slideAvatarInitial: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  slideTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 2,
-  },
-  slideSubtitle: {
-    fontSize: 12,
-    color: '#E2E8F0',
-    fontWeight: '500',
-  },
+  slideAvatarInitial: { fontSize: 18, fontWeight: '800', color: P.white },
+  slideTitle: { fontSize: 16, fontWeight: '800', color: P.white, marginBottom: 2, letterSpacing: -0.2 },
+  slideSubtitle: { fontSize: 11.5, color: P.slate200, fontWeight: '500' },
   slideButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: 'rgba(255,255,255,0.35)',
   },
-  slideButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#fff',
-  },
+  slideButtonText: { fontSize: 11.5, fontWeight: '800', color: P.white },
   dotContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 10,
   },
   dot: {
-    width: 6,
-    height: 6,
+    width: 5,
+    height: 5,
     borderRadius: 3,
-    backgroundColor: '#D1D5DB',
-    marginHorizontal: 4,
+    backgroundColor: P.slate300,
+    marginHorizontal: 3,
   },
-  activeDot: {
-    width: 20,
-    backgroundColor: '#667eea',
-  },
+  activeDot: { width: 16, backgroundColor: P.indigo },
 
+  // ── Section header ──
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     paddingHorizontal: 20,
-    marginTop: 30,
-    marginBottom: 18,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1a1a2e',
-    letterSpacing: -0.3,
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: '#999',
-  },
-  seeAllBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  seeAllText: {
-    color: '#667eea',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  seeAllTextDark: {
-    color: '#818cf8',
-  },
-
-  accordionContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginHorizontal: 20,
+    marginTop: 24,
     marginBottom: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  accordionContainerDark: {
-    backgroundColor: '#16213e',
-    borderColor: '#2d3561',
+  sectionSubtitle: { fontSize: 12, color: '#64748B', marginTop: 4 },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.3,
+  },
+  seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  seeAllText: { color: P.indigo, fontSize: 12.5, fontWeight: '700' },
+  seeAllTextDark: { color: P.indigoLight },
+
+  // ── Accordion ──
+  accordionContainer: {
+    backgroundColor: P.white,
+    borderRadius: 14,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    padding: 14,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 4,
+    borderColor: P.slate200,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+      },
+      android: { elevation: 1 },
+    }),
   },
-  mainCategory: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  mainCategoryLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 14,
-  },
+  accordionContainerDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
+  mainCategory: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  mainCategoryLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
   iconBoxGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
   },
   mainTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1a1a2e',
+    fontSize: 15,
+    fontWeight: '800',
+    color: P.slate900,
     marginBottom: 2,
+    letterSpacing: -0.2,
   },
-  subtitleCount: {
-    fontSize: 11,
-    color: '#999',
-  },
+  subtitleCount: { fontSize: 11.5, color: P.slate500, fontWeight: '500' },
   expandIcon: {
-    padding: 4,
-    borderRadius: 12,
-    backgroundColor: '#f0f0f0',
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    backgroundColor: P.slate100,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  expandIconDark: {
-    backgroundColor: '#242f4d',
-  },
-  expandIconActive: {
-    backgroundColor: '#667eea15',
-  },
+  expandIconDark: { backgroundColor: P.slate700 },
+  expandIconActive: { backgroundColor: P.indigoSoft },
   subGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 16,
+    marginTop: 14,
     borderTopWidth: 1,
-    borderColor: '#E8ECF0',
-    paddingTop: 16,
+    borderColor: P.slate100,
+    paddingTop: 14,
     justifyContent: 'space-between',
-    gap: 10,
-  },
-  subGridDark: {
-    borderColor: '#2d3561',
-  },
-  subThumbnail: {
-    width: (width - 104) / 2,
-    backgroundColor: '#F8F9FA',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E8ECF0',
     gap: 8,
   },
-  subThumbnailDark: {
-    backgroundColor: '#1a1a2e',
-    borderColor: '#2d3561',
+  subGridDark: { borderColor: P.slate700 },
+  subThumbnail: {
+    width: (width - 104) / 2,
+    backgroundColor: P.slate50,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    borderWidth: 1,
+    borderColor: P.slate200,
+    gap: 8,
   },
+  subThumbnailDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
   subIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  subText: {
-    fontSize: 12,
-    color: '#555',
-    fontWeight: '500',
-  },
+  subText: { fontSize: 11.5, color: P.slate700, fontWeight: '600', flexShrink: 1 },
   specialUploadBtn: {
     width: '100%',
-    marginTop: 8,
-    borderRadius: 12,
+    marginTop: 6,
+    borderRadius: 10,
     overflow: 'hidden',
   },
   gradientButton: {
     flexDirection: 'row',
-    paddingVertical: 12,
+    paddingVertical: 11,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
   },
-  uploadText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 13,
-  },
+  uploadText: { color: P.white, fontWeight: '800', fontSize: 12.5 },
 
-  textDark: {
-    color: '#F8FAFC',
-  },
-  textMutedDark: {
-    color: '#94A3B8',
-  },
+  // ── Utility ──
+  textDark: { color: P.slate50 },
+  textMutedDark: { color: P.slate400 },
 });

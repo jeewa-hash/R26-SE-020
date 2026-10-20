@@ -4,7 +4,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-AUTH_API_URL = os.getenv("AUTH_API_URL", "https://r26-auth-service.onrender.com").rstrip("/")
+AUTH_API_URL = (
+    os.getenv("AUTH_API_URL")
+    or os.getenv("AUTH_SERVICE_URL")
+    or "https://r26-auth-service.onrender.com"
+).rstrip("/")
+AUTH_PROVIDER_LIST_FALLBACK_URL = os.getenv(
+    "AUTH_PROVIDER_LIST_FALLBACK_URL",
+    "https://r26-auth-service.onrender.com/providers",
+)
 
 def get_current_user(token: str) -> dict:
     try:
@@ -34,55 +42,22 @@ def get_current_user(token: str) -> dict:
 # =========================================================
 
 def get_all_providers() -> list:
-    try:
-        response = requests.get(
-            f"{AUTH_API_URL}/providers",
-            timeout=5
-        )
-
-    except requests.exceptions.ConnectionError:
-        raise Exception(
-            f"Auth service unreachable at {AUTH_API_URL}."
-        )
-
-    except requests.exceptions.Timeout:
-        raise Exception(
-            "Auth service timed out."
-        )
-
-    except requests.exceptions.RequestException as e:
-        raise Exception(
-            f"Auth service request failed: {str(e)}"
-        )
-
-    # ---------------------------------------------------------
-    # Check response
-    # ---------------------------------------------------------
-
-    if not response.ok:
-        raise Exception(
-            f"Auth service error ({response.status_code}): "
-            f"{response.text}"
-        )
-
-    # ---------------------------------------------------------
-    # Parse JSON
-    # ---------------------------------------------------------
-
-    data = response.json()
-
-    providers = data.get(
-        "providers",
-        data
+    urls = (
+        f"{AUTH_API_URL.rstrip('/')}/providers",
+        AUTH_PROVIDER_LIST_FALLBACK_URL,
     )
+    last_error = None
 
-    # ---------------------------------------------------------
-    # Validate provider list
-    # ---------------------------------------------------------
+    for url in dict.fromkeys(urls):
+        try:
+            response = requests.get(url, timeout=5)
+            response.raise_for_status()
+            data = response.json()
+            providers = data.get("providers", data) if isinstance(data, dict) else data
+            if isinstance(providers, list):
+                return providers
+            last_error = Exception("Auth response does not contain a providers list.")
+        except (requests.exceptions.RequestException, ValueError) as error:
+            last_error = error
 
-    if not isinstance(providers, list):
-        raise Exception(
-            "Auth response does not contain a providers list."
-        )
-
-    return providers
+    raise Exception(f"Unable to retrieve providers from auth service: {last_error}")

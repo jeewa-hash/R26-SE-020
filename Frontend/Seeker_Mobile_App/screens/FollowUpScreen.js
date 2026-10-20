@@ -19,7 +19,7 @@ import { useTheme } from "../hooks/useTheme";
 import MapView, { Marker } from "../components/SafeMapView";
 import * as Location from "expo-location";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { IMAGE_CLASSIFIER_URL, TEXT_MODEL_URL } from '../config';
 
 const { width, height } = Dimensions.get("window");
 
@@ -93,7 +93,7 @@ if (!token) {
 }
 
 const res = await fetch(
-  `http://${IP_ADDRESS}:5002/text-predict`,
+  `${TEXT_MODEL_URL}/text-predict`,
   {
     method: "POST",
     headers: {
@@ -392,8 +392,8 @@ if (!token) {
 
 const endpoint =
   source === "image"
-    ? `http://${IP_ADDRESS}:8000/flow/next`
-    : `http://${IP_ADDRESS}:5002/text-chat`;
+    ? `${IMAGE_CLASSIFIER_URL}/flow/next`
+    : `${TEXT_MODEL_URL}/text-chat`;
 
 const response = await fetch(endpoint, {
   method: "POST",
@@ -513,6 +513,7 @@ const response = await fetch(endpoint, {
       userAnswers,
       finalDecision,
       initialMessage,
+      source,
     });
   };
 

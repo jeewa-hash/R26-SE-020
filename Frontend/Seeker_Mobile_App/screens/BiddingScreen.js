@@ -17,6 +17,9 @@ import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import BottomNav from '../components/BottomNav';
+import { APP_THEME } from '../context/ThemeContext';
+
+const P = APP_THEME.light;
 
 export default function BiddingScreen() {
   const navigation = useNavigation();
@@ -106,7 +109,7 @@ export default function BiddingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+      <StatusBar barStyle="dark-content" backgroundColor={P.surface} />
       
       {/* Header */}
       <PageHeader title={<>Create a Bid</>} onBack={() => navigation.goBack()} />
@@ -121,11 +124,11 @@ export default function BiddingScreen() {
         >
           {/* Hero Section */}
           <LinearGradient
-            colors={['#667eea15', '#764ba215']}
+            colors={[P.accent + '15', P.accentSoft]}
             style={styles.heroSection}
           >
             <View style={styles.heroIcon}>
-              <MaterialIcons name="gavel" size={40} color="#667eea" />
+              <MaterialIcons name="gavel" size={40} color={P.accent} />
             </View>
             <Text style={styles.heroTitle}>Post a Job & Get Bids</Text>
             <Text style={styles.heroSubtitle}>Describe your job and let professionals bid for the best price</Text>
@@ -282,7 +285,7 @@ export default function BiddingScreen() {
             <Text style={styles.sectionSubtitle}>Where do you need the service?</Text>
             
             <View style={styles.locationInputContainer}>
-              <Ionicons name="location-outline" size={22} color="#667eea" />
+              <Ionicons name="location-outline" size={22} color={P.accent} />
               <TextInput
                 style={styles.locationInput}
                 placeholder="Enter your address or area"
@@ -295,7 +298,7 @@ export default function BiddingScreen() {
 
           {/* Info Box */}
           <View style={styles.infoBox}>
-            <Ionicons name="information-circle" size={20} color="#667eea" />
+            <Ionicons name="information-circle" size={20} color={P.accent} />
             <Text style={styles.infoText}>
               Once posted, professionals will bid on your job. You can review bids and choose the best offer.
             </Text>
@@ -304,7 +307,7 @@ export default function BiddingScreen() {
           {/* Submit Button */}
           <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={loading}>
             <LinearGradient
-              colors={['#667eea', '#764ba2']}
+              colors={[P.accent, P.accentDeep]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.submitGradient}
@@ -332,7 +335,7 @@ export default function BiddingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: P.canvas,
   },
   flex: {
     flex: 1,
@@ -375,7 +378,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#667eea',
+    shadowColor: P.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -455,7 +458,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   serviceTagActive: {
-    backgroundColor: '#667eea',
+    backgroundColor: P.accent,
     borderWidth: 0,
   },
   serviceTagEmoji: {
@@ -543,7 +546,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   budgetBtnActive: {
-    backgroundColor: '#667eea',
+    backgroundColor: P.accent,
     borderWidth: 0,
   },
   budgetText: {
@@ -590,7 +593,7 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#667eea10',
+    backgroundColor: P.accent + '10',
     marginHorizontal: 16,
     marginBottom: 16,
     padding: 16,
@@ -601,7 +604,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 12,
-    color: '#667eea',
+    color: P.accent,
     lineHeight: 18,
   },
   submitBtn: {

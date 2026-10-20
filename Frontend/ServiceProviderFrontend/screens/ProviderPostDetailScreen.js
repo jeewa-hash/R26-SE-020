@@ -1,3 +1,4 @@
+import ProviderPageHeader from '../components/ProviderPageHeader';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
@@ -177,7 +178,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
     [post]
   );
   const appliedCount = Number(post.appliedCount ?? (post.applicants?.length ?? 0));
-  const alreadyApplied = isApplied(postId || post.id);
+  const alreadyApplied = post.hasApplied === true || isApplied(postId || post.id);
   const ownerMatch =
     viewerId &&
     post &&
@@ -225,13 +226,19 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
           },
           body: JSON.stringify(payload),
         });
-        if (res.ok) result = await res.json();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || data?.message || `HTTP ${res.status}`);
+        result = data;
       }
 
-      const newCount = Number(result?.appliedCount ?? (appliedCount + 1));
+      if (!result || result.success === false) {
+        throw new Error(result?.error || result?.message || 'Application was not saved.');
+      }
+      const newCount = Number(result.appliedCount ?? (appliedCount + 1));
       setPost((prev) => ({
         ...prev,
         appliedCount: newCount,
+        hasApplied: true,
       }));
       applyToJob({
         ...post,
@@ -269,19 +276,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
   if (loading && !post.title) {
     return (
       <View style={[styles.safeArea, { backgroundColor: C.bg }]}>
-        <LinearGradient
-          colors={isDark ? ['#0C0F0D', '#161C18'] : ['#15803D', '#166534']}
-          style={styles.header}
-        >
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Service Request</Text>
-          <View style={{ width: 40 }} />
-        </LinearGradient>
+        <ProviderPageHeader navigation={navigation} title="Service Request" subtitle="Review the job and your application" />
         <View style={styles.loadWrap}>
           <ActivityIndicator size="large" color="#166534" />
           <Text style={{ color: C.textSub, marginTop: 12 }}>Loading post details...</Text>
@@ -293,24 +288,12 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
   return (
     <View style={[styles.safeArea, { backgroundColor: C.bg }]}>
       <StatusBar
-        barStyle="light-content"
-        backgroundColor={isDark ? '#0C0F0D' : '#15803D'}
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor={C.bg}
       />
 
       {/* Header */}
-      <LinearGradient
-        colors={isDark ? ['#0C0F0D', '#161C18'] : ['#15803D', '#166534']}
-        style={styles.header}
-      >
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Service Request</Text>
-        <View style={{ width: 40 }} />
-      </LinearGradient>
+      <ProviderPageHeader navigation={navigation} title="Service Request" subtitle="Review the job and your application" />
 
       <ScrollView contentContainerStyle={{ paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
 
@@ -348,7 +331,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
               <View style={{ flex: 1 }}>
                 <Text style={[styles.posterName, { color: C.text }]}>{posterName}</Text>
                 <View style={styles.posterMetaRow}>
-                  <MaterialIcons name="place" size={13} color="#0284C7" />
+                  <MaterialIcons name="place" size={13} color="#15803D" />
                   <Text style={[styles.posterMeta, { color: C.textSub }]}>
                     {post.poster?.district ||
                         post.locationDistrict ||
@@ -362,7 +345,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
                   </Text>
                 </View>
                 <View style={styles.posterMetaRow}>
-                  <MaterialIcons name="schedule" size={13} color="#0284C7" />
+                  <MaterialIcons name="schedule" size={13} color="#15803D" />
                   <Text style={[styles.posterMeta, { color: C.textSub }]}>
                     {post.postedAt || post.createdAt ? new Date(post.postedAt || post.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently'}
                   </Text>
@@ -394,7 +377,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
               ) : null}
               <View style={[styles.chip, { backgroundColor: '#EAF7EE' }]}>
                 <MaterialIcons name="people" size={14} color="#15803D" />
-                <Text style={[styles.chipText, { color: '#4338CA' }]}>{appliedCount} bids</Text>
+                <Text style={[styles.chipText, { color: isDark ? '#86EFAC' : '#166534' }]}>{appliedCount} bids</Text>
               </View>
             </View>
 
@@ -448,7 +431,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
                       <View style={{ flex: 1 }}>
                         <View style={styles.applicantRow}>
                           <Text style={[styles.applicantName, { color: C.text }]}>{aName}</Text>
-                          <View style={[styles.roleChip, { backgroundColor: (a.role || 'Provider') === 'ServiceProvider' ? '#DBEAFE' : '#FEF3C7' }]}>
+                          <View style={[styles.roleChip, { backgroundColor: isDark ? '#25392C' : '#EAF7EE' }]}>
                             <Text style={[styles.roleText, { color: (a.role || 'Provider') === 'ServiceProvider' ? '#166534' : '#B45309' }]}>
                               {(a.role || 'Provider') === 'ServiceProvider' ? 'Provider' : (a.role || 'Seeker')}
                             </Text>
@@ -487,8 +470,8 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
             </View>
           ) : (
             <View style={[styles.sectionCard, { backgroundColor: C.card, borderColor: C.border }]}>
-              <View style={styles.lockedNotice}>
-                <MaterialIcons name="lock" size={26} color="#F59E0B" />
+              <View style={[styles.lockedNotice, { backgroundColor: isDark ? '#202E25' : '#F1F7F3', borderColor: C.border }]}>
+                <MaterialIcons name="lock-outline" size={23} color={isDark ? '#B5DCC0' : '#64746A'} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <Text style={[styles.lockedTitle, { color: C.text }]}>Applicant details are private</Text>
                   <Text style={[styles.lockedSub, { color: C.textSub }]}>
@@ -514,9 +497,9 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
             <Text style={{ color: C.textSub, fontWeight: '600', marginLeft: 6 }}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.applyNow, alreadyApplied && { backgroundColor: '#10B981' }, applying && { opacity: 0.8 }]}
-            onPress={openApply}
-            disabled={alreadyApplied || applying}
+            style={[styles.applyNow, alreadyApplied && { backgroundColor: '#15803D' }, applying && { opacity: 0.8 }]}
+            onPress={() => alreadyApplied ? navigation.navigate('AppliedJobs') : openApply()}
+            disabled={applying}
             activeOpacity={0.85}
           >
             {applying ? (
@@ -525,7 +508,7 @@ export default function ProviderPostDetailScreen({ navigation, route }) {
               <Ionicons name={alreadyApplied ? 'checkmark-circle' : 'paper-plane'} size={22} color="#fff" />
             )}
             <Text style={styles.applyNowText}>
-              {alreadyApplied ? '✓ You Applied' : applying ? 'Submitting...' : "I'm Available"}
+              {alreadyApplied ? 'View Application' : applying ? 'Submitting...' : "I'm Available"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -649,7 +632,7 @@ const styles = StyleSheet.create({
   posterAvatar: {
     width: 48, height: 48, borderRadius: 24,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-    borderWidth: 2, borderColor: '#0284C7',
+    borderWidth: 2, borderColor: '#B5DCC0',
   },
   posterAvatarText: { fontSize: 18, fontWeight: '800', color: '#fff' },
   posterName: { fontSize: 16, fontWeight: '700' },
@@ -806,10 +789,10 @@ const styles = StyleSheet.create({
     minWidth: 150,
     minHeight: 48,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#047857',
+    backgroundColor: '#15803D',
     borderRadius: 14,
     paddingVertical: 14, gap: 8,
-    shadowColor: '#10B981',
+    shadowColor: '#15803D',
     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10,
     elevation: 6,
   },

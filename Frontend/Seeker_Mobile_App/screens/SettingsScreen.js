@@ -55,7 +55,7 @@ export default function SettingsScreen({ navigation }) {
       id: 'account', 
       title: 'Account Settings', 
       icon: 'person', 
-      color: '#667eea',
+      color: '#4F46E5',
       onPress: () => navigation.navigate('ProfileScreen')
     },
     { 
@@ -104,7 +104,7 @@ export default function SettingsScreen({ navigation }) {
   ];
 
   const accountOptions = [
-    { id: 'help', title: 'Help Center', icon: 'help-circle', color: '#667eea' },
+    { id: 'help', title: 'Help Center', icon: 'help-circle', color: '#4F46E5' },
     { id: 'about', title: 'About Us', icon: 'information-circle', color: '#4ECDC4' },
     { id: 'terms', title: 'Terms & Conditions', icon: 'document-text', color: '#45B7D1' },
   ];
@@ -113,7 +113,7 @@ export default function SettingsScreen({ navigation }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar 
         barStyle={isDarkMode ? "light-content" : "dark-content"} 
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"} 
+        backgroundColor={isDarkMode ? "#1a1a2e" : "#4F46E5"} 
       />
       
       {/* Header */}
@@ -168,7 +168,7 @@ export default function SettingsScreen({ navigation }) {
                   <Switch
                     value={option.value}
                     onValueChange={option.setter}
-                    trackColor={{ false: '#E5E7EB', true: '#667eea' }}
+                    trackColor={{ false: '#E5E7EB', true: '#4F46E5' }}
                     thumbColor="#fff"
                   />
                 ) : option.value ? (

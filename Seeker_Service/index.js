@@ -1,3 +1,4 @@
+import { UPLOAD_DIR } from './utils/uploadPaths.js';
 import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
@@ -14,6 +15,7 @@ import feedbackRoutes from "./routes/feedbackRoutes.js";
 import requestQuotationRoutes from "./routes/requestQuotationRoutes.js";
 import rewardRoutes from "./routes/rewardRoutes.js";
 import serviceSessionRoutes from "./routes/serviceSessionRoutes.js";
+import coordinationRoutes from "./routes/coordinationRoutes.js";
 
 dotenv.config();
 
@@ -25,7 +27,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // static
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(UPLOAD_DIR));
 
 // root health check
 app.get("/", (req, res) => {
@@ -45,6 +47,7 @@ app.use("/feedbacks", feedbackRoutes);
 app.use("/request-quotations", requestQuotationRoutes);
 app.use("/api/rewards", rewardRoutes);
 app.use("/service-sessions", serviceSessionRoutes);
+app.use("/coordination", coordinationRoutes);
 
 
 

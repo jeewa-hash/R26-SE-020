@@ -1,6 +1,7 @@
+import { getProviderBookings as loadProviderBookings } from '../../../services/providerFlowApi';
+import { fetchProviderWithTimeout as fetchWithTimeout, PROVIDER_REQUEST_TIMEOUT_MS } from '../../../utils/providerHttp';
 // pages/IT22129376/services/providerFlowApi.js
 import {
-  IP_ADDRESS,
   CONFIG,
   SEEKER_SERVICE_URL,
   PROVIDER_SERVICE_API_URL,
@@ -15,19 +16,16 @@ const SEEKER_URLS = uniqueUrls([
   CONFIG?.SEEKER_SERVICE_URL,
   SEEKER_SERVICE_URL,
   CONFIG?.API_BASE_URL,
-  `http://${IP_ADDRESS}:6000`,
 ]);
 
 const PROVIDER_URLS = uniqueUrls([
   CONFIG?.PROVIDER_SERVICE_URL,
   PROVIDER_SERVICE_API_URL,
-  `http://${IP_ADDRESS}:3002`,
 ]);
 
 const COORDINATION_URLS = uniqueUrls([
   CONFIG?.COORDINATION_SERVICE_URL,
   COORDINATION_SERVICE_URL,
-  `http://${IP_ADDRESS}:5010`,
 ]);
 
 const parseResponse = async (response) => {
@@ -55,19 +53,7 @@ const parseResponse = async (response) => {
   return data;
 };
 
-const fetchWithTimeout = async (url, options = {}, timeoutMs = 4000) => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-};
+
 
 const requestJson = async (url, options = {}) => {
   const headers = await buildAuthHeaders();
@@ -105,13 +91,11 @@ const firstSuccess = async (candidates) => {
     const { url, options = {}, auth = true } = candidate;
 
     try {
-      console.log('Trying Provider Flow API:', url);
 
       const data = auth
         ? await requestJson(url, options)
         : await requestJsonNoAuth(url, options);
 
-      console.log('Provider Flow API success:', url);
 
       return {
         data,
@@ -119,7 +103,7 @@ const firstSuccess = async (candidates) => {
       };
     } catch (error) {
       lastError = error;
-      console.log('Provider Flow API failed:', url, error?.message);
+
     }
   }
 
@@ -244,8 +228,6 @@ export const getProviderRequests = async (providerId) => {
 
   const requests = filterForProvider(rawRequests, providerId);
 
-  console.log('Provider requests raw count:', rawRequests.length);
-  console.log('Provider requests filtered count:', requests.length);
 
   return {
     raw: data,
@@ -287,48 +269,8 @@ export const getProviderQuotations = async (providerId = null) => {
 };
 
 export const getProviderJobs = async (providerId = null) => {
-  // 1. /bookings/provider/me (authenticated)
-  // 2. /bookings/provider/:providerId (unauthenticated / fallback)
-  // 3. /calendar/provider/me (authenticated)
-  const candidates = [
-    ...COORDINATION_URLS.map((base) => ({
-      url: `${base}/bookings/provider/me`,
-      auth: true,
-    })),
-
-    ...(providerId
-      ? COORDINATION_URLS.map((base) => ({
-          url: `${base}/bookings/provider/${providerId}`,
-          auth: false,
-        }))
-      : []),
-
-    ...COORDINATION_URLS.map((base) => ({
-      url: `${base}/calendar/provider/me`,
-      auth: true,
-    })),
-  ];
-
-  const { data, usedUrl } = await firstSuccess(candidates);
-
-  const rawJobs = normalizeList(data, [
-    'bookings',
-    'calendar',
-    'jobs',
-    'providerBookings',
-    'data',
-  ]);
-
-  const jobs = providerId ? filterForProvider(rawJobs, providerId) : rawJobs;
-
-  return {
-    raw: data,
-    usedUrl,
-    rawList: rawJobs,
-    jobs,
-    rawCount: rawJobs.length,
-    filteredCount: jobs.length,
-  };
+  const jobs = await loadProviderBookings(providerId);
+  return { raw: jobs, rawList: jobs, jobs, rawCount: jobs.length, filteredCount: jobs.length };
 };
 
 export const getProviderMissedInquiries = async () => {

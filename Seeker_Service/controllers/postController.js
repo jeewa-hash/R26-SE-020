@@ -1,5 +1,7 @@
+import { publishLifecycleNotification } from '../utils/lifecycleNotifications.js';
+import { publicImagePath, storedImageFile } from '../utils/uploadPaths.js';
 import Post from "../models/Post.js";
-import { analyzeImageWithGemini } from "../utils/gemini.js";
+import { analyzeImageWithGemini, rankRelevantPosts } from "../utils/gemini.js";
 import fs from "fs";
 import axios from "axios";
 
@@ -8,8 +10,17 @@ import axios from "axios";
 // AUTH SERVICE URL
 // =======================================================
 
-const AUTH_SERVICE_URL =
-  process.env.AUTH_SERVICE_URL || "http://localhost:4003";
+const AUTH_SERVICE_URL = (
+  process.env.AUTH_SERVICE_URL || "https://r26-auth-service.onrender.com"
+)
+  .replace(/\/+$/, "")
+  .replace(/\/seeker$/i, "");
+
+const postPipelineLog = (event, details = {}) => {
+  if (process.env.POST_PIPELINE_DEBUG === "true") {
+    console.info(`[post-pipeline] ${event}`, details);
+  }
+};
 
 
 // =======================================================
@@ -17,27 +28,34 @@ const AUTH_SERVICE_URL =
 // =======================================================
 
 const getUserById = async (userId, role = "seeker") => {
-  try {
-    const lowerRole = String(role || "seeker").toLowerCase();
-    const path =
-      lowerRole === "serviceprovider" || lowerRole === "provider"
-        ? `provider/user/${userId}`
-        : `seeker/user/${userId}`;
+  const lowerRole = String(role || "seeker").toLowerCase();
+  const path =
+    lowerRole === "serviceprovider" || lowerRole === "provider"
+      ? `provider/user/${userId}`
+      : `seeker/user/${userId}`;
 
+  try {
     const response = await axios.get(`${AUTH_SERVICE_URL}/${path}`);
     return response.data;
   } catch (error) {
+    const altPath =
+      lowerRole === "seeker"
+        ? `provider/user/${userId}`
+        : `seeker/user/${userId}`;
+
     try {
-      const altPath =
-        lowerRole === "seeker"
-          ? `provider/user/${userId}`
-          : `seeker/user/${userId}`;
       const fallback = await axios.get(`${AUTH_SERVICE_URL}/${altPath}`);
       return fallback.data;
-    } catch (_) {
+    } catch (fallbackError) {
       console.error(
         "AUTH SERVICE ERROR:",
-        error.response?.data || error.message
+        {
+          authServiceUrl: AUTH_SERVICE_URL,
+          primaryStatus: error.response?.status,
+          primaryError: error.response?.data || error.message,
+          fallbackStatus: fallbackError.response?.status,
+          fallbackError: fallbackError.response?.data || fallbackError.message,
+        }
       );
       return null;
     }
@@ -80,10 +98,17 @@ const sanitizePost = (postObj, { viewerId, ownerId }) => {
     !!ownerId &&
     String(viewerId) === String(ownerId);
 
-  if (isOwner) return postObj;
+  const application = viewerId && (postObj.appliedBy || []).find(
+    (entry) => String(entry.applicantId) === String(viewerId)
+  );
+  const viewerState = {
+    hasApplied: Boolean(application),
+    appliedAt: application?.createdAt || null,
+  };
+  if (isOwner) return { ...postObj, ...viewerState };
 
   const { appliedBy, ...rest } = postObj;
-  return rest;
+  return { ...rest, ...viewerState };
 };
 
 // =======================================================
@@ -293,6 +318,12 @@ export const previewPost = async (req, res) => {
       requiredDate,
     } = req.body;
 
+    postPipelineLog("preview.started", {
+      hasUserId: Boolean(userId),
+      hasImage: Boolean(req.file),
+      providedFields: [title && "title", description && "description", location && "location", requiredDate && "requiredDate", urgency && "urgency"].filter(Boolean),
+    });
+
     if (!req.file && !String(title || description || "").trim()) {
       return res.status(400).json({
         success: false,
@@ -314,22 +345,43 @@ export const previewPost = async (req, res) => {
           .limit(50)
           .select("title description category tags createdAt")
           .lean();
-        const terms = new Set(
-          `${title || ""} ${description || ""}`
-            .toLowerCase()
-            .match(/[a-z0-9]{3,}/g) || []
-        );
-        const relevantPosts = pastPosts
-          .map((post) => {
-            const postTerms = `${post.title || ""} ${post.description || ""} ${post.category || ""} ${(post.tags || []).join(" ")}`
-              .toLowerCase()
-              .match(/[a-z0-9]{3,}/g) || [];
-            const overlap = postTerms.filter((term) => terms.has(term)).length;
-            return { post, score: overlap / Math.max(1, new Set(postTerms).size) };
-          })
-          .filter((item) => item.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 3);
+        postPipelineLog("rag.history_loaded", { postCount: pastPosts.length });
+        let relevantPosts = [];
+        if (pastPosts.length) {
+          const searchQuery = `${title || ""} ${description || ""} ${location || ""}`.trim();
+          try {
+            relevantPosts = await rankRelevantPosts(searchQuery, pastPosts, 3);
+            postPipelineLog("rag.hybrid_retrieval_completed", {
+              method: "embeddings+unicode-keywords",
+              selectedCount: relevantPosts.length,
+              scores: relevantPosts.map(({ score, semanticScore, lexicalScore }) => ({
+                combined: Number(score.toFixed(3)),
+                semantic: Number(semanticScore.toFixed(3)),
+                keyword: Number(lexicalScore.toFixed(3)),
+              })),
+            });
+          } catch (embeddingError) {
+            // Keep post generation available when the optional embedding API is unavailable.
+            postPipelineLog("rag.embedding_failed_using_keyword_fallback", {
+              code: embeddingError.code || "unknown",
+              status: embeddingError.response?.status || null,
+            });
+            const terms = new Set(searchQuery.toLocaleLowerCase().match(/[\p{L}\p{N}]{2,}/gu) || []);
+            relevantPosts = pastPosts
+              .map((post) => {
+                const postText = `${post.title || ""} ${post.description || ""} ${post.category || ""} ${(post.tags || []).join(" ")}`;
+                const postTerms = new Set(postText.toLocaleLowerCase().match(/[\p{L}\p{N}]{2,}/gu) || []);
+                const overlap = [...terms].filter((term) => postTerms.has(term)).length;
+                return { post, score: overlap / Math.sqrt(Math.max(1, terms.size * postTerms.size)) };
+              })
+              .filter((item) => item.score > 0)
+              .sort((a, b) => b.score - a.score)
+              .slice(0, 3);
+            postPipelineLog("rag.keyword_fallback_completed", { selectedCount: relevantPosts.length });
+          }
+        } else {
+          postPipelineLog("rag.no_history_posts");
+        }
 
         if (relevantPosts.length) {
           contextData += "Relevant prior user posts retrieved for personalization (not facts about this new request):\n";
@@ -340,6 +392,8 @@ export const previewPost = async (req, res) => {
       } catch (err) {
         console.error("Failed to fetch context data for user:", err.message);
       }
+    } else {
+      postPipelineLog("rag.skipped_no_user_id");
     }
 
     const imageBase64 = req.file
@@ -354,6 +408,12 @@ export const previewPost = async (req, res) => {
       language,
       { location, urgency, requiredDate }
     );
+    postPipelineLog("preview.completed", {
+      hasTitle: Boolean(aiData.title),
+      hasDescription: Boolean(aiData.description),
+      category: aiData.category || "General",
+      tagCount: aiData.tags?.length || 0,
+    });
 
     res.status(200).json({
       success: true,
@@ -366,7 +426,7 @@ export const previewPost = async (req, res) => {
         description:
           aiData.description || description,
 
-        image: req.file?.path || null,
+        image: publicImagePath(req.file),
 
         category:
           aiData.category || "General",
@@ -409,32 +469,28 @@ export const publishPost = async (req, res) => {
       category,
       tags,
       urgency,
-      userId,
-      seekerId,
+      language,
       location,
       preferredSchedule,
     } = req.body;
 
-    const actualId = seekerId || userId;
+    const actualId = req.user?.id;
 
     if (!actualId) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
-        error: "Seeker ID is required",
+        error: "Authenticated seeker ID is required",
       });
     }
 
-    // Check whether user exists
-    const user = await getUserById(userId); // ✅ variable is "user"
-
-    if (!user) { // ✅ now checks "user" not "rawUser"
-      return res.status(404).json({
+    if (String(req.user.role).toLowerCase() !== "seeker") {
+      return res.status(403).json({
         success: false,
-        error: "User not found in Auth Service",
+        error: "Only seekers can publish posts",
       });
     }
 
-    const userInfo = buildUserInfo(user, userId); // ✅ uses "user"
+    const userInfo = buildUserInfo(req.user, actualId);
 
     const posterEmbed = {
       name: userInfo.name,
@@ -453,9 +509,9 @@ export const publishPost = async (req, res) => {
       category,
       tags,
       urgency,
+      language: language || "en",
       location: typeof location === "string" ? { address: location } : location,
       preferredSchedule: preferredSchedule || {},
-      userId,
     });
 
     await newPost.save();
@@ -507,6 +563,10 @@ export const updatePost = async (req, res) => {
 
     if (req.body.description !== undefined) {
       post.description = req.body.description;
+    }
+
+    if (req.body.language !== undefined) {
+      post.language = req.body.language;
     }
 
     if (req.body.category !== undefined) {
@@ -583,9 +643,9 @@ export const deletePost = async (req, res) => {
 
     if (
       post.image &&
-      fs.existsSync(post.image)
+      storedImageFile(post.image) && fs.existsSync(storedImageFile(post.image))
     ) {
-      fs.unlinkSync(post.image);
+      fs.unlinkSync(storedImageFile(post.image));
     }
 
     await Post.findByIdAndDelete(
@@ -697,6 +757,16 @@ export const applyPost = async (req, res) => {
       await post.save();
     }
 
+    const recipientId = post.userId || post.seekerId;
+    if (recipientId && String(recipientId) !== String(applicantId) && applicantRole === 'ServiceProvider') {
+      await publishLifecycleNotification({
+        recipientId: String(recipientId), role: 'Seeker',
+        eventId: `post:${post._id}:available:${applicantId}`,
+        type: 'provider_available', title: 'A provider is available',
+        message: `${applicantInfo.name || 'A service provider'} is available for your post. Review their response and request a quotation.`,
+        metadata: { postId: String(post._id), providerId: String(applicantId), sessionId: post.sessionId || null },
+      });
+    }
     const rawOwner = await getUserById(post.userId);
     const ownerInfo = buildUserInfo(rawOwner, post.userId);
 

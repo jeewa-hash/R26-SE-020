@@ -11,26 +11,24 @@ module.exports = {
       },
     });
 
+    io.use((socket, next) => {
+      try {
+        const decoded = require('jsonwebtoken').verify(socket.handshake.auth?.token, process.env.JWT_SECRET);
+        const user = decoded.user || decoded;
+        if (!user.id || !user.role) throw new Error('Invalid identity');
+        socket.user = user;
+        next();
+      } catch { next(new Error('Authentication required')); }
+    });
     io.on('connection', (socket) => {
-      console.log('Client connected:', socket.id);
-
-      socket.on('join', (room) => {
-        if (room) {
-          socket.join(room.toString());
-          console.log(`Socket ${socket.id} joined room: ${room}`);
-        }
-      });
-
-      socket.on('join_notification_room', (userId) => {
-        if (userId) {
-          socket.join(userId.toString());
-          console.log(`Socket ${socket.id} joined notification room: ${userId}`);
-        }
-      });
-
-      socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
-      });
+      const ownRoom = String(socket.user.id);
+      socket.join(ownRoom);
+      if (String(socket.user.role).toLowerCase() === 'admin') socket.join('admin_room');
+      const joinOwnRoom = room => {
+        if (String(room) === ownRoom) socket.join(ownRoom);
+      };
+      socket.on('join', joinOwnRoom);
+      socket.on('join_notification_room', joinOwnRoom);
     });
 
     return io;

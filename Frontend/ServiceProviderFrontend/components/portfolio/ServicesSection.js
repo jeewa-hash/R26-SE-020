@@ -67,6 +67,7 @@ export default function ServicesSection({ navigation, C, initialCategory }) {
   const { isDark } = useContext(ThemeContext) || {};
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [showAllServices, setShowAllServices] = useState(false);
 
   const fetchServices = useCallback(async () => {

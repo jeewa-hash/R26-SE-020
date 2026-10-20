@@ -1,8 +1,8 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
 import { CONFIG } from '../config';
 
-const PROVIDER_SERVICE_URL = CONFIG?.PROVIDER_SERVICE_URL || 'http://localhost:3002';
+const PROVIDER_SERVICE_URL = CONFIG?.PROVIDER_SERVICE_URL || 'https://r26-se-020-production.up.railway.app';
 
 const billingApi = axios.create({
   baseURL: `${PROVIDER_SERVICE_URL}/api/provider/billing`,
@@ -11,7 +11,7 @@ const billingApi = axios.create({
 
 // Attach Authorization Bearer token to all outgoing billing requests
 billingApi.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem('userToken');
+  const { token } = await getStoredProviderAuth();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -67,3 +67,13 @@ export const confirmCommissionPayment = async (sessionId) => {
 };
 
 export default billingApi;
+
+export const getCompletedJobEarnings = async () => {
+  const { token, providerId, isLoggedIn, user } = await getStoredProviderAuth();
+  if (!token || !providerId || !isLoggedIn) throw new Error('Please sign in again to view earnings.');
+  const response = await axios.get(`${CONFIG.COORDINATION_SERVICE_URL}/bookings/provider/${encodeURIComponent(providerId)}/earnings`, { headers: { Authorization: `Bearer ${token.replace(/^Bearer\s+/i, '')}` }, timeout: 15000 });
+  const data = response.data?.data;
+  if (!response.data?.success || !data || String(data.providerId) !== String(providerId) || !Array.isArray(data.bookings) || !Number.isFinite(data.totalIncome) || !Number.isInteger(data.completedBookingsCount)) throw new Error('Unable to verify earnings for the signed-in provider.');
+  if (data.completedBookingsCount !== data.bookings.length || data.bookings.some(row => row.bookingStatus !== 'COMPLETED')) throw new Error('The earnings response is incomplete. Please refresh.');
+  return { ...data, accountLabel: user?.fullName || user?.name || user?.businessName || `Provider · ${String(providerId).slice(-6)}` };
+};

@@ -23,14 +23,7 @@ import { evaluateCoordinationFeasibility } from "../services/coordinationFeasibi
 import { validateProviderSchedule } from "../services/scheduleValidationService.js";
 import { estimateServiceDuration } from "../services/durationEstimationService.js";
 
-const toScheduleParts = (value) => {
-  const date = new Date(value);
-  const pad = (part) => String(part).padStart(2, "0");
-  return {
-    date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
-    time: `${pad(date.getHours())}:${pad(date.getMinutes())}`,
-  };
-};
+import { toScheduleParts } from "../utils/timeUtils.js";
 
 export const validateQuotationSchedule = async (req, res) => {
   try {
@@ -40,16 +33,11 @@ export const validateQuotationSchedule = async (req, res) => {
     if (request.rescheduleRequestedAt) return res.status(409).json({ message: 'Waiting for the seeker to choose a new time.' });
     const start = new Date(request.preferredStartTime);
     if (!request.preferredStartTime || !Number.isFinite(start.getTime()) || start <= new Date()) return res.status(400).json({ message: 'The seeker must choose a future start time before you can quote.' });
-    const payload = buildDurationPredictionPayload({ requestQuotation: request, providerQuotation: { providerId: req.user.id } });
+    const payload = buildDurationPredictionPayload({ requestQuotation: request, providerQuotation: { providerId: req.user.id, ...req.body.modelContext } });
     const prediction = await predictDuration(payload);
     const predicted = Number(prediction?.predictedDurationMins);
     const duration = Number.isFinite(predicted) && predicted > 0 ? predicted : estimateServiceDuration({ serviceCategory: payload.serviceCategory, serviceSubcategory: payload.serviceType, taskName: payload.taskName, urgency: request.urgencyLevel }).averageDurationHours * 60;
-    const schedule = await evaluateBidSchedule({ providerId: req.user.id, proposedStartTime: start, preferredStartTime: start, preferredEndTime: request.preferredEndTime, predictedDurationMins: duration, bufferMinutes: 30 });
-    // A daily slot cannot represent work crossing midnight.
-    if (schedule.requiredWindowStart.toDateString() !== schedule.requiredWindowEnd.toDateString()) {
-      schedule.conflictDetected = true;
-      schedule.conflictReason = 'The requested work extends beyond this working day. Ask the seeker for an earlier start.';
-    }
+    const schedule = await evaluateBidSchedule({ providerId: req.user.id, proposedStartTime: start, preferredStartTime: start, preferredEndTime: request.preferredEndTime, predictedDurationMins: duration, bufferMinutes: 15 });
     if (schedule.conflictDetected) return res.status(409).json({ code: 'RESCHEDULE_REQUIRED', message: schedule.conflictReason, schedule });
     return res.json({ success: true, schedule });
   } catch (error) {
@@ -62,7 +50,7 @@ export const checkBidCoordination = async (req, res) => {
     const {
       externalRequestQuotationId,
       externalQuotationId,
-      bufferMinutes = 30,
+      bufferMinutes = 15,
     } = req.body;
 
     if (!externalRequestQuotationId || !externalQuotationId) {
@@ -217,11 +205,14 @@ export const checkBidCoordination = async (req, res) => {
     const proposedStart = new Date(providerQuotation.proposedStartTime);
     const previousBooking = !Number.isNaN(proposedStart.getTime()) ? await Booking.findOne({
       providerId: providerQuotation.providerId,
-      bookingStatus: { $in: ["CONFIRMED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "COMPLETED", "EXPIRED"] },
+      bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "RESCHEDULE_REQUESTED", "RESCHEDULING_REQUIRED", "COMPLETED"] },
+      scheduledDate: toScheduleParts(proposedStart).date,
       scheduledStartTime: { $lt: proposedStart },
     }).sort({ scheduledStartTime: -1 }) : null;
     let travelInfo = { distanceKm: 0, estimatedTravelTimeMins: 0, source: "NO_COORDINATES" };
-    let gapFromPreviousBookingMins = null;
+    const previousEnd = previousBooking?.actualEndTime || previousBooking?.scheduledEndTime;
+    let gapFromPreviousBookingMins = previousEnd
+      ? Math.round((proposedStart.getTime() - new Date(previousEnd).getTime()) / 60000) : null;
     const destinationLat = requestQuotation.serviceLatitude ?? requestQuotation.location?.lat;
     const destinationLng = requestQuotation.serviceLongitude ?? requestQuotation.location?.lng;
     if (previousBooking?.location?.lat != null && previousBooking?.location?.lng != null && destinationLat != null && destinationLng != null) {
@@ -238,6 +229,13 @@ export const checkBidCoordination = async (req, res) => {
 
     scheduleEvaluationData = {
       ...scheduleEvaluationData,
+      modelEvidence: { capturedAt: new Date(), submittedPayload: durationPayload, inputSources: providerQuotation.modelInputSources || {}, taskHistorySnapshot: providerQuotation.taskHistorySnapshot || null,
+        prediction: hasMlDuration ? durationPrediction : null,
+        source: durationPredictionSource, modelVersion: durationModelVersion,
+        predictedDurationMins, bufferMinutes,
+        requiredWindowStart: scheduleEvaluationData.requiredWindowStart,
+        requiredWindowEnd: scheduleEvaluationData.requiredWindowEnd,
+      },
       distanceFromPreviousBookingKm: travelInfo.distanceKm,
       estimatedTravelTimeMins: travelInfo.estimatedTravelTimeMins,
       gapFromPreviousBookingMins,
@@ -248,6 +246,7 @@ export const checkBidCoordination = async (req, res) => {
       travelFeasible: feasibility.travelFeasible,
       coordinationStatus: feasibility.coordinationStatus,
       coordinationReason: feasibility.reason,
+      delayRiskLevel: "NOT_CHECKED",
     }; // Chaw: deterministic delay-aware feasibility; no second ML classifier
 
     const decisionData = decideBidCoordination({
@@ -402,6 +401,11 @@ export const getBidCoordinationById = async (req, res) => {
         success: false,
         message: "Bid coordination not found.",
       });
+    }
+
+    const identityField = req.user?.role === 'Seeker' ? 'seekerId' : 'providerId';
+    if (req.user?.role !== 'Admin' && String(coordination[identityField]) !== String(req.user?.id)) {
+      return res.status(403).json({ success: false, message: 'Only participants can view this coordination and model evidence.' });
     }
 
     const priceEvaluation = await BidPriceEvaluation.findOne({
@@ -576,6 +580,9 @@ export const selectSuggestedSlot = async (req, res) => {
       const selectedEnd = new Date(selectedStart.getTime() + (selectedDurationHours * 60 + Number(scheduleEvaluation.bufferMinutes || 0)) * 60000);
       const startParts = toScheduleParts(selectedStart);
       const endParts = toScheduleParts(selectedEnd);
+      if (startParts.date !== endParts.date) {
+        return res.status(409).json({ success: false, message: "Selected work extends beyond this working day." });
+      }
       const validation = await validateProviderSchedule({
         providerId: coordination.providerId,
         requestedDate: startParts.date,
@@ -590,11 +597,14 @@ export const selectSuggestedSlot = async (req, res) => {
 
       const previousBooking = await Booking.findOne({
         providerId: coordination.providerId,
-        bookingStatus: { $in: ["CONFIRMED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "COMPLETED", "EXPIRED"] },
+        bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "RESCHEDULE_REQUESTED", "RESCHEDULING_REQUIRED", "COMPLETED"] },
+        scheduledDate: startParts.date,
         scheduledStartTime: { $lt: selectedStart },
       }).sort({ scheduledStartTime: -1 });
       let travelInfo = { distanceKm: 0, estimatedTravelTimeMins: 0, source: "NO_COORDINATES" };
-      let gapFromPreviousBookingMins = null;
+      const previousEnd = previousBooking?.actualEndTime || previousBooking?.scheduledEndTime;
+      let gapFromPreviousBookingMins = previousEnd
+        ? Math.round((selectedStart.getTime() - new Date(previousEnd).getTime()) / 60000) : null;
       if (previousBooking?.location?.lat != null && previousBooking?.location?.lng != null && coordination.serviceLatitude != null && coordination.serviceLongitude != null) {
         travelInfo = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, coordination.serviceLatitude, coordination.serviceLongitude);
         const previousEnd = previousBooking.bookingStatus === "EXPIRED"
@@ -633,6 +643,7 @@ export const selectSuggestedSlot = async (req, res) => {
         travelFeasible: selectedFeasibility.travelFeasible,
         coordinationStatus: selectedFeasibility.coordinationStatus,
         coordinationReason: selectedFeasibility.reason,
+        delayRiskLevel: "NOT_CHECKED",
       }; // Chaw: selected slot becomes the new validated schedule window
   
       const updatedScheduleEvaluation =

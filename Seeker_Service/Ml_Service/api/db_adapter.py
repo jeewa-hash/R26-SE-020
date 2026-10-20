@@ -12,10 +12,10 @@ class DBAdapter:
         print("Connecting to MongoDB...")
         self.client = pymongo.MongoClient(self.uri)
 
-        self.db = self.client["ServiceSeeker"]
+        self.db = self.client.get_default_database(default="ServiceSeeker")
         self.collection = self.db["service_sessions"]
 
-        print("Connected to database: ServiceSeeker")
+        print(f"Connected to database: {self.db.name}")
 
     def save_session(self, session):
         """Save or update session safely"""

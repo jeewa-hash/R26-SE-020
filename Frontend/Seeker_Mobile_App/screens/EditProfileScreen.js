@@ -24,7 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { IP_ADDRESS, AUTH_SERVICE_URL as LIVE_AUTH_URL } from '../config';
 
-const BASE_AUTH_URL = LIVE_AUTH_URL || `http://${IP_ADDRESS}:4003`;
+const BASE_AUTH_URL = LIVE_AUTH_URL || 'https://r26-auth-service.onrender.com';
 const AUTH_SERVICE_URL = `${BASE_AUTH_URL}/seeker`;
 
 // ─── Helper: build full image URL ──────────────────────────
@@ -68,7 +68,7 @@ export default function EditProfileScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -195,7 +195,7 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      <StatusBar barStyle="light-content" backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'} />
+      <StatusBar barStyle="light-content" backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'} />
 
       {/* Header */}
       <PageHeader title={<>Edit Profile</>} onBack={() => navigation.goBack()} />
@@ -268,7 +268,7 @@ export default function EditProfileScreen() {
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={loading}>
           <LinearGradient
-            colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#667eea', '#764ba2']}
+            colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#4F46E5', '#4338CA']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.saveGradient}
@@ -324,13 +324,13 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 3,
-    borderColor: '#667eea',
+    borderColor: '#4F46E5',
   },
   cameraOverlay: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#667eea',
+    backgroundColor: '#4F46E5',
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   },
   changePhotoText: {
     fontSize: 13,
-    color: '#667eea',
+    color: '#4F46E5',
     marginTop: 8,
     fontWeight: '500',
   },

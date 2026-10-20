@@ -20,7 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import axios from 'axios';
-import { API_BASE_URL, PROVIDER_API_BASE, AUTH_SERVICE_URL } from '../config';
+import { API_BASE_URL, ML_SERVICE_URL, AUTH_SERVICE_URL } from '../config';
 
 export default function ChatScreen() {
   const navigation = useNavigation();
@@ -79,7 +79,7 @@ export default function ChatScreen() {
       if (!chatPartnerId || userName || providerName) return;
 
       try {
-        const response = await axios.get(`${PROVIDER_API_BASE}/portfolio/all-providers`);
+        const response = await axios.get(`${ML_SERVICE_URL}/portfolio/all-providers`);
         const providerItem = (response.data?.providers || []).find(
           (item) => String(item?.provider?.id) === String(chatPartnerId)
         );
@@ -291,7 +291,7 @@ export default function ChatScreen() {
             >
               <View style={styles.sharedPostHeader}>
                 <View style={styles.sharedPostBadge}>
-                  <Ionicons name="pricetag" size={11} color="#667eea" />
+                  <Ionicons name="pricetag" size={11} color="#4F46E5" />
                   <Text style={styles.sharedPostBadgeText}>
                     {postData.postCategory || 'Post Inquiry'}
                   </Text>
@@ -366,7 +366,7 @@ export default function ChatScreen() {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle="light-content"
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
       />
 
       {/* Header */}
@@ -399,7 +399,7 @@ export default function ChatScreen() {
               />
             ) : (
               <LinearGradient
-                colors={['#667eea', '#764ba2']}
+                colors={['#4F46E5', '#4338CA']}
                 style={styles.attachedPostThumbGradient}
               >
                 <Ionicons name="pricetag" size={18} color="#fff" />
@@ -451,7 +451,7 @@ export default function ChatScreen() {
           {messageText.trim() || attachedPost ? (
             <TouchableOpacity style={styles.sendButton} onPress={handleSendMessage} activeOpacity={0.8}>
               <LinearGradient
-                colors={['#667eea', '#764ba2']}
+                colors={['#4F46E5', '#4338CA']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.sendGradient}
@@ -461,7 +461,7 @@ export default function ChatScreen() {
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={styles.voiceButton}>
-              <Ionicons name="mic" size={24} color="#667eea" />
+              <Ionicons name="mic" size={24} color="#4F46E5" />
             </TouchableOpacity>
           )}
         </View>
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     width: '84%',
   },
-  myBubble: { backgroundColor: '#667eea', borderBottomRightRadius: 4 },
+  myBubble: { backgroundColor: '#4F46E5', borderBottomRightRadius: 4 },
   otherBubble: {
     backgroundColor: '#fff',
     borderBottomLeftRadius: 4,
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
   sharedPostBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#667eea',
+    color: '#4F46E5',
     textTransform: 'uppercase',
   },
   sharedPostPrice: {
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
   sharedPostFooterLink: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#667eea',
+    color: '#4F46E5',
   },
   sharedPostDivider: {
     height: 1,
@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
   attachedPostLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#667eea',
+    color: '#4F46E5',
     textTransform: 'uppercase',
   },
   attachedPostCategory: {
@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#667eea15',
+    backgroundColor: '#4F46E515',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,3 +1,4 @@
+import useRequestedQuotations from '../hooks/useRequestedQuotations';
 import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect, useContext } from 'react';
 import {
@@ -11,9 +12,8 @@ import {
   Alert,
   StatusBar,
   RefreshControl,
-  Modal,
-  TextInput,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -21,7 +21,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import BottomNav from '../components/BottomNav';
-import { IP_ADDRESS } from '../config';
+import {
+  API_BASE_URL as SEEKER_API_BASE_URL,
+  PROVIDER_SERVICE_URL,
+  AUTH_SERVICE_URL,
+} from '../config';
 import { useTheme } from '../hooks/useTheme';
 import { LanguageContext } from '../context/LanguageContext';
 import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
@@ -29,19 +33,75 @@ import RequestQuotationModal from './IT22129376/components/RequestQuotationModal
 // ======================================================
 // API BASE URLS
 // ======================================================
-const hostIp = IP_ADDRESS || '10.0.2.2';
-const API_BASE_URL = `http://${hostIp}:3002`;
-const QUOTATION_API_URL = `http://${hostIp}:6000/request-quotations`;
+const API_BASE_URL = PROVIDER_SERVICE_URL;
+const QUOTATION_API_URL = `${SEEKER_API_BASE_URL}/request-quotations`;
 
-// ======================================================
-// FEED SCREEN – SHOWS PROVIDER ADS WITH LIKE & REQUEST QUOTE
-// ======================================================
-export default function FeedScreen({ navigation }) {
+// ─────────────────────────────────────────────────────────────
+// Palette
+// ─────────────────────────────────────────────────────────────
+const P = {
+  indigo: '#4F46E5',
+  indigoDeep: '#4338CA',
+  indigoSoft: '#EEF2FF',
+  indigoSoftDark: '#1E1B4B',
+  indigoLight: '#A5B4FC',
+  emerald: '#10B981',
+  emeraldSoft: '#ECFDF5',
+  emeraldSoftDark: '#064E3B',
+  emeraldLight: '#34D399',
+  amber: '#F59E0B',
+  amberSoft: '#FEF3C7',
+  amberSoftDark: '#78350F',
+  amberLight: '#FBBF24',
+  amberDark: '#92400E',
+  rose: '#EF4444',
+  roseSoft: '#FEE2E2',
+  roseSoftDark: '#7F1D1D',
+  roseLight: '#FCA5A5',
+  roseDark: '#991B1B',
+  slate900: '#0F172A',
+  slate800: '#1E293B',
+  slate700: '#334155',
+  slate600: '#475569',
+  slate500: '#64748B',
+  slate400: '#94A3B8',
+  slate300: '#CBD5E1',
+  slate200: '#E2E8F0',
+  slate100: '#F1F5F9',
+  slate50: '#F8FAFC',
+  white: '#FFFFFF',
+  like: '#1877F2',
+  likeSoft: '#EBF5FF',
+  likeSoftDark: '#1E3A8A',
+};
+
+// ─────────────────────────────────────────────────────────────
+// Deterministic avatar gradient (used only when there's no real photo)
+// ─────────────────────────────────────────────────────────────
+const AVATAR_GRADIENTS = [
+  ['#4f46e5', '#7c3aed'],
+  ['#059669', '#10b981'],
+  ['#d97706', '#f59e0b'],
+  ['#e11d48', '#fb7185'],
+  ['#0284c7', '#38bdf8'],
+  ['#7c3aed', '#c084fc'],
+  ['#ea580c', '#fb923c'],
+];
+
+const getAvatarGradient = (char) => {
+  const code = (char || 'P').charCodeAt(0);
+  return AVATAR_GRADIENTS[code % AVATAR_GRADIENTS.length];
+};
+
+export default function FeedScreen({ navigation, embedded = false, limit, refreshKey = 0 }) {
   const { isDarkMode } = useTheme();
   const { language } = useContext(LanguageContext) || { language: 'en' };
   const isSi = language === 'si';
+  const { checking: checkingRequests, isRequested, markRequested } = useRequestedQuotations();
+  const adSessionId = ad => ad?.sessionId || `AD-${ad?.postId || ad?.id}`;
   const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [likedAds, setLikedAds] = useState({});
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -51,7 +111,6 @@ export default function FeedScreen({ navigation }) {
   const [selectedAdForQuote, setSelectedAdForQuote] = useState(null);
   const [quoteNotes, setQuoteNotes] = useState('');
   const [quoteLocation, setQuoteLocation] = useState('');
-  const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
 
   // ======================================================
   // FORMAT TIME
@@ -89,11 +148,22 @@ export default function FeedScreen({ navigation }) {
   };
 
   // ======================================================
+  // BUILD REAL AVATAR URL (no fake fallback)
+  // ======================================================
+  const buildAvatarUrl = (raw) => {
+    if (!raw) return null;
+    const normalized = String(raw).replace(/\\/g, '/');
+    if (normalized.startsWith('http')) return normalized;
+    return `${AUTH_SERVICE_URL}/${normalized.replace(/^\/+/, '')}`;
+  };
+
+  // ======================================================
   // FETCH PROVIDER ADS (PUBLIC)
   // ======================================================
   const fetchAds = async () => {
     try {
       setLoading(true);
+      setLoadError(false);
 
       const userId = await getCurrentUserId();
       setCurrentUserId(userId);
@@ -135,7 +205,14 @@ export default function FeedScreen({ navigation }) {
           '';
 
         const imageUrl = ad.image?.url || '';
-        const avatar = 'https://randomuser.me/api/portraits/lego/1.jpg';
+
+        // Real provider avatar if the backend supplies it
+        const providerAvatar = buildAvatarUrl(
+          ad.providerImage ||
+          ad.providerAvatar ||
+          ad.profileImage ||
+          ad.provider?.profileImage
+        );
 
         const likesArray = Array.isArray(ad.likes) ? ad.likes : [];
         if (userId && likesArray.includes(userId)) {
@@ -148,7 +225,7 @@ export default function FeedScreen({ navigation }) {
           providerId: ad.providerId,
           providerName: ad.providerName || 'Provider',
           userName: ad.providerName || 'Provider',
-          userAvatar: avatar,
+          userAvatar: providerAvatar, // may be null → render gradient+initial
           location: ad.location || '',
           contact: ad.contact || '',
           timeAgo: formatTimeAgo(ad.createdAt),
@@ -167,8 +244,11 @@ export default function FeedScreen({ navigation }) {
       setAds(formattedAds);
     } catch (error) {
       console.log('FETCH ADS ERROR:', error);
-      Alert.alert('Error', 'Could not fetch ads. Please check your connection.');
-      setAds([]);
+      setLoadError(true);
+      if (!embedded) {
+        Alert.alert('Error', 'Could not fetch ads. Please check your connection.');
+        setAds([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -192,10 +272,10 @@ export default function FeedScreen({ navigation }) {
       fetchAds();
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, refreshKey]);
 
   // ======================================================
-  // HANDLE LIKE TOGGLE (PERSISTED TO BACKEND)
+  // HANDLE LIKE TOGGLE
   // ======================================================
   const handleLike = async (adId) => {
     const isLiked = !!likedAds[adId];
@@ -206,7 +286,6 @@ export default function FeedScreen({ navigation }) {
       return;
     }
 
-    // 1. Optimistic UI update
     setLikedAds(prev => ({ ...prev, [adId]: !isLiked }));
     setAds(prevAds =>
       prevAds.map(ad =>
@@ -219,7 +298,6 @@ export default function FeedScreen({ navigation }) {
       )
     );
 
-    // 2. Persist to Backend API
     try {
       const token =
         (await AsyncStorage.getItem('token')) ||
@@ -239,7 +317,6 @@ export default function FeedScreen({ navigation }) {
         throw new Error(result.message || 'Failed to update like');
       }
 
-      // Sync exact server count
       setAds(prevAds =>
         prevAds.map(ad =>
           ad.id === adId
@@ -249,7 +326,6 @@ export default function FeedScreen({ navigation }) {
       );
     } catch (err) {
       console.log('LIKE TOGGLE ERROR:', err);
-      // Revert optimistic update on failure
       setLikedAds(prev => ({ ...prev, [adId]: isLiked }));
       setAds(prevAds =>
         prevAds.map(ad =>
@@ -269,6 +345,7 @@ export default function FeedScreen({ navigation }) {
   // OPEN REQUEST QUOTE MODAL
   // ======================================================
   const handleOpenQuoteModal = ad => {
+    if (checkingRequests || isRequested(ad.providerId, adSessionId(ad))) return;
     setSelectedAdForQuote(ad);
     setQuoteNotes(`I would like to request a quote for ${ad.title}.`);
     setQuoteLocation(ad.location || '');
@@ -281,76 +358,147 @@ export default function FeedScreen({ navigation }) {
   const getUrgencyStyle = urgency => {
     switch (urgency) {
       case 'high':
-        return { bg: '#FEE2E2', color: '#EF4444', text: 'High Priority' };
+        return {
+          bg: isDarkMode ? P.roseSoftDark : P.roseSoft,
+          color: isDarkMode ? P.roseLight : P.rose,
+          icon: 'flame',
+          text: isSi ? 'ඉහළ' : 'High Priority',
+        };
       case 'medium':
-        return { bg: '#FEF3C7', color: '#F59E0B', text: 'Medium' };
+        return {
+          bg: isDarkMode ? P.amberSoftDark : P.amberSoft,
+          color: isDarkMode ? P.amberLight : P.amberDark,
+          icon: 'flash',
+          text: isSi ? 'මධ්‍යම' : 'Medium',
+        };
       case 'low':
-        return { bg: '#D1FAE5', color: '#10B981', text: 'Low' };
+        return {
+          bg: isDarkMode ? P.emeraldSoftDark : P.emeraldSoft,
+          color: isDarkMode ? P.emeraldLight : P.emerald,
+          icon: 'checkmark-circle',
+          text: isSi ? 'අඩු' : 'Low',
+        };
       default:
         return {
-          bg: isDarkMode ? '#242f4d' : '#F3F4F6',
-          color: isDarkMode ? '#94A3B8' : '#6B7280',
-          text: 'Normal',
+          bg: isDarkMode ? P.slate800 : P.slate100,
+          color: isDarkMode ? P.slate400 : P.slate500,
+          icon: 'ellipse-outline',
+          text: isSi ? 'සාමාන්‍ය' : 'Normal',
         };
     }
   };
 
   // ======================================================
-  // RENDER AD CARD
+  // RENDER AD CARD — full content visible, no truncation
   // ======================================================
   const renderAd = ad => {
     const urgency = getUrgencyStyle(ad.urgency);
     const isLiked = !!likedAds[ad.id];
+    const initial = (ad.userName || 'P').trim().charAt(0).toUpperCase();
+    const avatarGradient = getAvatarGradient(initial);
 
     return (
       <View key={ad.id} style={[styles.postCard, isDarkMode && styles.postCardDark]}>
-        {/* Header */}
+        {/* Header: real avatar OR gradient-initial fallback */}
         <View style={styles.postHeader}>
-          <Image source={{ uri: ad.userAvatar }} style={styles.avatar} />
+          <View
+            style={[
+              styles.avatarRing,
+              isDarkMode && { borderColor: P.indigoSoftDark },
+            ]}
+          >
+            {ad.userAvatar ? (
+              <Image source={{ uri: ad.userAvatar }} style={styles.avatar} />
+            ) : (
+              <LinearGradient
+                colors={avatarGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.avatarFallback}
+              >
+                <Text style={styles.avatarInitial}>{initial}</Text>
+              </LinearGradient>
+            )}
+          </View>
+
           <View style={styles.postHeaderInfo}>
-            <Text style={[styles.userName, isDarkMode && styles.textDark]}>
+            <Text
+              style={[styles.userName, isDarkMode && styles.textDark]}
+              numberOfLines={1}
+            >
               {ad.userName}
             </Text>
-            <Text style={[styles.timeAgo, isDarkMode && styles.textMutedDark]}>
-              {ad.timeAgo}
-            </Text>
+
+            <View style={styles.metaRow}>
+              <Ionicons
+                name="time-outline"
+                size={11}
+                color={isDarkMode ? P.slate400 : P.slate500}
+              />
+              <Text style={[styles.timeAgo, isDarkMode && styles.textMutedDark]}>
+                {ad.timeAgo}
+              </Text>
+              {ad.location ? (
+                <>
+                  <Text style={[styles.metaDot, isDarkMode && styles.textMutedDark]}>·</Text>
+                  <Ionicons
+                    name="location-outline"
+                    size={11}
+                    color={isDarkMode ? P.slate400 : P.slate500}
+                  />
+                  <Text
+                    style={[styles.timeAgo, isDarkMode && styles.textMutedDark]}
+                    numberOfLines={1}
+                  >
+                    {ad.location}
+                  </Text>
+                </>
+              ) : null}
+            </View>
           </View>
-          <TouchableOpacity>
-            <Ionicons
-              name="ellipsis-horizontal"
-              size={20}
-              color={isDarkMode ? '#94A3B8' : '#9CA3AF'}
-            />
-          </TouchableOpacity>
         </View>
 
         {/* Badges */}
         <View style={styles.badgeRow}>
-          <View style={[styles.urgencyBadge, { backgroundColor: urgency.bg }]}>
-            <Text style={[styles.urgencyText, { color: urgency.color }]}>
+          <View style={[styles.badge, { backgroundColor: urgency.bg }]}>
+            <Ionicons name={urgency.icon} size={11} color={urgency.color} />
+            <Text style={[styles.badgeText, { color: urgency.color }]}>
               {urgency.text}
             </Text>
           </View>
           <View
-            style={[styles.categoryBadge, isDarkMode && styles.categoryBadgeDark]}
+            style={[
+              styles.badge,
+              isDarkMode ? { backgroundColor: P.slate800 } : { backgroundColor: P.slate100 },
+            ]}
           >
-            <Text style={[styles.categoryText, isDarkMode && styles.textMutedDark]}>
+            <Ionicons
+              name="pricetag-outline"
+              size={11}
+              color={isDarkMode ? P.slate300 : P.slate600}
+            />
+            <Text
+              style={[
+                styles.badgeText,
+                isDarkMode ? { color: P.slate300 } : { color: P.slate600 },
+              ]}
+            >
               {ad.category}
             </Text>
           </View>
         </View>
 
-        {/* Title & Description */}
+        {/* Title & full description (no numberOfLines) */}
         <Text style={[styles.postTitle, isDarkMode && styles.textDark]}>
           {ad.title}
         </Text>
-        <Text
-          style={[styles.postDescription, isDarkMode && styles.textMutedDark]}
-        >
-          {ad.description}
-        </Text>
+        {ad.description ? (
+          <Text style={[styles.postDescription, isDarkMode && styles.textMutedDark]}>
+            {ad.description}
+          </Text>
+        ) : null}
 
-        {/* Image */}
+        {/* Full image */}
         {ad.image ? (
           <Image
             source={{
@@ -359,6 +507,7 @@ export default function FeedScreen({ navigation }) {
                 : `${API_BASE_URL}/${ad.image.replace(/\\/g, '/')}`,
             }}
             style={styles.postImage}
+            resizeMode="cover"
           />
         ) : null}
 
@@ -368,15 +517,14 @@ export default function FeedScreen({ navigation }) {
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.tagsContainer}
+            contentContainerStyle={styles.tagsContent}
           >
             {ad.tags.map((tag, index) => (
               <View
                 key={index}
                 style={[styles.tagChip, isDarkMode && styles.tagChipDark]}
               >
-                <Text
-                  style={[styles.tagText, isDarkMode && styles.tagTextDark]}
-                >
+                <Text style={[styles.tagText, isDarkMode && styles.tagTextDark]}>
                   #{tag}
                 </Text>
               </View>
@@ -384,24 +532,28 @@ export default function FeedScreen({ navigation }) {
           </ScrollView>
         )}
 
-        {/* ========== CARD ACTION BAR (LIKE & REQUEST QUOTE) ========== */}
-        <View
-          style={[styles.cardActions, isDarkMode && styles.cardActionsDark]}
-        >
-          {/* Like / Facebook-style Thumbs Up */}
+        {/* Action bar */}
+        <View style={[styles.cardActions, isDarkMode && styles.cardActionsDark]}>
           <TouchableOpacity
             style={[
               styles.likeButton,
               isDarkMode && styles.likeButtonDark,
               isLiked && styles.likedButtonActive,
+              isLiked && isDarkMode && styles.likedButtonActiveDark,
             ]}
             onPress={() => handleLike(ad.id)}
-            activeOpacity={0.6}
+            activeOpacity={0.75}
           >
             <Ionicons
               name={isLiked ? 'thumbs-up' : 'thumbs-up-outline'}
               size={18}
-              color={isLiked ? '#1877F2' : isDarkMode ? '#94A3B8' : '#6B7280'}
+              color={
+                isLiked
+                  ? P.like
+                  : isDarkMode
+                  ? P.slate400
+                  : P.slate600
+              }
             />
             <Text
               style={[
@@ -416,23 +568,22 @@ export default function FeedScreen({ navigation }) {
             </Text>
           </TouchableOpacity>
 
-          {/* REQUEST QUOTE BUTTON */}
           <TouchableOpacity
-            style={styles.requestQuoteButton}
+            style={[styles.requestQuoteButton, (checkingRequests || isRequested(ad.providerId, adSessionId(ad))) && { opacity: 0.55 }]}
+            disabled={checkingRequests || isRequested(ad.providerId, adSessionId(ad))}
+            accessibilityState={{ disabled: checkingRequests || isRequested(ad.providerId, adSessionId(ad)) }}
             onPress={() => handleOpenQuoteModal(ad)}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
             <LinearGradient
-              colors={
-                isDarkMode ? ['#818cf8', '#6366f1'] : ['#4F46E5', '#6366F1']
-              }
+              colors={isDarkMode ? [P.indigoLight, P.indigo] : [P.indigo, '#6366F1']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.requestQuoteGradient}
             >
-              <Ionicons name="document-text-outline" size={16} color="#fff" />
+              <Ionicons name="document-text" size={16} color={P.white} />
               <Text style={styles.requestQuoteText}>
-                {isSi ? 'මිල ගණන් ඉල්ලන්න' : 'Request Quote'}
+                {isRequested(ad.providerId, adSessionId(ad)) ? (isSi ? 'ඉල්ලා ඇත' : 'Requested') : checkingRequests ? 'Checking…' : (isSi ? 'මිල ගණන් ඉල්ලන්න' : 'Request Quote')}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -444,13 +595,28 @@ export default function FeedScreen({ navigation }) {
   // ======================================================
   // LOADING
   // ======================================================
+  const Container = embedded ? View : SafeAreaView;
+  const Content = embedded ? View : ScrollView;
+  if (loading && embedded) return <View style={{ padding: 24, alignItems: 'center' }}><ActivityIndicator color="#6366F1" /><Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>{isSi ? 'දැන්වීම් පූරණය වෙමින් පවතී...' : 'Loading provider posts…'}</Text></View>;
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep}
+        />
+        <PageHeader
+          title={<>{isSi ? 'සේවා දැන්වීම්' : 'Provider Ads'}</>}
+          onBack={() => navigation.goBack()}
+        />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#4F46E5'} />
+          <View
+            style={[styles.loadingRing, isDarkMode && { backgroundColor: P.indigoSoftDark }]}
+          >
+            <ActivityIndicator size="large" color={isDarkMode ? P.indigoLight : P.indigo} />
+          </View>
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
-            {isSi ? 'දැන්වීම් පූරණය වෙමින් පවතී...' : 'Loading ads...'}
+            {isSi ? 'දැන්වීම් පූරණය වෙමින් පවතී…' : 'Loading ads…'}
           </Text>
         </View>
         <BottomNav />
@@ -462,41 +628,58 @@ export default function FeedScreen({ navigation }) {
   // MAIN UI
   // ======================================================
   return (
-    <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      <StatusBar
+    <Container style={embedded ? undefined : [styles.container, isDarkMode && styles.containerDark]}>
+      {!embedded && <StatusBar
         barStyle="light-content"
         backgroundColor={isDarkMode ? '#1a1a2e' : '#4338CA'}
-      />
+      />}
 
-      <PageHeader title={<>{isSi ? 'සේවා දැන්වීම්' : 'Provider Ads'}</>} onBack={() => navigation.goBack()} />
+      {!embedded && <PageHeader title={<>{isSi ? 'සේවා දැන්වීම්' : 'Provider Ads'}</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <TouchableOpacity accessibilityRole="button" accessibilityLabel="Refresh provider ads" style={styles.headerRefreshBtn} onPress={onRefresh} activeOpacity={0.75}><Ionicons name="refresh-outline" size={22} color={textColor} /></TouchableOpacity>} />}
 
-      <ScrollView
-        style={styles.feedContainer}
-        refreshControl={
+      <Content
+        style={embedded ? undefined : styles.feedContainer}
+        {...(!embedded ? { refreshControl:
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[isDarkMode ? '#818cf8' : '#4F46E5']}
+            colors={[P.indigo]}
+            tintColor={isDarkMode ? P.indigoLight : P.indigo}
           />
-        }
+        } : {})}
       >
-        <View style={styles.feedContent}>
-          {ads.length === 0 ? (
+        <View style={[styles.feedContent, embedded && { paddingBottom: 0 }]}>
+          {embedded && loadError ? <TouchableOpacity accessibilityRole="button" onPress={fetchAds} style={{ padding: 16 }}><Text style={[styles.emptyText, isDarkMode && styles.textDark]}>Unable to load provider posts. Tap to retry.</Text></TouchableOpacity> : null}
+          {ads.length === 0 && !loadError ? (
             <View style={styles.emptyContainer}>
               <Ionicons
                 name="newspaper-outline"
-                size={60}
-                color={isDarkMode ? '#475569' : '#D1D5DB'}
+                size={44}
+                color={isDarkMode ? P.indigoLight : P.indigo}
               />
-              <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>
-                {isSi ? 'දැනට දැන්වීම් කිසිවක් නැත' : 'No ads found'}
+            <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
+              {isSi ? 'දැනට දැන්වීම් කිසිවක් නැත' : 'No ads available'}
+            </Text>
+            <Text style={[styles.emptySubtext, isDarkMode && styles.textMutedDark]}>
+              {isSi
+                ? 'සේවා සපයන්නන් නව දැන්වීම් පළ කළ විට ඒවා මෙහි දිස්වේ.'
+                : 'New provider ads will appear here when they are posted.'}
+            </Text>
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={onRefresh}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="refresh" size={16} color={P.white} />
+              <Text style={styles.refreshButtonText}>
+                {isSi ? 'නැවත උත්සාහ කරන්න' : 'Refresh'}
               </Text>
+            </TouchableOpacity>
             </View>
           ) : (
-            ads.map(renderAd)
+            (limit ? ads.slice(0, limit) : ads).map(renderAd)
           )}
         </View>
-      </ScrollView>
+      </Content>
 
       <RequestQuotationModal
         visible={quoteModalVisible}
@@ -514,15 +697,17 @@ export default function FeedScreen({ navigation }) {
         defaultLocation={quoteLocation || selectedAdForQuote?.location || ""}
         defaultUrgency={selectedAdForQuote?.urgency || "Normal"}
         onClose={() => setQuoteModalVisible(false)}
+        onAlreadyRequested={() => { markRequested(selectedAdForQuote?.providerId, adSessionId(selectedAdForQuote)); setQuoteModalVisible(false); }}
         onSuccess={() => {
+          markRequested(selectedAdForQuote?.providerId, adSessionId(selectedAdForQuote));
           setQuoteModalVisible(false);
           setSelectedAdForQuote(null);
           Alert.alert("Request sent", "Quotation request sent successfully. You can track provider responses in My Jobs.");
         }}
       />
 
-      <BottomNav />
-    </SafeAreaView>
+      {!embedded && <BottomNav />}
+    </Container>
   );
 }
 
@@ -530,372 +715,252 @@ export default function FeedScreen({ navigation }) {
 // STYLES
 // ======================================================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FC',
-  },
-  containerDark: {
-    backgroundColor: '#1a1a2e',
-  },
-  headerGradient: {
-    paddingTop: 14,
-    paddingBottom: 14,
-  },
-  header: {
-    flexDirection: 'row',
+  container: { flex: 1, backgroundColor: P.slate50 },
+  containerDark: { backgroundColor: P.slate900 },
+
+  headerRefreshBtn: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    justifyContent: 'center',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  feedContainer: {
-    flex: 1,
-  },
-  feedContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
+
+  feedContainer: { flex: 1 },
+  feedContent: { padding: 16, paddingBottom: 100 },
+
+  // ── Card ──
   postCard: {
-    backgroundColor: '#fff',
+    backgroundColor: P.white,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  postCardDark: {
-    backgroundColor: '#16213e',
-    borderColor: '#2d3561',
+    marginBottom: 14,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
+    borderColor: P.slate200,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#64748B',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+      },
+      android: { elevation: 2 },
+    }),
   },
+  postCardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
+
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
+    gap: 10,
   },
-  avatar: {
-    width: 45,
-    height: 45,
+  avatarRing: {
+    padding: 2,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: P.indigoSoft,
+  },
+  avatar: { width: 44, height: 44, borderRadius: 22 },
+  avatarFallback: {
+    width: 44,
+    height: 44,
     borderRadius: 22,
-    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  postHeaderInfo: {
-    flex: 1,
+  avatarInitial: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: P.white,
+    letterSpacing: -0.4,
   },
+  postHeaderInfo: { flex: 1 },
   userName: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.2,
+    marginBottom: 3,
   },
-  timeAgo: {
-    fontSize: 12,
-    color: '#9CA3AF',
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    flexWrap: 'wrap',
   },
+  timeAgo: { fontSize: 11.5, color: P.slate500, fontWeight: '600' },
+  metaDot: { fontSize: 11.5, color: P.slate400, marginHorizontal: 2 },
+
+  // ── Badges ──
   badgeRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     marginBottom: 10,
+    flexWrap: 'wrap',
   },
-  urgencyBadge: {
-    paddingHorizontal: 10,
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 10,
+    gap: 4,
   },
-  urgencyText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  categoryBadge: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  categoryBadgeDark: {
-    backgroundColor: '#242f4d',
-  },
-  categoryText: {
-    fontSize: 11,
-    color: '#6B7280',
-  },
+  badgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.1 },
+
+  // ── Title / description ──
   postTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 8,
+    fontSize: 16.5,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.3,
+    marginBottom: 6,
+    lineHeight: 22,
   },
   postDescription: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 13.5,
+    color: P.slate600,
     lineHeight: 20,
     marginBottom: 12,
+    fontWeight: '500',
   },
+
+  // ── Image ──
   postImage: {
     width: '100%',
     height: 220,
-    borderRadius: 14,
+    borderRadius: 12,
     marginBottom: 12,
+    backgroundColor: P.slate100,
   },
-  tagsContainer: {
-    marginBottom: 12,
-  },
+
+  // ── Tags ──
+  tagsContainer: { marginBottom: 12 },
+  tagsContent: { gap: 6, paddingRight: 8 },
   tagChip: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: P.indigoSoft,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
-    marginRight: 8,
   },
-  tagChipDark: {
-    backgroundColor: '#242f4d',
-  },
-  tagText: {
-    color: '#4F46E5',
-    fontSize: 11,
-  },
-  tagTextDark: {
-    color: '#818cf8',
-  },
-  // Card Actions (Like + Request Quote)
+  tagChipDark: { backgroundColor: P.indigoSoftDark },
+  tagText: { color: P.indigo, fontSize: 11, fontWeight: '700' },
+  tagTextDark: { color: P.indigoLight },
+
+  // ── Actions ──
   cardActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 6,
-    paddingTop: 10,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: P.slate100,
+    gap: 10,
   },
-  cardActionsDark: {
-    borderTopColor: '#2d3561',
-  },
+  cardActionsDark: { borderTopColor: P.slate700 },
+
   likeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: P.slate100,
     gap: 6,
   },
-  likeButtonDark: {
-    backgroundColor: '#242f4d',
-  },
-  likedButtonActive: {
-    backgroundColor: '#EBF5FF',
-  },
-  likeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  likedText: {
-    color: '#1877F2',
-    fontWeight: '700',
-  },
+  likeButtonDark: { backgroundColor: P.slate900 },
+  likedButtonActive: { backgroundColor: P.likeSoft },
+  likedButtonActiveDark: { backgroundColor: P.likeSoftDark },
+  likeText: { fontSize: 12.5, fontWeight: '700', color: P.slate600 },
+  likedText: { color: P.like, fontWeight: '800' },
+
   requestQuoteButton: {
     borderRadius: 20,
     overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: P.indigo,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: { elevation: 2 },
+    }),
   },
   requestQuoteGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     gap: 6,
   },
-  requestQuoteText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  requestQuoteText: { color: P.white, fontSize: 12.5, fontWeight: '800' },
+
+  // ── Loading ──
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
-  loadingText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 12,
-  },
-  emptyContainer: {
+  loadingRing: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: P.indigoSoft,
     alignItems: 'center',
-    marginTop: 100,
-  },
-  emptyText: {
-    marginTop: 16,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-  },
-
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    width: '100%',
-    maxHeight: '85%',
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  modalContainerDark: {
-    backgroundColor: '#16213e',
-    borderColor: '#2d3561',
-    borderWidth: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    paddingBottom: 14,
-    marginBottom: 14,
-  },
-  modalHeaderDark: {
-    borderBottomColor: '#2d3561',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  modalSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  modalCloseBtn: {
-    padding: 4,
-  },
-  modalBody: {
-    maxHeight: 400,
-  },
-  selectedAdSummary: {
-    backgroundColor: '#EEF2FF',
-    padding: 12,
-    borderRadius: 12,
     marginBottom: 16,
   },
-  selectedAdSummaryDark: {
-    backgroundColor: '#242f4d',
-  },
-  summaryAdTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#3730A3',
-    marginBottom: 2,
-  },
-  summaryAdTitleDark: {
-    color: '#F8FAFC',
-  },
-  summaryAdCategory: {
-    fontSize: 12,
-    color: '#6366F1',
-  },
-  summaryAdCategoryDark: {
-    color: '#818cf8',
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 6,
-  },
-  textAreaInput: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    color: '#111827',
-    textAlignVertical: 'top',
-    minHeight: 90,
-    marginBottom: 14,
-  },
-  textInput: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#111827',
-    marginBottom: 18,
-  },
-  inputDark: {
-    backgroundColor: '#242f4d',
-    borderColor: '#2d3561',
-    color: '#F8FAFC',
-  },
-  modalButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  modalCancelButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 10,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
+  loadingText: { fontSize: 14, color: P.slate500, fontWeight: '600' },
+
+  // ── Empty ──
+  emptyContainer: {
     alignItems: 'center',
-  },
-  modalCancelButtonDark: {
-    backgroundColor: '#242f4d',
-  },
-  modalCancelText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  modalSubmitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
+    paddingTop: 60,
     paddingHorizontal: 20,
-    borderRadius: 10,
-    backgroundColor: '#4F46E5',
+  },
+  emptyIconRing: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: P.indigoSoft,
+    alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 16,
   },
-  modalSubmitText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
+  emptyText: { fontSize: 14, color: '#64748B', lineHeight: 20, textAlign: 'center' },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: P.slate900,
+    letterSpacing: -0.3,
+    marginBottom: 6,
+    textAlign: 'center',
   },
-  disabledButton: {
-    opacity: 0.6,
+  emptySubtext: {
+    fontSize: 13.5,
+    color: P.slate500,
+    textAlign: 'center',
+    lineHeight: 19,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    fontWeight: '500',
   },
-  textDark: {
-    color: '#F8FAFC',
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: P.indigo,
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
   },
-  textMutedDark: {
-    color: '#94A3B8',
-  },
+  refreshButtonText: { color: P.white, fontSize: 13.5, fontWeight: '800' },
+
+  // ── Utility ──
+  textDark: { color: P.slate50 },
+  textMutedDark: { color: P.slate400 },
 });

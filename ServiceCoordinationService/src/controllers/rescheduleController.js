@@ -1,10 +1,11 @@
-import Booking from "../models/Booking.js";
+import { validateRescheduleTime } from '../services/rescheduleValidationService.js';
+import { toScheduleParts } from '../utils/timeUtils.js';
+import { publishLifecycleNotification } from '../utils/lifecycleNotifications.js';
+import Booking, { notifyBookingLifecycle } from "../models/Booking.js";
 import RescheduleRequest from "../models/RescheduleRequest.js";
 import { suggestRescheduleSlots } from "../services/rescheduleSlotService.js";
-import { validateProviderSchedule } from "../services/scheduleValidationService.js";
 import BidCoordination from "../models/BidCoordination.js";
 import { updateProviderQuotationCoordination } from "../clients/providerServiceClient.js";
-import { getRoadDistanceAndTime } from "../services/osrmService.js";
 
 const getRequesterType = (role) => {
   if (role === "ServiceProvider") return "PROVIDER";
@@ -57,11 +58,10 @@ export const createRescheduleRequest = async (req, res) => {
       ![
         "CONFIRMED",
         "ON_THE_WAY",
-        "IN_PROGRESS",
-        "DELAY_REPORTED",
         "RESCHEDULE_REQUESTED",
         "RESCHEDULING_REQUIRED",
         "RESCHEDULED",
+        "EXPIRED",
       ].includes(booking.bookingStatus)
     ) {
       return res.status(400).json({
@@ -79,13 +79,14 @@ export const createRescheduleRequest = async (req, res) => {
         booking.bookingStatus = "EXPIRED";
         booking.expiredAt = now;
         await booking.save();
-        return res.status(409).json({ success: false, message: "This booking expired because it was not started within 45 minutes." });
+
       }
-      if (!scheduledStart || now < scheduledStart) {
-        return res.status(409).json({ success: false, message: "Reschedule is available from the scheduled start time until 45 minutes after it." });
-      }
+      if (!scheduledStart) return res.status(409).json({ message: 'A valid original schedule is required.' });
     }
 
+    if (booking.bookingStatus === 'EXPIRED' && (req.user.role !== 'Seeker' || !requestedStartTime)) {
+      return res.status(400).json({ success: false, message: 'The customer must propose a future start time to reopen an expired service.' });
+    }
     const existingPending = await RescheduleRequest.findOne({
       bookingId,
       status: { $in: ["PENDING", "PENDING_PROVIDER_REVIEW"] },
@@ -99,10 +100,11 @@ export const createRescheduleRequest = async (req, res) => {
       });
     }
 
-    const suggestedSlots = await suggestRescheduleSlots({
+    const suggestedSlots = requestedStartTime ? [] : await suggestRescheduleSlots({
       providerId: booking.providerId,
       currentDate: booking.scheduledDate,
-      estimatedDurationHours: booking.estimatedDurationHours,
+      estimatedDurationHours: booking.mlPredictedDurationHours || booking.estimatedDurationHours,
+      booking,
     });
 
     let requestedSlot = null;
@@ -111,11 +113,17 @@ export const createRescheduleRequest = async (req, res) => {
       if (Number.isNaN(start.getTime()) || start <= new Date()) {
         return res.status(400).json({ success: false, message: "requestedStartTime must be a valid future date and time" });
       }
-      const durationHours = Number(booking.estimatedDurationHours) > 0 ? Number(booking.estimatedDurationHours) : 1;
+      const durationHours = Number(booking.mlPredictedDurationHours || booking.estimatedDurationHours);
+      if (!(durationHours > 0)) return res.status(409).json({ message: "A valid service duration is needed before rescheduling." });
       const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
-      const pad = (value) => String(value).padStart(2, "0");
-      const date = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
-      const time = (value) => `${pad(value.getHours())}:${pad(value.getMinutes())}`;
+      const date = toScheduleParts(start).date;
+      const time = value => toScheduleParts(value).time;
+      if (date !== toScheduleParts(end).date) return res.status(400).json({ message: "The requested job must finish within the same working day." });
+      const validation = await validateRescheduleTime({ booking, startTime: start, durationHours });
+      if (!validation.isValid) {
+        const alternatives = await suggestRescheduleSlots({ providerId: booking.providerId, currentDate: date, estimatedDurationHours: durationHours, originalStartTime: start, booking });
+        return res.status(409).json({ success: false, code: 'RESCHEDULE_TIME_UNAVAILABLE', message: validation.message, suggestedSlots: alternatives });
+      }
       requestedSlot = {
         date,
         startTime: time(start),
@@ -143,6 +151,7 @@ export const createRescheduleRequest = async (req, res) => {
       requestedByType: requesterType,
       requestedById: req.user.id,
       reason,
+      previousBookingStatus: booking.bookingStatus,
 
       currentSchedule: {
         date: booking.scheduledDate,
@@ -154,8 +163,16 @@ export const createRescheduleRequest = async (req, res) => {
       status: requesterType === "SEEKER" && requestedSlot ? "PENDING_PROVIDER_REVIEW" : "PENDING",
     });
 
-    booking.bookingStatus = "RESCHEDULE_REQUESTED";
-    await booking.save();
+    booking.pendingRescheduleId = rescheduleRequest._id;
+    // An expired service remains expired until the provider approves its new time.
+    if (booking.bookingStatus === 'EXPIRED') {
+      booking.timeline.push({ status: 'EXPIRED', message: 'Customer requested a new time; awaiting provider review.', at: new Date() });
+      await booking.save();
+      await notifyBookingLifecycle(booking, 'RESCHEDULE_REQUESTED');
+    } else {
+      booking.bookingStatus = "RESCHEDULE_REQUESTED";
+      await booking.save();
+    }
 
     return res.status(201).json({
       success: true,
@@ -231,51 +248,28 @@ export const acceptRescheduleSlot = async (req, res) => {
     if (!(durationHours > 0)) {
       return res.status(409).json({ success: false, message: "A valid service duration is required before rescheduling" });
     }
-    const selectedStart = new Date(`${selectedSlot.date}T${selectedSlot.startTime}:00`);
-    if (Number.isNaN(selectedStart.getTime())) {
+    const selectedStart = new Date(`${selectedSlot.date}T${selectedSlot.startTime}:00+05:30`);
+    if (Number.isNaN(selectedStart.getTime()) || selectedStart <= new Date()) {
       return res.status(400).json({ success: false, message: "Selected slot date and start time are invalid" });
     }
+    if (rescheduleRequest.requestedStartTime && +new Date(rescheduleRequest.requestedStartTime) !== +selectedStart) return res.status(409).json({ message: 'Approve the time proposed by the customer. A different time needs a new request.' });
     const selectedEnd = new Date(selectedStart.getTime() + durationHours * 60 * 60 * 1000);
-    const validationEnd = new Date(selectedEnd.getTime() + 30 * 60 * 1000);
-    const pad = (value) => String(value).padStart(2, "0");
+    const validationEnd = new Date(selectedEnd.getTime() + 15 * 60 * 1000);
+    if (['COMPLETED', 'CANCELLED', 'IN_PROGRESS', 'DELAY_REPORTED'].includes(booking.bookingStatus)) return res.status(409).json({ message: 'This booking can no longer use this reschedule request.' });
+    if (toScheduleParts(selectedStart).date !== toScheduleParts(validationEnd).date) return res.status(409).json({ message: 'The full job and buffer must fit within the working day.' });
     const validatedSlot = {
       ...selectedSlot,
-      endTime: `${pad(selectedEnd.getHours())}:${pad(selectedEnd.getMinutes())}`,
+      endTime: toScheduleParts(selectedEnd).time,
     };
 
-    const validation = await validateProviderSchedule({
-      providerId: booking.providerId,
-      requestedDate: validatedSlot.date,
-      requestedStartTime: validatedSlot.startTime,
-      requestedEndTime: `${pad(validationEnd.getHours())}:${pad(validationEnd.getMinutes())}`,
-      excludeBookingId: booking._id,
-    });
-
+    const validation = await validateRescheduleTime({ booking, startTime: selectedStart, durationHours });
     if (!validation.isValid) {
-      return res.status(409).json({
-        success: false,
-        message: "Selected slot is no longer available",
-        validation,
-      });
+      const alternatives = await suggestRescheduleSlots({ providerId: booking.providerId, currentDate: validatedSlot.date, estimatedDurationHours: durationHours, originalStartTime: selectedStart, booking });
+      return res.status(409).json({ success: false, code: 'RESCHEDULE_TIME_UNAVAILABLE', message: validation.message, validation, suggestedSlots: alternatives });
     }
 
-    const previousBooking = await Booking.findOne({
-      _id: { $ne: booking._id },
-      providerId: booking.providerId,
-      bookingStatus: { $in: ["CONFIRMED", "ON_THE_WAY", "IN_PROGRESS", "DELAY_REPORTED", "COMPLETED", "EXPIRED", "RESCHEDULED"] },
-      scheduledStartTime: { $lt: selectedStart },
-    }).sort({ scheduledStartTime: -1 });
-    if (previousBooking?.location?.lat != null && previousBooking?.location?.lng != null && booking.location?.lat != null && booking.location?.lng != null) {
-      const travel = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, booking.location.lat, booking.location.lng);
-      const previousEnd = previousBooking.bookingStatus === "EXPIRED"
-        ? (previousBooking.expiredAt || previousBooking.scheduledStartTime)
-        : (previousBooking.actualEndTime || previousBooking.scheduledEndTime);
-      const travelGapMinutes = previousEnd ? Math.round((selectedStart.getTime() - new Date(previousEnd).getTime()) / 60000) : null;
-      if (travelGapMinutes !== null && travelGapMinutes < travel.estimatedTravelTimeMins) {
-        return res.status(409).json({ success: false, message: "Selected slot does not leave enough travel time from the previous booking" });
-      }
-    }
-
+    const originalStart = booking.scheduledStartTime;
+    const originalPendingId = booking.pendingRescheduleId;
     booking.acceptedRescheduleRequests.push(rescheduleRequest._id);
 
     booking.scheduledDate = validatedSlot.date;
@@ -283,9 +277,30 @@ export const acceptRescheduleSlot = async (req, res) => {
     booking.endTime = validatedSlot.endTime;
     booking.scheduledStartTime = selectedStart;
     booking.scheduledEndTime = selectedEnd;
+    booking.pendingRescheduleId = null;
     booking.bookingStatus = "RESCHEDULED";
+    booking.expiredAt = null;
+    booking.actualStartTime = null;
+    booking.providerReadyConfirmed = false;
+    booking.providerReadyConfirmedAt = null;
+    booking.onTheWayAt = null;
+    booking.timeline.push({ status: 'RESCHEDULED', message: `Provider approved the new service time. Previous appointment: ${rescheduleRequest.currentSchedule.date} ${rescheduleRequest.currentSchedule.startTime}.`, at: new Date() });
 
-    await booking.save();
+    const approvedBooking = await Booking.findOneAndUpdate({
+      _id: booking._id, actualStartTime: null, scheduledStartTime: originalStart,
+      bookingStatus: { $in: ['EXPIRED', 'RESCHEDULE_REQUESTED', 'RESCHEDULING_REQUIRED', 'CONFIRMED', 'RESCHEDULED', 'ON_THE_WAY'] },
+      ...(originalPendingId ? { pendingRescheduleId: rescheduleRequest._id } : {}),
+    }, {
+      $set: { scheduledDate: booking.scheduledDate, startTime: booking.startTime, endTime: booking.endTime,
+        scheduledStartTime: selectedStart, scheduledEndTime: selectedEnd, bookingStatus: 'RESCHEDULED',
+        expiredAt: null, actualStartTime: null, pendingRescheduleId: null, providerReadyConfirmed: false,
+        providerReadyConfirmedAt: null, onTheWayAt: null },
+      $addToSet: { acceptedRescheduleRequests: rescheduleRequest._id },
+      $push: { timeline: booking.timeline[booking.timeline.length - 1] },
+    }, { new: true });
+    if (!approvedBooking) return res.status(409).json({ message: 'Booking changed while approving. Refresh before continuing.' });
+    await notifyBookingLifecycle(approvedBooking, 'RESCHEDULED');
+
 
     rescheduleRequest.selectedSlot = validatedSlot;
     rescheduleRequest.status = "ACCEPTED";
@@ -343,10 +358,16 @@ export const rejectRescheduleRequest = async (req, res) => {
     rescheduleRequest.status = "REJECTED";
     await rescheduleRequest.save();
     const booking = await Booking.findById(rescheduleRequest.bookingId);
-    if (booking?.bookingStatus === "RESCHEDULE_REQUESTED") {
-      booking.bookingStatus = "CONFIRMED";
+    if (booking && String(booking.pendingRescheduleId) === String(rescheduleRequest._id)) {
+      booking.pendingRescheduleId = null;
+      if (booking.bookingStatus === "RESCHEDULE_REQUESTED") booking.bookingStatus = rescheduleRequest.previousBookingStatus || "CONFIRMED";
       await booking.save();
     }
+    if (booking?.bookingStatus === "RESCHEDULE_REQUESTED") {
+      booking.bookingStatus = rescheduleRequest.previousBookingStatus || "CONFIRMED";
+      await booking.save();
+    }
+    await publishLifecycleNotification({ recipientId: String(rescheduleRequest.seekerId), role: 'Seeker', eventId: `reschedule:${rescheduleRequest._id}:rejected`, type: 'booking', title: 'New time declined', message: 'The provider declined the proposed time. Open your service to choose another time.', metadata: { bookingId: String(rescheduleRequest.bookingId) } });
     return res.status(200).json({ success: true, message: "Reschedule request rejected", data: rescheduleRequest });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Failed to reject reschedule request", error: error.message });

@@ -17,12 +17,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { IP_ADDRESS, API_BASE_URL, ML_SERVICE_URL, COORDINATION_SERVICE_URL } from '../config';
 
-// Uses LAN IP from config.js for real device support
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
-
-const COORDINATION_API_BASE_URL = `http://${IP_ADDRESS}:5010`;
+const COORDINATION_API_BASE_URL = COORDINATION_SERVICE_URL;
 
 export default function FeedbackScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();
@@ -67,7 +64,7 @@ export default function FeedbackScreen({ navigation, route }) {
 
             // Try to fetch actual names from Provider Service
             try {
-               const providerUrl = API_BASE_URL.replace('6000', '5000') + '/portfolio/all-providers';
+               const providerUrl = `${ML_SERVICE_URL}/portfolio/all-providers`;
                const provRes = await fetch(providerUrl);
                const provData = await provRes.json();
                if (provData.success) {
@@ -229,7 +226,7 @@ export default function FeedbackScreen({ navigation, route }) {
       return (
         <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color="#667eea" />
+            <ActivityIndicator size="large" color="#4F46E5" />
             <Text style={[styles.loaderText, isDarkMode && styles.textDark]}>
               Loading completed jobs...
             </Text>
@@ -242,7 +239,7 @@ export default function FeedbackScreen({ navigation, route }) {
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <StatusBar
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
         />
         <PageHeader title={<>Select Job to Review</>} onBack={() => navigation.goBack()} />
 
@@ -294,7 +291,7 @@ export default function FeedbackScreen({ navigation, route }) {
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#667eea" />
+          <ActivityIndicator size="large" color="#4F46E5" />
           <Text style={[styles.loaderText, isDarkMode && styles.textDark]}>
             Loading...
           </Text>
@@ -333,7 +330,7 @@ export default function FeedbackScreen({ navigation, route }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
       />
 
       {/* Header */}
@@ -438,7 +435,7 @@ export default function FeedbackScreen({ navigation, route }) {
           <Ionicons
             name={isAnonymous ? 'checkbox' : 'square-outline'}
             size={24}
-            color="#667eea"
+            color="#4F46E5"
           />
           <Text style={[styles.anonymousText, isDarkMode && styles.textDark]}>
             Post anonymously
@@ -452,7 +449,7 @@ export default function FeedbackScreen({ navigation, route }) {
           disabled={loading}
         >
           <LinearGradient
-            colors={['#667eea', '#764ba2']}
+            colors={['#4F46E5', '#4338CA']}
             style={styles.submitGradient}
           >
             {loading ? (
@@ -611,8 +608,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#16213e',
   },
   optionSelected: {
-    borderColor: '#667eea',
-    backgroundColor: '#667eea10',
+    borderColor: '#4F46E5',
+    backgroundColor: '#4F46E510',
   },
   optionText: {
     fontSize: 14,
@@ -620,7 +617,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   optionTextSelected: {
-    color: '#667eea',
+    color: '#4F46E5',
   },
   anonymousToggle: {
     flexDirection: 'row',
@@ -680,7 +677,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingVertical: 12,
     paddingHorizontal: 32,
-    backgroundColor: '#667eea',
+    backgroundColor: '#4F46E5',
     borderRadius: 12,
   },
   goBackText: {

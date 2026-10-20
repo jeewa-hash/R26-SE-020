@@ -1,8 +1,11 @@
-import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SEEKER_TABS, seekerActiveTab, openSeekerTab } from '../utils/seekerNavigation';
+import React, { useContext, useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Keyboard, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../hooks/useTheme';
+import { APP_THEME } from '../context/ThemeContext';
 import { LanguageContext } from '../context/LanguageContext';
 
 const HIDDEN_ROUTES = new Set([
@@ -11,78 +14,33 @@ const HIDDEN_ROUTES = new Set([
 
 const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
   const { isDarkMode } = useTheme();
+  const colors = isDarkMode ? APP_THEME.dark : APP_THEME.light;
   const { language } = useContext(LanguageContext) || { language: 'en' };
   const isSi = language === 'si';
+  const insets = useSafeAreaInsets();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   // This bar is beside the navigator rather than inside a Stack.Screen.
   // Using the ref avoids the useRoute/useNavigation context error.
-  if (!isRootNav || HIDDEN_ROUTES.has(currentRouteName)) {
+  if (!isRootNav || keyboardVisible || currentRouteName === 'ChatScreen' || HIDDEN_ROUTES.has(currentRouteName)) {
     return null;
   }
 
-  const navigate = (screenName) => {
-    if (navigationRef?.isReady?.()) {
-      navigationRef.navigate(screenName);
-    } else if (navigationRef?.current?.navigate) {
-      navigationRef.current.navigate(screenName);
-    }
-  };
+  const navigate = screenName => openSeekerTab(navigationRef?.current || navigationRef, screenName);
+  const navItems = SEEKER_TABS.map(item => ({ ...item, label: isSi ? item.labelSi : item.label }));
+  const isActive = id => seekerActiveTab(currentRouteName) === id;
 
-  const navItems = [
-    {
-      id: 'Home',
-      label: isSi ? 'මුල් පිටුව' : 'Home',
-      icon: 'home',
-      activeIcon: 'home-filled',
-      routeName: 'Home',
-    },
-    {
-      id: 'Feed',
-      label: isSi ? 'පළ කිරීම්' : 'Feed',
-      icon: 'explore',
-      activeIcon: 'explore',
-      routeName: 'FeedScreen',
-    },
-    {
-      id: 'Create',
-      label: isSi ? 'නව ඉල්ලුම' : 'Post Job',
-      icon: 'add',
-      routeName: 'CreatePostScreen',
-      isCreateButton: true,
-    },
-    {
-      id: 'Bookings',
-      label: isSi ? 'ඇණවුම්' : 'Bookings',
-      icon: 'event-note',
-      activeIcon: 'event-note',
-      routeName: 'BookingsScreen',
-    },
-    {
-      id: 'Profile',
-      label: isSi ? 'තවත්' : 'More',
-      icon: 'more-horiz',
-      activeIcon: 'more-horiz',
-      routeName: 'ProfileScreen',
-    },
-  ];
-
-  const isActive = (itemId) => {
-    switch (itemId) {
-      case 'Home': return currentRouteName === 'Home' || currentRouteName === 'HomeScreen';
-      case 'Feed': return currentRouteName === 'FeedScreen';
-      case 'Create': return currentRouteName === 'CreatePostScreen';
-      case 'Bookings': return currentRouteName === 'BookingsScreen';
-      case 'Profile': return ['ProfileScreen', 'MyPostsScreen', 'SeekerCalendar', 'SeekerServiceSessions', 'SeekerServiceSessionDetails'].includes(currentRouteName);
-      default: return false;
-    }
-  };
-
-  const inactiveColor = isDarkMode ? '#94A3B8' : '#64748B';
-  const activeColor = isDarkMode ? '#818cf8' : '#4F46E5';
+  const inactiveColor = colors.muted;
+  const activeColor = colors.accent;
   const activeBg = isDarkMode ? 'rgba(129, 140, 248, 0.15)' : 'rgba(79, 70, 229, 0.1)';
 
   return (
-    <View style={[styles.navContainer, isDarkMode && styles.navContainerDark]}>
+    <View style={[styles.navContainer, isDarkMode && styles.navContainerDark, { paddingBottom: insets.bottom }]}>
     <View style={[styles.bottomNav, isDarkMode && styles.bottomNavDark]}>
       {navItems.map((item) => {
         const active = isActive(item.id);
@@ -98,7 +56,7 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
               accessibilityLabel={item.label}
             >
               <LinearGradient
-                colors={isDarkMode ? ['#818cf8', '#6366f1'] : ['#4F46E5', '#7C3AED']}
+                colors={[colors.accent, colors.accentDeep]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[styles.createButton, { borderColor: isDarkMode ? '#17192C' : '#ffffff' }]}
@@ -118,7 +76,8 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
             style={styles.navItem}
             onPress={() => navigate(item.routeName)}
             activeOpacity={0.7}
-            accessibilityRole="button"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
             accessibilityLabel={item.label}
           >
             <View style={[styles.iconWrapper, active && { backgroundColor: activeBg }]}>
@@ -147,19 +106,19 @@ const BottomNav = ({ navigationRef, currentRouteName, isRootNav = false }) => {
 };
 
 const styles = StyleSheet.create({
-  navContainer: { flexShrink: 0, backgroundColor: '#ffffff' },
-  navContainerDark: { backgroundColor: '#17192C' },
+  navContainer: { flexShrink: 0, backgroundColor: APP_THEME.light.surface },
+  navContainerDark: { backgroundColor: APP_THEME.dark.surface },
   bottomNav: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 76,
     paddingVertical: 8,
     paddingHorizontal: 2,
-    backgroundColor: '#ffffff',
+    backgroundColor: APP_THEME.light.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: APP_THEME.light.border,
   },
-  bottomNavDark: { backgroundColor: '#17192C', borderTopColor: '#302E49' },
+  bottomNavDark: { backgroundColor: APP_THEME.dark.surface, borderTopColor: APP_THEME.dark.border },
   navItem: {
     flex: 1,
     minWidth: 0,

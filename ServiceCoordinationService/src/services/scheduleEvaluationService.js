@@ -1,16 +1,6 @@
 import { validateProviderSchedule } from "./scheduleValidationService.js";
 
-const pad = (value) => String(value).padStart(2, "0");
-
-const formatDateToYMD = (date) => {
-  const d = new Date(date);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
-
-const formatDateToHHMM = (date) => {
-  const d = new Date(date);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
+import { toScheduleParts } from "../utils/timeUtils.js";
 
 /**
  * Validates the scheduling window using the duration supplied by the ML/fallback
@@ -24,7 +14,7 @@ export const evaluateBidSchedule = async ({
   predictedDurationMins,
   durationPredictionSource = "ML_MODEL",
   durationModelVersion = null,
-  bufferMinutes = 30,
+  bufferMinutes = 15,
 }) => {
   const proposedStart = new Date(proposedStartTime);
   if (Number.isNaN(proposedStart.getTime())) throw new Error("Invalid proposedStartTime");
@@ -53,11 +43,17 @@ export const evaluateBidSchedule = async ({
         : "OUTSIDE_PREFERENCE";
   }
 
-  const validation = await validateProviderSchedule({
+  const startParts = toScheduleParts(requiredWindowStart);
+  const endParts = toScheduleParts(requiredWindowEnd);
+  const validation = startParts.date !== endParts.date ? {
+    isValid: false,
+    message: "The requested work extends beyond this working day. Ask the seeker for an earlier start.",
+    providerBookingsToday: 0,
+  } : await validateProviderSchedule({
     providerId,
-    requestedDate: formatDateToYMD(requiredWindowStart),
-    requestedStartTime: formatDateToHHMM(requiredWindowStart),
-    requestedEndTime: formatDateToHHMM(requiredWindowEnd),
+    requestedDate: startParts.date,
+    requestedStartTime: startParts.time,
+    requestedEndTime: endParts.time,
   });
 
   return {

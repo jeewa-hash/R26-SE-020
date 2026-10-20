@@ -1,6 +1,8 @@
 # ==================== Node.js ====================
 node_modules/
 package-lock.json
+package-lock.json
+!ServiceCoordinationService/package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -42,6 +44,9 @@ data/*.csv.bak
 *.joblib
 !adminService/ml_service/models/demand_model.pkl
 !adminService/ml_service/models/encoders.pkl
+!Seeker_Service/Ml_Service/models/text_vectorizer.joblib
+!Seeker_Service/Ml_Service/models/text_service_model.joblib
+!Seeker_Service/Ml_Service/models/text_subservice_model.joblib
 
 # ==================== Environment & Secrets ====================
 .env
@@ -107,3 +112,7 @@ __pycache__/
 
 postman/
 docs/
+# Public coordination endpoint examples (no secrets)
+!Frontend/CoordinationTestApp/.env.example
+!Frontend/ServiceProviderFrontend/.env.example
+!Frontend/Seeker_Mobile_App/.env.example

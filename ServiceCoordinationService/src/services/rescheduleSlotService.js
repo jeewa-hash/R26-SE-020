@@ -1,69 +1,21 @@
-import { addHoursToTime } from "../utils/timeUtils.js";
-import { validateProviderSchedule } from "./scheduleValidationService.js";
+import { toScheduleParts } from '../utils/timeUtils.js';
+import { validateRescheduleTime } from './rescheduleValidationService.js';
 
-function addDays(dateString, days) {
-  const date = new Date(dateString);
-  date.setDate(date.getDate() + days);
-  return date.toISOString().split("T")[0];
-}
-
-function calculateSlotScore({ dayOffset, startTime }) {
-  let score = 100;
-
-  // Earlier reschedule dates are better
-  score -= dayOffset * 10;
-
-  // Morning slots are usually safer
-  if (startTime >= "08:00" && startTime <= "11:00") {
-    score += 10;
-  }
-
-  // Late evening slots are slightly less preferred
-  if (startTime >= "16:00") {
-    score -= 10;
-  }
-
-  return Math.max(0, Math.min(score, 100));
-}
-
-export async function suggestRescheduleSlots({
-  providerId,
-  currentDate,
-  estimatedDurationHours,
-}) {
-  const candidateStartTimes = ["08:00", "09:00", "10:00", "13:00", "14:00", "15:00"];
-  const suggestedSlots = [];
-
-  // Search next 7 days for valid slots
-  for (let dayOffset = 1; dayOffset <= 7; dayOffset++) {
-    const candidateDate = addDays(currentDate, dayOffset);
-
-    for (const startTime of candidateStartTimes) {
-      const endTime = addHoursToTime(startTime, estimatedDurationHours);
-
-      const validation = await validateProviderSchedule({
-        providerId,
-        requestedDate: candidateDate,
-        requestedStartTime: startTime,
-        requestedEndTime: endTime,
-      });
-
-      if (validation.isValid) {
-        suggestedSlots.push({
-          date: candidateDate,
-          startTime,
-          endTime,
-          score: calculateSlotScore({ dayOffset, startTime }),
-          riskLevel: "LOW",
-          reason: "Provider is available for this slot.",
-        });
-      }
-
-      if (suggestedSlots.length >= 5) {
-        return suggestedSlots;
-      }
+export async function suggestRescheduleSlots({ providerId, currentDate, estimatedDurationHours, booking = null, originalStartTime = null }) {
+  const context = booking || { providerId };
+  const proposed = originalStartTime ? new Date(originalStartTime) : new Date(`${currentDate}T08:00:00+05:30`);
+  const anchor = new Date(Math.max(Number.isFinite(+proposed) ? +proposed : Date.now(), Date.now()));
+  const suggestions = [];
+  for (let day = 0; day < 7 && suggestions.length < 3; day++) {
+    const date = toScheduleParts(new Date(+anchor + day * 86400000)).date;
+    for (const time of ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00']) {
+      const start = new Date(`${date}T${time}:00+05:30`);
+      if (start <= anchor) continue;
+      const validation = await validateRescheduleTime({ booking: context, startTime: start, durationHours: estimatedDurationHours });
+      if (!validation.isValid) continue;
+      suggestions.push({ date, startTime: time, endTime: toScheduleParts(new Date(+start + estimatedDurationHours * 3600000)).time, score: Math.max(0, 100 - day * 10), riskLevel: validation.warnings?.length ? 'UNKNOWN' : 'LOW', reason: validation.message });
+      if (suggestions.length === 3) break;
     }
   }
-
-  return suggestedSlots;
+  return suggestions;
 }

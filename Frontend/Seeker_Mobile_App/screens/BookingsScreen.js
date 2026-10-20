@@ -1,6 +1,6 @@
-import PageHeader from '../components/PageHeader';
 // screens/BookingsScreen.js
 
+import PageHeader from '../components/PageHeader';
 import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
 import {
   View,
@@ -16,17 +16,53 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { API_BASE_URL, AUTH_SERVICE_URL, ML_SERVICE_URL } from '../config';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import { LanguageContext } from '../context/LanguageContext';
 
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
-const PROVIDER_SERVICE_URL = `http://${IP_ADDRESS}:5000/portfolio/all-providers`;
+const PROVIDER_SERVICE_URL = `${ML_SERVICE_URL}/portfolio/all-providers`;
+
+// ─────────────────────────────────────────────────────────────
+// Shared palette
+// ─────────────────────────────────────────────────────────────
+const P = {
+  indigo: '#4F46E5',
+  indigoDeep: '#4338CA',
+  indigoSoft: '#EEF2FF',
+  indigoSoftDark: '#1E1B4B',
+  indigoLight: '#A5B4FC',
+  emerald: '#10B981',
+  emeraldDark: '#059669',
+  emeraldSoft: '#ECFDF5',
+  emeraldSoftDark: '#064E3B',
+  emeraldLight: '#34D399',
+  amber: '#D97706',
+  amberSoft: '#FFFBEB',
+  amberSoftDark: '#78350F',
+  amberLight: '#FBBF24',
+  amberVeryLight: '#FDE68A',
+  rose: '#EF4444',
+  roseDark: '#991B1B',
+  roseSoft: '#FEF2F2',
+  roseSoftDark: '#7F1D1D',
+  roseLight: '#FCA5A5',
+  slate900: '#0F172A',
+  slate800: '#1E293B',
+  slate700: '#334155',
+  slate600: '#475569',
+  slate500: '#64748B',
+  slate400: '#94A3B8',
+  slate300: '#CBD5E1',
+  slate200: '#E2E8F0',
+  slate100: '#F1F5F9',
+  slate50: '#F8FAFC',
+  white: '#FFFFFF',
+};
 
 // ─────────────────────────────────────────────────────────────
 // Helper: group flat request array by sessionId
@@ -67,40 +103,38 @@ export default function BookingsScreen({ navigation }) {
   const [error, setError] = useState(null);
   const [expandedSessions, setExpandedSessions] = useState({});
 
-  // Filter & Search states
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'pending' | 'confirmed' | 'cancelled'
+  const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
 
-  // ─────────────────────────────────────────────────────────────
-  // Fetch all providers into a map keyed by provider id
-  // ─────────────────────────────────────────────────────────────
   const fetchProviders = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(PROVIDER_SERVICE_URL, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!response.ok) return {};
+      if (!response.ok) {
+        throw new Error(`Provider lookup failed: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success && data.providers) {
         const map = {};
         data.providers.forEach((item) => {
           const provider = item.provider || {};
-          if (provider.id) {
-            map[provider.id] = { ...provider, portfolio: item.portfolio || {} };
+          const providerId = provider.id || provider._id || provider.userId;
+          if (providerId) {
+            map[String(providerId)] = { ...provider, portfolio: item.portfolio || {} };
           }
         });
         return map;
       }
       return {};
-    } catch {
+    } catch (error) {
+      console.warn('PROVIDER LOOKUP ERROR:', error);
       return {};
     }
   }, []);
 
-  // ─────────────────────────────────────────────────────────────
-  // Fetch bookings and group by session
-  // ─────────────────────────────────────────────────────────────
   const fetchBookings = useCallback(async () => {
     try {
       setError(null);
@@ -164,24 +198,14 @@ export default function BookingsScreen({ navigation }) {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    if (date.toDateString() === today.toDateString()) {
-      return isSi ? 'අද' : 'Today';
-    }
-    if (date.toDateString() === yesterday.toDateString()) {
-      return isSi ? 'ඊයේ' : 'Yesterday';
-    }
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
+    if (date.toDateString() === today.toDateString()) return isSi ? 'අද' : 'Today';
+    if (date.toDateString() === yesterday.toDateString()) return isSi ? 'ඊයේ' : 'Yesterday';
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
   const formatTime = (dateString) => {
     if (!dateString) return '';
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return new Date(dateString).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   const getStatusStyle = (status) => {
@@ -190,41 +214,39 @@ export default function BookingsScreen({ navigation }) {
       case 'confirmed':
       case 'accepted':
         return {
-          bg: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
-          border: isDarkMode ? '#065F46' : '#A7F3D0',
-          color: '#10B981',
+          bg: isDarkMode ? P.emeraldSoftDark : P.emeraldSoft,
+          border: isDarkMode ? P.emeraldDark : '#A7F3D0',
+          color: isDarkMode ? P.emeraldLight : P.emerald,
           text: isSi ? 'තහවුරුයි' : 'Confirmed',
         };
       case 'pending':
         return {
-          bg: isDarkMode ? 'rgba(245, 158, 11, 0.15)' : '#FFFBEB',
-          border: isDarkMode ? '#92400E' : '#FDE68A',
-          color: '#D97706',
+          bg: isDarkMode ? P.amberSoftDark : P.amberSoft,
+          border: isDarkMode ? '#92400E' : P.amberVeryLight,
+          color: isDarkMode ? P.amberLight : P.amber,
           text: isSi ? 'පොරොත්තුවේ' : 'Pending',
         };
       case 'cancelled':
       case 'canceled':
         return {
-          bg: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
-          border: isDarkMode ? '#991B1B' : '#FECACA',
-          color: '#EF4444',
+          bg: isDarkMode ? P.roseSoftDark : P.roseSoft,
+          border: isDarkMode ? P.roseDark : '#FECACA',
+          color: isDarkMode ? P.roseLight : P.rose,
           text: isSi ? 'අවලංගුයි' : 'Cancelled',
         };
       case 'rejected':
         return {
-          bg: isDarkMode ? 'rgba(107, 114, 128, 0.15)' : '#F3F4F6',
-          border: isDarkMode ? '#374151' : '#E5E7EB',
-          color: '#6B7280',
+          bg: isDarkMode ? P.slate800 : P.slate100,
+          border: isDarkMode ? P.slate700 : P.slate200,
+          color: isDarkMode ? P.slate400 : P.slate500,
           text: isSi ? 'ප්‍රතික්ෂේපිත' : 'Declined',
         };
       default:
         return {
-          bg: isDarkMode ? '#1E293B' : '#F8FAFC',
-          border: isDarkMode ? '#334155' : '#E2E8F0',
-          color: isDarkMode ? '#94A3B8' : '#64748B',
-          text: status
-            ? String(status).replace(/_/g, ' ').replace(/^\w/, (letter) => letter.toUpperCase())
-            : (isSi ? 'සාමාන්‍ය' : 'Normal'),
+          bg: isDarkMode ? P.slate800 : P.slate100,
+          border: isDarkMode ? P.slate700 : P.slate200,
+          color: isDarkMode ? P.slate400 : P.slate500,
+          text: status ? String(status).replace(/_/g, ' ').replace(/^\w/, (l) => l.toUpperCase()) : (isSi ? 'සාමාන්‍ය' : 'Normal'),
         };
     }
   };
@@ -247,22 +269,26 @@ export default function BookingsScreen({ navigation }) {
     return 'construct-outline';
   };
 
-  const getProvider = (providerId) => providersMap[providerId] || null;
+  const getProvider = (providerId) => {
+    const id = providerId && typeof providerId === 'object'
+      ? providerId._id || providerId.id
+      : providerId;
+    return id ? providersMap[String(id)] || null : null;
+  };
 
   const getProviderName = (providerId) => {
     const p = getProvider(providerId);
-    return p?.name || `Provider #${String(providerId).slice(-4)}`;
+    const firstLastName = [p?.firstName, p?.lastName].filter(Boolean).join(' ');
+    return p?.name || p?.fullName || p?.businessName || firstLastName ||
+      p?.email?.split('@')[0] || (isSi ? 'සපයන්නාගේ නම නොමැත' : 'Provider name unavailable');
   };
 
   const getProviderImage = (providerId) => {
     const p = getProvider(providerId);
-    if (p?.profileImage) {
-      const norm = p.profileImage.replace(/\\/g, '/');
-      if (norm.startsWith('http')) return norm;
-      return `http://${IP_ADDRESS}:5000/${norm}`;
-    }
-    const hash = providerId ? parseInt(String(providerId).slice(-2), 16) || 1 : 1;
-    return `https://i.pravatar.cc/150?img=${(hash % 70) + 1}`;
+    if (!p?.profileImage) return null;
+    const norm = p.profileImage.replace(/\\/g, '/');
+    if (norm.startsWith('http')) return norm;
+    return `${AUTH_SERVICE_URL}/${norm.replace(/^\/+/, '')}`;
   };
 
   const getSessionOverallStatus = (group) => {
@@ -279,9 +305,6 @@ export default function BookingsScreen({ navigation }) {
     }));
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // Counts calculation
-  // ─────────────────────────────────────────────────────────────
   const counts = useMemo(() => {
     let pending = 0;
     let confirmed = 0;
@@ -302,9 +325,6 @@ export default function BookingsScreen({ navigation }) {
     };
   }, [groupedBookings]);
 
-  // ─────────────────────────────────────────────────────────────
-  // Filtered & Searched bookings
-  // ─────────────────────────────────────────────────────────────
   const filteredBookings = useMemo(() => {
     return groupedBookings.filter((group) => {
       const overallStatus = getSessionOverallStatus(group);
@@ -339,9 +359,6 @@ export default function BookingsScreen({ navigation }) {
     });
   }, [groupedBookings, activeFilter, searchQuery, providersMap]);
 
-  // ─────────────────────────────────────────────────────────────
-  // Action Handlers
-  // ─────────────────────────────────────────────────────────────
   const handleMessage = async (request, group = {}) => {
     try {
       const currentUserId = await AsyncStorage.getItem('userId');
@@ -425,13 +442,12 @@ export default function BookingsScreen({ navigation }) {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor={isDarkMode ? '#0F172A' : '#4338CA'}
-        />
+        <StatusBar barStyle="light-content" backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep} />
         <PageHeader title={<>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</>} onBack={() => navigation.goBack()} />
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#4F46E5" />
+          <View style={[styles.loadingRing, isDarkMode && { backgroundColor: P.indigoSoftDark }]}>
+            <ActivityIndicator size="large" color={P.indigo} />
+          </View>
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
             {isSi ? 'ඇණවුම් ලබා ගනිමින් පවතී…' : 'Loading your bookings…'}
           </Text>
@@ -445,103 +461,59 @@ export default function BookingsScreen({ navigation }) {
   // ─────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={isDarkMode ? '#0F172A' : '#4338CA'}
+      <StatusBar barStyle="light-content" backgroundColor={isDarkMode ? P.slate900 : P.indigoDeep} />
+
+      <PageHeader
+        title={<>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</>}
+        onBack={() => navigation.goBack()}
+        renderActions={({ textColor }) => (
+          <TouchableOpacity style={styles.headerRefreshBtn} onPress={onRefresh} activeOpacity={0.8}>
+            <Ionicons name="refresh-outline" size={22} color={textColor} />
+          </TouchableOpacity>
+        )}
       />
 
-      {/* Top Header - Compact & Clean */}
-      <PageHeader title={<>{isSi ? 'මගේ ඇණවුම්' : 'My Bookings'}</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity
-          style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
-          onPress={onRefresh}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="refresh-outline" size={20} color={textColor} />
-        </TouchableOpacity></>} />
-
-      {/* Clean Top Controls: Filter Pills + Compact Search */}
+      {/* ── Search + Filter Button ── */}
       <View style={[styles.topControls, isDarkMode && styles.topControlsDark]}>
-        {/* Horizontal Filter Tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScroll}
-        >
-          {[
-            { key: 'all', label: isSi ? 'සියල්ල' : 'All', count: counts.all },
-            { key: 'pending', label: isSi ? 'පොරොත්තුවේ' : 'Pending', count: counts.pending },
-            { key: 'confirmed', label: isSi ? 'තහවුරු වූ' : 'Confirmed', count: counts.confirmed },
-            { key: 'cancelled', label: isSi ? 'අවලංගු' : 'Cancelled', count: counts.cancelled },
-          ].map((tab) => {
-            const isSelected = activeFilter === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                onPress={() => setActiveFilter(tab.key)}
-                style={[
-                  styles.tabPill,
-                  isSelected && styles.tabPillActive,
-                  isDarkMode && styles.tabPillDark,
-                  isSelected && isDarkMode && styles.tabPillActiveDark,
-                ]}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.tabPillText,
-                    isSelected && styles.tabPillTextActive,
-                    isDarkMode && !isSelected && styles.textMutedDark,
-                  ]}
-                >
-                  {tab.label}
-                </Text>
-                <View
-                  style={[
-                    styles.tabCountBadge,
-                    isSelected && styles.tabCountBadgeActive,
-                    isDarkMode && !isSelected && styles.tabCountBadgeDark,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.tabCountText,
-                      isSelected && styles.tabCountTextActive,
-                      isDarkMode && !isSelected && styles.textMutedDark,
-                    ]}
-                  >
-                    {tab.count}
-                  </Text>
-                </View>
+        <View style={styles.searchRow}>
+          <View style={[styles.searchBox, isDarkMode && styles.searchBoxDark]}>
+            <Ionicons name="search-outline" size={18} color={isDarkMode ? P.slate400 : P.slate500} />
+            <TextInput
+              style={[styles.searchInput, isDarkMode && styles.textDark]}
+              placeholder={isSi ? 'සේවාව හෝ සපයන්නා සොයන්න' : 'Search service or provider'}
+              placeholderTextColor={isDarkMode ? P.slate500 : P.slate400}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <Ionicons name="close-circle" size={18} color={isDarkMode ? P.slate400 : P.slate500} />
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+            )}
+          </View>
 
-        {/* Compact Search Bar */}
-        <View style={[styles.searchBox, isDarkMode && styles.searchBoxDark]}>
-          <Ionicons
-            name="search-outline"
-            size={16}
-            color={isDarkMode ? '#64748B' : '#94A3B8'}
-            style={{ marginRight: 8 }}
-          />
-          <TextInput
-            style={[styles.searchInput, isDarkMode && styles.textDark]}
-            placeholder={isSi ? 'සේවාව හෝ සපයන්නා සොයන්න…' : 'Search service, provider, category…'}
-            placeholderTextColor={isDarkMode ? '#64748B' : '#94A3B8'}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close-circle" size={16} color={isDarkMode ? '#94A3B8' : '#9CA3AF'} />
-            </TouchableOpacity>
-          )}
+          {/* Filter Button */}
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              isDarkMode && styles.filterButtonDark,
+              activeFilter !== 'all' && styles.filterButtonActive,
+            ]}
+            onPress={() => setFilterModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="options-outline"
+              size={22}
+              color={activeFilter !== 'all' ? P.white : (isDarkMode ? P.slate300 : P.slate600)}
+            />
+            {activeFilter !== 'all' && <View style={styles.filterDot} />}
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Main List */}
+      {/* ── Main list ── */}
       <ScrollView
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -549,64 +521,44 @@ export default function BookingsScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#4F46E5']}
-            tintColor={isDarkMode ? '#818CF8' : '#4F46E5'}
+            colors={[P.indigo]}
+            tintColor={isDarkMode ? P.indigoLight : P.indigo}
           />
         }
       >
         {error ? (
           <View style={[styles.emptyCard, isDarkMode && styles.emptyCardDark]}>
-            <Ionicons name="alert-circle-outline" size={38} color="#EF4444" />
-            <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
-              {isSi ? 'දෝෂයක් සිදු විය' : 'Connection Error'}
-            </Text>
+            <View style={[styles.emptyIconWrap, { backgroundColor: isDarkMode ? P.roseSoftDark : P.roseSoft }]}>
+              <Ionicons name="alert-circle-outline" size={40} color={P.rose} />
+            </View>
+            <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>{isSi ? 'දෝෂයක් සිදු විය' : 'Something went wrong'}</Text>
             <Text style={[styles.emptyDesc, isDarkMode && styles.textMutedDark]}>{error}</Text>
-            <TouchableOpacity style={styles.actionBtnPrimary} onPress={onRefresh} activeOpacity={0.8}>
-              <Ionicons name="refresh" size={15} color="#fff" style={{ marginRight: 6 }} />
+            <TouchableOpacity style={styles.actionBtnPrimary} onPress={onRefresh} activeOpacity={0.85}>
+              <Ionicons name="refresh" size={16} color={P.white} style={{ marginRight: 6 }} />
               <Text style={styles.actionBtnPrimaryText}>{isSi ? 'නැවත උත්සාහ කරන්න' : 'Try Again'}</Text>
             </TouchableOpacity>
           </View>
         ) : filteredBookings.length === 0 ? (
           <View style={[styles.emptyCard, isDarkMode && styles.emptyCardDark]}>
-            <View style={[styles.emptyIconWrap, isDarkMode && styles.emptyIconWrapDark]}>
-              <Ionicons
-                name={searchQuery ? 'search-outline' : 'receipt-outline'}
-                size={36}
-                color={isDarkMode ? '#818CF8' : '#4F46E5'}
-              />
+            <View style={[styles.emptyIconWrap, isDarkMode && { backgroundColor: P.indigoSoftDark }]}>
+              <Ionicons name={searchQuery ? 'search-outline' : 'receipt-outline'} size={40} color={isDarkMode ? P.indigoLight : P.indigo} />
             </View>
             <Text style={[styles.emptyTitle, isDarkMode && styles.textDark]}>
-              {searchQuery
-                ? (isSi ? 'ප්‍රතිඵල හමු නොවීය' : 'No matching bookings')
-                : activeFilter !== 'all'
-                ? (isSi ? 'මෙම කාණ්ඩයේ ඇණවුම් නොමැත' : `No ${activeFilter} bookings`)
+              {searchQuery ? (isSi ? 'ප්‍රතිඵල හමු නොවීය' : 'No matching bookings')
+                : activeFilter !== 'all' ? (isSi ? 'මෙම කාණ්ඩයේ ඇණවුම් නොමැත' : `No ${activeFilter} bookings`)
                 : (isSi ? 'තවමත් ඇණවුම් නොමැත' : 'No bookings yet')}
             </Text>
             <Text style={[styles.emptyDesc, isDarkMode && styles.textMutedDark]}>
-              {searchQuery
-                ? (isSi ? 'වෙනත් වචනයක් යොදා සොයා බලන්න.' : 'Try a different search query or clear filters.')
-                : (isSi
-                    ? 'සේවා සපයන්නන්ගෙන් මිල ගණන් ඉල්ලූ පසු ඔබගේ ඇණවුම් මෙහි පිළිවෙළට දැකගත හැක.'
-                    : 'Your service requests will appear here once you request a quote from providers.')}
+              {searchQuery ? (isSi ? 'වෙනත් වචනයක් යොදා සොයා බලන්න.' : 'Try a different search or clear the filter.')
+                : (isSi ? 'සේවා සපයන්නන්ගෙන් මිල ගණන් ඉල්ලූ පසු ඔබගේ ඇණවුම් මෙහි දිස්වේ.' : 'Your bookings will appear here once you request a quote from a provider.')}
             </Text>
-
-            {searchQuery ? (
-              <TouchableOpacity
-                style={styles.actionBtnSecondary}
-                onPress={() => {
-                  setSearchQuery('');
-                  setActiveFilter('all');
-                }}
-              >
-                <Text style={styles.actionBtnSecondaryText}>{isSi ? 'සෙවුම ඉවත් කරන්න' : 'Clear Search'}</Text>
+            {searchQuery || activeFilter !== 'all' ? (
+              <TouchableOpacity style={[styles.actionBtnSecondary, isDarkMode && { backgroundColor: P.slate800 }]} onPress={() => { setSearchQuery(''); setActiveFilter('all'); }}>
+                <Text style={[styles.actionBtnSecondaryText, isDarkMode && { color: P.slate200 }]}>{isSi ? 'සෙවුම ඉවත් කරන්න' : 'Clear Search & Filter'}</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity
-                style={styles.actionBtnPrimary}
-                onPress={() => navigation.navigate('CreatePostScreen')}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="add" size={18} color="#fff" style={{ marginRight: 4 }} />
+              <TouchableOpacity style={styles.actionBtnPrimary} onPress={() => navigation.navigate('CreatePostScreen')} activeOpacity={0.85}>
+                <Ionicons name="add" size={18} color={P.white} style={{ marginRight: 6 }} />
                 <Text style={styles.actionBtnPrimaryText}>{isSi ? 'නව සේවාවක් සොයන්න' : 'Request a Service'}</Text>
               </TouchableOpacity>
             )}
@@ -621,132 +573,55 @@ export default function BookingsScreen({ navigation }) {
             const providerCount = group.requests.length;
             const isExpanded = expandedSessions[group.sessionId] ?? false;
             const categoryIcon = getCategoryIcon(group.detectedCategory || '');
-            const isUrgent =
-              group.urgencyLevel &&
-              (group.urgencyLevel.toLowerCase().includes('high') ||
-                group.urgencyLevel.toLowerCase().includes('urgent'));
+            const isUrgent = group.urgencyLevel && (group.urgencyLevel.toLowerCase().includes('high') || group.urgencyLevel.toLowerCase().includes('urgent'));
 
             return (
-              <View
-                key={group.sessionId}
-                style={[styles.card, isDarkMode && styles.cardDark]}
-              >
-                {/* 1. Main Card Info Row */}
-                <View style={styles.cardMain}>
+              <View key={group.sessionId} style={[styles.card, isDarkMode && styles.cardDark]}>
+                <View style={styles.cardHeader}>
                   <View style={[styles.catIconWrap, isDarkMode && styles.catIconWrapDark]}>
-                    <Ionicons
-                      name={categoryIcon}
-                      size={20}
-                      color={isDarkMode ? '#818CF8' : '#4F46E5'}
-                    />
+                    <Ionicons name={categoryIcon} size={24} color={isDarkMode ? P.indigoLight : P.indigo} />
                   </View>
-
-                  <View style={styles.cardHeaderInfo}>
-                    <View style={styles.titleRow}>
-                      <Text
-                        style={[styles.serviceTitle, isDarkMode && styles.textDark]}
-                        numberOfLines={1}
-                      >
-                        {title}
-                      </Text>
-
-                      {/* Clean Status Pill with dot */}
-                      <View
-                        style={[
-                          styles.statusPill,
-                          {
-                            backgroundColor: overallStyle.bg,
-                            borderColor: overallStyle.border,
-                          },
-                        ]}
-                      >
-                        <View style={[styles.statusDot, { backgroundColor: overallStyle.color }]} />
-                        <Text style={[styles.statusPillText, { color: overallStyle.color }]}>
-                          {overallStyle.text}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Subtitle / Metadata row */}
-                    <View style={styles.metaRow}>
-                      <Text style={[styles.metaText, isDarkMode && styles.textMutedDark]}>
-                        {date} • {time}
-                      </Text>
-
-                      {group.serviceLocation && typeof group.serviceLocation === 'string' && (
-                        <>
-                          <Text style={[styles.metaDivider, isDarkMode && styles.textMutedDark]}>•</Text>
-                          <View style={styles.inlineLocation}>
-                            <Ionicons
-                              name="location-outline"
-                              size={12}
-                              color={isDarkMode ? '#94A3B8' : '#64748B'}
-                            />
-                            <Text
-                              style={[styles.metaText, isDarkMode && styles.textMutedDark]}
-                              numberOfLines={1}
-                            >
-                              {group.serviceLocation}
-                            </Text>
-                          </View>
-                        </>
-                      )}
-
-                      {isUrgent && (
-                        <View style={styles.urgentBadge}>
-                          <Ionicons name="flash" size={10} color="#EF4444" />
-                          <Text style={styles.urgentBadgeText}>
-                            {isSi ? 'හදිසි' : 'Urgent'}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                  <View style={styles.cardTitleWrap}>
+                    <Text style={[styles.serviceTitle, isDarkMode && styles.textDark]} numberOfLines={2}>{title}</Text>
+                    <Text style={[styles.metaText, isDarkMode && styles.textMutedDark]}>{date} · {time}</Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: overallStyle.bg, borderColor: overallStyle.border }]}>
+                    <View style={[styles.statusDot, { backgroundColor: overallStyle.color }]} />
+                    <Text style={[styles.statusBadgeText, { color: overallStyle.color }]}>{overallStyle.text}</Text>
                   </View>
                 </View>
 
-                {/* 2. Brief description (Clean, unobtrusive) */}
+                <View style={styles.infoRow}>
+                  {group.serviceLocation && typeof group.serviceLocation === 'string' && (
+                    <View style={[styles.infoPill, isDarkMode && { backgroundColor: P.slate900, borderColor: P.slate700 }]}>
+                      <Ionicons name="location-outline" size={13} color={isDarkMode ? P.slate400 : P.slate500} />
+                      <Text style={[styles.infoPillText, isDarkMode && styles.textMutedDark]} numberOfLines={1}>{group.serviceLocation}</Text>
+                    </View>
+                  )}
+                  {isUrgent && (
+                    <View style={[styles.infoPill, { backgroundColor: isDarkMode ? P.roseSoftDark : P.roseSoft, borderColor: isDarkMode ? P.roseDark : '#FECACA' }]}>
+                      <Ionicons name="flash" size={12} color={P.rose} />
+                      <Text style={[styles.infoPillText, { color: P.rose, fontWeight: '800' }]}>{isSi ? 'හදිසි' : 'Urgent'}</Text>
+                    </View>
+                  )}
+                </View>
+
                 {group.briefDescription ? (
-                  <View style={styles.descWrap}>
-                    <Text
-                      style={[styles.descText, isDarkMode && styles.textMutedDark]}
-                      numberOfLines={1}
-                    >
-                      {group.briefDescription}
-                    </Text>
-                  </View>
+                  <Text style={[styles.descText, isDarkMode && styles.textMutedDark]} numberOfLines={3}>{group.briefDescription}</Text>
                 ) : null}
 
-                {/* 3. Providers Accordion Header */}
-                <TouchableOpacity
-                  style={[styles.accordionBar, isDarkMode && styles.accordionBarDark]}
-                  onPress={() => toggleExpand(group.sessionId)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={isExpanded
-                    ? (isSi ? `සපයන්නන් සඟවන්න (${providerCount})` : `Hide ${providerCount} providers`)
-                    : (isSi ? `සපයන්නන් පෙන්වන්න (${providerCount})` : `Show ${providerCount} providers`)}
-                >
+                <TouchableOpacity style={[styles.accordionBtn, isDarkMode && styles.accordionBtnDark]} onPress={() => toggleExpand(group.sessionId)} activeOpacity={0.75}>
                   <View style={styles.accordionLeft}>
-                    <Ionicons
-                      name="people-outline"
-                      size={15}
-                      color={isDarkMode ? '#818CF8' : '#4F46E5'}
-                    />
-                    <Text style={[styles.accordionTitle, isDarkMode && styles.textDark]}>
-                      {isExpanded
-                        ? (isSi ? `සපයන්නන් සඟවන්න (${providerCount})` : `Hide ${providerCount} providers`)
-                        : (isSi ? `සපයන්නන් පෙන්වන්න (${providerCount})` : `Show ${providerCount} providers`)}
+                    <View style={[styles.accordionIconWrap, isDarkMode && { backgroundColor: P.indigoSoftDark }]}>
+                      <Ionicons name="people" size={14} color={isDarkMode ? P.indigoLight : P.indigo} />
+                    </View>
+                    <Text style={[styles.accordionBtnText, isDarkMode && styles.textDark]}>
+                      {isExpanded ? (isSi ? `${providerCount} සපයන්නන් සඟවන්න` : `Hide ${providerCount} provider${providerCount !== 1 ? 's' : ''}`) : (isSi ? `${providerCount} සපයන්නන් බලන්න` : `View ${providerCount} provider${providerCount !== 1 ? 's' : ''}`)}
                     </Text>
                   </View>
-
-                  <Ionicons
-                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={16}
-                    color={isDarkMode ? '#94A3B8' : '#64748B'}
-                  />
+                  <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={isDarkMode ? P.slate400 : P.slate500} />
                 </TouchableOpacity>
 
-                {/* 4. Provider Rows */}
                 {isExpanded && (
                   <View style={styles.providerList}>
                     {group.requests.map((req, idx) => {
@@ -758,70 +633,40 @@ export default function BookingsScreen({ navigation }) {
 
                       return (
                         <View key={req._id || idx}>
-                          <View style={styles.providerRow}>
-                            {/* Avatar */}
-                            <TouchableOpacity
-                              onPress={() => handleViewProviderProfile(pId)}
-                              activeOpacity={0.8}
-                            >
-                              <Image source={{ uri: pImage }} style={styles.providerAvatar} />
-                            </TouchableOpacity>
-
-                            {/* Info */}
-                            <View style={styles.providerMainInfo}>
-                              <TouchableOpacity
-                                onPress={() => handleViewProviderProfile(pId)}
-                                activeOpacity={0.7}
-                              >
-                                <Text
-                                  style={[styles.providerName, isDarkMode && styles.textDark]}
-                                  numberOfLines={1}
-                                >
-                                  {pName}
-                                </Text>
+                          <View style={styles.providerBlock}>
+                            <View style={styles.providerTopRow}>
+                              <TouchableOpacity onPress={() => handleViewProviderProfile(pId)} activeOpacity={0.8}>
+                                <View style={[styles.providerAvatarRing, isDarkMode && { borderColor: P.indigoSoftDark }]}>
+                                  {pImage ? <Image source={{ uri: pImage }} style={styles.providerAvatar} /> : (
+                                    <View style={[styles.providerAvatar, styles.providerAvatarPlaceholder, isDarkMode && { backgroundColor: P.indigoSoftDark }]}>
+                                      <Ionicons name="person" size={22} color={isDarkMode ? P.indigoLight : P.indigo} />
+                                    </View>
+                                  )}
+                                </View>
                               </TouchableOpacity>
-
-                              <View style={styles.providerStatusRow}>
-                                <View style={[styles.miniDot, { backgroundColor: pStatus.color }]} />
-                                <Text style={[styles.providerStatusText, { color: pStatus.color }]}>
-                                  {pStatus.text}
-                                </Text>
+                              <View style={styles.providerMainInfo}>
+                                <TouchableOpacity onPress={() => handleViewProviderProfile(pId)} activeOpacity={0.7}>
+                                  <Text style={[styles.providerName, isDarkMode && styles.textDark]} numberOfLines={1}>{pName}</Text>
+                                </TouchableOpacity>
+                                <View style={[styles.providerStatusBadge, { backgroundColor: pStatus.bg, borderColor: pStatus.border }]}>
+                                  <View style={[styles.providerStatusDot, { backgroundColor: pStatus.color }]} />
+                                  <Text style={[styles.providerStatusText, { color: pStatus.color }]}>{pStatus.text}</Text>
+                                </View>
                               </View>
                             </View>
 
-                            {/* Clean action buttons */}
-                            <View style={styles.providerActions}>
-                              <TouchableOpacity
-                                style={[styles.chatBtnOutline, isDarkMode && styles.chatBtnOutlineDark]}
-                                onPress={() => handleMessage(req, group)}
-                                activeOpacity={0.75}
-                              >
-                                <Ionicons
-                                  name="chatbubble-ellipses-outline"
-                                  size={15}
-                                  color={isDarkMode ? '#818CF8' : '#4F46E5'}
-                                />
-                                <Text style={[styles.chatBtnText, isDarkMode && styles.chatBtnTextDark]}>
-                                  {isSi ? 'චැට්' : 'Chat'}
-                                </Text>
+                            <View style={styles.providerActionsRow}>
+                              <TouchableOpacity style={[styles.actionBtnHalf, isDarkMode && styles.actionBtnHalfDark]} onPress={() => handleMessage(req, group)} activeOpacity={0.8}>
+                                <Ionicons name="chatbubble-ellipses-outline" size={17} color={isDarkMode ? P.indigoLight : P.indigo} />
+                                <Text style={[styles.actionBtnHalfText, isDarkMode && styles.textDark]}>{isSi ? 'චැට්' : 'Chat'}</Text>
                               </TouchableOpacity>
-
-                              <TouchableOpacity
-                                style={[styles.viewBtnSolid, isDarkMode && styles.viewBtnSolidDark]}
-                                onPress={() => handleViewQuote(req)}
-                                activeOpacity={0.8}
-                              >
-                                <Ionicons name="document-text-outline" size={13} color={isDarkMode ? '#CBD5E1' : '#475569'} />
-                                <Text style={[styles.viewBtnSolidText, isDarkMode && styles.viewBtnSolidTextDark]}>
-                                  {isSi ? 'මිල ගණන්' : 'Quote'}
-                                </Text>
+                              <TouchableOpacity style={styles.actionBtnHalfSolid} onPress={() => handleViewQuote(req)} activeOpacity={0.85}>
+                                <Ionicons name="document-text-outline" size={17} color={P.white} />
+                                <Text style={styles.actionBtnHalfSolidText}>{isSi ? 'මිල ගණන්' : 'View Quote'}</Text>
                               </TouchableOpacity>
                             </View>
                           </View>
-
-                          {!isLast && (
-                            <View style={[styles.rowDivider, isDarkMode && styles.rowDividerDark]} />
-                          )}
+                          {!isLast && <View style={[styles.rowDivider, isDarkMode && styles.rowDividerDark]} />}
                         </View>
                       );
                     })}
@@ -832,485 +677,434 @@ export default function BookingsScreen({ navigation }) {
           })
         )}
       </ScrollView>
+
+      {/* ── Filter Bottom Sheet Modal ── */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={filterModalVisible}
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPressOut={() => setFilterModalVisible(false)}
+        >
+          <View style={[styles.modalContent, isDarkMode && styles.modalContentDark]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, isDarkMode && styles.textDark]}>
+                {isSi ? 'පෙරහන් කරන්න' : 'Filter Bookings'}
+              </Text>
+              <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+                <Ionicons name="close" size={24} color={isDarkMode ? P.slate400 : P.slate500} />
+              </TouchableOpacity>
+            </View>
+
+            {[
+              { key: 'all', label: isSi ? 'සියල්ල' : 'All', count: counts.all, icon: 'list-outline', color: P.slate600 },
+              { key: 'pending', label: isSi ? 'පොරොත්තු' : 'Pending', count: counts.pending, icon: 'time-outline', color: P.amber },
+              { key: 'confirmed', label: isSi ? 'තහවුරු' : 'Confirmed', count: counts.confirmed, icon: 'checkmark-circle-outline', color: P.emerald },
+              { key: 'cancelled', label: isSi ? 'අවලංගු' : 'Cancelled', count: counts.cancelled, icon: 'close-circle-outline', color: P.rose },
+            ].map((item) => {
+              const isActive = activeFilter === item.key;
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[styles.modalOption, isDarkMode && styles.modalOptionDark, isActive && styles.modalOptionActive]}
+                  onPress={() => {
+                    setActiveFilter(item.key);
+                    setFilterModalVisible(false);
+                  }}
+                >
+                  <View style={styles.modalOptionLeft}>
+                    <Ionicons name={item.icon} size={20} color={isActive ? P.indigo : item.color} />
+                    <Text style={[styles.modalOptionText, isDarkMode && styles.textDark, isActive && styles.modalOptionTextActive]}>
+                      {item.label}
+                    </Text>
+                  </View>
+                  <View style={[styles.modalOptionBadge, isActive && { backgroundColor: P.indigoSoft }]}>
+                    <Text style={[styles.modalOptionBadgeText, isDarkMode && styles.textMutedDark, isActive && { color: P.indigo }]}>
+                      {item.count}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// Clean, Balanced, Uncluttered Styles
+// Styles
 // ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  containerDark: {
-    backgroundColor: '#0B0F19',
-  },
+  container: { flex: 1, backgroundColor: P.slate50 },
+  containerDark: { backgroundColor: P.slate900 },
 
-  // Header
-  header: {
-    flexDirection: 'row',
+  headerRefreshBtn: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingTop: Platform.OS === 'ios' ? 10 : 12,
-  },
-  headerBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitleWrap: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.2,
   },
 
-  // Top Controls Bar (Clean Segment + Compact Search)
+  // ── Top controls ──
   topControls: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: P.white,
     borderBottomWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingTop: 10,
-    paddingBottom: 10,
+    borderColor: P.slate200,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
-  topControlsDark: {
-    backgroundColor: '#111827',
-    borderColor: '#1F2937',
-  },
-  filterScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
-    paddingBottom: 8,
-  },
-  tabPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    gap: 6,
-  },
-  tabPillDark: {
-    backgroundColor: '#1F2937',
-  },
-  tabPillActive: {
-    backgroundColor: '#4F46E5',
-  },
-  tabPillActiveDark: {
-    backgroundColor: '#4F46E5',
-  },
-  tabPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  tabPillTextActive: {
-    color: '#FFFFFF',
-  },
-  tabCountBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.06)',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  tabCountBadgeDark: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  tabCountBadgeActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  tabCountText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  tabCountTextActive: {
-    color: '#FFFFFF',
-  },
+  topControlsDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
 
-  // Compact Search Box
-  searchBox: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
     marginHorizontal: 16,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    height: 36,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    gap: 10,
   },
-  searchBoxDark: {
-    backgroundColor: '#0F172A',
-    borderColor: '#1E293B',
-  },
-  searchInput: {
+  searchBox: {
     flex: 1,
-    fontSize: 12.5,
-    color: '#1E293B',
-    paddingVertical: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: P.slate100,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 46,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    gap: 8,
+  },
+  searchBoxDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
+  searchInput: { flex: 1, fontSize: 14.5, color: P.slate900, paddingVertical: 0 },
+
+  // ── Filter Button ──
+  filterButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: P.slate100,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterButtonDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
+  filterButtonActive: { backgroundColor: P.indigo, borderColor: P.indigo },
+  filterDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: P.white,
   },
 
-  // Content List
-  listContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
+  // ── List ──
+  listContent: { padding: 16, paddingBottom: 40 },
 
-  // Booking Card
+  // ── Card ──
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: P.white,
+    borderRadius: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
+    borderColor: P.slate200,
+    padding: 14,
     ...Platform.select({
       ios: {
         shadowColor: '#64748B',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
-        shadowRadius: 4,
+        shadowRadius: 8,
       },
-      android: {
-        elevation: 1.5,
-      },
+      android: { elevation: 2 },
     }),
   },
-  cardDark: {
-    backgroundColor: '#111827',
-    borderColor: '#1F2937',
-  },
+  cardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
 
-  // Card Main Row
-  cardMain: {
-    flexDirection: 'row',
-    padding: 14,
-    alignItems: 'flex-start',
-  },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   catIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: '#EEF2FF',
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: P.indigoSoft,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
-    marginTop: 2,
   },
-  catIconWrapDark: {
-    backgroundColor: '#1E1B4B',
-  },
-  cardHeaderInfo: {
-    flex: 1,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
+  catIconWrapDark: { backgroundColor: P.indigoSoftDark },
+  cardTitleWrap: { flex: 1, justifyContent: 'center', paddingTop: 2 },
   serviceTitle: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#0F172A',
-    flex: 1,
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: P.slate900,
     letterSpacing: -0.2,
+    marginBottom: 3,
   },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 4,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusPillText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    marginTop: 4,
-    gap: 5,
-  },
-  metaText: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '500',
-  },
-  metaDivider: {
-    fontSize: 10,
-    color: '#CBD5E1',
-  },
-  inlineLocation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    maxWidth: 120,
-  },
-  urgentBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    paddingHorizontal: 5,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-    gap: 2,
-    marginLeft: 4,
-  },
-  urgentBadgeText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#EF4444',
-  },
+  metaText: { fontSize: 12, color: P.slate500, fontWeight: '600' },
 
-  // Description
-  descWrap: {
-    marginHorizontal: 14,
-    marginBottom: 8,
-  },
-  descText: {
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 16,
-  },
-
-  // Accordion Header
-  accordionBar: {
+  // ── Status badge ──
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 14,
-    marginBottom: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-  },
-  accordionBarDark: {
-    backgroundColor: '#0F172A',
-    borderColor: '#1E293B',
-  },
-  accordionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  accordionTitle: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#475569',
-  },
-
-  // Provider List
-  providerList: {
-    paddingHorizontal: 14,
-    paddingTop: 0,
-    paddingBottom: 8,
-  },
-  providerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  providerAvatar: {
-    width: 36,
-    height: 36,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginRight: 10,
+    gap: 5,
+    alignSelf: 'flex-start',
   },
-  providerMainInfo: {
-    flex: 1,
-    marginRight: 8,
-  },
-  providerName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
-  providerStatusRow: {
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.1 },
+
+  // ── Info row ──
+  infoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 },
+  infoPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 2,
+    backgroundColor: P.slate100,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    maxWidth: '80%',
   },
-  miniDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-  },
-  providerStatusText: {
-    fontSize: 10,
-    fontWeight: '600',
+  infoPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: P.slate600,
+    flexShrink: 1,
   },
 
-  // Action Buttons
-  providerActions: {
+  // ── Description ──
+  descText: {
+    fontSize: 12.5,
+    color: P.slate600,
+    lineHeight: 18,
+    marginTop: 10,
+    fontWeight: '500',
+  },
+
+  // ── Accordion ──
+  accordionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: P.slate50,
+    borderWidth: 1,
+    borderColor: P.slate200,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 12,
+    gap: 10,
+  },
+  accordionBtnDark: { backgroundColor: P.slate900, borderColor: P.slate700 },
+  accordionLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  accordionIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: P.indigoSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accordionBtnText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: P.slate700,
+    letterSpacing: -0.1,
+  },
+
+  // ── Providers ──
+  providerList: { marginTop: 4 },
+  providerBlock: { paddingVertical: 12 },
+  providerTopRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  providerAvatarRing: {
+    padding: 2,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: P.indigoSoft,
+  },
+  providerAvatar: { width: 44, height: 44, borderRadius: 22 },
+  providerAvatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: P.indigoSoft,
+  },
+  providerMainInfo: { flex: 1, gap: 4 },
+  providerName: { fontSize: 14.5, fontWeight: '800', color: P.slate900, letterSpacing: -0.2 },
+  providerStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 9,
+    borderWidth: 1,
+    gap: 5,
+  },
+  providerStatusDot: { width: 5, height: 5, borderRadius: 3 },
+  providerStatusText: { fontSize: 10, fontWeight: '800' },
+
+  // ── Actions ──
+  providerActionsRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  actionBtnHalf: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 42,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: P.indigo,
+    backgroundColor: P.white,
     gap: 6,
   },
-  chatBtnOutline: {
+  actionBtnHalfDark: { backgroundColor: P.slate800 },
+  actionBtnHalfText: { fontSize: 13, fontWeight: '800', color: P.indigo },
+  actionBtnHalfSolid: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-    gap: 3,
+    justifyContent: 'center',
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: P.indigo,
+    gap: 6,
   },
-  chatBtnOutlineDark: {
-    backgroundColor: '#111827',
-    borderColor: '#334155',
-  },
-  chatBtnText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  chatBtnTextDark: {
-    color: '#CBD5E1',
-  },
-  viewBtnSolid: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 3,
-  },
-  viewBtnSolidDark: {
-    backgroundColor: '#1F2937',
-    borderColor: '#334155',
-  },
-  viewBtnSolidText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  viewBtnSolidTextDark: {
-    color: '#CBD5E1',
-  },
-  rowDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginLeft: 46,
-  },
-  rowDividerDark: {
-    backgroundColor: '#1E293B',
-  },
+  actionBtnHalfSolidText: { fontSize: 13, fontWeight: '800', color: P.white },
 
-  // Empty & Status Cards
+  rowDivider: { height: 1, backgroundColor: P.slate100, marginLeft: 58 },
+  rowDividerDark: { backgroundColor: P.slate700 },
+
+  // ── Empty / error ──
   emptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: P.white,
+    borderRadius: 16,
     padding: 24,
     alignItems: 'center',
     marginTop: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: P.slate200,
   },
-  emptyCardDark: {
-    backgroundColor: '#111827',
-    borderColor: '#1F2937',
-  },
+  emptyCardDark: { backgroundColor: P.slate800, borderColor: P.slate700 },
   emptyIconWrap: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#EEF2FF',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: P.indigoSoft,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  emptyIconWrapDark: {
-    backgroundColor: '#1E1B4B',
+    marginBottom: 14,
   },
   emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: '800',
+    color: P.slate900,
+    marginBottom: 6,
+    textAlign: 'center',
+    letterSpacing: -0.2,
   },
   emptyDesc: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: 13,
+    color: P.slate500,
     textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 16,
-    paddingHorizontal: 16,
+    lineHeight: 19,
+    marginBottom: 18,
+    paddingHorizontal: 8,
+    fontWeight: '500',
   },
   actionBtnPrimary: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4F46E5',
+    justifyContent: 'center',
+    backgroundColor: P.indigo,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 10,
+    minHeight: 44,
+    minWidth: 160,
+  },
+  actionBtnPrimaryText: { color: P.white, fontWeight: '800', fontSize: 13 },
+  actionBtnSecondary: {
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 10,
+    backgroundColor: P.slate100,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtnSecondaryText: { fontSize: 13, fontWeight: '800', color: P.slate600 },
+
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: P.indigoSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  loadingText: { fontSize: 13.5, color: P.slate500, fontWeight: '600' },
+
+  // ── Utility ──
+  textDark: { color: P.slate50 },
+  textMutedDark: { color: P.slate400 },
+
+  // ── Filter Modal ──
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: P.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  },
+  modalContentDark: { backgroundColor: P.slate800 },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: P.slate900 },
+  modalOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    paddingVertical: 9,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: P.slate50,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  modalOptionDark: { backgroundColor: P.slate900 },
+  modalOptionActive: { backgroundColor: P.indigoSoft, borderColor: P.indigo },
+  modalOptionLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  modalOptionText: { fontSize: 15, fontWeight: '700', color: P.slate700 },
+  modalOptionTextActive: { color: P.indigo },
+  modalOptionBadge: {
+    backgroundColor: P.slate200,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
     borderRadius: 10,
   },
-  actionBtnPrimaryText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 12.5,
-  },
-  actionBtnSecondary: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-  },
-  actionBtnSecondaryText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-
-  // Centered Loading
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 13,
-    color: '#64748B',
-  },
-
-  textDark: {
-    color: '#F8FAFC',
-  },
-  textMutedDark: {
-    color: '#94A3B8',
-  },
+  modalOptionBadgeText: { fontSize: 13, fontWeight: '800', color: P.slate600 },
 });

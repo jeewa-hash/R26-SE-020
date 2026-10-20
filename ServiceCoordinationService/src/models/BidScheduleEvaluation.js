@@ -62,7 +62,7 @@ const bidScheduleEvaluationSchema = new mongoose.Schema(
 
     bufferMinutes: {
       type: Number,
-      default: 30,
+      default: 15,
       min: 0,
     }, // Chaw: safety buffer after work duration
 
@@ -100,6 +100,7 @@ const bidScheduleEvaluationSchema = new mongoose.Schema(
       default: "FEASIBLE",
     },
     coordinationReason: { type: String, default: "" },
+    modelEvidence: { type: mongoose.Schema.Types.Mixed, default: null },
     availabilityMessage: { type: String, default: "" },
 
     // Legacy field retained for backward compatibility only. Final design does

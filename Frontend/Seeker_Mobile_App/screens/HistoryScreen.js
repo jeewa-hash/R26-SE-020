@@ -18,13 +18,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../hooks/useTheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS } from '../config';
+import { API_BASE_URL as SEEKER_SERVICE_URL, ML_SERVICE_URL } from '../config';
 
 // -------------------- API Base URLs --------------------
-const API_BASE_URL = `http://${IP_ADDRESS}:6000`;
-
-const COORDINATION_API_BASE_URL = `http://${IP_ADDRESS}:5010`;
-
 export default function HistoryScreen({ navigation }) {
   const { isDarkMode } = useTheme();
 
@@ -56,23 +52,34 @@ export default function HistoryScreen({ navigation }) {
   // ---------- Load reward points ----------
   const loadRewardPoints = async (token) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/rewards/history?page=1&limit=500`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
-      if (!response.ok) return;
+      const headers = { Authorization: `Bearer ${token}` };
+      const [balanceResult, historyResult] = await Promise.allSettled([
+        fetch(`${SEEKER_SERVICE_URL}/api/rewards/balance`, { headers }),
+        fetch(`${SEEKER_SERVICE_URL}/api/rewards/history?page=1&limit=500`, { headers }),
+      ]);
+      const balanceResponse = balanceResult.status === 'fulfilled' ? balanceResult.value : null;
+      const historyResponse = historyResult.status === 'fulfilled' ? historyResult.value : null;
+      const [balanceData, historyData] = await Promise.all([
+        balanceResponse ? balanceResponse.json().catch(() => ({})) : Promise.resolve({}),
+        historyResponse ? historyResponse.json().catch(() => ({})) : Promise.resolve({}),
+      ]);
 
-      const transactions = data.transactions || [];
+      const transactions = historyData.transactions || [];
       const pointsMap = {};
-      let total = 0;
+      let earnedFromHistory = 0;
       transactions.forEach((tx) => {
-        if (tx.type === 'EARN' && tx.referenceId) {
-          pointsMap[tx.referenceId] = tx.amount;
-          total += tx.amount;
+        if (tx.type === 'EARN' && (tx.referenceId || tx.bookingId)) {
+          const key = tx.referenceId || tx.bookingId;
+          pointsMap[String(key)] = Number(tx.amount) || 0;
+          earnedFromHistory += Number(tx.amount) || 0;
         }
       });
       setPointsEarnedMap(pointsMap);
-      setTotalPointsEarned(total);
+      setTotalPointsEarned(
+        balanceResponse?.ok
+          ? Number(balanceData.balance || 0)
+          : earnedFromHistory
+      );
     } catch (error) {
       console.warn('Error loading reward points:', error);
     }
@@ -81,7 +88,7 @@ export default function HistoryScreen({ navigation }) {
   // ---------- Load user feedback ----------
   const loadUserFeedback = async (token) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/feedback/user/me`, {
+      const response = await fetch(`${SEEKER_SERVICE_URL}/feedback/user/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
@@ -110,33 +117,77 @@ export default function HistoryScreen({ navigation }) {
       }
 
       // 1. Fetch completed bookings from ServiceCoordinationService
-      const response = await fetch(`${COORDINATION_API_BASE_URL}/bookings/seeker/me`, {
+      const response = await fetch(`${SEEKER_SERVICE_URL}/coordination/bookings/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Unable to load booking history');
 
       const rawBookings = data.data || [];
-      const completed = rawBookings
-        .filter((booking) => booking.bookingStatus === 'COMPLETED')
+      const completedBookings = rawBookings.filter((booking) => booking.bookingStatus === 'COMPLETED');
+
+      // Older bookings may contain a placeholder snapshot. Resolve provider IDs
+      // against the provider directory so history can still show the profile name.
+      let providersById = {};
+      try {
+        const providersResponse = await fetch(`${ML_SERVICE_URL}/portfolio/all-providers`);
+        if (providersResponse.ok) {
+          const providersData = await providersResponse.json();
+          const providerItems = providersData.providers || providersData.data?.providers || [];
+          providersById = providerItems.reduce((map, item) => {
+            const provider = item.provider || item;
+            const providerId = provider.id || provider._id || provider.userId;
+            if (providerId) map[String(providerId).toLowerCase()] = provider;
+            return map;
+          }, {});
+        }
+      } catch (providerLookupError) {
+        // Keep history available; saved booking snapshots remain the fallback.
+        console.warn('Could not resolve provider names for service history:', providerLookupError.message);
+      }
+
+      const getProviderIds = (booking) => {
+        const snapshotProviderId = booking.providerSnapshot?.providerId;
+        return [
+          booking.providerId?._id,
+          booking.providerId?.id,
+          booking.providerId,
+          snapshotProviderId?._id,
+          snapshotProviderId?.id,
+          snapshotProviderId,
+        ].filter(Boolean).map((id) => String(id).toLowerCase());
+      };
+      const completed = completedBookings
         .map((booking) => {
-          // --- Provider Details from snapshot ---
-          let pName = booking.providerSnapshot?.name;
-          if (pName === 'Service Provider' || !pName) {
-            pName = booking.providerSnapshot?.businessName || booking.providerName || booking.providerSnapshot?.fullName || 'Service Provider';
-          }
-          
-          const providerName = booking.providerSnapshot?.businessName || pName;
+          // Prefer the real provider profile name, then the stored booking snapshot.
+          const snapshot = booking.providerSnapshot || {};
+          const providerIds = getProviderIds(booking);
+          const providerId = providerIds[0] || null;
+          const providerProfile = providerIds
+            .map((id) => providersById[id])
+            .find(Boolean) || {};
+          const usableName = (...names) => names.find((name) =>
+            typeof name === 'string' && name.trim() && !['provider', 'service provider'].includes(name.trim().toLowerCase())
+          );
+          const providerName = usableName(
+            providerProfile.name,
+            providerProfile.fullName,
+            [providerProfile.firstName, providerProfile.lastName].filter(Boolean).join(' '),
+            snapshot.name,
+            snapshot.fullName,
+            booking.providerName,
+            snapshot.businessName,
+          ) || 'Provider name unavailable';
 
           const businessName =
-            booking.providerSnapshot?.businessName &&
-            booking.providerSnapshot?.businessName !== providerName
-              ? booking.providerSnapshot.businessName
+            snapshot.businessName &&
+            snapshot.businessName !== providerName
+              ? snapshot.businessName
               : null;
 
-          const providerImage = booking.providerSnapshot?.profileImage || null;
+          const providerImage = snapshot.profileImage || providerProfile.profileImage || null;
           const providerDistrict =
-            booking.providerSnapshot?.district || booking.location?.district || '';
+            snapshot.district || providerProfile.district || booking.location?.district || '';
 
           // --- Service / Post Details ---
           const category =
@@ -180,7 +231,7 @@ export default function HistoryScreen({ navigation }) {
             businessName,
             providerImage,
             providerDistrict,
-            providerId: booking.providerId,
+            providerId,
             location,
             date: booking.scheduledDate || 'Completed',
             time,
@@ -194,8 +245,8 @@ export default function HistoryScreen({ navigation }) {
 
       setCompletedServices(completed);
 
-      // 2. Load rewards & feedback in parallel
-      await Promise.all([loadRewardPoints(token), loadUserFeedback(token)]);
+      // Optional details should not keep the booking list in its loading state.
+      void Promise.all([loadRewardPoints(token), loadUserFeedback(token)]);
     } catch (error) {
       console.error('Error loading booking history:', error);
       Alert.alert('Error', error.message || 'Unable to load booking history.');
@@ -270,7 +321,7 @@ export default function HistoryScreen({ navigation }) {
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <StatusBar
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
         />
         <PageHeader title={<>Service History</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity style={styles.pointsNavButton}>
             <Ionicons name="star" size={22} color={textColor} />
@@ -290,13 +341,13 @@ export default function HistoryScreen({ navigation }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
       />
 
       {/* Header */}
       <PageHeader title={<>Service History</>} onBack={() => navigation.goBack()} renderActions={({ textColor }) => <><TouchableOpacity
           style={styles.pointsNavButton}
-          onPress={() => navigation.navigate('StarPoints')}
+          onPress={() => navigation.navigate('StarPointsScreen')}
         >
           <Ionicons name="star" size={22} color={textColor} />
         </TouchableOpacity></>} />
@@ -304,8 +355,8 @@ export default function HistoryScreen({ navigation }) {
       {/* Stats Cards - More prominent and clear */}
       <View style={[styles.statsContainer, isDarkMode && styles.statsContainerDark]}>
         <View style={styles.statCard}>
-          <View style={[styles.statIconWrapper, { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' }]}>
-            <Ionicons name="checkmark-done-circle" size={22} color="#667eea" />
+          <View style={[styles.statIconWrapper, { backgroundColor: isDarkMode ? '#2d3561' : '#4F46E515' }]}>
+            <Ionicons name="checkmark-done-circle" size={22} color="#4F46E5" />
           </View>
           <Text style={[styles.statNumber, isDarkMode && styles.textDark]}>{completedServices.length}</Text>
           <Text style={[styles.statLabel, isDarkMode && styles.textMutedDark]}>Completed</Text>
@@ -339,7 +390,7 @@ export default function HistoryScreen({ navigation }) {
       {/* Section Title */}
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, isDarkMode && styles.textDark]}>Completed Jobs</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('StarPoints')}>
+        <TouchableOpacity onPress={() => navigation.navigate('StarPointsScreen')}>
           <Text style={styles.seeAllText}>View Points</Text>
         </TouchableOpacity>
       </View>
@@ -352,8 +403,8 @@ export default function HistoryScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#667eea']}
-            tintColor={isDarkMode ? '#667eea' : '#667eea'}
+            colors={['#4F46E5']}
+            tintColor={isDarkMode ? '#4F46E5' : '#4F46E5'}
           />
         }
       >
@@ -374,10 +425,10 @@ export default function HistoryScreen({ navigation }) {
                     <View
                       style={[
                         styles.categoryIcon,
-                        { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' },
+                        { backgroundColor: isDarkMode ? '#2d3561' : '#4F46E515' },
                       ]}
                     >
-                      <Ionicons name="construct-outline" size={14} color="#667eea" />
+                      <Ionicons name="construct-outline" size={14} color="#4F46E5" />
                     </View>
                     <Text style={[styles.serviceCategory, isDarkMode && styles.textDark]}>
                       {service.category}
@@ -413,7 +464,7 @@ export default function HistoryScreen({ navigation }) {
                     <Image source={{ uri: service.providerImage }} style={styles.providerAvatar} />
                   ) : (
                     <View style={styles.providerAvatarPlaceholder}>
-                      <Ionicons name="person" size={18} color="#667eea" />
+                      <Ionicons name="person" size={18} color="#4F46E5" />
                     </View>
                   )}
                   <View style={styles.providerInfo}>
@@ -539,7 +590,7 @@ export default function HistoryScreen({ navigation }) {
               onPress={() => navigation.navigate('Home')}
             >
               <LinearGradient
-                colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#667eea', '#764ba2']}
+                colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#4F46E5', '#4338CA']}
                 style={styles.exploreGradient}
               >
                 <Text style={styles.exploreButtonText}>Explore Services</Text>
@@ -657,7 +708,7 @@ const styles = StyleSheet.create({
   },
   seeAllText: {
     fontSize: 13,
-    color: '#667eea',
+    color: '#4F46E5',
     fontWeight: '600',
   },
   content: {
@@ -703,7 +754,7 @@ const styles = StyleSheet.create({
   },
   serviceCategory: {
     fontSize: 12,
-    color: '#667eea',
+    color: '#4F46E5',
     fontWeight: '700',
     textTransform: 'uppercase',
   },
@@ -762,7 +813,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#667eea20',
+    backgroundColor: '#4F46E520',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
@@ -917,7 +968,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#667eea',
+    backgroundColor: '#4F46E5',
   },
   rehireButtonText: {
     fontSize: 13,

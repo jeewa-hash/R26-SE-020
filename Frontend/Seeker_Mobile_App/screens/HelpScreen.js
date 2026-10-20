@@ -17,11 +17,11 @@ export default function HelpScreen({ navigation }) {
     { id: 4, question: "How to cancel a booking?", answer: "Go to My Bookings, select the booking you want to cancel, and click 'Cancel'. Please note cancellation fees may apply.", category: "Bookings" },
     { id: 5, question: "Is my payment information secure?", answer: "Yes, we use industry-standard encryption to protect your payment information. We never store your full card details.", category: "Security" },
     { id: 6, question: "How do I contact a provider?", answer: "You can message providers directly through the chat feature in your bookings or from their profile page.", category: "Communication" },
-    { id: 7, question: "What is the refund policy?", answer: "Refunds are processed within 5-7 business days based on the service provider's cancellation policy.", category: "Payments" },
+    { id: 7, question: "What is the refund policy?", answer: "Discuss refund eligibility and timing with your provider before agreeing to payment terms.", category: "Payments" },
   ];
 
   const contactOptions = [
-    { icon: 'chatbubble', title: 'Live Chat', subtitle: 'Available 24/7', action: 'chat', color: '#667eea', gradient: ['#667eea', '#764ba2'] },
+    { icon: 'chatbubble', title: 'Live Chat', subtitle: 'Available 24/7', action: 'chat', color: '#4F46E5', gradient: ['#4F46E5', '#4338CA'] },
     { icon: 'mail', title: 'Email Us', subtitle: 'support@servicehub.com', action: 'email', color: '#4ECDC4', gradient: ['#4ECDC4', '#44B3A5'] },
     { icon: 'call', title: 'Call Us', subtitle: '+94 77 123 4567', action: 'call', color: '#45B7D1', gradient: ['#45B7D1', '#3498DB'] },
   ];
@@ -42,7 +42,7 @@ export default function HelpScreen({ navigation }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar 
         barStyle={isDarkMode ? "light-content" : "dark-content"} 
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"} 
+        backgroundColor={isDarkMode ? "#1a1a2e" : "#4F46E5"} 
       />
       
       {/* Header */}
@@ -54,11 +54,11 @@ export default function HelpScreen({ navigation }) {
       >
         {/* Hero Section */}
         <LinearGradient
-          colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#667eea15', '#764ba215']}
+          colors={isDarkMode ? ['#2d3561', '#1a1a2e'] : ['#4F46E515', '#4338CA15']}
           style={styles.heroSection}
         >
           <View style={styles.heroIcon}>
-            <Ionicons name="help-circle" size={40} color="#667eea" />
+            <Ionicons name="help-circle" size={40} color="#4F46E5" />
           </View>
           <Text style={[styles.heroTitle, isDarkMode && styles.textDark]}>How can we help you?</Text>
           <Text style={[styles.heroSubtitle, isDarkMode && styles.textMutedDark]}>
@@ -113,15 +113,15 @@ export default function HelpScreen({ navigation }) {
                 activeOpacity={0.7}
               >
                 <View style={styles.faqQuestionLeft}>
-                  <View style={[styles.faqIcon, { backgroundColor: '#667eea15' }]}>
-                    <Ionicons name="help-circle-outline" size={18} color="#667eea" />
+                  <View style={[styles.faqIcon, { backgroundColor: '#4F46E515' }]}>
+                    <Ionicons name="help-circle-outline" size={18} color="#4F46E5" />
                   </View>
                   <Text style={[styles.faqQuestionText, isDarkMode && styles.textDark]}>{faq.question}</Text>
                 </View>
                 <Ionicons
                   name={expandedFaq === faq.id ? "chevron-up" : "chevron-down"}
                   size={20}
-                  color="#667eea"
+                  color="#4F46E5"
                 />
               </TouchableOpacity>
               {expandedFaq === faq.id && (
@@ -130,8 +130,8 @@ export default function HelpScreen({ navigation }) {
                   <TouchableOpacity style={styles.faqHelpfulBtn}>
                     <Text style={styles.faqHelpfulText}>Was this helpful?</Text>
                     <View style={styles.faqHelpfulIcons}>
-                      <Ionicons name="thumbs-up-outline" size={16} color="#667eea" />
-                      <Ionicons name="thumbs-down-outline" size={16} color="#667eea" />
+                      <Ionicons name="thumbs-up-outline" size={16} color="#4F46E5" />
+                      <Ionicons name="thumbs-down-outline" size={16} color="#4F46E5" />
                     </View>
                   </TouchableOpacity>
                 </View>
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    shadowColor: '#667eea',
+    shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   },
   categoryChipText: {
     fontSize: 13,
-    color: '#667eea',
+    color: '#4F46E5',
     fontWeight: '500',
   },
   faqHeader: {

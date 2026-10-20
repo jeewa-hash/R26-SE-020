@@ -99,6 +99,7 @@ export default function ProviderAvailabilityScreen({ navigation }) {
     <ScrollView contentContainerStyle={styles.content}>
       <View style={[styles.globalCard, { backgroundColor: C.card, borderColor: C.border }]}><View style={styles.flex}><Text style={[styles.title, { color: C.text }]}>Accepting new jobs</Text><Text style={[styles.body, { color: C.muted }]}>This global setting is checked before weekly hours.</Text></View><Switch value={isAvailable} onValueChange={toggleGlobal} trackColor={{ false: '#CBD5E1', true: '#86C99A' }} thumbColor={isAvailable ? '#15803D' : '#F5FAF6'} /></View>
       <Text style={[styles.heading, { color: C.text }]}>Weekly availability</Text>
+      <Text style={[styles.body, { color: C.muted, marginBottom: 14 }]}>Hours are set separately for each day, in Sri Lanka time. Changing Monday does not change Tuesday. The full job duration must fit before your end time.</Text>
       {loading ? <ActivityIndicator color="#15803D" style={styles.loader} /> : week.map((item) => {
         const slot = item.slots?.[0] || { startTime: '08:00', endTime: '17:00' };
         return <View key={item.day} style={[styles.dayCard, { backgroundColor: C.card, borderColor: C.border }]}>

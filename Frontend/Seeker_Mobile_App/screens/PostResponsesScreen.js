@@ -1,3 +1,6 @@
+import useRequestedQuotations from '../hooks/useRequestedQuotations';
+import { resolvePostImageUrl } from '../utils/postMedia';
+import { showRequestSent } from '../utils/seekerFeedback';
 import PageHeader from '../components/PageHeader';
 // screens/PostResponsesScreen.js
 
@@ -19,19 +22,22 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { IP_ADDRESS, AUTH_SERVICE_URL, PROVIDER_API_BASE, API_BASE_URL } from '../config';
+import { AUTH_SERVICE_URL, ML_SERVICE_URL, API_BASE_URL } from '../config';
 import { useTheme } from '../hooks/useTheme';
 import { useChat } from '../context/ChatContext';
 import axios from 'axios';
 import RequestQuotationModal from './IT22129376/components/RequestQuotationModal';
 
-const QUOTATION_API_URL = `http://${IP_ADDRESS}:6000/request-quotations`;
+const QUOTATION_API_URL = `${API_BASE_URL}/request-quotations`;
 
 export default function PostResponsesScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();
   const { postId, post } = route.params || {};
 
   const [responses, setResponses] = useState([]);
+  const [quoteRequests, setQuoteRequests] = useState({});
+  const [requestsReady, setRequestsReady] = useState(false);
+  const [requestStatusError, setRequestStatusError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [token, setToken] = useState(null);
@@ -40,6 +46,9 @@ export default function PostResponsesScreen({ navigation, route }) {
 
   const { createOrGetChat } = useChat();
 
+  const { checking: checkingRequests, isRequested, markRequested } = useRequestedQuotations();
+  const quoteSessionId = post?.sessionId || `POST-${postId}`;
+  const responseProviderId = item => item?.providerId?._id || item?.providerId || item?.applicantId?._id || item?.applicantId;
   const [quoteModalVisible, setQuoteModalVisible] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [quoteNotes, setQuoteNotes] = useState('');
@@ -152,7 +161,7 @@ export default function PostResponsesScreen({ navigation, route }) {
 
         if (!userData) {
           try {
-            const portfolioRes = await axios.get(`${PROVIDER_API_BASE}/portfolio/all-providers`);
+            const portfolioRes = await axios.get(`${ML_SERVICE_URL}/portfolio/all-providers`);
             if (portfolioRes.data.success) {
               const providers = portfolioRes.data.providers || [];
               const found = providers.find((p) => p.provider?.id === providerId);
@@ -245,9 +254,7 @@ export default function PostResponsesScreen({ navigation, route }) {
       const postUrgency = post?.urgency || '';
       let postImageUrl = null;
       if (post?.image) {
-        postImageUrl = post.image.startsWith('http')
-          ? post.image
-          : `${API_BASE_URL}/${post.image.replace(/\\/g, '/')}`;
+        postImageUrl = resolvePostImageUrl(post.image, API_BASE_URL);
       }
 
       const initialMessage = `Hi! I would like to discuss this service request with you.`;
@@ -275,6 +282,7 @@ export default function PostResponsesScreen({ navigation, route }) {
 
   // ─── REQUEST QUOTATION MODAL ─────────────────────────────
   const handleOpenQuoteModal = (provider) => {
+    if (checkingRequests || isRequested(responseProviderId(provider), quoteSessionId)) return;
     setSelectedProvider(provider);
     setQuoteNotes(post?.description ? `Regarding: ${post.title}\n${post.description}` : 'I would like to request a quote for my service post.');
     setQuoteLocation(
@@ -332,12 +340,13 @@ export default function PostResponsesScreen({ navigation, route }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.quoteButton]}
+            style={[styles.actionButton, styles.quoteButton, (checkingRequests || isRequested(responseProviderId(item), quoteSessionId)) && { opacity: 0.55 }]}
+            disabled={checkingRequests || isRequested(responseProviderId(item), quoteSessionId)}
             onPress={() => handleOpenQuoteModal(item)}
             activeOpacity={0.8}
           >
             <Ionicons name="document-text-outline" size={16} color="#fff" />
-            <Text style={styles.actionButtonText}>Request Quote</Text>
+            <Text style={styles.actionButtonText}>{isRequested(responseProviderId(item), quoteSessionId) ? 'Requested' : checkingRequests ? 'Checking…' : 'Request Quote'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -350,12 +359,12 @@ export default function PostResponsesScreen({ navigation, route }) {
       <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
         <StatusBar
           barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-          backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+          backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
         />
         <PageHeader title={<>Responses</>} onBack={() => navigation.goBack()} />
 
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#667eea'} />
+          <ActivityIndicator size="large" color={isDarkMode ? '#818cf8' : '#4F46E5'} />
           <Text style={[styles.loadingText, isDarkMode && styles.textMutedDark]}>
             Loading responses...
           </Text>
@@ -365,11 +374,7 @@ export default function PostResponsesScreen({ navigation, route }) {
   }
 
   // ─── POST IMAGE URL ───────────────────────────────────────
-  const postImageUrl = post?.image
-    ? post.image.startsWith('http')
-      ? post.image
-      : `${API_BASE_URL}/${post.image.replace(/\\/g, '/')}`
-    : null;
+  const postImageUrl = resolvePostImageUrl(post?.image, API_BASE_URL);
 
   const urgency = getUrgencyStyle(post?.urgency);
   const locationString =
@@ -383,7 +388,7 @@ export default function PostResponsesScreen({ navigation, route }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={isDarkMode ? '#1a1a2e' : '#667eea'}
+        backgroundColor={isDarkMode ? '#1a1a2e' : '#4F46E5'}
       />
 
       {/* HEADER */}
@@ -395,8 +400,8 @@ export default function PostResponsesScreen({ navigation, route }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#667eea']}
-            tintColor={isDarkMode ? '#667eea' : '#667eea'}
+            colors={['#4F46E5']}
+            tintColor={isDarkMode ? '#4F46E5' : '#4F46E5'}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -416,10 +421,10 @@ export default function PostResponsesScreen({ navigation, route }) {
                   <View
                     style={[
                       styles.categoryIconWrap,
-                      { backgroundColor: isDarkMode ? '#2d3561' : '#667eea15' },
+                      { backgroundColor: isDarkMode ? '#2d3561' : '#4F46E515' },
                     ]}
                   >
-                    <Ionicons name="briefcase-outline" size={14} color="#667eea" />
+                    <Ionicons name="briefcase-outline" size={14} color="#4F46E5" />
                   </View>
                   <Text style={[styles.categoryText, isDarkMode && styles.textDark]}>
                     {post.category || 'General'}
@@ -505,7 +510,7 @@ export default function PostResponsesScreen({ navigation, route }) {
               <Ionicons
                 name="people-outline"
                 size={48}
-                color={isDarkMode ? '#667eea' : '#9CA3AF'}
+                color={isDarkMode ? '#4F46E5' : '#9CA3AF'}
               />
             </View>
             <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>
@@ -542,13 +547,12 @@ export default function PostResponsesScreen({ navigation, route }) {
         }
         defaultUrgency={post?.urgencyLevel || post?.urgency || 'Normal'}
         onClose={() => setQuoteModalVisible(false)}
+        onAlreadyRequested={() => { markRequested(responseProviderId(selectedProvider), quoteSessionId); setQuoteModalVisible(false); }}
         onSuccess={() => {
+          markRequested(responseProviderId(selectedProvider), quoteSessionId);
           setQuoteModalVisible(false);
           setSelectedProvider(null);
-          Alert.alert(
-            'Request Sent',
-            'Quotation request sent successfully. You can track provider responses in My Jobs.'
-          );
+          showRequestSent(navigation);
         }}
       />
     </SafeAreaView>
@@ -631,7 +635,7 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#667eea',
+    color: '#4F46E5',
     textTransform: 'uppercase',
   },
   urgencyBadge: {
@@ -738,7 +742,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     marginRight: 12,
     borderWidth: 2,
-    borderColor: '#667eea',
+    borderColor: '#4F46E5',
   },
   responseInfo: {
     flex: 1,
@@ -802,7 +806,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   chatButton: {
-    backgroundColor: '#667eea',
+    backgroundColor: '#4F46E5',
   },
   quoteButton: {
     backgroundColor: '#10B981',

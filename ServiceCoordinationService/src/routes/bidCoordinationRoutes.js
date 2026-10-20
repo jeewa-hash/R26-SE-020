@@ -17,7 +17,7 @@ router.post("/check", checkBidCoordination); // Chaw: run bid coordination check
 
 router.get("/session/:externalSessionId", getBidCoordinationsBySession); // Chaw: fetch all coordinated bids for one service session
 
-router.get("/:id", getBidCoordinationById); // Chaw: fetch one bid coordination with evaluations
+router.get("/:id", protect(["Seeker", "ServiceProvider", "Admin"]), getBidCoordinationById); // Chaw: fetch one bid coordination with evaluations
 
 router.patch(
   "/:coordinationId/suggested-slots/:slotId/select",

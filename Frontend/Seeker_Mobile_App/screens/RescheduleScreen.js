@@ -1,3 +1,4 @@
+import { createSeekerRescheduleSuggestion } from './IT22129376/services/myJobsApi';
 import PageHeader from '../components/PageHeader';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Alert, Platform, StatusBar } from 'react-native';
@@ -9,8 +10,9 @@ import { useTheme } from '../hooks/useTheme';
 
 export default function RescheduleScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();
-  const booking = route.params?.booking || { title: "Service Booking", provider: "Service Provider" };
-  const [date, setDate] = useState(new Date());
+  const booking = route.params?.booking || {};
+  const [date, setDate] = useState(new Date(Date.now() + 86400000));
+  const [submitting, setSubmitting] = useState(false);
   const [time, setTime] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -25,18 +27,26 @@ export default function RescheduleScreen({ navigation, route }) {
     if (selectedTime) setTime(selectedTime);
   };
 
-  const handleReschedule = () => {
-    Alert.alert(
-      "Reschedule Request",
-      `Would you like to reschedule ${booking.title} to ${date.toLocaleDateString()} at ${time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Confirm", onPress: () => {
-          Alert.alert("Success", "Reschedule request sent to provider");
-          navigation.goBack();
-        }}
-      ]
-    );
+  const notify = (title, message) => Platform.OS === 'web' ? window.alert(`${title}\n\n${message}`) : Alert.alert(title, message);
+  const handleReschedule = async () => {
+    if (submitting) return;
+    const bookingId = booking._id || booking.id || booking.bookingId;
+    const start = new Date(date);
+    start.setHours(time.getHours(), time.getMinutes(), 0, 0);
+    if (!bookingId) return notify('Booking required', 'Open a confirmed booking before suggesting a new time.');
+    if (start <= new Date()) return notify('Choose a future time', 'The suggested start must be in the future.');
+    const send = async () => {
+      setSubmitting(true);
+      try {
+        await createSeekerRescheduleSuggestion({ bookingId, sessionId: booking.externalSessionId || booking.sessionId, quotationId: booking.externalQuotationId, requestedStartTime: start.toISOString(), note: 'Seeker suggested a different service time.' });
+        notify('Suggestion sent', 'The provider must review this request. Your booking time has not changed yet.');
+        navigation.goBack();
+      } catch (error) { notify('Unable to send suggestion', error.message || 'Please try again.'); }
+      finally { setSubmitting(false); }
+    };
+    const message = `Suggest ${start.toLocaleString()} for this booking? The current booking time remains until the change is confirmed.`;
+    if (Platform.OS === 'web') { if (window.confirm(message)) await send(); }
+    else Alert.alert('Suggest a new time', message, [{ text: 'Cancel', style: 'cancel' }, { text: 'Send Suggestion', onPress: send }]);
   };
 
   const formatDate = (date) => {
@@ -60,7 +70,7 @@ export default function RescheduleScreen({ navigation, route }) {
     <SafeAreaView style={[styles.container, isDarkMode && styles.containerDark]}>
       <StatusBar 
         barStyle={isDarkMode ? "light-content" : "dark-content"} 
-        backgroundColor={isDarkMode ? "#1a1a2e" : "#667eea"} 
+        backgroundColor={isDarkMode ? "#1a1a2e" : "#4F46E5"} 
       />
       
       {/* Header */}
@@ -76,7 +86,7 @@ export default function RescheduleScreen({ navigation, route }) {
           style={styles.bookingCard}
         >
           <View style={styles.bookingIcon}>
-            <Ionicons name="calendar-outline" size={24} color="#667eea" />
+            <Ionicons name="calendar-outline" size={24} color="#4F46E5" />
           </View>
           <View style={styles.bookingInfo}>
             <Text style={[styles.bookingTitle, isDarkMode && styles.textDark]}>{booking.title}</Text>
@@ -92,13 +102,13 @@ export default function RescheduleScreen({ navigation, route }) {
           <Text style={[styles.currentLabel, isDarkMode && styles.textMutedDark]}>Current Schedule</Text>
           <View style={styles.currentInfo}>
             <View style={styles.currentInfoItem}>
-              <Ionicons name="calendar-outline" size={16} color="#667eea" />
+              <Ionicons name="calendar-outline" size={16} color="#4F46E5" />
               <Text style={[styles.currentInfoText, isDarkMode && styles.textDark]}>
                 {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </Text>
             </View>
             <View style={styles.currentInfoItem}>
-              <Ionicons name="time-outline" size={16} color="#667eea" />
+              <Ionicons name="time-outline" size={16} color="#4F46E5" />
               <Text style={[styles.currentInfoText, isDarkMode && styles.textDark]}>2:00 PM</Text>
             </View>
           </View>
@@ -111,7 +121,7 @@ export default function RescheduleScreen({ navigation, route }) {
             style={styles.pickerGradient}
           >
             <View style={styles.pickerIconWrapper}>
-              <Ionicons name="calendar" size={24} color="#667eea" />
+              <Ionicons name="calendar" size={24} color="#4F46E5" />
             </View>
             <View style={styles.pickerInfo}>
               <Text style={[styles.pickerLabel, isDarkMode && styles.textMutedDark]}>Select New Date</Text>
@@ -128,7 +138,7 @@ export default function RescheduleScreen({ navigation, route }) {
             style={styles.pickerGradient}
           >
             <View style={styles.pickerIconWrapper}>
-              <Ionicons name="time" size={24} color="#667eea" />
+              <Ionicons name="time" size={24} color="#4F46E5" />
             </View>
             <View style={styles.pickerInfo}>
               <Text style={[styles.pickerLabel, isDarkMode && styles.textMutedDark]}>Select New Time</Text>
@@ -144,7 +154,7 @@ export default function RescheduleScreen({ navigation, route }) {
           <View style={styles.summaryInfo}>
             <View style={styles.summaryItem}>
               <View style={styles.summaryIcon}>
-                <Ionicons name="calendar" size={18} color="#667eea" />
+                <Ionicons name="calendar" size={18} color="#4F46E5" />
               </View>
               <View>
                 <Text style={[styles.summaryLabel, isDarkMode && styles.textMutedDark]}>Date</Text>
@@ -153,7 +163,7 @@ export default function RescheduleScreen({ navigation, route }) {
             </View>
             <View style={styles.summaryItem}>
               <View style={styles.summaryIcon}>
-                <Ionicons name="time" size={18} color="#667eea" />
+                <Ionicons name="time" size={18} color="#4F46E5" />
               </View>
               <View>
                 <Text style={[styles.summaryLabel, isDarkMode && styles.textMutedDark]}>Time</Text>
@@ -172,15 +182,15 @@ export default function RescheduleScreen({ navigation, route }) {
         </View>
 
         {/* Submit Button */}
-        <TouchableOpacity style={styles.rescheduleButton} onPress={handleReschedule} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.rescheduleButton} disabled={submitting || !(booking._id || booking.id || booking.bookingId)} onPress={handleReschedule} activeOpacity={0.9}>
           <LinearGradient
-            colors={['#667eea', '#764ba2']}
+            colors={['#4F46E5', '#4338CA']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.rescheduleGradient}
           >
             <Ionicons name="refresh-outline" size={20} color="#fff" />
-            <Text style={styles.rescheduleButtonText}>Request Reschedule</Text>
+            <Text style={styles.rescheduleButtonText}>{submitting ? 'Sending…' : 'Send Reschedule Suggestion'}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
@@ -257,7 +267,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#667eea15',
+    backgroundColor: '#4F46E515',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -336,7 +346,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#667eea15',
+    backgroundColor: '#4F46E515',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -386,7 +396,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#667eea15',
+    backgroundColor: '#4F46E515',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -423,7 +433,7 @@ const styles = StyleSheet.create({
   rescheduleButton: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#667eea',
+    shadowColor: '#4F46E5',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,

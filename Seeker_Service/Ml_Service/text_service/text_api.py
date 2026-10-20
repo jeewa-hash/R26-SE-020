@@ -35,7 +35,15 @@ TEXT_SESSION_LANGUAGE = {}
 # PROVIDER MATCHING (ENHANCED)
 # =========================
 
-PROVIDER_SERVICE_URL = "http://localhost:5000/portfolio/all-providers"
+ML_SERVICE_URL = os.getenv(
+    "ML_SERVICE_URL",
+    "https://r26-se-020-production-faf9.up.railway.app",
+).rstrip("/")
+PROVIDER_SERVICE_URL = f"{ML_SERVICE_URL}/portfolio/all-providers"
+AUTH_PROVIDER_LIST_URL = os.getenv(
+    "AUTH_PROVIDER_LIST_URL",
+    "https://r26-auth-service.onrender.com/providers",
+)
 INQUIRY_SERVICE_URL = os.getenv("INQUIRY_SERVICE_URL", "http://localhost:5001")
 SEEKER_SERVICE_URL = os.getenv("SEEKER_SERVICE_URL", "http://localhost:6000")
 
@@ -175,14 +183,21 @@ def category_matches(requested_category, provider, portfolio):
     return False
 
 def get_all_providers():
-    try:
-        response = requests.get(PROVIDER_SERVICE_URL, timeout=10)
-        if response.status_code != 200:
-            return []
-        data = response.json()
-        return data.get("providers", [])
-    except Exception:
-        return []
+    for url in (PROVIDER_SERVICE_URL, AUTH_PROVIDER_LIST_URL):
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            providers = data.get("providers", []) if isinstance(data, dict) else data
+            if isinstance(providers, list) and providers:
+                return [
+                    item if isinstance(item, dict) and isinstance(item.get("provider"), dict)
+                    else {"provider": item, "portfolio": {}}
+                    for item in providers
+                ]
+        except (requests.RequestException, ValueError) as error:
+            print(f"[Provider Service] {url}: {error}")
+    return []
 
 def filter_matching_providers(category, providers, district=None, feedback_scores=None):
     matching = []
@@ -666,4 +681,6 @@ def health():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5002, debug=True)
+    # Use the PORT provided by Railway (default to 5000 for local dev)
+    port = int(os.getenv("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=True)

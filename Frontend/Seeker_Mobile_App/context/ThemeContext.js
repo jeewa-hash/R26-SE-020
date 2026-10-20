@@ -3,6 +3,28 @@ import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const ThemeContext = createContext();
+export const APP_THEME = {
+  light: {
+    accent: '#4F46E5',
+    accentDeep: '#4338CA',
+    accentSoft: '#EEF2FF',
+    canvas: '#F8FAFC',
+    surface: '#FFFFFF',
+    border: '#E2E8F0',
+    text: '#0F172A',
+    muted: '#64748B',
+  },
+  dark: {
+    accent: '#818CF8',
+    accentDeep: '#6366F1',
+    accentSoft: '#1E1B4B',
+    canvas: '#0F172A',
+    surface: '#17192C',
+    border: '#302E49',
+    text: '#F8FAFC',
+    muted: '#94A3B8',
+  },
+};
 
 export const ThemeProvider = ({ children }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
