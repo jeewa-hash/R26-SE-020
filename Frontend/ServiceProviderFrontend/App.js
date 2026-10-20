@@ -62,7 +62,9 @@ import ProviderRequestDetailsScreen from './pages/IT22129376/ProviderRequestDeta
 import ProviderQuotationDetailsScreen from './pages/IT22129376/ProviderQuotationDetailsScreen';
 import ProviderQuotationFormScreen from './pages/IT22129376/ProviderQuotationFormScreen';
 import ServicesListScreen from './pages/ServicesListScreen';
-import ServiceFormScreen from './pages/ServiceFormScreen';import ProviderAvailabilityScreen from './pages/IT22129376/ProviderAvailabilityScreen';
+import ServiceFormScreen from './pages/ServiceFormScreen';
+import ServiceDetailScreen from './pages/ServiceDetailScreen';
+import ProviderAvailabilityScreen from './pages/IT22129376/ProviderAvailabilityScreen';
 
 
 const Stack = createStackNavigator();
@@ -241,6 +243,11 @@ function AppContent() {
                 headerShown: true,
                 title: route.params?.serviceId ? 'Edit Service' : 'Add New Service',
               })}
+            />
+            <Stack.Screen
+              name="ServiceDetail"
+              component={ServiceDetailScreen}
+              options={{ headerShown: false }}
             />
             <Stack.Screen name="ProviderAvailability" component={ProviderAvailabilityScreen} />
 

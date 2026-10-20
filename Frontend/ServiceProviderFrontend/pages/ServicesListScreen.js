@@ -151,8 +151,23 @@ export default function ServicesListScreen({ navigation }) {
     }
   };
 
+  const handleViewDetail = (service) => {
+    const serviceId = service?._id || service?.id;
+    if (!serviceId) {
+      Alert.alert('Unable to open service', 'This service does not have a valid identifier.');
+      return;
+    }
+    navigation.navigate('ServiceDetail', { serviceId, service });
+  };
+
+  const isMongoObjectId = (val) => /^[0-9a-fA-F]{24}$/.test(String(val || ''));
+
   const handleEdit = (service) => {
-    navigation.navigate('ServiceForm', { serviceId: service._id });
+    const rawId = service?._id || service?.id;
+    navigation.navigate('ServiceForm', {
+      serviceId: isMongoObjectId(rawId) ? rawId : null,
+      service,
+    });
   };
 
   const handleDelete = (service) => {
@@ -272,72 +287,77 @@ export default function ServicesListScreen({ navigation }) {
               const meta = service.meta || getMeta(service.categoryGroup);
               return (
                 <View key={service._id} style={[styles.card, { backgroundColor: C.card, borderColor: C.border }]}>
-                  <View style={styles.cardHeader}>
-                    <View style={styles.cardHeaderLeft}>
-                      <View
-                        style={[
-                          styles.iconBg,
-                          { backgroundColor: meta.color + '18', borderColor: meta.color + '40' },
-                        ]}
-                      >
-                        <MaterialIcons name={meta.icon} size={24} color={meta.color} />
-                      </View>
-                      <View style={styles.cardTitleWrap}>
-                        <View style={styles.titleRow}>
-                          <Text style={[styles.serviceName, { color: C.text }]} numberOfLines={1}>
-                            {service.name}
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => handleViewDetail(service)}
+                  >
+                    <View style={styles.cardHeader}>
+                      <View style={styles.cardHeaderLeft}>
+                        <View
+                          style={[
+                            styles.iconBg,
+                            { backgroundColor: meta.color + '18', borderColor: meta.color + '40' },
+                          ]}
+                        >
+                          <MaterialIcons name={meta.icon} size={24} color={meta.color} />
+                        </View>
+                        <View style={styles.cardTitleWrap}>
+                          <View style={styles.titleRow}>
+                            <Text style={[styles.serviceName, { color: C.text }]} numberOfLines={1}>
+                              {service.name}
+                            </Text>
+                            {service.mlDetected && (
+                              <View style={styles.mlBadge}>
+                                <MaterialIcons name="auto-awesome" size={10} color="#166534" />
+                                <Text style={styles.mlBadgeText}>AI</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={[styles.serviceCategory, { color: C.textSub }]} numberOfLines={1}>
+                            {service.category}
                           </Text>
-                          {service.mlDetected && (
-                            <View style={styles.mlBadge}>
-                              <MaterialIcons name="auto-awesome" size={10} color="#166534" />
-                              <Text style={styles.mlBadgeText}>AI</Text>
+                        </View>
+                      </View>
+                      <Switch
+                        value={service.isActive}
+                        onValueChange={() => handleToggleActive(service)}
+                        color={Colors.primary}
+                      />
+                    </View>
+
+                    {service.description ? (
+                      <Text style={[styles.serviceDesc, { color: C.textSub }]} numberOfLines={2}>
+                        {service.description}
+                      </Text>
+                    ) : null}
+
+                    <View style={[styles.divider, { backgroundColor: C.border }]} />
+
+                    <View style={styles.cardFooter}>
+                      <View style={styles.priceWrap}>
+                        <Text style={[styles.priceLabel, { color: C.textSub }]}>Starting</Text>
+                        <Text style={[styles.priceVal, { color: meta.color }]}>
+                          Rs. {service.basePrice?.toLocaleString() || 0}
+                          <Text style={[styles.priceUnit, { color: C.textSub }]}>
+                            {PRICE_UNIT_LABEL[service.priceUnit] || '/job'}
+                          </Text>
+                        </Text>
+                      </View>
+
+                      {(service.tags || []).length > 0 && (
+                        <View style={styles.tagsWrap}>
+                          {service.tags.slice(0, 3).map((tag, i) => (
+                            <View key={i} style={[styles.tagChip, { backgroundColor: meta.color + '14', borderColor: meta.color + '30' }]}>
+                              <Text style={[styles.tagText, { color: meta.color }]}>{tag}</Text>
                             </View>
+                          ))}
+                          {service.tags.length > 3 && (
+                            <Text style={[styles.moreTags, { color: C.textSub }]}>+{service.tags.length - 3}</Text>
                           )}
                         </View>
-                        <Text style={[styles.serviceCategory, { color: C.textSub }]} numberOfLines={1}>
-                          {service.category}
-                        </Text>
-                      </View>
+                      )}
                     </View>
-                    <Switch
-                      value={service.isActive}
-                      onValueChange={() => handleToggleActive(service)}
-                      color={Colors.primary}
-                    />
-                  </View>
-
-                  {service.description ? (
-                    <Text style={[styles.serviceDesc, { color: C.textSub }]} numberOfLines={2}>
-                      {service.description}
-                    </Text>
-                  ) : null}
-
-                  <View style={[styles.divider, { backgroundColor: C.border }]} />
-
-                  <View style={styles.cardFooter}>
-                    <View style={styles.priceWrap}>
-                      <Text style={[styles.priceLabel, { color: C.textSub }]}>Starting</Text>
-                      <Text style={[styles.priceVal, { color: meta.color }]}>
-                        Rs. {service.basePrice?.toLocaleString() || 0}
-                        <Text style={[styles.priceUnit, { color: C.textSub }]}>
-                          {PRICE_UNIT_LABEL[service.priceUnit] || '/job'}
-                        </Text>
-                      </Text>
-                    </View>
-
-                    {(service.tags || []).length > 0 && (
-                      <View style={styles.tagsWrap}>
-                        {service.tags.slice(0, 3).map((tag, i) => (
-                          <View key={i} style={[styles.tagChip, { backgroundColor: meta.color + '14', borderColor: meta.color + '30' }]}>
-                            <Text style={[styles.tagText, { color: meta.color }]}>{tag}</Text>
-                          </View>
-                        ))}
-                        {service.tags.length > 3 && (
-                          <Text style={[styles.moreTags, { color: C.textSub }]}>+{service.tags.length - 3}</Text>
-                        )}
-                      </View>
-                    )}
-                  </View>
+                  </TouchableOpacity>
 
                   <View style={[styles.actionsRow, { borderTopColor: C.border }]}>
                     <TouchableOpacity

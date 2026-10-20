@@ -78,7 +78,16 @@ export const createBoostCheckoutSession = async (req, res) => {
 // but the app must not depend on a publicly reachable webhook during local use.
 export const confirmBoostPayment = async (req, res) => {
   try {
+    console.log('BOOST CONFIRM REQUEST:', {
+      sessionId: req.params.sessionId,
+      providerId: req.user?.id,
+    });
     const session = await stripe.checkout.sessions.retrieve(req.params.sessionId);
+    console.log('BOOST STRIPE SESSION:', {
+      id: session.id,
+      paymentStatus: session.payment_status,
+      metadata: session.metadata,
+    });
     if (session.payment_status !== "paid") {
       return res.status(400).json({ success: false, message: "Payment is not completed." });
     }

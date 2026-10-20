@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import axios from 'axios';
-import { AUTH_SERVICE_URL } from '../config';
+import { IP_ADDRESS, AUTH_SERVICE_URL } from '../config';
 import { saveCredentials } from '../utils/biometricAuth';
 import { debugAuthStorage, saveProviderLogin } from '../pages/IT22129376/services/providerAuthStorage';
 
-const API_URL = AUTH_SERVICE_URL;
+const API_URL = AUTH_SERVICE_URL || `http://${IP_ADDRESS}:4003`;
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');

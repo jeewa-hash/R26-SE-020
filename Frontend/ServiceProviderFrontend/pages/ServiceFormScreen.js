@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -8,24 +8,32 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Modal,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Text, TextInput as PaperInput, Chip, Button } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeContext } from '../context/ThemeContext';
 import { CONFIG } from '../config';
 import { Colors } from '../theme';
+import { servicesAPI } from '../services/api';
+
+const isMongoObjectId = (val) => /^[0-9a-fA-F]{24}$/.test(String(val || ''));
 
 const CATEGORY_OPTIONS = [
   { label: 'Plumbing', value: 'plumbing', group: 'plumbing', icon: 'plumbing', color: '#15803D' },
   { label: 'Electrical', value: 'electrical', group: 'electrical', icon: 'electrical-services', color: '#F59E0B' },
   { label: 'Carpentry', value: 'carpentry', group: 'carpentry', icon: 'handyman', color: '#166534' },
   { label: 'Cleaning', value: 'cleaning', group: 'cleaning', icon: 'cleaning-services', color: '#059669' },
+  { label: 'Planting / Gardening', value: 'planting', group: 'planting', icon: 'local-florist', color: '#15803D' },
   { label: 'Painting', value: 'painting', group: 'painting', icon: 'format-paint', color: '#DC2626' },
   { label: 'Roofing', value: 'roofing', group: 'roofing', icon: 'home-repair-service', color: '#0284C7' },
-  { label: 'Planting / Gardening', value: 'planting', group: 'planting', icon: 'local-florist', color: '#15803D' },
-  { label: 'Home Service', value: 'home service', group: 'other', icon: 'home', color: '#6B7280' },
-  { label: 'Other', value: 'other', group: 'other', icon: 'build', color: '#6B7280' },
+  { label: 'Repairing & Handyman', value: 'repairing', group: 'repairing', icon: 'build', color: '#D97706' },
+  { label: 'Home Service', value: 'home service', group: 'other', icon: 'home', color: '#4F46E5' },
+  { label: 'Other', value: 'other', group: 'other', icon: 'handyman', color: '#6B7280' },
 ];
 
 const PRICE_UNIT_OPTIONS = [
@@ -37,21 +45,35 @@ const PRICE_UNIT_OPTIONS = [
 ];
 
 export default function ServiceFormScreen({ navigation, route }) {
+  const { t, i18n } = useTranslation();
   const { isDark } = useContext(ThemeContext);
-  const serviceId = route.params?.serviceId;
-  const isEditMode = !!serviceId;
+
+  const rawServiceId = route.params?.serviceId;
+  const isEditMode = isMongoObjectId(rawServiceId);
+  const routeService = route.params?.service || null;
 
   const [form, setForm] = useState({
-    name: '',
-    description: '',
-    category: 'home service',
-    basePrice: '',
-    priceUnit: 'job',
-    tags: [],
+    name: routeService?.name || routeService?.title || route.params?.serviceName || '',
+    description: routeService?.description || '',
+    category: routeService?.category || route.params?.category || 'home service',
+    basePrice: routeService?.basePrice ? String(routeService.basePrice) : '',
+    priceUnit: routeService?.priceUnit || 'job',
+    tags: routeService?.tags || [],
+    images: routeService?.images || [],
   });
+
   const [tagInput, setTagInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiLanguage, setAiLanguage] = useState(i18n.language || 'en');
+
+  // Category selection & auto-detection state
+  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
+  const [userLockedCategory, setUserLockedCategory] = useState(false);
+  const [autoDetectedBadge, setAutoDetectedBadge] = useState(null);
+  const [nameSuggestion, setNameSuggestion] = useState(null);
+  const [nameSuggestionLoading, setNameSuggestionLoading] = useState(false);
 
   const [availability, setAvailability] = useState({
     checking: false,
@@ -61,30 +83,41 @@ export default function ServiceFormScreen({ navigation, route }) {
   });
 
   const C = isDark
-    ? { bg: '#0C0F0D', card: '#161C18', text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33', inputBg: '#303C33' }
-    : { bg: '#F5FAF6', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#D8E8DC', inputBg: '#FFFFFF' };
+    ? {
+        bg: '#0C0F0D',
+        card: '#161C18',
+        cardAlt: '#1B241F',
+        text: '#F2F2F7',
+        textSub: '#8E8E93',
+        border: '#303C33',
+        inputBg: '#303C33',
+        subCard: '#1F2922',
+        accent: '#86C99A',
+      }
+    : {
+        bg: '#F5FAF6',
+        card: '#FFFFFF',
+        cardAlt: '#F9FCFA',
+        text: '#111111',
+        textSub: '#6B7280',
+        border: '#D8E8DC',
+        inputBg: '#FFFFFF',
+        subCard: '#F0FDF4',
+        accent: '#15803D',
+      };
 
-  const selectedCategory = CATEGORY_OPTIONS.find((c) => c.value === form.category) || CATEGORY_OPTIONS[CATEGORY_OPTIONS.length - 2];
+  const selectedCategory =
+    CATEGORY_OPTIONS.find((c) => c.value === form.category) ||
+    CATEGORY_OPTIONS.find((c) => c.group === form.category) ||
+    CATEGORY_OPTIONS[CATEGORY_OPTIONS.length - 2];
 
   const fetchServiceForEdit = useCallback(async () => {
-    if (!serviceId) return;
+    if (!isEditMode || !rawServiceId) return;
     try {
       setLoading(true);
-      const token = await AsyncStorage.getItem('userToken');
-      const res = await fetch(
-        `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/services/${serviceId}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        }
-      );
-      if (!res.ok) throw new Error('Failed to load');
-      const data = await res.json();
-      if (data.success) {
-        const svc = data.data;
+      const response = await servicesAPI.getServiceById(rawServiceId);
+      const svc = response.data?.data;
+      if (response.data?.success && svc) {
         setForm({
           name: svc.name || '',
           description: svc.description || '',
@@ -92,20 +125,33 @@ export default function ServiceFormScreen({ navigation, route }) {
           basePrice: svc.basePrice ? String(svc.basePrice) : '',
           priceUnit: svc.priceUnit || 'job',
           tags: svc.tags || [],
+          images: svc.images || [],
         });
+        setUserLockedCategory(true);
+      } else {
+        throw new Error(response.data?.message || 'Service not found');
       }
     } catch (err) {
-      Alert.alert('Error', 'Failed to load service data');
+      Alert.alert('Error', err.response?.data?.message || err.message || 'Failed to load service data');
     } finally {
       setLoading(false);
     }
-  }, [serviceId]);
+  }, [isEditMode, rawServiceId]);
 
   useEffect(() => {
     fetchServiceForEdit();
   }, [fetchServiceForEdit]);
 
-  const checkAvailabilityDebounceRef = React.useRef(null);
+  // If passed autoGenerate flag from detail screen, run AI generation once
+  const autoGeneratedOnMountRef = useRef(false);
+  useEffect(() => {
+    if (route.params?.autoGenerate && !autoGeneratedOnMountRef.current && !form.description) {
+      autoGeneratedOnMountRef.current = true;
+      handleAutoGenerateAI(i18n.language || 'en');
+    }
+  }, []);
+
+  const checkAvailabilityDebounceRef = useRef(null);
 
   useEffect(() => {
     if (!form.name.trim() || form.name.length < 2 || isEditMode) {
@@ -120,21 +166,8 @@ export default function ServiceFormScreen({ navigation, route }) {
     checkAvailabilityDebounceRef.current = setTimeout(async () => {
       try {
         setAvailability((prev) => ({ ...prev, checking: true }));
-        const token = await AsyncStorage.getItem('userToken');
-        const res = await fetch(
-          `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/services/check-availability`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              name: form.name,
-            }),
-          }
-        );
-        const data = await res.json();
+        const response = await servicesAPI.checkAvailability(form.name);
+        const data = response.data;
         if (data.success) {
           setAvailability({
             checking: false,
@@ -159,6 +192,73 @@ export default function ServiceFormScreen({ navigation, route }) {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Service Name Change with Category Auto-detection
+  const handleNameChange = (val) => {
+    updateField('name', val);
+    setNameSuggestion(null);
+    if (!userLockedCategory) setAutoDetectedBadge(null);
+  };
+
+  const handleSuggestProfessionalName = async () => {
+    const enteredName = form.name.trim();
+    if (enteredName.length < 2 || isEditMode) return;
+    try {
+      setNameSuggestionLoading(true);
+      const response = await servicesAPI.generateAiDetails({
+        name: enteredName,
+        category: form.category,
+        categoryGroup: selectedCategory.group,
+      });
+      const suggestion = response.data?.data;
+      if (!suggestion?.name) return;
+
+      const suggestedCategory = suggestion.categoryGroup || suggestion.category;
+      const categoryMatch = CATEGORY_OPTIONS.find(
+        (item) => item.value === suggestedCategory || item.group === suggestedCategory
+      );
+      if (!userLockedCategory && categoryMatch) {
+        updateField('category', categoryMatch.value);
+        setAutoDetectedBadge(categoryMatch.label);
+      }
+      if (suggestion.name.trim().toLowerCase() !== enteredName.toLowerCase()) {
+        setNameSuggestion(suggestion.name.trim());
+      }
+    } catch (err) {
+      console.log('Professional name suggestion failed:', err.message);
+    } finally {
+      setNameSuggestionLoading(false);
+    }
+  };
+
+  const useProfessionalName = (mode) => {
+    const professionalName = nameSuggestion;
+    if (!professionalName) return;
+    if (mode === 'professional') updateField('name', professionalName);
+    if (mode === 'both') updateField('name', `${form.name.trim()} - ${professionalName}`);
+    setNameSuggestion(null);
+  };
+
+  // Manual Trigger for Category Auto-Detection
+  const handleTriggerAutoDetect = () => {
+    if (!form.name.trim()) {
+      Alert.alert(
+        t('serviceName', 'Service Name'),
+        'Please enter a service name first so AI can detect the matching category.'
+      );
+      return;
+    }
+    setUserLockedCategory(false);
+    handleSuggestProfessionalName();
+  };
+
+  // User manually selects category
+  const handleSelectCategory = (catValue) => {
+    setUserLockedCategory(true);
+    setAutoDetectedBadge(null);
+    updateField('category', catValue);
+    setCategoryModalVisible(false);
+  };
+
   const addTag = () => {
     const trimmed = tagInput.trim();
     if (!trimmed) return;
@@ -181,9 +281,133 @@ export default function ServiceFormScreen({ navigation, route }) {
     );
   };
 
+  const handlePickImage = async () => {
+    try {
+      Alert.alert('Add Photo', 'Choose an option', [
+        {
+          text: 'Take Photo',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') return Alert.alert('Permission Denied', 'Camera permission required.');
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              quality: 0.8,
+              base64: true,
+            });
+            if (!result.canceled && result.assets?.[0]) {
+              const uri = result.assets[0].base64 ? `data:image/jpeg;base64,${result.assets[0].base64}` : result.assets[0].uri;
+              updateField('images', [...(form.images || []), uri]);
+            }
+          },
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') return Alert.alert('Permission Denied', 'Gallery permission required.');
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              quality: 0.8,
+              base64: true,
+            });
+            if (!result.canceled && result.assets?.[0]) {
+              const uri = result.assets[0].base64 ? `data:image/jpeg;base64,${result.assets[0].base64}` : result.assets[0].uri;
+              updateField('images', [...(form.images || []), uri]);
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    } catch (e) {
+      console.log('Pick image error:', e);
+    }
+  };
+
+  const handleRemoveImage = (index) => {
+    updateField('images', (form.images || []).filter((_, i) => i !== index));
+  };
+
+  // AI Gemini Auto-Generation with Multi-Language Support
+  const handleAutoGenerateAI = async (langOverride) => {
+    const langToUse = langOverride || aiLanguage || i18n.language || 'en';
+    try {
+      setAiGenerating(true);
+      const nameToUse = form.name.trim() || route.params?.serviceName || route.params?.category || selectedCategory.label || 'Home Service';
+      const categoryToUse = form.category || 'home service';
+      const groupToUse = selectedCategory.group || 'other';
+
+      let data = null;
+      try {
+        const res = await servicesAPI.generateAiDetails({
+          name: nameToUse,
+          category: categoryToUse,
+          categoryGroup: groupToUse,
+          language: langToUse,
+        });
+        if (res.data?.success && res.data?.data) {
+          data = res.data.data;
+        }
+      } catch (e) {
+        console.log('AI generate error in form, using localized fallback:', e?.message);
+      }
+
+      if (!data) {
+        if (langToUse === 'si') {
+          data = {
+            name: nameToUse,
+            description: `විශ්වාසනීය සහ උසස් ප්‍රමිතියෙන් යුත් ${nameToUse} සේවාව. පළපුරුදු වෘත්තීය ශිල්පීන්, නවීන උපකරණ සහ ආරක්ෂිත ක්‍රමවේද භාවිතයෙන් කඩිනමින් සිදු කරනු ලැබේ. සාධාරණ මිල ගණන් සහ පාරිභෝගික තෘප්තිය 100% සහතිකයි.`,
+            basePrice: form.basePrice ? Number(form.basePrice) : 2500,
+            priceUnit: form.priceUnit || 'job',
+            tags: ['විශ්වාසනීය සේවාව', 'පළපුරුදු ශිල්පීන්', 'කඩිනම් සේවය', 'සාධාරණ මිල', 'පාරිභෝගික තෘප්තිය', 'ගුණාත්මක නිමාව'],
+          };
+        } else if (langToUse === 'ta') {
+          data = {
+            name: nameToUse,
+            description: `உயர்தர மற்றும் நம்பகமான ${nameToUse} சேவை. அனுபவம் வாய்ந்த பணியாளர்கள், நவீன உபகரணங்கள் மற்றும் நியாயமான கட்டணத்துடன் உங்கள் திருப்தியை முழுமையாக உறுதி செய்கிறோம். தரமான மற்றும் விரைவான சேவை.`,
+            basePrice: form.basePrice ? Number(form.basePrice) : 2500,
+            priceUnit: form.priceUnit || 'job',
+            tags: ['உயர்தர சேவை', 'அனுபவமிக்க பணியாளர்கள்', 'விரைவான சேவை', 'நியாயமான கட்டணம்', 'நம்பகமானது', 'முழு திருப்தி'],
+          };
+        } else {
+          data = {
+            name: nameToUse,
+            description: `Comprehensive and professional ${nameToUse} tailored to deliver exceptional quality. We use modern equipment and industry-approved standards to ensure lasting, dependable results. We provide transparent pricing and complete customer satisfaction guarantee.`,
+            basePrice: form.basePrice ? Number(form.basePrice) : 2500,
+            priceUnit: form.priceUnit || 'job',
+            tags: ['Quality Guaranteed', 'Experienced Staff', 'Fast Turnaround', 'Clean & Reliable', 'Satisfaction Guaranteed'],
+          };
+        }
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        name: prev.name.trim() ? prev.name : data.name,
+        description: data.description || prev.description,
+        basePrice: prev.basePrice ? prev.basePrice : String(data.basePrice || 2500),
+        priceUnit: data.priceUnit || prev.priceUnit,
+        tags: Array.from(new Set([...(prev.tags || []), ...(data.tags || [])])),
+      }));
+
+      Alert.alert(
+        'AI Generated ✨',
+        langToUse === 'si'
+          ? 'Gemini AI මඟින් සිංහලෙන් සේවා විස්තරය, මිල ගණන් සහ ටැග් සාර්ථකව සම්පාදනය විය!'
+          : langToUse === 'ta'
+          ? 'Gemini AI மூலம் தமிழில் சேவை விளக்கம், விலை மற்றும் குறிச்சொற்கள் வெற்றிகரமாக நிரப்பப்பட்டன!'
+          : 'Service description, suggested pricing, and skills have been populated using Gemini AI!'
+      );
+    } catch (err) {
+      Alert.alert('Error', 'Unable to auto-generate details with AI.');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const validate = () => {
     if (!form.name.trim()) {
-      Alert.alert('Required', 'Service name is required');
+      Alert.alert(t('serviceName', 'Service Name'), 'Service name is required');
       return false;
     }
     if (!isEditMode && availability.available === false) {
@@ -209,8 +433,6 @@ export default function ServiceFormScreen({ navigation, route }) {
 
     try {
       setSubmitLoading(true);
-      const token = await AsyncStorage.getItem('userToken');
-
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
@@ -219,26 +441,15 @@ export default function ServiceFormScreen({ navigation, route }) {
         basePrice: form.basePrice ? Number(form.basePrice) : 0,
         priceUnit: form.priceUnit,
         tags: form.tags,
+        images: form.images || [],
       };
 
-      const url = isEditMode
-        ? `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/services/${serviceId}`
-        : `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/services`;
+      const response = isEditMode
+        ? await servicesAPI.updateService(rawServiceId, payload)
+        : await servicesAPI.createService(payload);
+      const data = response.data;
 
-      const method = isEditMode ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (res.status === 409 && data.error === 'DUPLICATE_SERVICE') {
+      if (data.error === 'DUPLICATE_SERVICE') {
         Alert.alert(
           'Duplicate Service',
           data.message || 'A service with this name already exists'
@@ -266,7 +477,7 @@ export default function ServiceFormScreen({ navigation, route }) {
         ]
       );
     } catch (err) {
-      Alert.alert('Error', err.message || 'Failed to save service');
+      Alert.alert('Error', err.response?.data?.message || err.message || 'Failed to save service');
     } finally {
       setSubmitLoading(false);
     }
@@ -287,6 +498,7 @@ export default function ServiceFormScreen({ navigation, route }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {/* Header Preview Card */}
         <View style={[styles.headerPreview, { backgroundColor: C.card, borderColor: C.border }]}>
           <View
             style={[
@@ -301,29 +513,137 @@ export default function ServiceFormScreen({ navigation, route }) {
           </View>
           <View style={styles.previewInfo}>
             <Text style={[styles.previewName, { color: C.text }]} numberOfLines={1}>
-              {form.name.trim() || 'Service Name'}
+              {form.name.trim() || t('serviceName', 'Service Name')}
             </Text>
-            <Text style={[styles.previewCategory, { color: selectedCategory.color }]}>
-              {selectedCategory.label}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <Text style={[styles.previewCategory, { color: selectedCategory.color }]}>
+                {selectedCategory.label}
+              </Text>
+              {autoDetectedBadge && (
+                <View style={styles.previewAutoBadge}>
+                  <Text style={styles.previewAutoBadgeText}>✨ Auto</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
 
+        {/* ── STEP 1: CATEGORY SELECTION (FIRST) ── */}
+        <View style={[styles.formSection, { backgroundColor: C.card, borderColor: C.border }]}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="category" size={18} color={Colors.primary} />
+            <Text style={[styles.sectionTitle, { color: C.text }]}>{t('category', 'Category')}</Text>
+            {autoDetectedBadge && (
+              <View style={[styles.autoDetectedBadge, { backgroundColor: isDark ? '#1C3829' : '#DCFCE7' }]}>
+                <MaterialIcons name="auto-awesome" size={12} color="#16A34A" />
+                <Text style={styles.autoDetectedBadgeText}>
+                  {t('autoDetected', 'Auto-detected')}: {autoDetectedBadge}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={[styles.fieldHint, { color: C.textSub, marginBottom: 10 }]}>
+            Select the category from the dropdown or pick from quick categories below:
+          </Text>
+
+          {/* Interactive Category Dropdown Trigger */}
+          <TouchableOpacity
+            style={[
+              styles.categoryDropdownTrigger,
+              {
+                backgroundColor: C.inputBg,
+                borderColor: autoDetectedBadge ? '#16A34A' : C.border,
+                borderWidth: autoDetectedBadge ? 1.5 : 1,
+              },
+            ]}
+            onPress={() => setCategoryModalVisible(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.categoryDropdownLeft}>
+              <View style={[styles.categoryDropdownIcon, { backgroundColor: selectedCategory.color + '20' }]}>
+                <MaterialIcons name={selectedCategory.icon} size={22} color={selectedCategory.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.categoryDropdownLabel, { color: C.text }]}>
+                  {selectedCategory.label}
+                </Text>
+                <Text style={[styles.categoryDropdownGroup, { color: C.textSub }]}>
+                  {selectedCategory.group.toUpperCase()} • Tap to browse all categories
+                </Text>
+              </View>
+            </View>
+            <MaterialIcons name="keyboard-arrow-down" size={24} color={C.textSub} />
+          </TouchableOpacity>
+
+          {/* Quick Category Selection Pills */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryPillsScroll}
+          >
+            {CATEGORY_OPTIONS.map((cat) => {
+              const isSelected = form.category === cat.value;
+              return (
+                <TouchableOpacity
+                  key={cat.value}
+                  style={[
+                    styles.categoryPill,
+                    {
+                      backgroundColor: isSelected ? cat.color : (isDark ? '#202A23' : '#F1F5F9'),
+                      borderColor: isSelected ? cat.color : C.border,
+                    },
+                  ]}
+                  onPress={() => handleSelectCategory(cat.value)}
+                  activeOpacity={0.8}
+                >
+                  <MaterialIcons
+                    name={cat.icon}
+                    size={14}
+                    color={isSelected ? '#FFFFFF' : cat.color}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryPillText,
+                      { color: isSelected ? '#FFFFFF' : C.text, fontWeight: isSelected ? '700' : '600' },
+                    ]}
+                  >
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* ── STEP 2: SERVICE NAME & DETAILS ── */}
         <View style={[styles.formSection, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.sectionHeader}>
             <MaterialIcons name="badge" size={18} color={Colors.primary} />
-            <Text style={[styles.sectionTitle, { color: C.text }]}>Basic Details</Text>
+            <Text style={[styles.sectionTitle, { color: C.text }]}>Service Name & Auto-Detection</Text>
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: C.text }]}>
-              Service Name <Text style={{ color: '#DC2626' }}>*</Text>
-            </Text>
+            <View style={styles.labelRowWithAi}>
+              <Text style={[styles.label, { color: C.text }]}>
+                {t('serviceName', 'Service Name')} <Text style={{ color: '#DC2626' }}>*</Text>
+              </Text>
+              <TouchableOpacity
+                style={[styles.autoDetectBtn, { backgroundColor: isDark ? '#1C3829' : '#DCFCE7' }]}
+                onPress={handleTriggerAutoDetect}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="auto-awesome" size={13} color="#16A34A" />
+                <Text style={styles.autoDetectBtnText}>Auto-detect Category</Text>
+              </TouchableOpacity>
+            </View>
+
             <PaperInput
               mode="outlined"
-              placeholder="e.g. Bathroom Plumbing Repair"
+              placeholder={t('enterServiceName', 'e.g. Bathroom Plumbing Repair, Garden Lawn Mowing')}
               value={form.name}
-              onChangeText={(v) => updateField('name', v)}
+              onChangeText={handleNameChange}
+              onBlur={handleSuggestProfessionalName}
               outlineStyle={{ borderRadius: 12 }}
               style={styles.input}
               theme={{
@@ -350,6 +670,32 @@ export default function ServiceFormScreen({ navigation, route }) {
                 ) : null
               }
             />
+            {nameSuggestionLoading && (
+              <View style={styles.nameSuggestionLoading}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+                <Text style={[styles.fieldHint, { color: C.textSub }]}>Finding a professional name and category...</Text>
+              </View>
+            )}
+            {nameSuggestion && !nameSuggestionLoading && (
+              <View style={[styles.nameSuggestionCard, { backgroundColor: C.subCard, borderColor: C.border }]}>
+                <MaterialIcons name="auto-awesome" size={18} color={Colors.primary} />
+                <View style={styles.nameSuggestionContent}>
+                  <Text style={[styles.fieldHint, { color: C.textSub }]}>Professional name suggestion</Text>
+                  <Text style={[styles.nameSuggestionText, { color: C.text }]}>{nameSuggestion}</Text>
+                  <View style={styles.nameSuggestionActions}>
+                    <TouchableOpacity onPress={() => useProfessionalName('professional')} style={styles.nameSuggestionButton}>
+                      <Text style={styles.nameSuggestionButtonText}>Use Professional</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => useProfessionalName('both')} style={styles.nameSuggestionButton}>
+                      <Text style={styles.nameSuggestionButtonText}>Use Both</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setNameSuggestion(null)} style={styles.nameSuggestionReject}>
+                      <Text style={styles.nameSuggestionRejectText}>Keep Mine</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
             {availability.available === true && (
               <View style={[styles.statusRow, styles.statusOk]}>
                 <MaterialIcons name="check-circle" size={14} color="#16A34A" />
@@ -362,10 +708,87 @@ export default function ServiceFormScreen({ navigation, route }) {
                 <Text style={styles.statusErrText}>{availability.message}</Text>
               </View>
             )}
+
+            <Text style={[styles.fieldHint, { color: C.textSub, marginTop: 6 }]}>
+              💡 Type a descriptive name (e.g., Pipe Repair, Sofa Cleaning, Grass Cutting) and we will automatically detect the category!
+            </Text>
+          </View>
+        </View>
+
+        {/* ── STEP 3: DESCRIPTION WITH MULTI-LANGUAGE AI GENERATOR ── */}
+        <View style={[styles.formSection, { backgroundColor: C.card, borderColor: C.border }]}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="description" size={18} color={Colors.primary} />
+            <Text style={[styles.sectionTitle, { color: C.text }]}>{t('description', 'Description')}</Text>
+          </View>
+
+          {/* AI Language Selection Bar */}
+          <View style={[styles.aiLangBar, { backgroundColor: C.subCard, borderColor: C.border }]}>
+            <View style={styles.aiLangBarLeft}>
+              <MaterialIcons name="translate" size={16} color={selectedCategory.color} />
+              <Text style={[styles.aiLangBarLabel, { color: C.text }]}>AI Language:</Text>
+            </View>
+            <View style={styles.aiLangPills}>
+              {[
+                { code: 'en', label: 'English', flag: '🇬🇧' },
+                { code: 'si', label: 'සිංහල', flag: '🇱🇰' },
+                { code: 'ta', label: 'தமிழ்', flag: '🇱🇰' },
+              ].map((item) => {
+                const active = aiLanguage === item.code;
+                return (
+                  <TouchableOpacity
+                    key={item.code}
+                    style={[
+                      styles.aiLangPill,
+                      {
+                        backgroundColor: active ? selectedCategory.color : (isDark ? '#202A23' : '#FFFFFF'),
+                        borderColor: active ? selectedCategory.color : C.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      setAiLanguage(item.code);
+                      handleAutoGenerateAI(item.code);
+                    }}
+                    activeOpacity={0.8}
+                    disabled={aiGenerating}
+                  >
+                    <Text style={{ fontSize: 11 }}>{item.flag}</Text>
+                    <Text
+                      style={[
+                        styles.aiLangPillText,
+                        { color: active ? '#FFFFFF' : C.text, fontWeight: active ? '700' : '600' },
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: C.text }]}>Description</Text>
+            <View style={styles.labelRowWithAi}>
+              <Text style={[styles.label, { color: C.text }]}>{t('description', 'Description')}</Text>
+              <TouchableOpacity
+                style={[styles.aiGenerateBtn, { backgroundColor: isDark ? '#1C3829' : '#DCFCE7' }]}
+                onPress={() => handleAutoGenerateAI(aiLanguage)}
+                disabled={aiGenerating}
+                activeOpacity={0.8}
+              >
+                {aiGenerating ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <>
+                    <MaterialIcons name="auto-awesome" size={14} color={Colors.primary} />
+                    <Text style={[styles.aiGenerateBtnText, { color: Colors.primary }]}>
+                      {t('autoGenerateAI', 'Auto-Generate with AI Gemini')}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
             <PaperInput
               mode="outlined"
               multiline
@@ -389,51 +812,16 @@ export default function ServiceFormScreen({ navigation, route }) {
           </View>
         </View>
 
-        <View style={[styles.formSection, { backgroundColor: C.card, borderColor: C.border }]}>
-          <View style={styles.sectionHeader}>
-            <MaterialIcons name="category" size={18} color={Colors.primary} />
-            <Text style={[styles.sectionTitle, { color: C.text }]}>Category</Text>
-          </View>
-
-          <View style={styles.categoryGrid}>
-            {CATEGORY_OPTIONS.map((cat) => (
-              <TouchableOpacity
-                key={cat.value}
-                style={[
-                  styles.categoryCard,
-                  {
-                    backgroundColor: form.category === cat.value ? cat.color + '18' : C.subCard,
-                    borderColor: form.category === cat.value ? cat.color : C.border,
-                    borderWidth: form.category === cat.value ? 2 : 0.5,
-                  },
-                ]}
-                onPress={() => updateField('category', cat.value)}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name={cat.icon} size={20} color={cat.color} />
-                <Text
-                  style={[
-                    styles.categoryCardLabel,
-                    { color: form.category === cat.value ? cat.color : C.text },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
+        {/* ── STEP 4: PRICING ── */}
         <View style={[styles.formSection, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.sectionHeader}>
             <MaterialIcons name="attach-money" size={18} color={Colors.primary} />
-            <Text style={[styles.sectionTitle, { color: C.text }]}>Pricing</Text>
+            <Text style={[styles.sectionTitle, { color: C.text }]}>{t('pricing', 'Pricing')}</Text>
           </View>
 
           <View style={styles.pricingRow}>
             <View style={[styles.formGroup, styles.priceField]}>
-              <Text style={[styles.label, { color: C.text }]}>Base Price (LKR)</Text>
+              <Text style={[styles.label, { color: C.text }]}>{t('basePrice', 'Base Price (LKR)')}</Text>
               <PaperInput
                 mode="outlined"
                 keyboardType="numeric"
@@ -457,7 +845,7 @@ export default function ServiceFormScreen({ navigation, route }) {
             </View>
 
             <View style={[styles.formGroup, styles.priceUnitField]}>
-              <Text style={[styles.label, { color: C.text }]}>Unit</Text>
+              <Text style={[styles.label, { color: C.text }]}>{t('priceUnit', 'Unit')}</Text>
               <View style={[styles.pickerWrap, { backgroundColor: C.inputBg, borderColor: C.border }]}>
                 {PRICE_UNIT_OPTIONS.map((opt) => (
                   <TouchableOpacity
@@ -485,10 +873,11 @@ export default function ServiceFormScreen({ navigation, route }) {
           </View>
         </View>
 
+        {/* ── STEP 5: TAGS & SKILLS ── */}
         <View style={[styles.formSection, { backgroundColor: C.card, borderColor: C.border }]}>
           <View style={styles.sectionHeader}>
             <MaterialIcons name="label" size={18} color={Colors.primary} />
-            <Text style={[styles.sectionTitle, { color: C.text }]}>Tags</Text>
+            <Text style={[styles.sectionTitle, { color: C.text }]}>{t('tags', 'Tags & Skills')}</Text>
             <Text style={[styles.tagCounter, { color: C.textSub }]}>{form.tags.length}/10</Text>
           </View>
 
@@ -535,36 +924,145 @@ export default function ServiceFormScreen({ navigation, route }) {
           )}
         </View>
 
-        <View style={{ height: 120 }} />
+        {/* ── STEP 6: SERVICE PHOTOS / GALLERY ── */}
+        <View style={[styles.formSection, { backgroundColor: C.card, borderColor: C.border }]}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="photo-library" size={18} color={Colors.primary} />
+            <Text style={[styles.sectionTitle, { color: C.text }]}>{t('servicePhotos', 'Service Photos & Interest Images')}</Text>
+            <Text style={[styles.tagCounter, { color: C.textSub }]}>{(form.images || []).length} photos</Text>
+          </View>
+
+          <Text style={[styles.fieldHint, { color: C.textSub, marginBottom: 12 }]}>
+            Add visual showcase photos or reference images for this service.
+          </Text>
+
+          <View style={styles.formImagesRow}>
+            {(form.images || []).map((imgUri, idx) => (
+              <View key={idx} style={[styles.formThumbWrap, { borderColor: C.border }]}>
+                <Image source={{ uri: imgUri }} style={styles.formThumb} resizeMode="cover" />
+                <TouchableOpacity
+                  style={styles.formRemovePhotoBtn}
+                  onPress={() => handleRemoveImage(idx)}
+                >
+                  <MaterialIcons name="close" size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={[styles.formAddPhotoBtn, { borderColor: C.border, backgroundColor: C.inputBg }]}
+              onPress={handlePickImage}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="add-a-photo" size={22} color={Colors.primary} />
+              <Text style={[styles.formAddPhotoText, { color: Colors.primary }]}>{t('addPhoto', 'Add Photo')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={{ height: 100 }} />
       </ScrollView>
 
+      {/* ── BOTTOM ACTION BAR ── */}
       <View style={[styles.bottomBar, { backgroundColor: C.card, borderTopColor: C.border }]}>
         <TouchableOpacity
           style={[styles.secondaryBtn, { borderColor: C.border }]}
           onPress={() => navigation.goBack()}
           disabled={submitLoading}
         >
-          <Text style={[styles.secondaryBtnText, { color: C.text }]}>Cancel</Text>
+          <Text style={[styles.secondaryBtnText, { color: C.textSub }]}>{t('cancel', 'Cancel')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[
-            styles.primaryBtn,
-            { backgroundColor: Colors.primary, opacity: submitLoading ? 0.6 : 1 },
-          ]}
+          style={[styles.primaryBtn, { backgroundColor: Colors.primary }]}
           onPress={handleSubmit}
           disabled={submitLoading}
+          activeOpacity={0.85}
         >
           {submitLoading ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <MaterialIcons name={isEditMode ? 'save' : 'add-circle'} size={18} color="#fff" />
-              <Text style={styles.primaryBtnText}>{isEditMode ? 'Save Changes' : 'Create Service'}</Text>
+              <MaterialIcons name={isEditMode ? 'save' : 'check'} size={20} color="#fff" />
+              <Text style={styles.primaryBtnText}>
+                {isEditMode ? t('saveChanges', 'Save Changes') : t('createService', 'Create Service')}
+              </Text>
             </>
           )}
         </TouchableOpacity>
       </View>
+
+      {/* ── CATEGORY SELECTION MODAL ── */}
+      <Modal
+        visible={categoryModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCategoryModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setCategoryModalVisible(false)}
+        >
+          <View
+            style={[styles.modalSheet, { backgroundColor: C.card, borderColor: C.border }]}
+            onStartShouldSetResponder={() => true}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderTitleRow}>
+                <MaterialIcons name="category" size={22} color={Colors.primary} />
+                <Text style={[styles.modalTitle, { color: C.text }]}>{t('selectCategory', 'Select Category')}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setCategoryModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <MaterialIcons name="close" size={20} color={C.textSub} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalSubtitle, { color: C.textSub }]}>
+              Choose the category that best matches your service. You can also type the service name to auto-detect!
+            </Text>
+
+            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+              {CATEGORY_OPTIONS.map((cat) => {
+                const isSelected = form.category === cat.value;
+                return (
+                  <TouchableOpacity
+                    key={cat.value}
+                    style={[
+                      styles.modalCategoryItem,
+                      {
+                        backgroundColor: isSelected ? cat.color + '14' : C.inputBg,
+                        borderColor: isSelected ? cat.color : C.border,
+                        borderWidth: isSelected ? 1.5 : 0.5,
+                      },
+                    ]}
+                    onPress={() => handleSelectCategory(cat.value)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.modalCategoryIcon, { backgroundColor: cat.color + '20' }]}>
+                      <MaterialIcons name={cat.icon} size={22} color={cat.color} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.modalCategoryName, { color: C.text, fontWeight: isSelected ? '700' : '600' }]}>
+                        {cat.label}
+                      </Text>
+                      <Text style={[styles.modalCategoryGroup, { color: C.textSub }]}>
+                        {cat.group.toUpperCase()}
+                      </Text>
+                    </View>
+                    {isSelected && (
+                      <MaterialIcons name="check-circle" size={22} color={cat.color} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -572,8 +1070,8 @@ export default function ServiceFormScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 12,
   },
   loadingText: {
@@ -594,8 +1092,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   previewIcon: {
-    width: 64,
-    height: 64,
+    width: 60,
+    height: 60,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
@@ -605,13 +1103,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   previewName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
   },
   previewCategory: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    marginTop: 4,
+  },
+  previewAutoBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  previewAutoBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#166534',
   },
 
   formSection: {
@@ -624,7 +1132,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 14,
@@ -635,15 +1143,161 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  fieldHint: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  autoDetectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  autoDetectedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  nameSuggestionLoading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  nameSuggestionCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 10, padding: 12, borderRadius: 12, borderWidth: 1 },
+  nameSuggestionContent: { flex: 1 },
+  nameSuggestionText: { fontSize: 14, fontWeight: '700', marginTop: 3 },
+  nameSuggestionActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  nameSuggestionButton: { backgroundColor: '#15803D', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
+  nameSuggestionButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  nameSuggestionReject: { borderColor: '#94A3B8', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
+  nameSuggestionRejectText: { color: '#64748B', fontSize: 11, fontWeight: '700' },
+
+  categoryDropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  categoryDropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  categoryDropdownIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryDropdownLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  categoryDropdownGroup: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+
+  categoryPillsScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 0.5,
+  },
+  categoryPillText: {
+    fontSize: 12,
+  },
 
   formGroup: {
-    marginBottom: 14,
+    marginBottom: 10,
+  },
+  labelRowWithAi: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
   label: {
     fontSize: 12,
     fontWeight: '600',
-    marginBottom: 6,
   },
+  autoDetectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  autoDetectBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#166534',
+  },
+
+  aiLangBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    marginBottom: 12,
+    gap: 6,
+  },
+  aiLangBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  aiLangBarLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  aiLangPills: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  aiLangPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 0.5,
+  },
+  aiLangPillText: {
+    fontSize: 11,
+  },
+
+  aiGenerateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  aiGenerateBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
   input: {
     backgroundColor: 'transparent',
   },
@@ -672,26 +1326,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#991B1B',
-  },
-
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  categoryCard: {
-    width: '31.5%',
-    borderRadius: 12,
-    borderWidth: 0.5,
-    padding: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  categoryCardLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    textAlign: 'center',
   },
 
   pricingRow: {
@@ -751,6 +1385,50 @@ const styles = StyleSheet.create({
     margin: 0,
   },
 
+  formImagesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
+  },
+  formThumbWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  formThumb: {
+    width: '100%',
+    height: '100%',
+  },
+  formRemovePhotoBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(220, 38, 38, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formAddPhotoBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  formAddPhotoText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
   bottomBar: {
     position: 'absolute',
     left: 0,
@@ -789,5 +1467,65 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '700',
+  },
+
+  /* Category Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  modalHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  modalCloseBtn: {
+    padding: 6,
+    borderRadius: 12,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  modalCategoryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 8,
+  },
+  modalCategoryIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCategoryName: {
+    fontSize: 14,
+  },
+  modalCategoryGroup: {
+    fontSize: 10,
+    marginTop: 2,
   },
 });

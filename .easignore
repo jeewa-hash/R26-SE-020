@@ -1,0 +1,22 @@
+# Ignore other services in repository
+adminService/
+apiGateway/
+authService/
+Provider_Service/
+Seeker_Service/
+ServiceCoordinationService/
+scripts/
+
+# Root files
+*.csv
+*.md
+
+# Exclude node_modules everywhere
+**/node_modules/
+**/.venv/
+**/__pycache__/
+**/.expo/
+**/dist/
+**/web-build/
+**/android/
+**/ios/

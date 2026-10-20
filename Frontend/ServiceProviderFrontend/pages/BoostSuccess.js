@@ -10,9 +10,10 @@ import { CONFIG } from '../config';
 
 export default function BoostSuccessScreen({ route, navigation }) {
   const { isDark } = useContext(ThemeContext) || {};
-  const { sessionId, isBilling } = route.params || {};
+  const { sessionId, isBilling, postId } = route.params || {};
   const [confirming, setConfirming] = React.useState(true);
   const [successMessage, setSuccessMessage] = React.useState('');
+  const [confirmedPost, setConfirmedPost] = React.useState(null);
 
   const C = isDark
     ? { bg: '#0C0F0D', text: '#F2F2F7', textSub: '#8E8E93' }
@@ -39,13 +40,25 @@ export default function BoostSuccessScreen({ route, navigation }) {
             data?.message || 'Monthly platform service charge payment completed successfully! Full feature access restored.'
           );
         } else {
-          await fetch(
-            `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/confirm-payment/${encodeURIComponent(sessionId)}`,
-            {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
+          // Stripe can briefly report the session as unpaid immediately after
+          // returning from Checkout. Retry confirmation before showing success.
+          let data = null;
+          let lastMessage = 'Payment confirmation failed.';
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            const res = await fetch(
+              `${CONFIG.PROVIDER_SERVICE_URL}/api/provider/ads/confirm-payment/${encodeURIComponent(sessionId)}`,
+              {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+            data = await res.json().catch(() => ({}));
+            if (res.ok && data?.success) break;
+            lastMessage = data?.message || data?.error || lastMessage;
+            if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
+          if (!data?.success) throw new Error(lastMessage);
+          setConfirmedPost(data.data || null);
           setSuccessMessage('Your ad priority has been updated.');
         }
       } catch (error) {
@@ -61,7 +74,9 @@ export default function BoostSuccessScreen({ route, navigation }) {
     if (isBilling) {
       navigation.replace('Main', { screen: 'Earnings' });
     } else {
-      navigation.replace('Main', { screen: 'Profile' });
+      // ProviderPostDetail is the seeker/service-request detail screen.
+      // Boosted ads belong under the provider Profile > My Posts section.
+      navigation.replace('Main', { screen: 'Profile', params: { focus: 'my-posts', postId } });
     }
   };
 

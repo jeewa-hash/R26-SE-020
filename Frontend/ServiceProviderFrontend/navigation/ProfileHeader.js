@@ -21,7 +21,8 @@ import { CommonActions, useNavigation } from '@react-navigation/native';
 
 const LANGUAGES = [
   { code: 'en', label: 'English' },
-
+  { code: 'si', label: 'සිංහල' },
+  { code: 'ta', label: 'தமிழ்' },
 ];
 
 const SIDEBAR_MENU = [
