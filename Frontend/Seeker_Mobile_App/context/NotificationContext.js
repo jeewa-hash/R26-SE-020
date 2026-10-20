@@ -20,6 +20,7 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [socket, setSocket] = useState(null);
   const [syncError, setSyncError] = useState(null);
+  const [connectionError, setConnectionError] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const sources = useRef({ auth: [], quotes: [] });
   const identity = useRef({ token: null, owner: null });
@@ -101,7 +102,7 @@ export const NotificationProvider = ({ children }) => {
       revision.current++; pending.current = null;
       identity.current = { token: null, owner: null };
       sources.current = { auth: [], quotes: [] }; seen.current = new Set(); read.current = new Set(); hidden.current = new Set(); hydratedSources.current = new Set();
-      setNotifications([]); setSocket(null); setSyncError(null); setInitialLoading(true);
+      setNotifications([]); setSocket(null); setSyncError(null); setConnectionError(null); setInitialLoading(true);
     };
     reset();
     if (!isReady) return;
@@ -121,7 +122,20 @@ export const NotificationProvider = ({ children }) => {
       seen.current = new Set(parse(values[0][1])); read.current = new Set(parse(values[1][1] || legacyRead)); hidden.current = new Set(parse(values[2][1]));
       identity.current = { token, owner };
       connection = io(ORIGIN, { transports: ['polling', 'websocket'], tryAllTransports: true, auth: { token } });
-      connection.on('connect', () => syncNotifications(true));
+      connection.on('connect', () => {
+        if (disposed || token !== identity.current.token) return;
+        setConnectionError(null);
+        syncNotifications(true);
+      });
+      connection.on('connect_error', error => {
+        if (disposed || token !== identity.current.token) return;
+        setConnectionError(error.message === 'Authentication required'
+          ? 'Live notifications could not authenticate. Please sign in again.'
+          : 'Live notifications are disconnected. Check that the local auth service is reachable on port 4003.');
+      });
+      connection.on('disconnect', () => {
+        if (!disposed && token === identity.current.token) setConnectionError('Live notifications are reconnecting.');
+      });
       connection.on('notification', item => {
         if (disposed || token !== identity.current.token || !item?._id) return;
         const key = notificationKey(item), fresh = !seen.current.has(key);
@@ -177,5 +191,5 @@ export const NotificationProvider = ({ children }) => {
       hidden.current = next; sources.current = { auth: [], quotes: [] }; publish(); return true;
     } catch { return false; }
   };
-  return <NotificationContext.Provider value={{ notifications, loading: initialLoading, unreadCount: notifications.filter(n => !n.isRead).length, syncError, socket, showPopupNotification, syncNotifications, markAsRead, markAllAsRead, clearNotifications }}>{children}</NotificationContext.Provider>;
+  return <NotificationContext.Provider value={{ notifications, loading: initialLoading, unreadCount: notifications.filter(n => !n.isRead).length, syncError: connectionError || syncError, socket, showPopupNotification, syncNotifications, markAsRead, markAllAsRead, clearNotifications }}>{children}</NotificationContext.Provider>;
 };
