@@ -4,7 +4,7 @@ export const bookingActions = booking => {
   const status = String(booking?.bookingStatus || booking?.status || '').toUpperCase();
   return {
     ready: status === 'CONFIRMED' && !booking?.providerReadyConfirmed,
-    travel: status === 'CONFIRMED',
+    travel: ['CONFIRMED', 'RESCHEDULED'].includes(status),
     start: ['CONFIRMED', 'RESCHEDULED', 'ON_THE_WAY'].includes(status),
     delay: ['IN_PROGRESS', 'DELAY_REPORTED'].includes(status),
     complete: ['IN_PROGRESS', 'DELAY_REPORTED'].includes(status),

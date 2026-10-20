@@ -1,3 +1,4 @@
+import ServicePaymentCard from '../../components/ServicePaymentCard';
 import { sessionGuidance } from '../../utils/providerSessions';
 import { COLORS } from './theme';
 import React, { useCallback, useContext, useState, useEffect } from 'react';
@@ -129,7 +130,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
 
   const guidance = sessionGuidance({ booking });
   const startWindowOpens = getBookingStartDate(booking);
-  const canStartNow = startWindowOpens && clockNow >= startWindowOpens.getTime() - 30 * 60000 && clockNow <= startWindowOpens.getTime() + 45 * 60000;
+  const canStartNow = startWindowOpens && clockNow >= startWindowOpens.getTime() - 15 * 60000 && clockNow <= startWindowOpens.getTime() + 45 * 60000;
   const disabled = loading || updating || Boolean(error);
   const start = getBookingStartDate(booking), end = getBookingEndDate(booking);
   const working = ['IN_PROGRESS', 'DELAY_REPORTED'].includes(status);
@@ -148,6 +149,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
           <Text style={[styles.caption, muted]}>Agreed amount</Text><Text style={[styles.price, text]}>LKR {Number(booking?.finalAmount ?? booking?.amount ?? 0).toLocaleString()}</Text>
           {getHumanSeekerName(booking) !== 'Customer' ? <Text style={[styles.row, muted]}>Customer: {getHumanSeekerName(booking)}</Text> : null}
         </View>
+        {status === 'COMPLETED' ? <ServicePaymentCard booking={booking} isDark={isDark} onChanged={loadBooking} /> : null}
         <View style={[...card, { borderLeftWidth: 4, borderLeftColor: '#15803D' }]}>
           <View style={styles.heading}><Ionicons name={working ? 'construct-outline' : allowed.closed ? 'checkmark-circle-outline' : 'calendar-outline'} size={23} color="#15803D" /><Text style={[styles.sectionTitle, text, { flex: 1 }]}>{guidance.title}</Text></View>
           <Text style={[styles.body, muted]}>{guidance.message}</Text>
@@ -196,7 +198,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
         </View>
         {(booking.timeline || []).length ? <View style={card}><Text style={[styles.sectionTitle, text]}>Job activity</Text>{(booking.timeline || []).slice().reverse().map((event, index) => <View key={event._id || index} style={[styles.activity, { borderColor: C.border }]}><View style={styles.dot} /><View style={styles.flex}><Text style={[styles.body, text]}>{event.message || statusLabel(event.status)}</Text>{event.at ? <Text style={[styles.caption, muted]}>{formatDateTime(new Date(event.at))}</Text> : null}</View></View>)}</View> : null}
       </ScrollView>
-      {primary ? <View style={[styles.footer, { backgroundColor: C.card, borderColor: C.border }]}><TouchableOpacity accessibilityRole="button" disabled={disabled || (primary.action === 'start' && !canStartNow)} style={[styles.primary, (disabled || (primary.action === 'start' && !canStartNow)) && { opacity: .5 }]} onPress={() => confirmAction(primary.label, primary.prompt, primary.action)}>{updating ? <ActivityIndicator color="#FFFFFF" /> : <><Text style={styles.buttonText}>{primary.action === 'start' && !canStartNow ? 'Start opens 30 min before schedule' : primary.label}</Text><Ionicons name={working ? 'checkmark-circle-outline' : 'play-outline'} size={21} color="#FFFFFF" /></>}</TouchableOpacity></View> : null}
+      {primary ? <View style={[styles.footer, { backgroundColor: C.card, borderColor: C.border }]}><TouchableOpacity accessibilityRole="button" disabled={disabled || (primary.action === 'start' && !canStartNow)} style={[styles.primary, (disabled || (primary.action === 'start' && !canStartNow)) && { opacity: .5 }]} onPress={() => confirmAction(primary.label, primary.prompt, primary.action)}>{updating ? <ActivityIndicator color="#FFFFFF" /> : <><Text style={styles.buttonText}>{primary.action === 'start' && !canStartNow ? 'Start opens 15 min before schedule' : primary.label}</Text><Ionicons name={working ? 'checkmark-circle-outline' : 'play-outline'} size={21} color="#FFFFFF" /></>}</TouchableOpacity></View> : null}
     </View>
   );
 }

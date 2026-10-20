@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import io from 'socket.io-client';
 import Toast from 'react-native-toast-message';
-import { IP_ADDRESS, AUTH_SERVICE_URL, PROVIDER_SERVICE_URL } from '../config';
+import { AUTH_SERVICE_URL, PROVIDER_SERVICE_URL } from '../config';
 import { navigate } from '../utils/navigationService';
 import { useAuth } from './AuthContext';
 import { getUserIdFromJwt } from '../screens/IT22129376/services/seekerAuthStorage';
@@ -26,9 +26,8 @@ export const NotificationProvider = ({ children }) => {
   const seen = useRef(new Set());
   const read = useRef(new Set());
   const hidden = useRef(new Set());
-  const initial = useRef(true);
-  const sessionStartedAt = useRef(Date.now());
-  const isLiveNotification = item => Number.isFinite(Date.parse(item.createdAt)) && Date.parse(item.createdAt) >= sessionStartedAt.current;
+  // Each source gets its own silent first snapshot. Live delivery never depends on the phone clock.
+  const hydratedSources = useRef(new Set());
   const revision = useRef(0);
   const pending = useRef(null);
   const readNotification = useRef(() => {});
@@ -60,6 +59,7 @@ export const NotificationProvider = ({ children }) => {
       }));
       if (version !== revision.current || token !== identity.current.token) return false;
       let failures = 0;
+      const eligibleKeys = new Set();
       const auth = results[0], quotes = results[1];
       if (auth.status === 'fulfilled' && (Array.isArray(auth.value) || Array.isArray(auth.value?.data))) sources.current.auth = Array.isArray(auth.value) ? auth.value : auth.value.data;
       else failures++;
@@ -68,13 +68,22 @@ export const NotificationProvider = ({ children }) => {
         createdAt: quote.createdAt, isRead: false, quoteId: quote._id, providerRequestId: quote.providerRequestId, providerId: quote.providerId?._id || quote.providerId, status: quote.status,
       }));
       else failures++;
+      for (const [name, result] of [['auth', auth], ['quotes', quotes]]) {
+        const valid = name === 'auth'
+          ? result.status === 'fulfilled' && (Array.isArray(result.value) || Array.isArray(result.value?.data))
+          : result.status === 'fulfilled' && Array.isArray(result.value?.data);
+        if (!valid) continue;
+        if (hydratedSources.current.has(name)) {
+          for (const item of sources.current[name]) eligibleKeys.add(notificationKey(item));
+        }
+        hydratedSources.current.add(name);
+      }
       const all = mergeSeekerNotifications(sources.current.auth, sources.current.quotes, read.current, hidden.current);
       for (const item of all) {
         const key = notificationKey(item);
-        if (!seen.current.has(key) && notifyNew && !initial.current && !item.isRead && isLiveNotification(item)) showPopupNotification({ type: item.type, title: item.title, message: item.message, data: item });
+        if (!seen.current.has(key) && notifyNew && eligibleKeys.has(key) && !item.isRead) showPopupNotification({ type: item.type, title: item.title, message: item.message, data: item });
         seen.current.add(key);
       }
-      if (!failures) initial.current = false;
       setNotifications(all);
       setInitialLoading(false);
       setSyncError(failures ? 'Some notifications could not be refreshed. Showing the latest available information.' : null);
@@ -91,10 +100,9 @@ export const NotificationProvider = ({ children }) => {
     const reset = () => {
       revision.current++; pending.current = null;
       identity.current = { token: null, owner: null };
-      sources.current = { auth: [], quotes: [] }; seen.current = new Set(); read.current = new Set(); hidden.current = new Set(); initial.current = true;
+      sources.current = { auth: [], quotes: [] }; seen.current = new Set(); read.current = new Set(); hidden.current = new Set(); hydratedSources.current = new Set();
       setNotifications([]); setSocket(null); setSyncError(null); setInitialLoading(true);
     };
-    sessionStartedAt.current = Date.now();
     reset();
     if (!isReady) return;
     const setup = async () => {
@@ -112,17 +120,17 @@ export const NotificationProvider = ({ children }) => {
       if (disposed || currentToken !== token) return;
       seen.current = new Set(parse(values[0][1])); read.current = new Set(parse(values[1][1] || legacyRead)); hidden.current = new Set(parse(values[2][1]));
       identity.current = { token, owner };
-      connection = io(ORIGIN, { transports: ['websocket'], auth: { token } });
-      connection.on('connect', () => syncNotifications(false));
+      connection = io(ORIGIN, { transports: ['polling', 'websocket'], tryAllTransports: true, auth: { token } });
+      connection.on('connect', () => syncNotifications(true));
       connection.on('notification', item => {
         if (disposed || token !== identity.current.token || !item?._id) return;
         const key = notificationKey(item), fresh = !seen.current.has(key);
         seen.current.add(key);
         sources.current.auth = [item, ...sources.current.auth.filter(row => String(row._id) !== String(item._id))];
         revision.current++; pending.current = null; publish();
-        if (fresh && !item.isRead && isLiveNotification(item)) showPopupNotification({ type: item.type, title: item.title, message: item.message, data: item });
+        if (fresh && !item.isRead) showPopupNotification({ type: item.type, title: item.title, message: item.message, data: item });
         AsyncStorage.setItem(storageKey('seen'), JSON.stringify([...seen.current].slice(-300))).catch(() => {});
-        syncNotifications(false);
+        syncNotifications(true);
       });
       setSocket(connection);
       await syncNotifications(false);

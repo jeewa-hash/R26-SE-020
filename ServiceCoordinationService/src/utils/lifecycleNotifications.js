@@ -1,23 +1,11 @@
-import axios from 'axios';
+import { enqueueLifecycleNotification, deliverLifecycleNotification } from './notificationOutbox.js';
 
-let warnedMissingConfig = false;
-
-// Server-to-server only. Notification failure must not undo a saved job action.
 export async function publishLifecycleNotification(payload) {
-  const base = process.env.AUTH_SERVICE_URL;
-  const secret = process.env.NOTIFICATION_SERVICE_SECRET;
-  if (!base || !secret) {
-    if (!warnedMissingConfig) console.warn('Lifecycle notifications disabled: configure AUTH_SERVICE_URL and NOTIFICATION_SERVICE_SECRET');
-    warnedMissingConfig = true;
-    return false;
+  // Start reminders already have a state-aware retry worker. Keep them there so an old
+  // appointment reminder cannot be delivered after the job starts or is rescheduled.
+  if (String(payload?.eventId || '').startsWith('booking-start:')) {
+    try { await deliverLifecycleNotification(payload); return true; }
+    catch (error) { console.warn('Start reminder delivery deferred:', error.response?.status || error.code || 'unavailable'); return false; }
   }
-  try {
-    await axios.post(`${base.replace(/\/$/, '')}/internal/notifications`, payload, {
-      headers: { 'x-notification-secret': secret }, timeout: 5000,
-    });
-    return true;
-  } catch (error) {
-    console.warn('Lifecycle notification delivery failed', error.response?.status || error.code || 'unavailable');
-    return false;
-  }
+  return enqueueLifecycleNotification(payload);
 }

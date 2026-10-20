@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { startWindow, dueStartReminder } from '../src/services/bookingStartPolicy.js';
 const start = new Date('2030-01-01T09:00:00+05:30');
 const at = minutes => new Date(+start + minutes * 60000);
-test('start opens exactly 30 min before and closes after 45 min', () => {
-  for (const [minute, allowed] of [[-31,false],[-30,true],[-1,true],[0,true],[44,true],[45,true],[46,false]]) assert.equal(startWindow(start, at(minute)).allowed, allowed);
+test('start opens exactly 15 min before and closes after 45 min', () => {
+  for (const [minute, allowed] of [[-31,false],[-30,false],[-16,false],[-15,true],[-1,true],[0,true],[44,true],[45,true],[46,false]]) assert.equal(startWindow(start, at(minute)).allowed, allowed);
 });
 test('reminders advance through upcoming, due, final and expiry', () => {
   const b = { scheduledStartTime: start, bookingStatus: 'CONFIRMED' };

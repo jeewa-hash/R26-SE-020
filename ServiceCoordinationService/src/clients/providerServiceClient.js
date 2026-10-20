@@ -1,12 +1,12 @@
 import axios from "axios";
 
-const PROVIDER_SERVICE_BASE_URL =
-  process.env.PROVIDER_SERVICE_BASE_URL || "http://localhost:3002"; // Chaw - Added Provider Service base URL for quotation lookup
+const providerServiceBaseUrl = () =>
+  (process.env.PROVIDER_SERVICE_BASE_URL || process.env.PROVIDER_SERVICE_URL || "http://localhost:3002").replace(/\/+$/, ""); // Chaw - Added Provider Service base URL for quotation lookup
 
 export const getProviderQuotationById = async (quotationId) => {
   try {
     const response = await axios.get(
-      `${PROVIDER_SERVICE_BASE_URL}/api/provider/quotations/${quotationId}` // Chaw - Fetch Provider Quotation by ID
+      `${providerServiceBaseUrl()}/api/provider/quotations/${quotationId}` // Chaw - Fetch Provider Quotation by ID
     );
 
     return response.data?.data || response.data?.quotation || response.data; // Chaw - Support current provider response shape
@@ -30,7 +30,7 @@ export const updateProviderQuotationCoordination = async (
 ) => {
   try {
     const response = await axios.patch(
-      `${PROVIDER_SERVICE_BASE_URL}/api/provider/quotations/${quotationId}/coordination`,
+      `${providerServiceBaseUrl()}/api/provider/quotations/${quotationId}/coordination`,
       {
         coordinationStatus,
         coordinationId,
@@ -53,7 +53,7 @@ export const updateProviderQuotationCoordination = async (
 
 export const acceptProviderQuotation = async (quotationId, authorization = "") => {
   const response = await axios.patch(
-    `${PROVIDER_SERVICE_BASE_URL}/api/provider/quotations/${quotationId}/accept`,
+    `${providerServiceBaseUrl()}/api/provider/quotations/${quotationId}/accept`,
     {},
     { headers: authorization ? { Authorization: authorization } : {} }
   );

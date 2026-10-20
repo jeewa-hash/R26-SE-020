@@ -14,7 +14,7 @@ import {
 import { Text, Surface } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { summarizeCompletedEarnings } from '../utils/completedEarnings';
+import { summarizeCompletedEarnings, summarizePaymentCollections } from '../utils/completedEarnings';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -174,6 +174,7 @@ export default function EarningsScreen() {
     displayNetEarnings = lifetime.netEarnings || Math.max(0, displayEarnings - lifetime.totalCommissionPaid - displayBoostExpense);
   }
 
+  const collections = completedEarnings ? summarizePaymentCollections(completedEarnings.bookings, period) : null;
   const verified = completedEarnings ? summarizeCompletedEarnings(completedEarnings.bookings, period) : null;
   const billingMismatch = Boolean(verified && (Number(displayEarnings) !== verified.totalIncome || Number(displayJobsCount) !== verified.completedBookingsCount));
   if (verified) {
@@ -364,6 +365,16 @@ export default function EarningsScreen() {
           </View>
         </LinearGradient>
 
+        {collections ? <Surface style={{ backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1, marginHorizontal: 20, marginBottom: 18, borderRadius: 20, padding: 20 }} elevation={1}>
+          <Text style={{ color: theme.textPrimary, fontSize: 17, fontWeight: '700', marginBottom: 12 }}>Payment collections</Text>
+          {[
+            ['Received from customers', collections.customerReceived],
+            ['Awaiting customer payment', collections.customerPending],
+            ['Star Points · owed by platform', collections.platformOwed],
+            ...(collections.unrecorded > 0 ? [['Payment not recorded', collections.unrecorded]] : []),
+          ].map(([label, amount]) => <View key={label} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 16, paddingVertical: 7 }}><Text style={{ color: theme.textSecondary, flexShrink: 1, fontSize: 13 }}>{label}</Text><Text style={{ color: theme.textPrimary, fontWeight: '600', fontSize: 13 }}>LKR {formatLkr(amount)}</Text></View>)}
+          <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 19, marginTop: 10 }}>Gross earnings show completed work. Platform amounts are pending reimbursement.</Text>
+        </Surface> : null}
         <View style={styles.metricRow}>
           <Surface style={[styles.metricCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]} elevation={1}>
             <View style={[styles.metricIconWrap, { backgroundColor: '#10B98118' }]}>

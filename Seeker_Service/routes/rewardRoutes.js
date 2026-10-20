@@ -1,3 +1,4 @@
+import { requireRewardService, createBookingRedemption, getBookingRedemption } from '../controllers/bookingRedemptionController.js';
 import express from "express";
 import {
   getBalance,
@@ -14,6 +15,9 @@ const router = express.Router();
 
 // Internal (service-to-service) – must come before user routes
 router.post("/internal/bookings/award", awardBookingPoints);
+
+router.post('/internal/bookings/redeem', requireRewardService, createBookingRedemption);
+router.get('/internal/bookings/:bookingId/redemption', requireRewardService, getBookingRedemption);
 
 // Seeker routes
 router.get("/balance", authMiddleware, getBalance);

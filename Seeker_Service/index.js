@@ -1,6 +1,7 @@
+import "dotenv/config";
+import { startNotificationOutboxWorker, notificationHealthHandler } from './utils/notificationOutbox.js';
 import { UPLOAD_DIR } from './utils/uploadPaths.js';
 import express from "express";
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
 import dns from "node:dns";
@@ -17,9 +18,9 @@ import rewardRoutes from "./routes/rewardRoutes.js";
 import serviceSessionRoutes from "./routes/serviceSessionRoutes.js";
 import coordinationRoutes from "./routes/coordinationRoutes.js";
 
-dotenv.config();
 
 const app = express();
+app.get('/health/notifications', notificationHealthHandler);
 
 // middleware
 app.use(cors());
@@ -69,6 +70,7 @@ const PORT = process.env.PORT || 6000;
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
+    startNotificationOutboxWorker();
     httpServer.listen(PORT, "0.0.0.0", () => {
       console.log("");
       console.log("================================================");

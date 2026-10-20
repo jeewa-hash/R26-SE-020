@@ -12,7 +12,7 @@ import { BottomInsetContext } from '../context/BottomInsetContext';
 import { ThemeContext } from '../context/ThemeContext';
 import { IP_ADDRESS, AUTH_SERVICE_URL, ADMIN_SERVICE_URL } from '../config';
 import { io } from 'socket.io-client';
-import { clearAllAuthStorage, getStoredProviderAuth } from '../pages/IT22129376/services/providerAuthStorage';
+import { clearAllAuthStorage, getStoredProviderAuth, subscribeProviderSession } from '../pages/IT22129376/services/providerAuthStorage';
 
 const API_URL = AUTH_SERVICE_URL || 'https://r26-auth-service.onrender.com';
 const ADMIN_API_URL = ADMIN_SERVICE_URL || 'https://r26-admin-service.onrender.com';
@@ -208,29 +208,32 @@ export default function BottomTabNavigator() {
   const seenNotificationIdsRef = useRef(new Set());
   const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
   const socketRef = useRef(null);
+  const [sessionRevision, setSessionRevision] = useState(0);
+  useEffect(() => subscribeProviderSession(() => setSessionRevision(value => value + 1)), []);
 
   useEffect(() => {
     let intervalId = null;
     let disposed = false;
-    const sessionStartedAt = Date.now();
     seenNotificationIdsRef.current = new Set();
-    const isLiveNotification = notification => {
-      const createdAt = Date.parse(notification.createdAt);
-      return Number.isFinite(createdAt) && createdAt >= sessionStartedAt;
-    };
+    const notificationSources = { auth: [], admin: [] };
+    const hydratedSources = new Set();
+    let checking = false;
+    setActiveAlertBanner(null);
+    setHasUnreadNotifs(false);
 
     const setupRealTimeAndWatchdog = async () => {
       const auth = await getStoredProviderAuth();
       if (disposed) return;
       const userId = auth.providerId;
       const token = auth.token;
+      if (!userId || !token) return;
 
       try {
         if (!socketRef.current) {
           socketRef.current = io(API_URL, {
             transports: ['polling', 'websocket'],
-        tryAllTransports: true,
-        auth: { token },
+            tryAllTransports: true,
+            auth: { token },
             reconnection: true,
           });
 
@@ -249,8 +252,8 @@ export default function BottomTabNavigator() {
 
             if (!seenNotificationIdsRef.current.has(notifId)) {
               seenNotificationIdsRef.current.add(notifId);
-              setHasUnreadNotifs(true);
-              if (!newNotif.isRead && isLiveNotification(newNotif)) setActiveAlertBanner(newNotif);
+              notificationSources.auth = [newNotif, ...notificationSources.auth.filter(row => String(row._id) !== notifId)];
+              if (!newNotif.isRead) { setHasUnreadNotifs(true); setActiveAlertBanner(newNotif); }
             }
           };
 
@@ -272,15 +275,15 @@ export default function BottomTabNavigator() {
       };
 
       const checkStatusAndNotifications = async () => {
-        if (disposed || isLoggingOutRef.current) return;
-
+        if (disposed || isLoggingOutRef.current || checking) return;
+        checking = true;
         try {
           const currentUserId = userId;
           const currentToken = token;
 
           if (!currentUserId) return;
 
-          let allNotifs = [];
+          const eligibleIds = new Set();
           if (currentToken) {
             try {
               const authNotifRes = await fetchWithTimeout(`${API_URL}/notifications`, {
@@ -290,7 +293,9 @@ export default function BottomTabNavigator() {
               const authNotifData = await authNotifRes.json();
 
               if (authNotifRes.ok && Array.isArray(authNotifData)) {
-                allNotifs = [...allNotifs, ...authNotifData];
+                if (hydratedSources.has('auth')) authNotifData.forEach(n => eligibleIds.add(String(n._id)));
+                notificationSources.auth = authNotifData;
+                hydratedSources.add('auth');
               }
             } catch (e) {
               // silent
@@ -340,7 +345,9 @@ export default function BottomTabNavigator() {
             const notifData = await notifRes.json();
 
             if (notifRes.ok && Array.isArray(notifData.data)) {
-              allNotifs = [...allNotifs, ...notifData.data];
+              if (hydratedSources.has('admin')) notifData.data.forEach(n => eligibleIds.add(String(n._id)));
+              notificationSources.admin = notifData.data;
+              hydratedSources.add('admin');
             }
           } catch (e) {
             // silent
@@ -348,6 +355,7 @@ export default function BottomTabNavigator() {
 
 
           if (disposed) return;
+          const allNotifs = [...notificationSources.auth, ...notificationSources.admin];
           setHasUnreadNotifs(allNotifs.some(n => !n.isRead));
           if (allNotifs.length > 0) {
             const anyUnread = allNotifs.some((n) => !n.isRead);
@@ -355,7 +363,7 @@ export default function BottomTabNavigator() {
 
             const unreadPriorityNotifs = allNotifs.filter(
               (n) =>
-                !n.isRead && isLiveNotification(n) &&
+                !n.isRead && eligibleIds.has(String(n._id)) &&
                 (n.type === 'booking' || n.type === 'quote' ||
                   n.type === 'inquiry_rejected' ||
                   n.type === 'inquiry_approved' ||
@@ -373,8 +381,8 @@ export default function BottomTabNavigator() {
             }
           }
         } catch (err) {
-          // silent
-        }
+          // Preserve the current inbox if a hosted service is temporarily unavailable.
+        } finally { checking = false; }
       };
 
       checkStatusAndNotifications();
@@ -392,7 +400,7 @@ export default function BottomTabNavigator() {
         socketRef.current = null;
       }
     };
-  }, [navigation]);
+  }, [navigation, sessionRevision]);
 
   return (
     <View style={{ flex: 1 }}>

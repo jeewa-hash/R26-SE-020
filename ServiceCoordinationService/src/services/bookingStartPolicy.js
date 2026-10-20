@@ -2,9 +2,9 @@ export const WAITING_TO_START = ['CONFIRMED', 'RESCHEDULED', 'ON_THE_WAY', 'RESC
 export function startWindow(start, now = new Date()) {
   const scheduled = new Date(start).getTime();
   if (!start || !Number.isFinite(scheduled)) return { allowed: false, expired: false, message: 'A valid scheduled start time is required.' };
-  const opensAt = scheduled - 30 * 60000, closesAt = scheduled + 45 * 60000;
+  const opensAt = scheduled - 15 * 60000, closesAt = scheduled + 45 * 60000;
   return { opensAt: new Date(opensAt), closesAt: new Date(closesAt), allowed: +now >= opensAt && +now <= closesAt, expired: +now > closesAt,
-    message: +now < opensAt ? 'You can start work from 30 minutes before the scheduled start.' : +now > closesAt ? 'This booking has passed the 45-minute start window.' : '' };
+    message: +now < opensAt ? 'You can start work from 15 minutes before the scheduled start.' : +now > closesAt ? 'This booking has passed the 45-minute start window.' : '' };
 }
 export function dueStartReminder(booking, now = new Date()) {
   if (!WAITING_TO_START.includes(booking.bookingStatus) || booking.actualStartTime) return null;

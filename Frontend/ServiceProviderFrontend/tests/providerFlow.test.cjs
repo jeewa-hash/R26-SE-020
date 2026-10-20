@@ -67,7 +67,9 @@ test('reschedule waiting, validation attention and completed sessions explain th
   const conflict = sessionGuidance({quotation:{status:'SENT',coordinationStatus:'RESCHEDULE_REQUIRED'}});
   assert.equal(conflict.owner,'You'); assert.equal(conflict.group,'attention');
   const done = sessionGuidance({booking:{bookingStatus:'COMPLETED'}});
-  assert.equal(done.group,'closed'); assert.equal(done.step,3); assert.equal(done.owner,'No action');
+  assert.equal(done.group,'closed'); assert.equal(done.step,3); assert.equal(done.owner,'Seeker');
+  assert.equal(sessionGuidance({booking:{bookingStatus:'COMPLETED',payment:{customerPaymentStatus:'AWAITING_PAYMENT'}}}).owner,'You');
+  assert.equal(sessionGuidance({booking:{bookingStatus:'COMPLETED',payment:{customerPaymentStatus:'RECEIVED'}}}).owner,'No action');
 });
 test('unrelated requests sharing a post are separate; repeated booking snapshots are deduplicated', async () => {
   const { buildProviderSessions } = await loadSessions();

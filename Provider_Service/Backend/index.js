@@ -1,3 +1,4 @@
+import { startNotificationOutboxWorker, notificationHealthHandler } from './utils/notificationOutbox.js';
 import "dotenv/config";
 import express from "express";
 import mongoose from "mongoose";
@@ -20,6 +21,7 @@ import serviceRoutes from "./routes/serviceRoutes.js";
 // ─────────────────────────────────────────────
 
 const app = express();
+app.get('/health/notifications', notificationHealthHandler);
 const server = http.createServer(app);
 
 const io = new Server(server, {
@@ -60,6 +62,7 @@ if (!process.env.MONGO_URI) {
   mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB Connected Successfully");
+    startNotificationOutboxWorker();
   })
   .catch((err) => {
     console.error("❌ MongoDB Connection Error:");

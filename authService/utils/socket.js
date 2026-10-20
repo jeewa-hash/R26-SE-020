@@ -15,8 +15,9 @@ module.exports = {
       try {
         const decoded = require('jsonwebtoken').verify(socket.handshake.auth?.token, process.env.JWT_SECRET);
         const user = decoded.user || decoded;
-        if (!user.id || !user.role) throw new Error('Invalid identity');
-        socket.user = user;
+        const id = user.id || user._id || user.userId || user.sub;
+        if (!id || !user.role) throw new Error('Invalid identity');
+        socket.user = { ...user, id: String(id) };
         next();
       } catch { next(new Error('Authentication required')); }
     });

@@ -270,6 +270,11 @@ export default function StarPointsScreen({ navigation }) {
           </View>
         ) : null}
 
+        <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('SeekerServices')} style={{ backgroundColor: isDarkMode ? P.slate800 : P.indigoSoft, borderRadius: 16, padding: 18, marginBottom: 20 }}>
+          <Text style={{ color: isDarkMode ? P.indigoLight : P.indigo, fontWeight: '700', fontSize: 16 }}>Also use points on a service</Text>
+          <Text style={{ color: isDarkMode ? P.slate300 : P.slate600, fontSize: 13, lineHeight: 20, marginTop: 6 }}>1 Star Point = LKR 1 towards a completed service. Open My Services to choose how many points to use. Your provider keeps the full agreed earnings.</Text>
+        </TouchableOpacity>
+
         {/* ── Stats row ── */}
         <View style={styles.statsSectionLabel}>
           <Text style={[styles.sectionLabel, isDarkMode && { color: P.slate400 }]}>

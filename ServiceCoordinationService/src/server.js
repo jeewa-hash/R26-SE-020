@@ -1,9 +1,10 @@
+import "dotenv/config";
+import { startNotificationOutboxWorker, notificationHealthHandler } from './utils/notificationOutbox.js';
 import { startBookingReminderWorker } from './services/bookingReminderService.js';
 import express from "express";
 import cors from "cors";
 import dns from "node:dns";
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
-import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
 import logger from "./utils/logger.js";
 
@@ -16,9 +17,9 @@ import rescheduleRoutes from "./routes/rescheduleRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import bidCoordinationRoutes from "./routes/bidCoordinationRoutes.js"; // Chaw: added bid coordination routes
 import integrationTestRoutes from "./routes/integrationTestRoutes.js"; // Chaw - Added temporary integration test routes
-dotenv.config();
 
 const app = express();
+app.get('/health/notifications', notificationHealthHandler);
 
 // Local Expo web servers may use ports 8081–8083 when another app is running.
 const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS ||
@@ -29,7 +30,7 @@ const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS ||
 app.use(cors({ origin: corsOrigins }));
 app.use(express.json());
 
-connectDB().then(() => startBookingReminderWorker());
+connectDB().then(() => { startNotificationOutboxWorker(); startBookingReminderWorker(); });
 
 app.get("/health", (req, res) => {
   res.status(200).json({

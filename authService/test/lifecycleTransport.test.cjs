@@ -47,4 +47,14 @@ test('local HTTP hub delivers every lifecycle state to both authenticated socket
     assert.deepEqual(received[i].map(row => row.metadata.status), states);
     assert.ok(received[i].every(row => String(row.seekerId || row.providerId) === ids[i]));
   }
+  const interest = { recipientId: ids[0], role: 'Seeker', eventId: 'post:post-42:available:provider-7', title: 'A provider is available', message: 'Provider is ready', type: 'provider_available', metadata: { postId: 'post-42', providerId: 'provider-7' } };
+  for (let retry = 0; retry < 2; retry++) {
+    const response = await fetch(`${origin}/internal/notifications`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-notification-secret': 'test-service-key' }, body: JSON.stringify(interest) });
+    assert.ok(response.ok);
+  }
+  await new Promise(resolve => setTimeout(resolve, 100));
+  const availability = received[0].filter(row => row.type === 'provider_available');
+  assert.equal(availability.length, 1);
+  assert.equal(availability[0].metadata.postId, 'post-42');
+  assert.equal(received[1].filter(row => row.type === 'provider_available').length, 0);
 });

@@ -1,3 +1,4 @@
+import { getBookingPayment, prepareBookingPayment, confirmCustomerPayment } from '../controllers/bookingPaymentController.js';
 import express from "express";
 import {
   getBookingById,
@@ -51,6 +52,9 @@ router.put("/:bookingId/report-delay", protect(["ServiceProvider"]), reportBooki
 router.put("/:bookingId/cancel", protect(["ServiceProvider", "Seeker", "Admin"]), cancelBooking);
 router.put("/:bookingId/complete", protect(["ServiceProvider", "Seeker"]), completeBooking);
 router.post("/seeker/me/rewards/reconcile", protect(["Seeker"]), reconcileCompletedBookingRewards);
+router.get('/:bookingId/payment', protect(['Seeker', 'ServiceProvider']), getBookingPayment);
+router.post('/:bookingId/payment', protect(['Seeker']), prepareBookingPayment);
+router.put('/:bookingId/payment/received', protect(['ServiceProvider']), confirmCustomerPayment);
 router.get("/:bookingId", protect(["ServiceProvider", "Seeker", "Admin"]), getBookingById);
 
 export default router;

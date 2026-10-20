@@ -35,6 +35,17 @@ spec:
             - name: CORS_ALLOWED_ORIGINS
               value: "http://localhost:8081,http://127.0.0.1:8081,http://localhost:8082,http://127.0.0.1:8082,http://localhost:8083,http://127.0.0.1:8083"
 
+            # Shared persistent notification hub (Render), used by both mobile apps.
+            - name: AUTH_SERVICE_URL
+              value: "https://r26-auth-service.onrender.com"
+
+            - name: NOTIFICATION_SERVICE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: coordination-secrets
+                  key: NOTIFICATION_SERVICE_SECRET
+                  optional: true # Keep scheduling running; outbox waits until configured.
+
             # ML service inside Kubernetes
             - name: ML_SERVICE_URL
               value: "http://duration-ml-service:8001"

@@ -842,21 +842,19 @@ export const markBookingOnTheWay = async (req, res) => {
     if (getComparableId(booking.providerId) !== getComparableId(req.user?.id)) {
       return res.status(403).json({ success: false, message: "Only the assigned provider can mark this booking on the way" });
     }
-    if (await expireBookingIfMissed(booking)) {
-      return res.status(409).json({ success: false, message: "This booking expired because it was not started within 45 minutes", currentStatus: "EXPIRED" });
+    if (booking.bookingStatus === "ON_THE_WAY") return res.status(200).json({ success: true, message: "Already marked on the way", data: booking });
+    if (!["CONFIRMED", "RESCHEDULED"].includes(booking.bookingStatus)) {
+      return res.status(400).json({ success: false, message: "Only confirmed or rescheduled bookings can be marked on the way", currentStatus: booking.bookingStatus });
     }
-    if (booking.bookingStatus !== "CONFIRMED") {
-      return res.status(400).json({ success: false, message: "Only confirmed bookings can be marked on the way", currentStatus: booking.bookingStatus });
-    }
-    const windowError = getStartWindowError(booking);
-    if (windowError) return res.status(409).json({ success: false, message: windowError, currentStatus: booking.bookingStatus });
-
-    booking.bookingStatus = "ON_THE_WAY";
-    booking.onTheWayAt = new Date();
-    booking.onTheWayBy = "PROVIDER";
-    booking.timeline.push({ status: "ON_THE_WAY", message: "Provider is on the way", at: new Date() });
-    await booking.save();
-    return res.status(200).json({ success: true, message: "Booking marked on the way", data: booking });
+    // Travel can be reported at any time; only starting work has a scheduled-time gate.
+    const now = new Date();
+    const updated = await Booking.findOneAndUpdate({ _id: booking._id, providerId: booking.providerId, bookingStatus: { $in: ["CONFIRMED", "RESCHEDULED"] }, actualStartTime: null }, {
+      $set: { bookingStatus: "ON_THE_WAY", onTheWayAt: now, onTheWayBy: "PROVIDER" },
+      $push: { timeline: { status: "ON_THE_WAY", message: "Provider is on the way", at: now } },
+    }, { new: true });
+    if (!updated) return res.status(409).json({ success: false, message: "Booking status changed. Refresh before updating travel status." });
+    await notifyBookingLifecycle(updated, "ON_THE_WAY");
+    return res.status(200).json({ success: true, message: "Booking marked on the way", data: updated });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Failed to update travel status", error: error.message });
   }
@@ -1407,7 +1405,8 @@ export const getProviderEarningsSummary = async (req, res) => {
           externalSessionId: b.externalSessionId,
           externalQuotationId: b.externalQuotationId,
           bookingStatus: b.bookingStatus,
-          completedAt: b.updatedAt,
+          completedAt: b.completedAt || b.updatedAt,
+          payment: b.payment || null,
         })),
       },
     });

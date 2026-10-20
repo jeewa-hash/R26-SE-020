@@ -1,3 +1,4 @@
+import ServicePaymentCard from './components/ServicePaymentCard';
 import { AUTH_SERVICE_URL } from '../../config';
 import { attachProviderIdentity, providerDisplayName } from '../../utils/providerIdentity';
 import { useNotification } from '../../context/NotificationContext';
@@ -466,6 +467,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
             {booking.providerId && <TouchableOpacity disabled={openingChat} style={[styles.reviewQuoteButton, isDarkMode && styles.reviewQuoteButtonDark]} onPress={contactProvider}><Text style={[styles.reviewQuoteButtonText, isDarkMode && styles.accentTextDark]}>{openingChat ? 'Opening conversation…' : 'Message Provider'}</Text></TouchableOpacity>}
           </> : null}
         </View>
+        {String(booking?.bookingStatus || '').toUpperCase() === 'COMPLETED' ? <ServicePaymentCard booking={booking} isDarkMode={isDarkMode} onChanged={loadRelatedData} /> : null}
         <SectionCard
           title="Provider requests"
           defaultOpen={!booking || requests.some(row => row.rescheduleRequestedAt && ['pending', 'quoted'].includes(String(row.status).toLowerCase()))}

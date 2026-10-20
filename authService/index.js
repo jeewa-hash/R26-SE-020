@@ -9,6 +9,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.get('/internal/notifications/health', require('./routes/notificationHealth'));
 app.use('/internal/notifications', require('./routes/lifecycleNotifications'));
 app.use('/uploads', express.static('uploads'));
 

@@ -1,12 +1,12 @@
 import axios from "axios";
 
-const SEEKER_SERVICE_BASE_URL =
-  process.env.SEEKER_SERVICE_BASE_URL || "http://localhost:6000"; // Chaw - Added Seeker Service base URL for RequestQuotation lookup
+const seekerServiceBaseUrl = () =>
+  (process.env.SEEKER_SERVICE_URL || process.env.SEEKER_SERVICE_BASE_URL || "http://localhost:6000").replace(/\/+$/, ""); // Chaw - Added Seeker Service base URL for RequestQuotation lookup
 
 export const getRequestQuotationById = async (requestQuotationId) => {
   try {
     const response = await axios.get(
-      `${SEEKER_SERVICE_BASE_URL}/request-quotations/${requestQuotationId}` // Chaw - Fetch RequestQuotation from Seeker Service by ID
+      `${seekerServiceBaseUrl()}/request-quotations/${requestQuotationId}` // Chaw - Fetch RequestQuotation from Seeker Service by ID
     );
 
     return response.data?.request || response.data?.data || response.data; // Chaw - Support different response shapes safely
