@@ -116,3 +116,6 @@ docs/
 !Frontend/CoordinationTestApp/.env.example
 !Frontend/ServiceProviderFrontend/.env.example
 !Frontend/Seeker_Mobile_App/.env.example
+
+# Private local release signing credentials and build output
+.local-build/

@@ -1,6 +1,6 @@
 // components/CustomToastConfig.js
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, PanResponder } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 
@@ -74,6 +74,10 @@ const NOTIFICATION_THEMES = {
 };
 
 const BasePopupToast = ({ text1, text2, props, type = 'info', onPress }) => {
+  const swipe = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, { dx, dy }) => dy < -8 && Math.abs(dy) > Math.abs(dx),
+    onPanResponderRelease: (_, { dy, vy }) => { if (dy < -40 || vy < -0.7) Toast.hide(); },
+  })).current;
   const theme = NOTIFICATION_THEMES[type] || NOTIFICATION_THEMES.info;
   const customBadge = props?.badge || theme.badge;
   const actionText = props?.actionText || 'Tap to view';
@@ -93,6 +97,7 @@ const BasePopupToast = ({ text1, text2, props, type = 'info', onPress }) => {
 
   return (
     <TouchableOpacity
+      {...swipe.panHandlers}
       activeOpacity={0.88}
       onPress={handlePress}
       style={[

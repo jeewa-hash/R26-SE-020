@@ -21,13 +21,21 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "package": "com.workwave.seeker"
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "@react-native-community/datetimepicker"
-    ]
+      "@react-native-community/datetimepicker",
+      "./plugins/withCoordinationHttp"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3c1eedeb-e9bf-4e46-bd13-b8a1a3d51692"
+      }
+    },
+    "owner": "chaveenn"
   }
 }

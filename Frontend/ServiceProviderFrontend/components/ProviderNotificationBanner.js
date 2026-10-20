@@ -1,5 +1,5 @@
-import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useContext, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, PanResponder } from 'react-native';
 import { Portal } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,13 +9,28 @@ import { providerNotificationPresentation } from '../utils/providerNotificationP
 export default function ProviderNotificationBanner({ notification, navigation, onDismiss }) {
   const { isDark } = useContext(ThemeContext);
   const insets = useSafeAreaInsets();
+  const translateY = useRef(new Animated.Value(0)).current;
+  const dismiss = useRef(onDismiss);
+  dismiss.current = onDismiss;
+  useEffect(() => { translateY.setValue(0); }, [notification?._id, translateY]);
+  const swipe = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, { dx, dy }) => dy < -8 && Math.abs(dy) > Math.abs(dx),
+    onPanResponderMove: (_, { dy }) => translateY.setValue(Math.min(0, dy)),
+    onPanResponderRelease: (_, { dy, vy }) => {
+      if (dy < -40 || vy < -0.7) {
+        Animated.timing(translateY, { toValue: -350, duration: 160, useNativeDriver: true })
+          .start(({ finished }) => { if (finished) dismiss.current(); });
+      } else Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start();
+    },
+    onPanResponderTerminate: () => Animated.spring(translateY, { toValue: 0, useNativeDriver: true }).start(),
+  })).current;
   if (!notification) return null;
   const action = providerNotificationPresentation(notification);
   const accent = isDark ? '#86EFAC' : '#166534';
   return (
     <Portal>
       <View pointerEvents="box-none" style={[styles.container, { top: insets.top + 12 }]}>
-        <View accessibilityLiveRegion="polite" style={[styles.card, { backgroundColor: isDark ? '#18251E' : '#FFFFFF', borderColor: isDark ? '#355541' : '#D5E8DB' }]}>
+        <Animated.View {...swipe.panHandlers} accessibilityLiveRegion="polite" style={[styles.card, { transform: [{ translateY }] }, { backgroundColor: isDark ? '#18251E' : '#FFFFFF', borderColor: isDark ? '#355541' : '#D5E8DB' }]}>
           <View style={[styles.icon, { backgroundColor: isDark ? '#254332' : '#EAF6EE' }]}><MaterialIcons name={action.icon} size={23} color={accent} /></View>
           <View style={styles.content}>
             <Text style={[styles.eyebrow, { color: accent }]}>SERVICE UPDATE</Text>
@@ -26,7 +41,7 @@ export default function ProviderNotificationBanner({ notification, navigation, o
             </TouchableOpacity>
           </View>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="Dismiss notification" hitSlop={8} onPress={onDismiss} style={styles.close}><MaterialIcons name="close" size={20} color={isDark ? '#B8CABB' : '#64746A'} /></TouchableOpacity>
-        </View>
+        </Animated.View>
       </View>
     </Portal>
   );

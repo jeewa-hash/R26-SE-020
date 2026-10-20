@@ -17,6 +17,18 @@
     "production": {
       "android": {
         "buildType": "apk"
+      },
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_SEEKER_SERVICE_URL": "https://r26-se-020-production-db02.up.railway.app",
+        "EXPO_PUBLIC_API_BASE_URL": "https://r26-se-020-production-db02.up.railway.app",
+        "EXPO_PUBLIC_AUTH_SERVICE_URL": "https://r26-auth-service.onrender.com",
+        "EXPO_PUBLIC_PROVIDER_SERVICE_URL": "https://r26-se-020-production.up.railway.app",
+        "EXPO_PUBLIC_PROVIDER_SERVICE_API_URL": "https://r26-se-020-production.up.railway.app",
+        "EXPO_PUBLIC_ADMIN_SERVICE_URL": "https://r26-admin-service.onrender.com",
+        "EXPO_PUBLIC_ML_SERVICE_URL": "https://r26-se-020-production-faf9.up.railway.app",
+        "EXPO_PUBLIC_TEXT_MODEL_URL": "https://extraordinary-communication-production-6db2.up.railway.app",
+        "EXPO_PUBLIC_COORDINATION_API_URL": "http://k8s-default-coordina-f35bbe8d02-1683340780.ap-southeast-2.elb.amazonaws.com"
       }
     }
   },

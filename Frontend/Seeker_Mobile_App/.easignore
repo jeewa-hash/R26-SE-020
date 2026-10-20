@@ -1,0 +1,23 @@
+node_modules/
+.expo/
+.git/
+dist/
+web-build/
+android/
+ios/
+*.log
+
+# Keep local secrets and signing material out of cloud source archives.
+.env
+.env.*
+credentials.json
+*.jks
+*.keystore
+**/.env
+**/.env.*
+**/credentials.json
+**/*.jks
+**/*.keystore
+
+.local-build/
+**/.local-build/

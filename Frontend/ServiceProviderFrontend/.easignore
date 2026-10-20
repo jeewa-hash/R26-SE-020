@@ -12,3 +12,18 @@ __tests__/
 *.zip
 *.tar
 *.tar.gz
+
+# Keep local secrets and signing material out of cloud source archives.
+.env
+.env.*
+credentials.json
+*.jks
+*.keystore
+**/.env
+**/.env.*
+**/credentials.json
+**/*.jks
+**/*.keystore
+
+.local-build/
+**/.local-build/
