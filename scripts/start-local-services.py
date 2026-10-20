@@ -17,7 +17,7 @@ logs = root / '.local-build' / 'local-services'
 logs.mkdir(parents=True, exist_ok=True)
 services = [
     ('auth', 'authService', 'index.js', 4003, [4003]),
-    ('seeker', 'Seeker_Service', 'index.js', 6000, [6000, 6001]),
+    ('seeker', 'Seeker_Service', 'index.js', 6001, [6000, 6001]),
     ('provider', 'Provider_Service/Backend', 'index.js', 3002, [3002]),
     ('coordination', 'ServiceCoordinationService', 'src/server.js', 5010, [5010]),
 ]

@@ -1,6 +1,6 @@
 # Local viva setup
 
-This branch runs the coordination flow locally: auth, seeker, provider, coordination, the saved Ridge duration model, and both mobile apps in web browsers. The seeker backend uses **6000**. Admin app/service files and production deployments are unchanged.
+This branch runs the coordination flow locally: auth, seeker, provider, coordination, the saved Ridge duration model, and both mobile apps in web browsers. The seeker backend uses **6001**. Admin app/service files and production deployments are unchanged.
 
 Internet is still needed for the databases already configured in the ignored backend .env files, Google routing, and hosted components such as photo/text diagnosis and provider matching. This does not create an offline database or isolate existing data. Use your own demo accounts and fresh posts; setup does not seed, delete, or reset accounts/jobs/payments.
 
@@ -25,7 +25,7 @@ Use the current IP, not an old address after changing Wi-Fi. The script stops/re
 | Provider app | http://localhost:8082 |
 | Seeker app | http://localhost:8083 |
 | Auth | http://localhost:4003 |
-| Seeker backend | http://localhost:6000 |
+| Seeker backend | http://localhost:6001 |
 | Provider backend | http://localhost:3002 |
 | Coordination | http://localhost:5010 |
 | Ridge model | http://localhost:8001 |
@@ -61,7 +61,7 @@ It checks the real local Mongo connections, shared local configuration, notifica
 
 The latest input/output evidence is saved to `.local-build/viva/last-check.json`. This confirms operational inference, not predictive accuracy. For held-out accuracy and limitations use `ServiceCoordinationService/DurationMLService/reports/presentation/PRESENTATION_EVIDENCE.md`. Ridge predicts task duration; schedule conflict/travel validation is handled separately by coordination.
 
-If a check fails, inspect the corresponding private log under `.local-build/local-services/` without sharing credentials. If quotation validation fails, check that coordination can reach seeker:6000, provider:3002 and model:8001. If a new notification is absent, check the protected notification health/queue results, correct recipient account, and that this provider/post response is new.
+If a check fails, inspect the corresponding private log under `.local-build/local-services/` without sharing credentials. If quotation validation fails, check that coordination can reach seeker:6001, provider:3002 and model:8001. If a new notification is absent, check the protected notification health/queue results, correct recipient account, and that this provider/post response is new.
 
 ## Stop or return to hosted services
 

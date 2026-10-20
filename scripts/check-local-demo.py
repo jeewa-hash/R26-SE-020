@@ -37,7 +37,7 @@ def request(url, payload=None, protected=False):
 
 targets = [
     ('auth', 4003, '/internal/notifications/health'),
-    ('seeker', 6000, '/health/notifications'),
+    ('seeker', 6001, '/health/notifications'),
     ('provider', 3002, '/health/notifications'),
     ('coordination', 5010, '/health/notifications'),
     ('duration-ml', 8001, '/health'),

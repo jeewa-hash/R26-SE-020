@@ -48,19 +48,19 @@ os.chmod(local_keys, 0o600)
 reward_secret = read_env(root / 'Seeker_Service/.env').get('REWARD_SERVICE_KEY') or secrets.token_hex(32)
 common = {'NODE_ENV': 'development', 'AUTH_SERVICE_URL': 'http://127.0.0.1:4003', 'NOTIFICATION_SERVICE_SECRET': notification_secret, 'JWT_SECRET': auth['JWT_SECRET']}
 update_env('authService/.env', {**common, 'PORT': '4003', 'COORDINATION_SERVICE_URL': 'http://127.0.0.1:5010'})
-update_env('Seeker_Service/.env', {**common, 'PORT': '6000', 'PROVIDER_SERVICE_URL': 'http://127.0.0.1:3002', 'SERVICE_COORDINATION_URL': 'http://127.0.0.1:5010', 'REWARD_SERVICE_KEY': reward_secret})
-update_env('Provider_Service/Backend/.env', {**common, 'PORT': '3002', 'SEEKER_SERVICE_URL': 'http://127.0.0.1:6000', 'SEEKER_SERVICE_BASE_URL': 'http://127.0.0.1:6000', 'PROVIDER_SERVICE_BASE_URL': 'http://127.0.0.1:3002', 'COORDINATION_SERVICE_URL': 'http://127.0.0.1:5010'})
-update_env('ServiceCoordinationService/.env', {**common, 'PORT': '5010', 'SEEKER_SERVICE_URL': 'http://127.0.0.1:6000', 'SEEKER_SERVICE_BASE_URL': 'http://127.0.0.1:6000', 'PROVIDER_SERVICE_BASE_URL': 'http://127.0.0.1:3002', 'ML_SERVICE_URL': 'http://127.0.0.1:8001', 'ML_SERVICE_BASE_URL': 'http://127.0.0.1:8001', 'SERVICE_COORDINATION_SERVICE': 'http://127.0.0.1:5010', 'REWARD_SERVICE_KEY': reward_secret})
+update_env('Seeker_Service/.env', {**common, 'PORT': '6001', 'PROVIDER_SERVICE_URL': 'http://127.0.0.1:3002', 'SERVICE_COORDINATION_URL': 'http://127.0.0.1:5010', 'REWARD_SERVICE_KEY': reward_secret})
+update_env('Provider_Service/Backend/.env', {**common, 'PORT': '3002', 'SEEKER_SERVICE_URL': 'http://127.0.0.1:6001', 'SEEKER_SERVICE_BASE_URL': 'http://127.0.0.1:6001', 'PROVIDER_SERVICE_BASE_URL': 'http://127.0.0.1:3002', 'COORDINATION_SERVICE_URL': 'http://127.0.0.1:5010'})
+update_env('ServiceCoordinationService/.env', {**common, 'PORT': '5010', 'SEEKER_SERVICE_URL': 'http://127.0.0.1:6001', 'SEEKER_SERVICE_BASE_URL': 'http://127.0.0.1:6001', 'PROVIDER_SERVICE_BASE_URL': 'http://127.0.0.1:3002', 'ML_SERVICE_URL': 'http://127.0.0.1:8001', 'ML_SERVICE_BASE_URL': 'http://127.0.0.1:8001', 'SERVICE_COORDINATION_SERVICE': 'http://127.0.0.1:5010', 'REWARD_SERVICE_KEY': reward_secret})
 public = {
     'EXPO_PUBLIC_API_HOST': args.host,
     'EXPO_PUBLIC_AUTH_SERVICE_URL': f'http://{args.host}:4003',
-    'EXPO_PUBLIC_SEEKER_SERVICE_URL': f'http://{args.host}:6000',
-    'EXPO_PUBLIC_API_BASE_URL': f'http://{args.host}:6000',
+    'EXPO_PUBLIC_SEEKER_SERVICE_URL': f'http://{args.host}:6001',
+    'EXPO_PUBLIC_API_BASE_URL': f'http://{args.host}:6001',
     'EXPO_PUBLIC_PROVIDER_SERVICE_URL': f'http://{args.host}:3002',
     'EXPO_PUBLIC_PROVIDER_SERVICE_API_URL': f'http://{args.host}:3002',
     'EXPO_PUBLIC_COORDINATION_API_URL': f'http://{args.host}:5010',
 }
 for app in ['Seeker_Mobile_App', 'ServiceProviderFrontend']:
     update_env(f'Frontend/{app}/.env.local', public)
-print(json.dumps({'host': args.host, 'ports': {'auth': 4003, 'seeker': 6000, 'provider': 3002, 'coordination': 5010}, 'notificationSecretsAligned': True, 'productionDefaultsChanged': False}))
+print(json.dumps({'host': args.host, 'ports': {'auth': 4003, 'seeker': 6001, 'provider': 3002, 'coordination': 5010}, 'notificationSecretsAligned': True, 'productionDefaultsChanged': False}))
 print('Restart the four local backends and restart Expo with --clear in each app.')

@@ -75,13 +75,13 @@ These use local sockets and test doubles and do not send production account noti
 
 ## Current environment
 
-This `local-setup` branch is configured for the viva: auth 4003, seeker **6000**, provider 3002, coordination 5010 and Ridge model 8001. Both apps use ignored local overrides with the current laptop LAN address. See [VIVA_LOCAL_SETUP.md](VIVA_LOCAL_SETUP.md) for the one-command launcher, browser URLs, complete presentation walkthrough, readiness checks and return-to-production command.
+This `local-setup` branch is configured for the viva: auth 4003, seeker **6001**, provider 3002, coordination 5010 and Ridge model 8001. Both apps use ignored local overrides with the current laptop LAN address. See [VIVA_LOCAL_SETUP.md](VIVA_LOCAL_SETUP.md) for the one-command launcher, browser URLs, complete presentation walkthrough, readiness checks and return-to-production command.
 
 Production URL defaults and EAS production profiles remain intact. Git branch switching does not reset ignored environment files; run the appropriate environment setup script when switching.
 
 ## Local development
 
-The optional local test setup uses auth `4003`, seeker `6000`, provider `3002`, coordination `5010`, and duration ML `8001`. Running the local setup script creates ignored `.env.local` overrides using the supplied laptop LAN IP; tracked deployed defaults and EAS production profiles remain unchanged.
+The optional local test setup uses auth `4003`, seeker `6001`, provider `3002`, coordination `5010`, and duration ML `8001`. Running the local setup script creates ignored `.env.local` overrides using the supplied laptop LAN IP; tracked deployed defaults and EAS production profiles remain unchanged.
 
 To configure this again (or after a Wi-Fi/IP change), run:
 
@@ -90,7 +90,7 @@ python3 scripts/setup-local-notifications.py --host 192.168.8.101
 python3 scripts/start-local-services.py
 ```
 
-The setup script aligns the local notification/JWT configuration without printing secrets. The start script verifies port owners belong to this checkout before restarting only the four backend services; it also stops the old seeker listener on 6001. Local process IDs and logs are stored under ignored `.local-build/local-services/`. It does not restart or reconfigure the duration model, admin service, or hosted services. Databases remain those already configured in the local `.env` files.
+The setup script aligns the local notification/JWT configuration without printing secrets. The start script verifies port owners belong to this checkout before restarting only the four backend services; it also stops the old seeker listener on 6000. Local process IDs and logs are stored under ignored `.local-build/local-services/`. It does not restart or reconfigure the duration model, admin service, or hosted services. Databases remain those already configured in the local `.env` files.
 
 Restart Expo with `npx expo start --clear` in each app folder and sign out/in so the token comes from local auth. Use a provider response on a new post to verify the seeker receives the foreground banner and persisted inbox entry.
 
