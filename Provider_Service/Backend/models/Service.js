@@ -48,6 +48,14 @@ const serviceSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    aiTags: {
+      type: [String],
+      default: [],
+    },
+    manualTags: {
+      type: [String],
+      default: [],
+    },
     images: {
       type: [String],
       default: [],

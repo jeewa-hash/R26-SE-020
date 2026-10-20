@@ -99,6 +99,8 @@ export const createService = async (req, res) => {
       basePrice = 0,
       priceUnit = "job",
       tags = [],
+      aiTags = [],
+      manualTags = [],
       images = [],
       source = "manual",
       mlDetected = false,
@@ -141,6 +143,8 @@ export const createService = async (req, res) => {
       basePrice: Number(basePrice) || 0,
       priceUnit,
       tags: Array.isArray(tags) ? tags : [],
+      aiTags: Array.isArray(aiTags) ? aiTags : [],
+      manualTags: Array.isArray(manualTags) ? manualTags : [],
       images: Array.isArray(images) ? images : [],
       isActive: true,
       source,
@@ -270,6 +274,8 @@ export const updateService = async (req, res) => {
       basePrice,
       priceUnit,
       tags,
+      aiTags,
+      manualTags,
       images,
       isActive,
       source,
@@ -306,6 +312,8 @@ export const updateService = async (req, res) => {
     if (basePrice !== undefined) service.basePrice = Number(basePrice) || 0;
     if (priceUnit !== undefined) service.priceUnit = priceUnit;
     if (tags !== undefined) service.tags = Array.isArray(tags) ? tags : [];
+    if (aiTags !== undefined) service.aiTags = Array.isArray(aiTags) ? aiTags : [];
+    if (manualTags !== undefined) service.manualTags = Array.isArray(manualTags) ? manualTags : [];
     if (images !== undefined) service.images = Array.isArray(images) ? images : [];
     if (isActive !== undefined) service.isActive = isActive;
     if (source !== undefined) service.source = source;

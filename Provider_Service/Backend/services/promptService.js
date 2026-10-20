@@ -57,4 +57,4 @@ Match this exact shape:
 
 For "sms" and "whatsapp", "hashtags" must be an empty array and "title" may be an empty string.
 `;
-};
+}; 

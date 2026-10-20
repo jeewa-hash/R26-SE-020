@@ -42,6 +42,7 @@ export default function ProfileScreen({ navigation }) {
   } = usePortfolioUpload();
 
   const [profileSkills, setProfileSkills] = useState([]);
+  const [serviceTags, setServiceTags] = useState([]);
   const [showAllSkills, setShowAllSkills] = useState(false);
   const INITIAL_SKILLS_LIMIT = 6;
 
@@ -114,6 +115,30 @@ export default function ProfileScreen({ navigation }) {
     ];
     setProfileSkills(skills);
   }, [portfolioImages]);
+
+  // Service tags are generated/entered on the service record, not verified
+  // by the portfolio ML pipeline. Keep them separate from verified skills.
+  useEffect(() => {
+    let active = true;
+    const loadServiceTags = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        const response = await fetch(`${CONFIG.PROVIDER_SERVICE_URL}/api/provider/services/provider`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json();
+        if (!active || !data?.success || !Array.isArray(data.data)) return;
+        const tags = [...new Set(data.data.flatMap((service) =>
+          Array.isArray(service.tags) ? service.tags : []
+        ).filter(Boolean))];
+        setServiceTags(tags);
+      } catch (error) {
+        console.warn('Could not load service tags:', error.message);
+      }
+    };
+    loadServiceTags();
+    return () => { active = false; };
+  }, []);
 
   const [profile, setProfile] = useState({
     name: 'Loading...',
@@ -287,11 +312,12 @@ export default function ProfileScreen({ navigation }) {
     loadPortfolio();
   };
 
+  const allSkillTags = [...new Set([...profileSkills, ...serviceTags])];
   const displayedSkills = showAllSkills
-    ? profileSkills
-    : profileSkills.slice(0, INITIAL_SKILLS_LIMIT);
+    ? allSkillTags
+    : allSkillTags.slice(0, INITIAL_SKILLS_LIMIT);
 
-  const remainingSkillsCount = Math.max(0, profileSkills.length - INITIAL_SKILLS_LIMIT);
+  const remainingSkillsCount = Math.max(0, allSkillTags.length - INITIAL_SKILLS_LIMIT);
 
   const toggleAvailability = async () => {
     try {
@@ -450,23 +476,27 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: C.text }]}>{t('skills', 'Skills & Expertise')}</Text>
             <Text style={[styles.countBadgeTextSmall, { color: C.textSub }]}>
-              {profileSkills.length} Total Tags
+              {allSkillTags.length} Total Tags
             </Text>
           </View>
 
           <View style={styles.skillsWrap}>
             {displayedSkills.map((tag) => (
               <View key={tag} style={[styles.skillChipAI, {
-                backgroundColor: isDark ? '#0d2820' : '#F0FDF4',
-                borderColor: isDark ? '#145040' : '#A7F3D0',
+                backgroundColor: serviceTags.includes(tag)
+                  ? (isDark ? '#242018' : '#FFF7ED')
+                  : (isDark ? '#0d2820' : '#F0FDF4'),
+                borderColor: serviceTags.includes(tag)
+                  ? (isDark ? '#6B4F1D' : '#FED7AA')
+                  : (isDark ? '#145040' : '#A7F3D0'),
               }]}>
-                <MaterialIcons name="auto-awesome" size={10} color="#16A34A" />
-                <Text style={[styles.skillTextAI, { color: '#16A34A' }]}>{tag}</Text>
+                <MaterialIcons name={serviceTags.includes(tag) ? 'label-outline' : 'auto-awesome'} size={10} color={serviceTags.includes(tag) ? '#C2410C' : '#16A34A'} />
+                <Text style={[styles.skillTextAI, { color: serviceTags.includes(tag) ? '#C2410C' : '#16A34A' }]}>{tag}</Text>
               </View>
             ))}
           </View>
 
-          {profileSkills.length > INITIAL_SKILLS_LIMIT && (
+          {allSkillTags.length > INITIAL_SKILLS_LIMIT && (
             <TouchableOpacity
               style={[styles.seeMoreTagsBtn, { borderColor: C.border, backgroundColor: C.subCard }]}
               onPress={() => setShowAllSkills(!showAllSkills)}
@@ -483,11 +513,12 @@ export default function ProfileScreen({ navigation }) {
             </TouchableOpacity>
           )}
 
-          {profileSkills.length > 0 && (
+          {allSkillTags.length > 0 && (
             <Text style={styles.aiTagNote}>
-              ✨ {profileSkills.length} skills & tags verified by AI ML Engine
+              ✨ Green tags are verified by AI ML; orange tags are service tags and not independently verified
             </Text>
           )}
+
         </View>
 
                 {/* ── Portfolio Section ── */}
@@ -687,6 +718,10 @@ export default function ProfileScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  skillLegendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 10 },
+  skillLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  skillLegendDot: { width: 8, height: 8, borderRadius: 4 },
+  skillLegendText: { fontSize: 11 },
   root: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 },
 
