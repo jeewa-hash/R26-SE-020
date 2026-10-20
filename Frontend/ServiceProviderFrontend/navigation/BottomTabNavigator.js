@@ -208,9 +208,17 @@ export default function BottomTabNavigator() {
 
   useEffect(() => {
     let intervalId = null;
+    let disposed = false;
+    const sessionStartedAt = Date.now();
+    seenNotificationIdsRef.current = new Set();
+    const isLiveNotification = notification => {
+      const createdAt = Date.parse(notification.createdAt);
+      return Number.isFinite(createdAt) && createdAt >= sessionStartedAt;
+    };
 
     const setupRealTimeAndWatchdog = async () => {
       const auth = await getStoredProviderAuth();
+      if (disposed) return;
       const userId = auth.providerId;
       const token = auth.token;
 
@@ -232,14 +240,14 @@ export default function BottomTabNavigator() {
           });
 
           const handleIncomingNotif = (newNotif) => {
-            if (!newNotif || !newNotif._id) return;
+            if (disposed || !newNotif || !newNotif._id) return;
 
             const notifId = newNotif._id.toString();
 
             if (!seenNotificationIdsRef.current.has(notifId)) {
               seenNotificationIdsRef.current.add(notifId);
               setHasUnreadNotifs(true);
-              setActiveAlertBanner(newNotif);
+              if (!newNotif.isRead && isLiveNotification(newNotif)) setActiveAlertBanner(newNotif);
             }
           };
 
@@ -261,7 +269,7 @@ export default function BottomTabNavigator() {
       };
 
       const checkStatusAndNotifications = async () => {
-        if (isLoggingOutRef.current) return;
+        if (disposed || isLoggingOutRef.current) return;
 
         try {
           const currentUserId = userId;
@@ -336,13 +344,15 @@ export default function BottomTabNavigator() {
           }
 
 
+          if (disposed) return;
+          setHasUnreadNotifs(allNotifs.some(n => !n.isRead));
           if (allNotifs.length > 0) {
             const anyUnread = allNotifs.some((n) => !n.isRead);
             setHasUnreadNotifs(anyUnread);
 
             const unreadPriorityNotifs = allNotifs.filter(
               (n) =>
-                !n.isRead &&
+                !n.isRead && isLiveNotification(n) &&
                 (n.type === 'booking' || n.type === 'quote' ||
                   n.type === 'inquiry_rejected' ||
                   n.type === 'inquiry_approved' ||
@@ -351,6 +361,8 @@ export default function BottomTabNavigator() {
                 !seenNotificationIdsRef.current.has(n._id?.toString())
             );
 
+            // Consume every fetched ID, so refreshes never replay the backlog.
+            allNotifs.forEach(n => { if (n._id) seenNotificationIdsRef.current.add(String(n._id)); });
             if (unreadPriorityNotifs.length > 0) {
               const latestNotif = unreadPriorityNotifs[0];
               seenNotificationIdsRef.current.add(latestNotif._id?.toString());
@@ -369,6 +381,7 @@ export default function BottomTabNavigator() {
     setupRealTimeAndWatchdog();
 
     return () => {
+      disposed = true;
       if (intervalId) clearInterval(intervalId);
 
       if (socketRef.current) {

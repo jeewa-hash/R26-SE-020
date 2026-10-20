@@ -27,6 +27,8 @@ export const NotificationProvider = ({ children }) => {
   const read = useRef(new Set());
   const hidden = useRef(new Set());
   const initial = useRef(true);
+  const sessionStartedAt = useRef(Date.now());
+  const isLiveNotification = item => Number.isFinite(Date.parse(item.createdAt)) && Date.parse(item.createdAt) >= sessionStartedAt.current;
   const revision = useRef(0);
   const pending = useRef(null);
   const readNotification = useRef(() => {});
@@ -69,7 +71,7 @@ export const NotificationProvider = ({ children }) => {
       const all = mergeSeekerNotifications(sources.current.auth, sources.current.quotes, read.current, hidden.current);
       for (const item of all) {
         const key = notificationKey(item);
-        if (!seen.current.has(key) && notifyNew && !initial.current && !item.isRead) showPopupNotification({ type: item.type, title: item.title, message: item.message, data: item });
+        if (!seen.current.has(key) && notifyNew && !initial.current && !item.isRead && isLiveNotification(item)) showPopupNotification({ type: item.type, title: item.title, message: item.message, data: item });
         seen.current.add(key);
       }
       if (!failures) initial.current = false;
@@ -92,6 +94,7 @@ export const NotificationProvider = ({ children }) => {
       sources.current = { auth: [], quotes: [] }; seen.current = new Set(); read.current = new Set(); hidden.current = new Set(); initial.current = true;
       setNotifications([]); setSocket(null); setSyncError(null); setInitialLoading(true);
     };
+    sessionStartedAt.current = Date.now();
     reset();
     if (!isReady) return;
     const setup = async () => {
@@ -117,7 +120,7 @@ export const NotificationProvider = ({ children }) => {
         seen.current.add(key);
         sources.current.auth = [item, ...sources.current.auth.filter(row => String(row._id) !== String(item._id))];
         revision.current++; pending.current = null; publish();
-        if (fresh && !item.isRead) showPopupNotification({ type: item.type, title: item.title, message: item.message, data: item });
+        if (fresh && !item.isRead && isLiveNotification(item)) showPopupNotification({ type: item.type, title: item.title, message: item.message, data: item });
         AsyncStorage.setItem(storageKey('seen'), JSON.stringify([...seen.current].slice(-300))).catch(() => {});
         syncNotifications(false);
       });
