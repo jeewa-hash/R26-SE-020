@@ -75,9 +75,9 @@ These use local sockets and test doubles and do not send production account noti
 
 ## Current environment
 
-The workspace is switched back to hosted auth, seeker, provider and coordination endpoints. Both mobile apps' ignored `.env.local` files now select those deployed services, and the seeker backend port is restored to **6000**. Local notification test backends have been stopped. Admin app/configuration is unchanged.
+This `local-setup` branch is configured for the viva: auth 4003, seeker **6000**, provider 3002, coordination 5010 and Ridge model 8001. Both apps use ignored local overrides with the current laptop LAN address. See [VIVA_LOCAL_SETUP.md](VIVA_LOCAL_SETUP.md) for the one-command launcher, browser URLs, complete presentation walkthrough, readiness checks and return-to-production command.
 
-Run `python3 scripts/setup-production-environment.py` to restore these settings after local testing. The duration ML URL in production coordination configuration is the existing in-cluster `http://duration-ml-service:8001`, matching its Kubernetes manifest. This script does not deploy code or change Render/Railway environment dashboards. Restart Metro after switching environments, and sign in against the selected auth service.
+Production URL defaults and EAS production profiles remain intact. Git branch switching does not reset ignored environment files; run the appropriate environment setup script when switching.
 
 ## Local development
 

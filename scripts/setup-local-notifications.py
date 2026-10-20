@@ -37,12 +37,20 @@ def update_env(relative, changes):
 
 auth = read_env(root / 'authService/.env')
 if not auth.get('JWT_SECRET'): raise SystemExit('Configure the local authService JWT_SECRET before testing.')
-notification_secret = auth.get('NOTIFICATION_SERVICE_SECRET') or secrets.token_hex(32)
+# Use a separate local delivery key instead of reusing the production publishing key.
+local_keys = root / '.local-build' / 'local-notifications.env'
+local_keys.parent.mkdir(parents=True, exist_ok=True)
+local = read_env(local_keys)
+notification_secret = local.get('NOTIFICATION_SERVICE_SECRET') or secrets.token_hex(32)
+fd = os.open(local_keys, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+with os.fdopen(fd, 'w') as file: file.write('NOTIFICATION_SERVICE_SECRET=' + notification_secret + '\n')
+os.chmod(local_keys, 0o600)
+reward_secret = read_env(root / 'Seeker_Service/.env').get('REWARD_SERVICE_KEY') or secrets.token_hex(32)
 common = {'NODE_ENV': 'development', 'AUTH_SERVICE_URL': 'http://127.0.0.1:4003', 'NOTIFICATION_SERVICE_SECRET': notification_secret, 'JWT_SECRET': auth['JWT_SECRET']}
 update_env('authService/.env', {**common, 'PORT': '4003', 'COORDINATION_SERVICE_URL': 'http://127.0.0.1:5010'})
-update_env('Seeker_Service/.env', {**common, 'PORT': '6000', 'PROVIDER_SERVICE_URL': 'http://127.0.0.1:3002', 'SERVICE_COORDINATION_URL': 'http://127.0.0.1:5010'})
+update_env('Seeker_Service/.env', {**common, 'PORT': '6000', 'PROVIDER_SERVICE_URL': 'http://127.0.0.1:3002', 'SERVICE_COORDINATION_URL': 'http://127.0.0.1:5010', 'REWARD_SERVICE_KEY': reward_secret})
 update_env('Provider_Service/Backend/.env', {**common, 'PORT': '3002', 'SEEKER_SERVICE_URL': 'http://127.0.0.1:6000', 'SEEKER_SERVICE_BASE_URL': 'http://127.0.0.1:6000', 'PROVIDER_SERVICE_BASE_URL': 'http://127.0.0.1:3002', 'COORDINATION_SERVICE_URL': 'http://127.0.0.1:5010'})
-update_env('ServiceCoordinationService/.env', {**common, 'PORT': '5010', 'SEEKER_SERVICE_URL': 'http://127.0.0.1:6000', 'SEEKER_SERVICE_BASE_URL': 'http://127.0.0.1:6000', 'PROVIDER_SERVICE_BASE_URL': 'http://127.0.0.1:3002', 'ML_SERVICE_URL': 'http://127.0.0.1:8001'})
+update_env('ServiceCoordinationService/.env', {**common, 'PORT': '5010', 'SEEKER_SERVICE_URL': 'http://127.0.0.1:6000', 'SEEKER_SERVICE_BASE_URL': 'http://127.0.0.1:6000', 'PROVIDER_SERVICE_BASE_URL': 'http://127.0.0.1:3002', 'ML_SERVICE_URL': 'http://127.0.0.1:8001', 'ML_SERVICE_BASE_URL': 'http://127.0.0.1:8001', 'SERVICE_COORDINATION_SERVICE': 'http://127.0.0.1:5010', 'REWARD_SERVICE_KEY': reward_secret})
 public = {
     'EXPO_PUBLIC_API_HOST': args.host,
     'EXPO_PUBLIC_AUTH_SERVICE_URL': f'http://{args.host}:4003',
