@@ -1,3 +1,4 @@
+import RescheduleReviewCard from '../../components/RescheduleReviewCard';
 import ServicePaymentCard from '../../components/ServicePaymentCard';
 import { sessionGuidance } from '../../utils/providerSessions';
 import { COLORS } from './theme';
@@ -166,20 +167,15 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
           {Number(booking?.estimatedTravelTimeMins) > 0 ? <Text style={[styles.body, muted]}>Estimated travel: {Math.round(booking.estimatedTravelTimeMins)} minutes{Number(booking?.distanceFromPreviousBookingKm) > 0 ? ` · ${Number(booking.distanceFromPreviousBookingKm).toFixed(1)} km` : ''}</Text> : null}
         </View>
         {status === 'DELAY_REPORTED' ? <View style={card}><Text style={[styles.sectionTitle, text]}>Reported delay</Text><Text style={[styles.body, muted]}>{booking?.delayInfo?.delayReason || 'Additional time needed'}</Text><Text style={[styles.body, text]}>Extra time: {booking?.delayInfo?.additionalDelayMins || booking?.delayInfo?.extraTimeMinutes || 0} minutes</Text>{booking?.delayInfo?.expectedEndTime ? <Text style={[styles.body, text]}>Updated finish: {formatDateTime(new Date(booking.delayInfo.expectedEndTime))}</Text> : null}{booking?.delayInfo?.delayImpactStatus === 'NEXT_BOOKING_AT_RISK' ? <Text style={styles.riskWarning}>This delay may affect your next scheduled job.</Text> : null}</View> : null}
-          {pendingReschedule ? (
-            <View style={styles.delayBox}>
-              <Text style={[styles.title, { color: C.text, fontSize: 16 }]}>Reschedule Review</Text>
-              <Text style={[styles.row, { color: C.muted }]}>{pendingReschedule.note || pendingReschedule.reason || 'A new service time was requested.'}</Text>
-              {(pendingReschedule.suggestedSlots || []).map((slot, index) => (
-                <TouchableOpacity key={`${slot.date}-${slot.startTime}-${index}`} disabled={updating || loading} style={styles.button} onPress={() => acceptSlot(slot)}>
-                  <Text style={styles.buttonText}>Choose {slot.date} {slot.startTime}</Text>
-                </TouchableOpacity>
-              ))}
-              <TouchableOpacity disabled={updating || loading} style={styles.warningButton} onPress={keepBooking}>
-                <Text style={styles.warningButtonText}>{status === 'EXPIRED' ? 'Decline New Time' : 'Keep Current Time'}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
+        {pendingReschedule ? <RescheduleReviewCard
+          request={pendingReschedule}
+          currentStart={start}
+          expired={status === 'EXPIRED'}
+          isDark={isDark}
+          busy={updating || loading}
+          onApprove={acceptSlot}
+          onDecline={keepBooking}
+        /> : null}
 
         {allowed.delay ? <View style={card}>
           <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: showDelayForm }} style={styles.heading} onPress={() => setShowDelayForm(value => !value)}><Ionicons name="time-outline" size={22} color="#15803D" /><Text style={[styles.sectionTitle, text, { flex: 1 }]}>Need more time?</Text><Ionicons name={showDelayForm ? 'chevron-up' : 'chevron-down'} size={20} color={C.muted} /></TouchableOpacity>
