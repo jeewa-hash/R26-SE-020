@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   ScrollView,
@@ -18,11 +18,12 @@ import { ThemeContext } from '../../context/ThemeContext';
 
 export default function PortfolioTagScreen({ images, onClose }) {
   const { isDark } = useContext(ThemeContext) || {};
-  const { saveImages, updateImageTags } = usePortfolio();
+  const { saveImages, updateImageTags, deleteImage, loadPortfolio } = usePortfolio();
+  const [imageList, setImageList] = useState(images || []);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [tagMap, setTagMap] = useState(() => {
     const map = {};
-    images.forEach((img) => {
+    (images || []).forEach((img) => {
       map[img.uri] = Array.isArray(img.tags) ? [...img.tags] : [];
     });
     return map;
@@ -31,18 +32,30 @@ export default function PortfolioTagScreen({ images, onClose }) {
   const [showAddTag, setShowAddTag] = useState(false);
   const [accepting, setAccepting] = useState(false);
 
+  useEffect(() => {
+    setImageList(images || []);
+    setCurrentIndex(0);
+    const map = {};
+    (images || []).forEach((img) => {
+      map[img.uri] = Array.isArray(img.tags) ? [...img.tags] : [];
+    });
+    setTagMap(map);
+  }, [images]);
+
   const C = isDark
     ? { bg: '#0C0F0D', card: '#161C18', text: '#F2F2F7', textSub: '#8E8E93', border: '#303C33', subCard: '#2a2a2a' }
     : { bg: '#F5FAF6', card: '#FFFFFF', text: '#111111', textSub: '#6B7280', border: '#D8E8DC', subCard: '#F1F5F9' };
 
-  if (!images || images.length === 0) return null;
+  if (!imageList || imageList.length === 0) return null;
 
-  const currentImage = images[currentIndex] || images[0];
-  const currentTags = tagMap[currentImage.uri] || currentImage.tags || [];
-  const totalImages = images.length;
-  const isLastImage = currentIndex === totalImages - 1;
+  const totalImages = imageList.length;
+  const safeIndex = Math.min(currentIndex, Math.max(0, totalImages - 1));
+  const currentImage = imageList[safeIndex] || imageList[0];
+  const currentTags = (currentImage && (tagMap[currentImage.uri] || currentImage.tags)) || [];
+  const isLastImage = safeIndex === totalImages - 1;
 
   const updateCurrentTags = (newTags) => {
+    if (!currentImage) return;
     setTagMap((prev) => ({ ...prev, [currentImage.uri]: newTags }));
   };
 
@@ -58,51 +71,103 @@ export default function PortfolioTagScreen({ images, onClose }) {
     }
   };
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     setAccepting(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       setAccepting(false);
       if (!isLastImage) {
-        setCurrentIndex(currentIndex + 1);
+        setCurrentIndex(safeIndex + 1);
         setShowAddTag(false);
       } else {
-        // Save all images with their tags to portfolio
-        saveImages(images, tagMap);
+        // Save all remaining images with their tags to portfolio
+        saveImages(imageList, tagMap);
 
         // Update tags on backend for any image where tags were edited
-        images.forEach((img) => {
+        for (const img of imageList) {
           if (img.id && tagMap[img.uri]) {
-            updateImageTags(img.id, tagMap[img.uri]);
+            await updateImageTags(img.id, tagMap[img.uri]);
           }
-        });
+        }
 
         Alert.alert(
           '✅ Portfolio Saved!',
-          `${images.length} image${images.length > 1 ? 's' : ''} added to your portfolio with AI predictions.`,
+          `${imageList.length} image${imageList.length > 1 ? 's' : ''} added to your portfolio with AI predictions.`,
           [{ text: 'View Gallery', onPress: onClose }]
         );
       }
-    }, 600);
+    }, 500);
   };
 
   const handleReject = () => {
+    const imgToRemove = imageList[safeIndex];
+    if (!imgToRemove) return;
+
     Alert.alert(
       'Remove Photo',
-      'Remove this photo from upload?',
+      'Remove this photo from upload? It will not be saved to your portfolio.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => {
-            if (totalImages === 1) {
-              onClose();
-            } else if (isLastImage) {
-              setCurrentIndex(currentIndex - 1);
+          onPress: async () => {
+            try {
+              // 1. Delete from backend MongoDB so it doesn't persist
+              if (imgToRemove.id) {
+                await deleteImage(imgToRemove.id);
+              }
+
+              // 2. Remove from tagMap
+              setTagMap((prev) => {
+                const next = { ...prev };
+                delete next[imgToRemove.uri];
+                return next;
+              });
+
+              // 3. Remove from local image list
+              const updatedList = imageList.filter((_, idx) => idx !== safeIndex);
+
+              if (updatedList.length === 0) {
+                setImageList([]);
+                await loadPortfolio();
+                onClose();
+              } else {
+                setImageList(updatedList);
+                if (safeIndex >= updatedList.length) {
+                  setCurrentIndex(Math.max(0, updatedList.length - 1));
+                }
+                setShowAddTag(false);
+              }
+            } catch (err) {
+              console.log('Error removing image in tag screen:', err);
             }
-            const newMap = { ...tagMap };
-            delete newMap[currentImage.uri];
-            setTagMap(newMap);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleBackPress = () => {
+    Alert.alert(
+      'Exit Review?',
+      'Are you sure you want to exit? Photos not saved will be removed.',
+      [
+        { text: 'Keep Reviewing', style: 'cancel' },
+        {
+          text: 'Discard & Exit',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              for (const img of imageList) {
+                if (img.id) {
+                  await deleteImage(img.id);
+                }
+              }
+              await loadPortfolio();
+            } catch (err) {
+              console.log('Error cleaning up images on exit:', err);
+            }
+            onClose();
           },
         },
       ]
@@ -113,13 +178,13 @@ export default function PortfolioTagScreen({ images, onClose }) {
   const confColor = confidence >= 80 ? '#16A34A' : confidence >= 55 ? '#F59E0B' : '#DC2626';
 
   return (
-    <Modal visible animationType="slide">
+    <Modal visible animationType="slide" onRequestClose={handleBackPress}>
       <View style={[styles.container, { backgroundColor: C.bg }]}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
         {/* Header */}
         <View style={[styles.header, { backgroundColor: C.card, borderBottomColor: C.border }]}>
-          <TouchableOpacity onPress={onClose} style={styles.backBtn}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.backBtn}>
             <MaterialIcons name="arrow-back" size={22} color={C.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: C.text }]}>AI Prediction Review</Text>
@@ -128,13 +193,13 @@ export default function PortfolioTagScreen({ images, onClose }) {
 
         {/* Progress Dots */}
         <View style={[styles.dotsRow, { backgroundColor: C.card }]}>
-          {images.map((_, i) => (
+          {imageList.map((_, i) => (
             <View
               key={i}
               style={[
                 styles.dot,
-                i === currentIndex && styles.dotActive,
-                i < currentIndex && styles.dotDone,
+                i === safeIndex && styles.dotActive,
+                i < safeIndex && styles.dotDone,
               ]}
             />
           ))}
@@ -237,7 +302,7 @@ export default function PortfolioTagScreen({ images, onClose }) {
 
             {/* Image Counter */}
             <Text style={[styles.counter, { color: C.textSub }]}>
-              Image {currentIndex + 1} of {totalImages}
+              Image {safeIndex + 1} of {totalImages}
             </Text>
 
             {/* Accept Button */}
@@ -255,7 +320,7 @@ export default function PortfolioTagScreen({ images, onClose }) {
                   ? 'Saving...'
                   : isLastImage
                   ? 'Accept & Save to Portfolio'
-                  : `Accept & Next (${currentIndex + 1}/${totalImages})`
+                  : `Accept & Next (${safeIndex + 1}/${totalImages})`
                 }
               </Text>
             </TouchableOpacity>

@@ -25,9 +25,12 @@ const resolveUrl = (raw) => {
 
 export default function PortfolioGalleryScreen({ navigation, route }) {
   const { isDark } = useContext(ThemeContext) || {};
-  const { portfolioImages, portfolioCategories, loadPortfolio, loading } = usePortfolio();
+  const { portfolioImages, portfolioCategories, loadPortfolio, loading, stats } = usePortfolio();
   const [selectedService, setSelectedService] = useState(route?.params?.category || 'All');
   const [refreshing, setRefreshing] = useState(false);
+
+  const aiCount = stats?.aiAnalyzed ?? portfolioImages.filter((img) => img.ai_analyzed || img.isAiAnalyzed).length;
+  const manualCount = stats?.manual ?? (portfolioImages.length - aiCount);
 
   useEffect(() => {
     if (route?.params?.category) {
@@ -71,9 +74,15 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
     return Object.values(groupMap);
   }, [portfolioCategories, portfolioImages]);
 
-  // Filter images by selected service
+  // Filter images by selected service or AI status
   const filteredImages = useMemo(() => {
     if (selectedService === 'All') return portfolioImages;
+    if (selectedService === 'AI_ANALYZED') {
+      return portfolioImages.filter((img) => img.ai_analyzed || img.isAiAnalyzed);
+    }
+    if (selectedService === 'DIRECT_UPLOAD') {
+      return portfolioImages.filter((img) => !img.ai_analyzed && !img.isAiAnalyzed);
+    }
     return portfolioImages.filter(
       (img) => (img.label || img.category || 'General') === selectedService
     );
@@ -159,18 +168,18 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
           <View style={[styles.statsRow, { backgroundColor: C.card, borderColor: C.border }]}>
             <View style={styles.statBox}>
               <Text style={[styles.statValue, { color: C.text }]}>{portfolioImages.length}</Text>
-              <Text style={[styles.statLabel, { color: C.textSub }]}>Saved Photos</Text>
+              <Text style={[styles.statLabel, { color: C.textSub }]}>Total Photos</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: C.divider }]} />
-            <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: '#166534' }]}>{serviceList.length}</Text>
-              <Text style={[styles.statLabel, { color: C.textSub }]}>Services</Text>
-            </View>
+            <TouchableOpacity style={styles.statBox} onPress={() => setSelectedService('AI_ANALYZED')}>
+              <Text style={[styles.statValue, { color: '#15803D' }]}>{aiCount}</Text>
+              <Text style={[styles.statLabel, { color: '#15803D', fontWeight: '600' }]}>✨ AI Verified</Text>
+            </TouchableOpacity>
             <View style={[styles.statDivider, { backgroundColor: C.divider }]} />
-            <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: '#16A34A' }]}>{filteredImages.length}</Text>
-              <Text style={[styles.statLabel, { color: C.textSub }]}>Showing</Text>
-            </View>
+            <TouchableOpacity style={styles.statBox} onPress={() => setSelectedService('DIRECT_UPLOAD')}>
+              <Text style={[styles.statValue, { color: '#3B82F6' }]}>{manualCount}</Text>
+              <Text style={[styles.statLabel, { color: '#3B82F6', fontWeight: '600' }]}>📷 Direct</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Service Filter Pills (horizontal) */}
@@ -194,6 +203,70 @@ export default function PortfolioGalleryScreen({ navigation, route }) {
                 selectedService === 'All' && styles.filterChipTextSelected,
               ]}>
                 All
+              </Text>
+              <Text style={[
+                styles.filterChipCount,
+                { color: selectedService === 'All' ? 'rgba(255,255,255,0.8)' : C.textSub },
+              ]}>
+                {portfolioImages.length}
+              </Text>
+            </TouchableOpacity>
+
+            {/* AI Verified pill */}
+            <TouchableOpacity
+              onPress={() => setSelectedService('AI_ANALYZED')}
+              style={[
+                styles.filterChip,
+                { backgroundColor: C.chipBg, borderColor: C.chipBorder },
+                selectedService === 'AI_ANALYZED' && { backgroundColor: '#15803D', borderColor: '#15803D' },
+              ]}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons
+                name="auto-awesome"
+                size={14}
+                color={selectedService === 'AI_ANALYZED' ? '#FFFFFF' : '#15803D'}
+              />
+              <Text style={[
+                styles.filterChipText, { color: C.text },
+                selectedService === 'AI_ANALYZED' && styles.filterChipTextSelected,
+              ]}>
+                AI Verified
+              </Text>
+              <Text style={[
+                styles.filterChipCount,
+                { color: selectedService === 'AI_ANALYZED' ? 'rgba(255,255,255,0.8)' : C.textSub },
+              ]}>
+                {aiCount}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Direct Upload pill */}
+            <TouchableOpacity
+              onPress={() => setSelectedService('DIRECT_UPLOAD')}
+              style={[
+                styles.filterChip,
+                { backgroundColor: C.chipBg, borderColor: C.chipBorder },
+                selectedService === 'DIRECT_UPLOAD' && { backgroundColor: '#3B82F6', borderColor: '#3B82F6' },
+              ]}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons
+                name="photo-camera"
+                size={14}
+                color={selectedService === 'DIRECT_UPLOAD' ? '#FFFFFF' : '#3B82F6'}
+              />
+              <Text style={[
+                styles.filterChipText, { color: C.text },
+                selectedService === 'DIRECT_UPLOAD' && styles.filterChipTextSelected,
+              ]}>
+                Direct Upload
+              </Text>
+              <Text style={[
+                styles.filterChipCount,
+                { color: selectedService === 'DIRECT_UPLOAD' ? 'rgba(255,255,255,0.8)' : C.textSub },
+              ]}>
+                {manualCount}
               </Text>
             </TouchableOpacity>
 

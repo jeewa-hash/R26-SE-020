@@ -505,3 +505,198 @@ def get_all_providers_with_portfolio():
             "message": "Failed to get all providers",
             "error": str(e)
         }), 500
+
+# ── POST /portfolio/upload-image ──────────────────────────────────────────────
+@portfolio_bp.route("/portfolio/upload-image", methods=["POST"])
+def upload_image():
+    """
+    Header: Authorization: Bearer <token>
+    Form data:
+        images: file or list of files
+        analyze: "true" | "false" (default: "false")
+        service_id: optional ID of the service
+        service_name: optional service title/name
+        category: optional category
+        category_group: optional group
+        tags: optional comma-separated or json string of tags
+    """
+    user, err = get_user_from_request()
+    if err:
+        return err
+
+    user_id = str(user["_id"])
+    if "images" not in request.files:
+        return jsonify({"error": "No images provided.", "success": False}), 400
+
+    files = request.files.getlist("images")
+    if not files or len(files) == 0:
+        return jsonify({"error": "No files found in images field.", "success": False}), 400
+
+    analyze_raw = request.form.get("analyze", "false").lower()
+    analyze = analyze_raw in ["true", "1", "yes"]
+
+    service_id = request.form.get("service_id", "").strip() or None
+    service_name = request.form.get("service_name", "").strip() or None
+    category = request.form.get("category", "").strip() or "home service"
+    category_group = request.form.get("category_group", "").strip() or "other"
+    raw_tags = request.form.get("tags", "")
+    parsed_tags = []
+    if raw_tags:
+        try:
+            import json
+            parsed_tags = json.loads(raw_tags) if raw_tags.startswith("[") else [t.strip() for t in raw_tags.split(",") if t.strip()]
+        except Exception:
+            parsed_tags = [t.strip() for t in raw_tags.split(",") if t.strip()]
+
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    permanent_folder = os.path.join(base_dir, "uploads")
+    temp_folder = os.path.join(base_dir, "temp_uploads")
+    os.makedirs(permanent_folder, exist_ok=True)
+    os.makedirs(temp_folder, exist_ok=True)
+
+    allowed_exts = {".jpg", ".jpeg", ".png", ".webp"}
+    saved_images = []
+    db = get_db()
+
+    if analyze:
+        try:
+            from predictor import ServicePredictor
+            from werkzeug.utils import secure_filename
+            import shutil, time
+
+            predictor = ServicePredictor()
+            saved_temp_paths = []
+            for file in files:
+                ext = os.path.splitext(file.filename)[1].lower()
+                if ext not in allowed_exts:
+                    continue
+                sec_name = secure_filename(file.filename)
+                t_path = os.path.join(temp_folder, f"{int(time.time() * 1000)}_{sec_name}")
+                file.save(t_path)
+                saved_temp_paths.append((t_path, file.filename))
+
+            if not saved_temp_paths:
+                return jsonify({"error": "No valid image formats (.jpg, .jpeg, .png, .webp).", "success": False}), 400
+
+            batch_paths = [p[0] for p in saved_temp_paths]
+            result = predictor.predict_batch(batch_paths)
+            img_results = result.get("images", [])
+
+            for idx, (t_path, orig_name) in enumerate(saved_temp_paths):
+                ext = os.path.splitext(orig_name)[1].lower() or ".jpg"
+                perm_filename = f"portfolio_{user_id}_{int(time.time())}_{idx}{ext}"
+                perm_path = os.path.join(permanent_folder, perm_filename)
+                if os.path.exists(t_path):
+                    shutil.copy2(t_path, perm_path)
+                    try: os.remove(t_path)
+                    except Exception: pass
+
+                rel_url = f"/uploads/{perm_filename}"
+                pred_item = img_results[idx] if idx < len(img_results) else {}
+                rejected = pred_item.get("rejected", False)
+
+                detected_label = pred_item.get("label") or service_name or "Service Work"
+                detected_specific = pred_item.get("specific_label") or detected_label
+                detected_service = pred_item.get("service") or category
+                detected_cat = pred_item.get("category") or category_group
+                detected_conf = float(pred_item.get("confidence", 0))
+                detected_tags = pred_item.get("tags") or parsed_tags
+
+                doc = {
+                    "user_id": user_id,
+                    "service_key": detected_service,
+                    "label": detected_label,
+                    "specific_label": detected_specific,
+                    "category_group": detected_cat,
+                    "confidence": detected_conf,
+                    "clip_confidence": float(pred_item.get("clip_confidence", 0)),
+                    "quality": pred_item.get("quality", {"label": "AI Analyzed", "color": "green"}),
+                    "tags": detected_tags,
+                    "clip_matches": pred_item.get("clip_matches", []),
+                    "image_url": rel_url,
+                    "ai_analyzed": True,
+                    "source": "service" if service_name or service_id else "portfolio",
+                    "service_id": service_id,
+                    "service_name": service_name,
+                    "created_at": datetime.now(timezone.utc),
+                }
+                insert_res = db.portfolio_items.insert_one(doc)
+                doc["_id"] = str(insert_res.inserted_id)
+
+                saved_images.append({
+                    "id": str(insert_res.inserted_id),
+                    "url": rel_url,
+                    "image_url": rel_url,
+                    "uri": rel_url,
+                    "isAiAnalyzed": True,
+                    "ai_analyzed": True,
+                    "confidence": detected_conf,
+                    "label": detected_label,
+                    "specific_label": detected_specific,
+                    "category": detected_cat,
+                    "tags": detected_tags,
+                    "rejected": rejected,
+                })
+
+            return jsonify({
+                "success": True,
+                "message": f"{len(saved_images)} image(s) analyzed and saved successfully",
+                "images": saved_images,
+            }), 200
+
+        except Exception as pred_err:
+            print("[upload-image AI error]", str(pred_err))
+            analyze = False
+
+    if not analyze:
+        import time
+        from werkzeug.utils import secure_filename
+        for idx, file in enumerate(files):
+            ext = os.path.splitext(file.filename)[1].lower()
+            if ext not in allowed_exts:
+                ext = ".jpg"
+            perm_filename = f"portfolio_{user_id}_{int(time.time())}_{idx}{ext}"
+            perm_path = os.path.join(permanent_folder, perm_filename)
+            file.save(perm_path)
+            rel_url = f"/uploads/{perm_filename}"
+
+            doc = {
+                "user_id": user_id,
+                "service_key": category or "other",
+                "label": service_name or "Service Work",
+                "specific_label": service_name or "Manual Upload",
+                "category_group": category_group or "other",
+                "confidence": 0,
+                "clip_confidence": 0,
+                "quality": {"label": "Manual Upload", "color": "blue"},
+                "tags": parsed_tags,
+                "clip_matches": [],
+                "image_url": rel_url,
+                "ai_analyzed": False,
+                "source": "service" if service_name or service_id else "manual",
+                "service_id": service_id,
+                "service_name": service_name,
+                "created_at": datetime.now(timezone.utc),
+            }
+            insert_res = db.portfolio_items.insert_one(doc)
+            doc["_id"] = str(insert_res.inserted_id)
+
+            saved_images.append({
+                "id": str(insert_res.inserted_id),
+                "url": rel_url,
+                "image_url": rel_url,
+                "uri": rel_url,
+                "isAiAnalyzed": False,
+                "ai_analyzed": False,
+                "confidence": 0,
+                "label": service_name or "Service Work",
+                "specific_label": service_name or "Manual Upload",
+                "category": category_group or "other",
+                "tags": parsed_tags,
+            })
+
+        return jsonify({
+            "success": True,
+            "message": f"{len(saved_images)} image(s) uploaded and saved successfully",
+            "images": saved_images,
+        }), 200

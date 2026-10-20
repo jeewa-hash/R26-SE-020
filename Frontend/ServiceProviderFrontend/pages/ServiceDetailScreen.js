@@ -23,6 +23,7 @@ import { usePortfolio } from '../context/PortfolioContext';
 import { CONFIG } from '../config';
 import { Colors } from '../theme';
 import { servicesAPI } from '../services/api';
+import AIProcessingModal from '../components/portfolio/AIProcessingModal';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -89,7 +90,7 @@ const resolveUrl = (raw) => {
 
 export default function ServiceDetailScreen({ navigation, route }) {
   const { isDark } = useContext(ThemeContext) || {};
-  const { portfolioImages } = usePortfolio() || { portfolioImages: [] };
+  const { portfolioImages, loadPortfolio } = usePortfolio() || { portfolioImages: [] };
 
   const rawService = route.params?.service || null;
   const initialName = rawService?.name || rawService?.title || route.params?.serviceName || 'Home Service';
@@ -115,6 +116,9 @@ export default function ServiceDetailScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [togglingActive, setTogglingActive] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageAnalysisMode, setImageAnalysisMode] = useState('ml');
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [aiProgress, setAiProgress] = useState(0);
   const { t, i18n } = useTranslation();
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiLang, setAiLang] = useState(i18n.language || 'en');
@@ -147,7 +151,7 @@ export default function ServiceDetailScreen({ navigation, route }) {
 
   // Fetch full details from database if serviceId exists
   const fetchServiceDetails = useCallback(async () => {
-    if (!serviceId) return;
+    if (!isMongoObjectId(serviceId)) return;
     try {
       const res = await servicesAPI.getServiceById(serviceId);
       if (res.data?.success && res.data?.data) {
@@ -303,7 +307,7 @@ export default function ServiceDetailScreen({ navigation, route }) {
     if (!service) return;
     try {
       setTogglingActive(true);
-      if (service._id) {
+      if (isMongoObjectId(service._id)) {
         await servicesAPI.toggleActive(service._id);
       }
       setService((prev) => ({ ...prev, isActive: !prev.isActive }));
@@ -325,7 +329,7 @@ export default function ServiceDetailScreen({ navigation, route }) {
   };
 
   const handleDelete = () => {
-    if (!service._id) {
+    if (!isMongoObjectId(service._id)) {
       navigation.goBack();
       return;
     }
@@ -351,9 +355,25 @@ export default function ServiceDetailScreen({ navigation, route }) {
     );
   };
 
-  const handlePickImage = async () => {
-    try {
-      Alert.alert('Add Service Photo', 'Choose an option', [
+  const handlePickImage = () => {
+    Alert.alert('Add Service Photo', 'How would you like to process this photo?', [
+      {
+        text: '✨ Analyze with AI Vision',
+        onPress: () => promptMediaSource(true),
+      },
+      {
+        text: '📷 Direct Upload (No AI)',
+        onPress: () => promptMediaSource(false),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const promptMediaSource = (analyzeWithMl) => {
+    Alert.alert(
+      analyzeWithMl ? '✨ AI Analyzer Photo' : '📷 Direct Photo Upload',
+      'Choose image source:',
+      [
         {
           text: 'Take Photo',
           onPress: async () => {
@@ -362,11 +382,10 @@ export default function ServiceDetailScreen({ navigation, route }) {
             const result = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
-              quality: 0.8,
-              base64: true,
+              quality: 0.85,
             });
             if (!result.canceled && result.assets?.[0]) {
-              saveNewImage(result.assets[0]);
+              saveNewImage(result.assets[0], analyzeWithMl);
             }
           },
         },
@@ -378,42 +397,110 @@ export default function ServiceDetailScreen({ navigation, route }) {
             const result = await ImagePicker.launchImageLibraryAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
-              quality: 0.8,
-              base64: true,
+              quality: 0.85,
             });
             if (!result.canceled && result.assets?.[0]) {
-              saveNewImage(result.assets[0]);
+              saveNewImage(result.assets[0], analyzeWithMl);
             }
           },
         },
         { text: 'Cancel', style: 'cancel' },
-      ]);
-    } catch (err) {
-      console.log('Pick image error:', err);
-    }
+      ]
+    );
   };
 
-  const saveNewImage = async (asset) => {
+  const saveNewImage = async (asset, analyzeWithMl = false) => {
     try {
       setUploadingImage(true);
-      const imageUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+      const localUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+
+      if (analyzeWithMl) {
+        setAiProcessing(true);
+        setAiProgress(20);
+      }
+
+      const formData = new FormData();
+      formData.append('images', {
+        uri: asset.uri,
+        name: asset.fileName || 'service_photo.jpg',
+        type: asset.mimeType || 'image/jpeg',
+      });
+      formData.append('analyze', analyzeWithMl ? 'true' : 'false');
+      formData.append('service_id', service._id ? String(service._id) : '');
+      formData.append('service_name', service.name || '');
+      formData.append('category', service.category || '');
+      formData.append('category_group', service.categoryGroup || '');
+      formData.append('tags', JSON.stringify(service.tags || []));
+
+      let savedData = null;
+      try {
+        const uploadRes = await servicesAPI.uploadServiceImage(formData);
+        if (uploadRes?.images && uploadRes.images.length > 0) {
+          savedData = uploadRes.images[0];
+        }
+      } catch (uploadErr) {
+        console.log('Upload image API error in detail screen:', uploadErr.message);
+      }
+
+      const isAi = Boolean(analyzeWithMl && (savedData?.isAiAnalyzed || savedData?.confidence > 0));
+      const newImgItem = {
+        id: savedData?.id || `direct_${Date.now()}_${Math.random()}`,
+        url: savedData?.url || savedData?.image_url || localUri,
+        uri: resolveUrl(savedData?.url || savedData?.image_url || localUri),
+        isAiAnalyzed: isAi,
+        confidence: savedData?.confidence || 0,
+        tags: savedData?.tags || service.tags || [],
+        label: savedData?.label || service.name || 'Service Work',
+        specificLabel: savedData?.specific_label || '',
+        uploadedAt: new Date().toISOString(),
+      };
+
       const currentImages = Array.isArray(service?.images) ? [...service.images] : [];
-      const updatedImages = [imageUri, ...currentImages];
+      const updatedImages = [newImgItem, ...currentImages];
+
+      let updatedTags = service.tags || [];
+      let updatedName = service.name;
+      if (isAi && savedData) {
+        if (Array.isArray(savedData.tags) && savedData.tags.length > 0) {
+          updatedTags = Array.from(new Set([...(service.tags || []), ...savedData.tags]));
+        }
+        if (savedData.specific_label && !service.name.trim()) {
+          updatedName = savedData.specific_label;
+        }
+      }
 
       setService((prev) => ({
         ...prev,
+        name: updatedName,
+        tags: updatedTags,
         images: updatedImages,
-        coverImage: imageUri,
+        coverImage: newImgItem.uri,
       }));
 
-      if (service._id) {
-        await servicesAPI.updateService(service._id, { images: updatedImages });
+      if (isMongoObjectId(service._id)) {
+        await servicesAPI.updateService(service._id, {
+          images: updatedImages,
+          tags: updatedTags,
+          name: updatedName,
+        });
       }
-      Alert.alert('Success', 'Showcase photo added to service gallery.');
+
+      // Also reload portfolio so it immediately displays this newly saved photo
+      if (typeof loadPortfolio === 'function') {
+        loadPortfolio();
+      }
+
+      Alert.alert(
+        isAi ? 'AI Analyzed & Saved ✨' : 'Photo Attached 📷',
+        isAi
+          ? `Work classified as "${savedData?.specific_label || savedData?.label || 'Service'}" (${Math.round(savedData?.confidence || 90)}% confidence). Added to service & portfolio!`
+          : 'Service showcase photo added and saved to your portfolio.'
+      );
     } catch (err) {
-      console.log('Save image error:', err);
-      Alert.alert('Error', 'Failed to attach image to service.');
+      console.log('Save image error:', err.response?.data || err.message);
+      Alert.alert('Error', err.response?.data?.message || err.message || 'Failed to attach image to service.');
     } finally {
+      setAiProcessing(false);
       setUploadingImage(false);
     }
   };
@@ -432,7 +519,7 @@ export default function ServiceDetailScreen({ navigation, route }) {
               images: updatedImages,
               coverImage: updatedImages[0] || getDefaultCover(service.category),
             }));
-            if (service._id) {
+            if (isMongoObjectId(service._id)) {
               await servicesAPI.updateService(service._id, { images: updatedImages });
             }
           } catch (err) {
@@ -454,17 +541,29 @@ export default function ServiceDetailScreen({ navigation, route }) {
   };
 
   // Compile full gallery: Direct images + matching portfolio photos
-  const serviceImages = (service?.images || []).map((uri, idx) => ({
-    id: `direct-${idx}`,
-    uri: resolveUrl(uri),
-    isDirect: true,
-    directIndex: idx,
-    label: service.name,
-    caption: 'Service Showcase Photo',
-  }));
+  const serviceImages = (service?.images || []).map((item, idx) => {
+    const rawUrl = typeof item === 'string' ? item : (item.url || item.image_url || item.uri);
+    const isAi = typeof item === 'object' ? Boolean(item.isAiAnalyzed || item.ai_analyzed || item.confidence > 0) : false;
+    const conf = typeof item === 'object' ? (Number(item.confidence) || 0) : 0;
+    return {
+      id: (typeof item === 'object' && item.id) ? item.id : `direct-${idx}`,
+      uri: resolveUrl(rawUrl),
+      url: rawUrl,
+      isDirect: true,
+      directIndex: idx,
+      isAiAnalyzed: isAi,
+      confidence: conf,
+      label: (typeof item === 'object' && item.label) || service.name,
+      specific_label: (typeof item === 'object' && (item.specificLabel || item.specific_label)) || service.name,
+      caption: isAi ? `✨ AI Verified (${Math.round(conf)}%)` : '📷 Direct Upload',
+      tags: (typeof item === 'object' && item.tags) || service.tags || [],
+    };
+  });
 
   const matchingPortfolioImages = (portfolioImages || [])
     .filter((img) => {
+      const rawUrl = img.image_url || img.uri;
+      if (serviceImages.some((s) => s.url === rawUrl || s.uri === img.uri || s.id === img.id)) return false;
       const sName = (service?.name || '').toLowerCase();
       const sCat = (service?.category || '').toLowerCase();
       const imgLabel = (img.label || '').toLowerCase();
@@ -478,14 +577,20 @@ export default function ServiceDetailScreen({ navigation, route }) {
         (imgSpec && sName.includes(imgSpec))
       );
     })
-    .map((img) => ({
-      id: img.id,
-      uri: resolveUrl(img.uri),
-      isDirect: false,
-      label: img.specific_label || img.label || 'Portfolio Showcase',
-      caption: img.category || 'Verified Portfolio',
-      confidence: img.confidence,
-    }));
+    .map((img) => {
+      const isAi = Boolean(img.ai_analyzed || img.isAiAnalyzed || img.confidence > 0);
+      return {
+        id: img.id,
+        uri: resolveUrl(img.uri),
+        url: img.image_url || img.uri,
+        isDirect: false,
+        isAiAnalyzed: isAi,
+        confidence: img.confidence || 0,
+        label: img.specific_label || img.label || 'Portfolio Showcase',
+        caption: isAi ? `✨ AI Portfolio (${Math.round(img.confidence || 0)}%)` : '📷 Portfolio Upload',
+        tags: img.tags || [],
+      };
+    });
 
   const allGalleryImages = [...serviceImages, ...matchingPortfolioImages];
   const meta = service.meta || getCategoryMeta(service.category, service.categoryGroup);
@@ -745,6 +850,20 @@ export default function ServiceDetailScreen({ navigation, route }) {
                 <Text style={[styles.gallerySubCount, { color: C.textSub }]}>
                   {allGalleryImages.length} visual showcase image{allGalleryImages.length === 1 ? '' : 's'}
                 </Text>
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+                  {[
+                    ['image', 'Image only'],
+                    ['ml', 'Analyze with ML'],
+                  ].map(([value, label]) => (
+                    <TouchableOpacity
+                      key={value}
+                      onPress={() => setImageAnalysisMode(value)}
+                      style={{ paddingHorizontal: 8, paddingVertical: 6, borderRadius: 7, borderWidth: 1, borderColor: imageAnalysisMode === value ? Colors.primary : C.border, backgroundColor: imageAnalysisMode === value ? '#EAF7EE' : C.card }}
+                    >
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: imageAnalysisMode === value ? Colors.primary : C.textSub }}>{label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             </View>
 
@@ -795,6 +914,37 @@ export default function ServiceDetailScreen({ navigation, route }) {
                     }}
                   >
                     <Image source={{ uri: img.uri }} style={styles.galleryThumb} resizeMode="cover" />
+
+                    {/* Status Pill: AI Verified vs Direct Upload */}
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 6,
+                        left: 6,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 2,
+                        backgroundColor: img.isAiAnalyzed
+                          ? 'rgba(21, 128, 61, 0.92)'
+                          : 'rgba(30, 41, 59, 0.88)',
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 6,
+                      }}
+                    >
+                      <MaterialIcons
+                        name={img.isAiAnalyzed ? 'auto-awesome' : 'photo-camera'}
+                        size={10}
+                        color="#FFFFFF"
+                      />
+                      <Text style={{ fontSize: 9, color: '#FFFFFF', fontWeight: '800' }}>
+                        {img.isAiAnalyzed
+                          ? img.confidence > 0
+                            ? `${Math.round(img.confidence)}%`
+                            : 'AI'
+                          : 'Direct'}
+                      </Text>
+                    </View>
 
                     <View style={styles.zoomPill}>
                       <MaterialIcons name="zoom-in" size={16} color="#FFFFFF" />
@@ -896,19 +1046,57 @@ export default function ServiceDetailScreen({ navigation, route }) {
 
             {/* Bottom Caption Bar */}
             <View style={styles.lightboxBottomBar}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  alignSelf: 'flex-start',
+                  backgroundColor: allGalleryImages[selectedImageIndex].isAiAnalyzed
+                    ? 'rgba(21, 128, 61, 0.25)'
+                    : 'rgba(59, 130, 246, 0.25)',
+                  borderColor: allGalleryImages[selectedImageIndex].isAiAnalyzed ? '#15803D' : '#3B82F6',
+                  borderWidth: 1,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 12,
+                  marginBottom: 6,
+                }}
+              >
+                <MaterialIcons
+                  name={allGalleryImages[selectedImageIndex].isAiAnalyzed ? 'auto-awesome' : 'photo-camera'}
+                  size={12}
+                  color={allGalleryImages[selectedImageIndex].isAiAnalyzed ? '#86EFAC' : '#93C5FD'}
+                />
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: allGalleryImages[selectedImageIndex].isAiAnalyzed ? '#86EFAC' : '#93C5FD',
+                  }}
+                >
+                  {allGalleryImages[selectedImageIndex].isAiAnalyzed
+                    ? `AI Verified Analysis (${Math.round(allGalleryImages[selectedImageIndex].confidence || 90)}% Confidence)`
+                    : 'Direct Upload (Not AI Analyzed)'}
+                </Text>
+              </View>
+
               <Text style={styles.lightboxTitle}>
                 {allGalleryImages[selectedImageIndex].label}
               </Text>
               <Text style={styles.lightboxCaption}>
                 {allGalleryImages[selectedImageIndex].caption}
-                {allGalleryImages[selectedImageIndex].confidence
-                  ? ` • ${allGalleryImages[selectedImageIndex].confidence}% match`
-                  : ''}
               </Text>
             </View>
           </View>
         </Modal>
       )}
+      <AIProcessingModal
+        visible={aiProcessing}
+        progress={aiProgress}
+        imageCount={1}
+        onCancel={() => setAiProcessing(false)}
+      />
     </View>
   );
 }

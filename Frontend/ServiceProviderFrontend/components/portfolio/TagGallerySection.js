@@ -52,16 +52,36 @@ export default function TagGallerySection({ tag, images, isNew }) {
               activeOpacity={0.85}
             >
               <Image source={{ uri: img.uri }} style={styles.image} resizeMode="cover" />
+              {/* AI Analysis status badge */}
+              <View
+                style={[
+                  styles.confBadge,
+                  {
+                    backgroundColor:
+                      img.ai_analyzed || img.isAiAnalyzed
+                        ? 'rgba(21, 128, 61, 0.92)'
+                        : 'rgba(30, 41, 59, 0.88)',
+                  },
+                ]}
+              >
+                <MaterialIcons
+                  name={img.ai_analyzed || img.isAiAnalyzed ? 'auto-awesome' : 'photo-camera'}
+                  size={9}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.confBadgeText}>
+                  {img.ai_analyzed || img.isAiAnalyzed
+                    ? img.confidence > 0
+                      ? `${Math.round(img.confidence)}%`
+                      : 'AI'
+                    : 'Direct'}
+                </Text>
+              </View>
               {/* Tag count badge */}
               <View style={styles.tagCountBadge}>
                 <MaterialIcons name="local-offer" size={10} color="#FFFFFF" />
                 <Text style={styles.tagCountText}>{Array.isArray(img.tags) ? img.tags.length : 0}</Text>
               </View>
-              {img.confidence > 0 && (
-                <View style={styles.confBadge}>
-                  <Text style={styles.confBadgeText}>{Math.round(img.confidence)}%</Text>
-                </View>
-              )}
             </TouchableOpacity>
           ))}
         </View>

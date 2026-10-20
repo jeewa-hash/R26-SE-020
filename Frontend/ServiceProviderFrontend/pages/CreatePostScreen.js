@@ -454,7 +454,7 @@ export default function CreatePostScreen({ navigation, route }) {
           Alert.alert(
             'Success',
             isEditMode ? 'Advertisement updated successfully!' : 'Advertisement published successfully!',
-            [{ text: 'OK', onPress: () => navigation.navigate('Profile') }]
+            [{ text: 'OK', onPress: () => navigation.navigate('Main', { screen: 'Profile' }) }]
           );
         } else {
           throw new Error(response.data?.message || 'Failed to save changes');
@@ -462,7 +462,7 @@ export default function CreatePostScreen({ navigation, route }) {
       } else {
         // If targetId is somehow still null, navigate back
         Alert.alert('Saved', 'Your post has been processed.', [
-          { text: 'OK', onPress: () => navigation.navigate('Profile') },
+          { text: 'OK', onPress: () => navigation.navigate('Main', { screen: 'Profile' }) },
         ]);
       }
     } catch (err) {

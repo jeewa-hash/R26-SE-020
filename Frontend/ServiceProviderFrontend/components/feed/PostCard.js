@@ -273,7 +273,15 @@ export default function PostCard({ post, onApply, applying }) {
           </View>
 
           <View style={styles.headerInfo}>
-            <Text style={[styles.customerName, { color: C.text }]}>{posterName}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                const seekerId = post.customerId || post.seekerId || post.userId;
+                if (seekerId) navigation.navigate('SeekerPosts', { seekerId, seekerName: posterName });
+              }}
+              disabled={!(post.customerId || post.seekerId || post.userId)}
+            >
+              <Text style={[styles.customerName, { color: C.text }]}>{posterName}</Text>
+            </TouchableOpacity>
             <View style={styles.locationTime}>
               <MaterialIcons name="location-on" size={12} color={C.textSub} />
               <Text style={[styles.metaText, { color: C.textSub }]} numberOfLines={1}>

@@ -209,11 +209,27 @@ export function usePortfolioUpload() {
         return mapFlaskItemToPortfolio(flaskItem, img);
       });
 
-      // ── Show alert for individually rejected images ────────────────
+      // ── Filter valid vs rejected images ────────────────────────────
       const rejected = enriched.filter(e => !e.passed);
-      if (rejected.length > 0 && rejected.length < enriched.length) {
-        const names = rejected.map(r => `• ${r.fileName ?? 'photo'}: ${r.note}`).join('\n');
-        Alert.alert(`${rejected.length} Photo(s) Not Usable`, names, [{ text: 'OK' }]);
+      const valid = enriched.filter(e => e.passed);
+
+      if (rejected.length > 0) {
+        const names = rejected.map(r => `• ${r.fileName ?? 'photo'}: ${r.note || 'Not related to home services'}`).join('\n');
+        Alert.alert(
+          `${rejected.length} Photo${rejected.length > 1 ? 's' : ''} Not Usable`,
+          `The following photo(s) do not appear to show home services and were removed:\n\n${names}`,
+          [{ text: 'OK' }]
+        );
+      }
+
+      // If all images were rejected, do not open tag screen
+      if (valid.length === 0) {
+        clearProgressTimers();
+        setProgress(0);
+        setProcessing(false);
+        setAiResults([]);
+        setImages([]);
+        return;
       }
 
       // ── portfolio_summary — badge check ───────────────────────────
@@ -229,8 +245,8 @@ export function usePortfolioUpload() {
 
       clearProgressTimers();
       setProgress(100);
-      setAiResults(enriched);
-      setImages(enriched);
+      setAiResults(valid);
+      setImages(valid);
 
       setTimeout(() => {
         if (!cancelledRef.current) {

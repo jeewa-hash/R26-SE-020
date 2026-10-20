@@ -65,6 +65,7 @@ import ServicesListScreen from './pages/ServicesListScreen';
 import ServiceFormScreen from './pages/ServiceFormScreen';
 import ServiceDetailScreen from './pages/ServiceDetailScreen';
 import ProviderAvailabilityScreen from './pages/IT22129376/ProviderAvailabilityScreen';
+import SeekerPostsScreen from './pages/SeekerPostsScreen';
 
 
 const Stack = createStackNavigator();
@@ -250,6 +251,7 @@ function AppContent() {
               options={{ headerShown: false }}
             />
             <Stack.Screen name="ProviderAvailability" component={ProviderAvailabilityScreen} />
+            <Stack.Screen name="SeekerPosts" component={SeekerPostsScreen} options={{ headerShown: true, title: 'Seeker Posts' }} />
 
           </Stack.Navigator>
         </NavigationContainer>

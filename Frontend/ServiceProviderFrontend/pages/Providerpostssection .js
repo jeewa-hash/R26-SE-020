@@ -25,7 +25,7 @@ import { Text } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Colors } from '../theme';
 import { CONFIG, IP_ADDRESS } from '../config';
@@ -177,7 +177,7 @@ function PostCard({ post, onLike, onOptions, onBoost, onOpenDetail, isDark, C, i
             </Text>
           </View>
           <Text style={[styles.likedByNames, { color: C.text }]} numberOfLines={2}>
-            {post.likedBy.join(', ')}
+            {post.likedBy.map((liker) => typeof liker === 'string' ? liker : liker.name).join(', ')}
           </Text>
         </View>
       )}
@@ -349,6 +349,7 @@ function PostHeaderCard({ post, onOptions, onBoost, isDark, C, isBoosting, onPre
 // ── Full Post Detail Modal ────────────────────────────────────────
 
 function PostDetailModal({ visible, post, onClose, onEdit, onDelete, onBoost, onLike, isDark, C, isBoosting, t }) {
+  const navigation = useNavigation();
   if (!post) return null;
   const isBoosted = (post.priority || 0) > 0;
 
@@ -465,14 +466,17 @@ function PostDetailModal({ visible, post, onClose, onEdit, onDelete, onBoost, on
               </View>
 
               <View style={styles.likedByNamesList}>
-                {post.likedBy.map((name, i) => (
-                  <View key={i} style={[styles.likerItem, { backgroundColor: isDark ? '#1C251F' : '#F8FAF9' }]}>
+                {post.likedBy.map((liker, i) => {
+                  const name = typeof liker === 'string' ? liker : liker.name;
+                  const seekerId = typeof liker === 'string' ? null : liker.id;
+                  return (
+                  <TouchableOpacity key={i} disabled={!seekerId} onPress={() => navigation.navigate('SeekerPosts', { seekerId, seekerName: name })} style={[styles.likerItem, { backgroundColor: isDark ? '#1C251F' : '#F8FAF9' }]}>
                     <View style={styles.likerAvatar}>
                       <Text style={styles.likerAvatarText}>{name.charAt(0).toUpperCase()}</Text>
                     </View>
                     <Text style={[styles.likerName, { color: C.text }]}>{name}</Text>
-                  </View>
-                ))}
+                  </TouchableOpacity>
+                ); })}
               </View>
             </View>
           )}
@@ -853,12 +857,12 @@ export default function ProviderPostsSection({ navigation, isDark }) {
           const response = await fetch(
             `${CONFIG.AUTH_SERVICE_URL}/../seeker/user/${id}`
           );
-          if (!response.ok) return 'Unknown user';
+          if (!response.ok) return { id: String(id), name: 'Unknown user' };
           const data = await response.json();
-          return data.name || data.user?.name || 'Unknown user';
+          return { id: String(id), name: data.name || data.user?.name || 'Unknown user' };
         } catch (error) {
           console.log('Error fetching seeker info:', error);
-          return 'Unknown user';
+          return { id: String(id), name: 'Unknown user' };
         }
       })
     );

@@ -93,6 +93,22 @@ export const servicesAPI = {
   toggleActive: (id) => providerApi.patch(`/api/provider/services/${id}/toggle-active`),
   checkAvailability: (name) => providerApi.post('/api/provider/services/check-availability', { name }),
   generateAiDetails: (data) => providerApi.post('/api/provider/services/generate-ai-details', data),
+  uploadServiceImage: async (formData) => {
+    const token =
+      (await AsyncStorage.getItem('userToken')) ||
+      (await AsyncStorage.getItem('token')) ||
+      (await AsyncStorage.getItem('accessToken'));
+    const response = await fetch(`${CONFIG.ML_SERVICE_URL}/portfolio/upload-image`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to upload service image');
+    }
+    return data;
+  },
 };
 
 export default providerApi;

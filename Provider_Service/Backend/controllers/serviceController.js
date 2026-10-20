@@ -29,6 +29,43 @@ const getCategoryMeta = (name, category) => {
   return { icon: "build", color: "#6B7280", categoryGroup: "other" };
 };
 
+const normalizeImages = (imgs, fallbackName = "", fallbackTags = []) => {
+  if (!Array.isArray(imgs)) return [];
+  return imgs
+    .map((item) => {
+      if (!item) return null;
+      if (typeof item === "string") {
+        return {
+          url: item,
+          isAiAnalyzed: false,
+          confidence: 0,
+          tags: Array.isArray(fallbackTags) ? fallbackTags : [],
+          label: fallbackName || "Service Work",
+          specificLabel: fallbackName || "Service Work",
+          uploadedAt: new Date(),
+        };
+      }
+      if (typeof item === "object") {
+        const rawUrl = item.url || item.image_url || item.uri || "";
+        if (!rawUrl) return null;
+        const isAi = Boolean(item.isAiAnalyzed ?? item.ai_analyzed);
+        return {
+          url: rawUrl,
+          isAiAnalyzed: isAi,
+          confidence: Number(item.confidence) || 0,
+          tags: Array.isArray(item.tags) ? item.tags : (Array.isArray(fallbackTags) ? fallbackTags : []),
+          label: item.label || fallbackName || "Service Work",
+          specificLabel: item.specificLabel || item.specific_label || item.label || fallbackName || "Service Work",
+          category: item.category || item.category_group || "",
+          uploadedAt: item.uploadedAt || new Date(),
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+};
+
+
 const checkServiceExists = async (providerId, name, excludeId = null) => {
   const nameLower = name.toLowerCase().trim();
   const query = { providerId, nameLower };
@@ -145,7 +182,7 @@ export const createService = async (req, res) => {
       tags: Array.isArray(tags) ? tags : [],
       aiTags: Array.isArray(aiTags) ? aiTags : [],
       manualTags: Array.isArray(manualTags) ? manualTags : [],
-      images: Array.isArray(images) ? images : [],
+      images: normalizeImages(images, name, tags),
       isActive: true,
       source,
       mlDetected,
@@ -314,7 +351,7 @@ export const updateService = async (req, res) => {
     if (tags !== undefined) service.tags = Array.isArray(tags) ? tags : [];
     if (aiTags !== undefined) service.aiTags = Array.isArray(aiTags) ? aiTags : [];
     if (manualTags !== undefined) service.manualTags = Array.isArray(manualTags) ? manualTags : [];
-    if (images !== undefined) service.images = Array.isArray(images) ? images : [];
+    if (images !== undefined) service.images = normalizeImages(images, service.name, service.tags);
     if (isActive !== undefined) service.isActive = isActive;
     if (source !== undefined) service.source = source;
 

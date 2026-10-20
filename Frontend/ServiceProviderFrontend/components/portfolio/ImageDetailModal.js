@@ -46,6 +46,7 @@ export default function ImageDetailModal({ image, onClose }) {
   if (!image) return null;
 
   const confidence = image.confidence || 0;
+  const isAi = Boolean(image.ai_analyzed || image.isAiAnalyzed || confidence > 0);
   const confColor = confidence >= 80 ? '#16A34A' : confidence >= 55 ? '#F59E0B' : '#DC2626';
 
   return (
@@ -71,19 +72,49 @@ export default function ImageDetailModal({ image, onClose }) {
 
         {/* Tags & Prediction Info Card */}
         <View style={[styles.infoCard, { backgroundColor: C.card }]}>
+          {/* AI vs Manual Status Pill */}
+          <View
+            style={[
+              styles.aiStatusBar,
+              {
+                backgroundColor: isAi ? '#15803D1A' : '#3B82F61A',
+                borderColor: isAi ? '#15803D50' : '#3B82F650',
+              },
+            ]}
+          >
+            <View style={styles.aiStatusLeft}>
+              <MaterialCommunityIcons
+                name={isAi ? 'robot' : 'camera'}
+                size={16}
+                color={isAi ? '#15803D' : '#3B82F6'}
+              />
+              <Text
+                style={[
+                  styles.aiStatusBannerText,
+                  { color: isAi ? '#15803D' : '#3B82F6' },
+                ]}
+              >
+                {isAi ? 'AI Analyzed & Verified' : 'Direct Upload (Not AI Analyzed)'}
+              </Text>
+            </View>
+            {isAi && confidence > 0 ? (
+              <View style={[styles.confPill, { backgroundColor: confColor + '20', borderColor: confColor }]}>
+                <Text style={[styles.confText, { color: confColor }]}>{Math.round(confidence)}% Conf.</Text>
+              </View>
+            ) : (
+              <View style={[styles.confPill, { backgroundColor: '#64748B20', borderColor: '#64748B' }]}>
+                <Text style={[styles.confText, { color: '#64748B' }]}>Manual</Text>
+              </View>
+            )}
+          </View>
+
           <View style={styles.cardHeaderRow}>
             <View style={styles.serviceNameRow}>
-              <MaterialCommunityIcons name="robot" size={16} color="#15803D" />
+              <MaterialIcons name="work-outline" size={16} color={isAi ? '#15803D' : '#3B82F6'} />
               <Text style={[styles.serviceTitle, { color: C.text }]}>
                 {image.label || image.category || 'Portfolio Item'}
               </Text>
             </View>
-
-            {confidence > 0 ? (
-              <View style={[styles.confPill, { backgroundColor: confColor + '20', borderColor: confColor }]}>
-                <Text style={[styles.confText, { color: confColor }]}>{confidence}% Conf.</Text>
-              </View>
-            ) : null}
           </View>
 
           {image.specific_label ? (
@@ -141,6 +172,25 @@ const styles = StyleSheet.create({
   infoCard: {
     borderRadius: 20,
     margin: 16, padding: 16,
+  },
+  aiStatusBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  aiStatusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  aiStatusBannerText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   cardHeaderRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4,

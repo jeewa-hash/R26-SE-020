@@ -20,8 +20,50 @@ import { ThemeContext } from '../context/ThemeContext';
 import { CONFIG } from '../config';
 import { Colors } from '../theme';
 import { servicesAPI } from '../services/api';
+import { usePortfolio } from '../context/PortfolioContext';
+import AIProcessingModal from '../components/portfolio/AIProcessingModal';
 
 const isMongoObjectId = (val) => /^[0-9a-fA-F]{24}$/.test(String(val || ''));
+
+const resolveImageUrl = (raw) => {
+  if (!raw) return null;
+  const str = typeof raw === 'string' ? raw : (raw.url || raw.image_url || raw.uri || '');
+  if (str.startsWith('http://') || str.startsWith('https://') || str.startsWith('file://') || str.startsWith('data:')) {
+    return str;
+  }
+  if (str.startsWith('/uploads/')) return `${CONFIG.ML_SERVICE_URL}${str}`;
+  return str;
+};
+
+const normalizeFormImages = (imgs, fallbackName = '', fallbackTags = []) => {
+  if (!Array.isArray(imgs)) return [];
+  return imgs.map((item, idx) => {
+    if (typeof item === 'string') {
+      return {
+        id: `img_${idx}_${Date.now()}`,
+        url: item,
+        uri: resolveImageUrl(item),
+        isAiAnalyzed: false,
+        confidence: 0,
+        tags: Array.isArray(fallbackTags) ? fallbackTags : [],
+        label: fallbackName || 'Service Work',
+        specificLabel: fallbackName || 'Service Work',
+      };
+    }
+    const rawUrl = item.url || item.image_url || item.uri || '';
+    return {
+      id: item.id || `img_${idx}_${Date.now()}`,
+      url: rawUrl,
+      uri: resolveImageUrl(rawUrl),
+      isAiAnalyzed: Boolean(item.isAiAnalyzed ?? item.ai_analyzed),
+      confidence: Number(item.confidence) || 0,
+      tags: Array.isArray(item.tags) ? item.tags : (Array.isArray(fallbackTags) ? fallbackTags : []),
+      label: item.label || fallbackName || 'Service Work',
+      specificLabel: item.specificLabel || item.specific_label || item.label || fallbackName || 'Service Work',
+      uploadedAt: item.uploadedAt || new Date().toISOString(),
+    };
+  });
+};
 
 const CATEGORY_OPTIONS = [
   { label: 'Plumbing', value: 'plumbing', group: 'plumbing', icon: 'plumbing', color: '#15803D' },
@@ -47,6 +89,7 @@ const PRICE_UNIT_OPTIONS = [
 export default function ServiceFormScreen({ navigation, route }) {
   const { t, i18n } = useTranslation();
   const { isDark } = useContext(ThemeContext);
+  const { portfolioImages = [], deleteImage: deletePortfolioImage } = usePortfolio() || {};
 
   const rawServiceId = route.params?.serviceId;
   const isEditMode = isMongoObjectId(rawServiceId);
@@ -59,7 +102,7 @@ export default function ServiceFormScreen({ navigation, route }) {
     basePrice: routeService?.basePrice ? String(routeService.basePrice) : '',
     priceUnit: routeService?.priceUnit || 'job',
     tags: routeService?.tags || [],
-    images: routeService?.images || [],
+    images: normalizeFormImages(routeService?.images || [], routeService?.name, routeService?.tags),
   });
 
   const [tagInput, setTagInput] = useState('');
@@ -67,6 +110,9 @@ export default function ServiceFormScreen({ navigation, route }) {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiLanguage, setAiLanguage] = useState(i18n.language || 'en');
+  const [imageAnalysisMode, setImageAnalysisMode] = useState('ml');
+  const [aiProcessing, setAiProcessing] = useState(false);
+  const [aiProgress, setAiProgress] = useState(0);
 
   // Category selection & auto-detection state
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
@@ -125,7 +171,7 @@ export default function ServiceFormScreen({ navigation, route }) {
           basePrice: svc.basePrice ? String(svc.basePrice) : '',
           priceUnit: svc.priceUnit || 'job',
           tags: svc.tags || [],
-          images: svc.images || [],
+          images: normalizeFormImages(svc.images || [], svc.name, svc.tags),
         });
         setUserLockedCategory(true);
       } else {
@@ -281,9 +327,33 @@ export default function ServiceFormScreen({ navigation, route }) {
     );
   };
 
-  const handlePickImage = async () => {
-    try {
-      Alert.alert('Add Photo', 'Choose an option', [
+  const handlePickImage = () => {
+    Alert.alert(
+      'Add Service Photo',
+      'Select how you would like to add this photo to your service:',
+      [
+        {
+          text: '✨ Analyze with AI Vision',
+          onPress: () => promptMediaSource(true),
+        },
+        {
+          text: '📷 Direct Upload (No AI)',
+          onPress: () => promptMediaSource(false),
+        },
+        {
+          text: '📂 From My Portfolio',
+          onPress: addPortfolioImages,
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const promptMediaSource = (analyzeWithMl) => {
+    Alert.alert(
+      analyzeWithMl ? '✨ AI Analyzer Photo' : '📷 Direct Photo Upload',
+      'Choose image source:',
+      [
         {
           text: 'Take Photo',
           onPress: async () => {
@@ -292,12 +362,10 @@ export default function ServiceFormScreen({ navigation, route }) {
             const result = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
-              quality: 0.8,
-              base64: true,
+              quality: 0.85,
             });
             if (!result.canceled && result.assets?.[0]) {
-              const uri = result.assets[0].base64 ? `data:image/jpeg;base64,${result.assets[0].base64}` : result.assets[0].uri;
-              updateField('images', [...(form.images || []), uri]);
+              await addServiceImage(result.assets[0], analyzeWithMl);
             }
           },
         },
@@ -309,24 +377,155 @@ export default function ServiceFormScreen({ navigation, route }) {
             const result = await ImagePicker.launchImageLibraryAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
-              quality: 0.8,
-              base64: true,
+              quality: 0.85,
             });
             if (!result.canceled && result.assets?.[0]) {
-              const uri = result.assets[0].base64 ? `data:image/jpeg;base64,${result.assets[0].base64}` : result.assets[0].uri;
-              updateField('images', [...(form.images || []), uri]);
+              await addServiceImage(result.assets[0], analyzeWithMl);
             }
           },
         },
         { text: 'Cancel', style: 'cancel' },
-      ]);
-    } catch (e) {
-      console.log('Pick image error:', e);
+      ]
+    );
+  };
+
+  const addServiceImage = async (asset, analyzeWithMl) => {
+    const localUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+    setAiProcessing(true);
+    setAiProgress(20);
+    const progressTimer = setInterval(() => setAiProgress((value) => Math.min(value + 12, 90)), 300);
+
+    try {
+      const formData = new FormData();
+      formData.append('images', {
+        uri: asset.uri,
+        name: asset.fileName || 'service_photo.jpg',
+        type: asset.mimeType || 'image/jpeg',
+      });
+      formData.append('analyze', analyzeWithMl ? 'true' : 'false');
+      formData.append('service_name', form.name || '');
+      formData.append('category', form.category || '');
+      formData.append('category_group', selectedCategory?.group || '');
+      formData.append('tags', JSON.stringify(form.tags || []));
+
+      let savedData = null;
+      try {
+        const uploadRes = await servicesAPI.uploadServiceImage(formData);
+        if (uploadRes?.images && uploadRes.images.length > 0) {
+          savedData = uploadRes.images[0];
+        }
+      } catch (uploadErr) {
+        console.log('Upload image API error:', uploadErr.message);
+      }
+
+      const isAi = Boolean(analyzeWithMl && (savedData?.isAiAnalyzed || savedData?.confidence > 0));
+      const newImgItem = {
+        id: savedData?.id || `img_${Date.now()}_${Math.random()}`,
+        // The upload endpoint creates a portfolio item immediately. Keep this
+        // flag so removing the image before saving the service can roll that
+        // portfolio item back as well.
+        portfolioPersisted: Boolean(savedData?.id),
+        url: savedData?.url || savedData?.image_url || localUri,
+        uri: resolveImageUrl(savedData?.url || savedData?.image_url || localUri),
+        isAiAnalyzed: isAi,
+        confidence: savedData?.confidence || 0,
+        tags: savedData?.tags || form.tags || [],
+        label: savedData?.label || form.name || 'Service Work',
+        specificLabel: savedData?.specific_label || '',
+        uploadedAt: new Date().toISOString(),
+      };
+
+      if (isAi && savedData) {
+        if (savedData.label && !form.name.trim()) {
+          updateField('name', savedData.label);
+        }
+        if (Array.isArray(savedData.tags) && savedData.tags.length > 0) {
+          updateField('tags', Array.from(new Set([...(form.tags || []), ...savedData.tags])));
+        }
+        setAutoDetectedBadge(savedData.specific_label || savedData.label || 'AI Verified');
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        images: [...(prev.images || []), newImgItem],
+      }));
+
+      Alert.alert(
+        isAi ? 'AI Analyzed & Saved ✨' : 'Photo Added 📷',
+        isAi
+          ? `Work detected as "${savedData?.specific_label || savedData?.label || 'Service'}" (${Math.round(savedData?.confidence || 90)}% confidence). Skills auto-tagged and saved to portfolio!`
+          : 'Service photo added directly and saved to your portfolio.'
+      );
+    } catch (err) {
+      console.log('addServiceImage error:', err);
+      const fallbackItem = {
+        id: `img_${Date.now()}_${Math.random()}`,
+        portfolioPersisted: false,
+        url: localUri,
+        uri: localUri,
+        isAiAnalyzed: analyzeWithMl,
+        confidence: 0,
+        tags: form.tags || [],
+        label: form.name || 'Service Work',
+        uploadedAt: new Date().toISOString(),
+      };
+      setForm((prev) => ({ ...prev, images: [...(prev.images || []), fallbackItem] }));
+    } finally {
+      clearInterval(progressTimer);
+      setAiProgress(100);
+      setTimeout(() => setAiProcessing(false), 300);
     }
   };
 
-  const handleRemoveImage = (index) => {
-    updateField('images', (form.images || []).filter((_, i) => i !== index));
+  const addPortfolioImages = () => {
+    if (!portfolioImages || portfolioImages.length === 0) {
+      Alert.alert('No Portfolio Photos', 'Your portfolio has no uploaded photos yet. Take or choose photos to add.');
+      return;
+    }
+    const currentUrls = new Set(
+      (form.images || []).map((img) => (typeof img === 'string' ? img : img.url || img.uri))
+    );
+    const newItems = portfolioImages
+      .filter((p) => !currentUrls.has(p.image_url) && !currentUrls.has(p.uri))
+      .map((p) => ({
+        id: p.id,
+        url: p.image_url || p.uri,
+        uri: resolveImageUrl(p.uri || p.image_url),
+        isAiAnalyzed: Boolean(p.ai_analyzed || p.isAiAnalyzed || p.confidence > 0),
+        confidence: p.confidence || 0,
+        tags: p.tags || [],
+        label: p.label || form.name || 'Service Work',
+        specificLabel: p.specific_label || '',
+        uploadedAt: p.uploadedAt || new Date().toISOString(),
+      }));
+
+    if (newItems.length === 0) {
+      Alert.alert('Already Added', 'All portfolio photos are already attached to this service.');
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      images: [...(prev.images || []), ...newItems],
+    }));
+    Alert.alert('Success', `Imported ${newItems.length} photo(s) from your portfolio.`);
+  };
+
+  const handleRemoveImage = async (index) => {
+    const removedImage = (form.images || [])[index];
+    setForm((prev) => {
+      return {
+        ...prev,
+        images: (prev.images || []).filter((_, i) => i !== index),
+      };
+    });
+
+    // AI/direct uploads are persisted by /portfolio/upload-image before the
+    // service form is submitted. Delete that portfolio record when the user
+    // removes the image from the analyzer preview.
+    if (removedImage?.portfolioPersisted && removedImage.id && deletePortfolioImage) {
+      await deletePortfolioImage(removedImage.id);
+    }
   };
 
   // AI Gemini Auto-Generation with Multi-Language Support
@@ -440,8 +639,27 @@ export default function ServiceFormScreen({ navigation, route }) {
         categoryGroup: selectedCategory.group,
         basePrice: form.basePrice ? Number(form.basePrice) : 0,
         priceUnit: form.priceUnit,
-        tags: form.tags,
-        images: form.images || [],
+        images: (form.images || []).map((img) => {
+          if (typeof img === 'string') {
+            return {
+              url: img,
+              isAiAnalyzed: false,
+              confidence: 0,
+              tags: form.tags || [],
+              label: form.name.trim(),
+            };
+          }
+          return {
+            url: img.url || img.image_url || img.uri,
+            isAiAnalyzed: Boolean(img.isAiAnalyzed ?? img.ai_analyzed),
+            confidence: Number(img.confidence) || 0,
+            tags: Array.isArray(img.tags) && img.tags.length > 0 ? img.tags : form.tags,
+            label: img.label || form.name.trim(),
+            specificLabel: img.specificLabel || img.specific_label || '',
+            category: img.category || form.category,
+            uploadedAt: img.uploadedAt || new Date().toISOString(),
+          };
+        }),
       };
 
       const response = isEditMode
@@ -933,35 +1151,189 @@ export default function ServiceFormScreen({ navigation, route }) {
           </View>
 
           <Text style={[styles.fieldHint, { color: C.textSub, marginBottom: 12 }]}>
-            Add visual showcase photos or reference images for this service.
+            Upload visual work photos to showcase in this service and sync with your portfolio.
           </Text>
 
-          <View style={styles.formImagesRow}>
-            {(form.images || []).map((imgUri, idx) => (
-              <View key={idx} style={[styles.formThumbWrap, { borderColor: C.border }]}>
-                <Image source={{ uri: imgUri }} style={styles.formThumb} resizeMode="cover" />
-                <TouchableOpacity
-                  style={styles.formRemovePhotoBtn}
-                  onPress={() => handleRemoveImage(idx)}
-                >
-                  <MaterialIcons name="close" size={14} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            ))}
+          {/* AI Mode Selector Banner */}
+          <View
+            style={{
+              flexDirection: 'row',
+              backgroundColor: C.inputBg,
+              borderRadius: 14,
+              padding: 4,
+              borderWidth: 1,
+              borderColor: C.border,
+              marginBottom: 14,
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => setImageAnalysisMode('ml')}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                paddingVertical: 10,
+                borderRadius: 10,
+                backgroundColor: imageAnalysisMode === 'ml' ? '#15803D' : 'transparent',
+              }}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons
+                name="auto-awesome"
+                size={16}
+                color={imageAnalysisMode === 'ml' ? '#FFFFFF' : '#15803D'}
+              />
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: imageAnalysisMode === 'ml' ? '#FFFFFF' : C.text,
+                }}
+              >
+                AI Vision Analyzer
+              </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.formAddPhotoBtn, { borderColor: C.border, backgroundColor: C.inputBg }]}
+              onPress={() => setImageAnalysisMode('image')}
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                paddingVertical: 10,
+                borderRadius: 10,
+                backgroundColor: imageAnalysisMode === 'image' ? (isDark ? '#303C33' : '#3B82F6') : 'transparent',
+              }}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons
+                name="photo-camera"
+                size={16}
+                color={imageAnalysisMode === 'image' ? '#FFFFFF' : C.textSub}
+              />
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: imageAnalysisMode === 'image' ? '#FFFFFF' : C.textSub,
+                }}
+              >
+                Direct Upload
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {portfolioImages.length > 0 && (
+            <TouchableOpacity
+              onPress={addPortfolioImages}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                marginBottom: 14,
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                borderRadius: 10,
+                backgroundColor: isDark ? '#1F2922' : '#F0FDF4',
+                borderWidth: 1,
+                borderColor: isDark ? '#303C33' : '#BBF7D0',
+                alignSelf: 'flex-start',
+              }}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="photo-library" size={16} color="#15803D" />
+              <Text style={{ color: '#15803D', fontSize: 12, fontWeight: '700' }}>
+                Import from Portfolio ({portfolioImages.length} available)
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.formImagesRow}>
+            {(form.images || []).map((imgItem, idx) => {
+              const displayUri = typeof imgItem === 'string' ? resolveImageUrl(imgItem) : (imgItem.uri || resolveImageUrl(imgItem.url));
+              const isAi = typeof imgItem === 'object' ? Boolean(imgItem.isAiAnalyzed || imgItem.ai_analyzed) : false;
+              const conf = typeof imgItem === 'object' ? Math.round(Number(imgItem.confidence) || 0) : 0;
+
+              return (
+                <View key={`${displayUri}-${idx}`} style={[styles.formThumbWrap, { borderColor: C.border }]}>
+                  <Image source={{ uri: displayUri }} style={styles.formThumb} resizeMode="cover" />
+
+                  {/* AI vs Direct status pill on thumbnail */}
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 4,
+                      left: 4,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 2,
+                      backgroundColor: isAi ? 'rgba(21, 128, 61, 0.92)' : 'rgba(30, 41, 59, 0.88)',
+                      paddingHorizontal: 5,
+                      paddingVertical: 2,
+                      borderRadius: 6,
+                    }}
+                  >
+                    <MaterialIcons
+                      name={isAi ? 'auto-awesome' : 'photo-camera'}
+                      size={9}
+                      color="#FFFFFF"
+                    />
+                    <Text style={{ fontSize: 9, color: '#FFFFFF', fontWeight: '800' }}>
+                      {isAi ? (conf > 0 ? `${conf}%` : 'AI') : 'Direct'}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.formRemovePhotoBtn}
+                    onPress={() => handleRemoveImage(idx)}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialIcons name="close" size={14} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+
+            <TouchableOpacity
+              style={[
+                styles.formAddPhotoBtn,
+                {
+                  borderColor: imageAnalysisMode === 'ml' ? '#15803D' : C.border,
+                  backgroundColor: isDark ? '#161C18' : '#F9FCFA',
+                },
+              ]}
               onPress={handlePickImage}
               activeOpacity={0.8}
             >
-              <MaterialIcons name="add-a-photo" size={22} color={Colors.primary} />
-              <Text style={[styles.formAddPhotoText, { color: Colors.primary }]}>{t('addPhoto', 'Add Photo')}</Text>
+              <MaterialIcons
+                name={imageAnalysisMode === 'ml' ? 'add-a-photo' : 'camera-alt'}
+                size={22}
+                color={imageAnalysisMode === 'ml' ? '#15803D' : Colors.primary}
+              />
+              <Text
+                style={[
+                  styles.formAddPhotoText,
+                  { color: imageAnalysisMode === 'ml' ? '#15803D' : Colors.primary },
+                ]}
+              >
+                {imageAnalysisMode === 'ml' ? '+ AI Photo' : '+ Direct Photo'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={{ height: 100 }} />
       </ScrollView>
+      <AIProcessingModal
+        visible={aiProcessing}
+        progress={aiProgress}
+        imageCount={1}
+        onCancel={() => setAiProcessing(false)}
+      />
 
       {/* ── BOTTOM ACTION BAR ── */}
       <View style={[styles.bottomBar, { backgroundColor: C.card, borderTopColor: C.border }]}>

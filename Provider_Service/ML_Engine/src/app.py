@@ -180,6 +180,8 @@ def predict():
 
             rel_url = f"/uploads/{perm_filename}"
             img["image_url"] = rel_url
+            img["ai_analyzed"] = True
+            img["isAiAnalyzed"] = True
 
             docs.append({
                 "user_id": user_id,
@@ -193,6 +195,10 @@ def predict():
                 "tags": img.get("tags", []),
                 "clip_matches": img.get("clip_matches", []),
                 "image_url": rel_url,
+                "ai_analyzed": True,
+                "source": "service" if request.form.get("source") == "service" else "portfolio",
+                "service_id": request.form.get("service_id") or None,
+                "service_name": request.form.get("service_name") or None,
                 "created_at": datetime.now(timezone.utc),
             })
             valid_indices.append(idx)
@@ -226,4 +232,4 @@ def predict():
 # ─── Run ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
