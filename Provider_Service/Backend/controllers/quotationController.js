@@ -96,8 +96,8 @@ export const createQuotation = async (req, res) => {
     const savedTask = (profile.durationTaskProfiles || []).find(matches);
     modelContext.modelInputSources = { serviceCategory: `${request.serviceContext?.source || 'Service request'} · category`, serviceType: canonical ? 'Exact catalogue match from request' : mapped ? 'Service category mapping' : 'Service request', taskName: canonical ? 'Exact catalogue match from request' : 'Service request · outside catalogue if flagged' };
     const declaredExperience = modelContext.yearsExperience;
-    modelContext.yearsExperience = savedTask?.yearsExperience ?? declaredExperience ?? null;
-    modelContext.modelInputSources.yearsExperience = savedTask?.yearsExperience != null ? 'Saved provider task profile' : declaredExperience != null ? 'Provider declared for this task' : 'Missing · training median';
+    modelContext.yearsExperience = savedTask?.yearsExperience ?? declaredExperience ?? profile.yearsExperience ?? null;
+    modelContext.modelInputSources.yearsExperience = savedTask?.yearsExperience != null ? 'Saved provider task profile' : declaredExperience != null ? 'Provider declared for this task' : profile.yearsExperience != null ? 'Provider registration experience' : 'Missing · training median';
     // Platform activity is an observed proxy, not a declaration of outside work.
     modelContext.taskFrequencyPerMonth = history ? historyTask?.completedCount || 0 : null;
     modelContext.modelInputSources.taskFrequencyPerMonth = history ? 'Completed platform bookings · last 30 days (proxy)' : 'History unavailable · training median';

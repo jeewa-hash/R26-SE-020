@@ -28,7 +28,7 @@ const haversineFallback = (prevLat, prevLng, nextLat, nextLng) => {
  * Primary routing provider = Google Routes API.
  * Haversine remains a resilience fallback and is explicitly labelled.
  */
-export async function getRoadDistanceAndTime(prevLat, prevLng, nextLat, nextLng) {
+export async function getRoadDistanceAndTime(prevLat, prevLng, nextLat, nextLng, options = {}) {
   if (
     prevLat == null ||
     prevLng == null ||
@@ -44,7 +44,7 @@ export async function getRoadDistanceAndTime(prevLat, prevLng, nextLat, nextLng)
   }
 
   try {
-    return await getGoogleRoute(prevLat, prevLng, nextLat, nextLng);
+    return await getGoogleRoute(prevLat, prevLng, nextLat, nextLng, options);
   } catch (error) {
     console.error("Google Routes calculation failed:", error.message);
     return haversineFallback(prevLat, prevLng, nextLat, nextLng);

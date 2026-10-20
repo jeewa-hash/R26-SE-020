@@ -35,6 +35,12 @@ exports.register = async (req, res) => {
   try {
     const { email, name, fullName, password, nicNumber, category, district, latitude, longitude, telephone, rawBio, gender, address } = req.body;
 
+    const rawExperience = req.body.yearsExperience;
+    const yearsExperience = rawExperience == null || rawExperience === '' ? null : Number(rawExperience);
+    if (yearsExperience !== null && (!Number.isFinite(yearsExperience) || yearsExperience < 0 || yearsExperience > 80)) {
+      return res.status(400).json({ message: 'Experience must be between 0 and 80 years.' });
+    }
+
     // Force provider role to ServiceProvider
     const forcedRole = 'ServiceProvider';
 
@@ -78,6 +84,7 @@ exports.register = async (req, res) => {
       profileImage,
       telephone,
       category,
+      yearsExperience,
       district,
       bio: rawBio || '',
       gender: gender || undefined,
@@ -129,6 +136,7 @@ exports.register = async (req, res) => {
       gender: user.gender,
       address: user.address,
       isVerified: user.isVerified,
+      yearsExperience: user.yearsExperience,
     };
 
     res.status(201).json({ message: 'User registered successfully', user: userResponse });

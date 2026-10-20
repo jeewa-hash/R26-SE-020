@@ -32,7 +32,11 @@ const QUOTATION_API_URL = `${API_BASE_URL}/request-quotations`;
 
 export default function PostResponsesScreen({ navigation, route }) {
   const { isDarkMode } = useTheme();
-  const { postId, post } = route.params || {};
+  const postId = route.params?.postId || route.params?.post?._id || route.params?.post?.id;
+  const [loadedPost, setLoadedPost] = useState(null);
+  const [postLoadError, setPostLoadError] = useState('');
+  const post = loadedPost && String(loadedPost._id) === String(postId) ? loadedPost : route.params?.post;
+  const postReady = Boolean(loadedPost && String(loadedPost._id) === String(postId));
 
   const [responses, setResponses] = useState([]);
   const [quoteRequests, setQuoteRequests] = useState({});
@@ -85,6 +89,16 @@ export default function PostResponsesScreen({ navigation, route }) {
 
     try {
       setLoading(true);
+      setPostLoadError('');
+
+      // Notification navigation supplies only an ID. Load the saved post instead
+      // of treating missing route data as a General service.
+      const detailResponse = await fetch(`${API_BASE_URL}/posts/${postId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const detail = await detailResponse.json();
+      if (!detailResponse.ok || !detail.success || !detail.post) throw new Error('Unable to load service post.');
+      setLoadedPost(detail.post);
 
       const response = await fetch(
         `${API_BASE_URL}/posts/responses/${postId}`,
@@ -127,6 +141,9 @@ export default function PostResponsesScreen({ navigation, route }) {
         setResponses([]);
       }
     } catch (error) {
+      setPostLoadError('Unable to load the post details. Retry before requesting a quotation.');
+      setLoadedPost(null);
+      setQuoteModalVisible(false);
       console.log('Fetch Responses Error:', error.message);
       setResponses([]);
     } finally {
@@ -282,7 +299,7 @@ export default function PostResponsesScreen({ navigation, route }) {
 
   // ─── REQUEST QUOTATION MODAL ─────────────────────────────
   const handleOpenQuoteModal = (provider) => {
-    if (checkingRequests || isRequested(responseProviderId(provider), quoteSessionId)) return;
+    if (!postReady || checkingRequests || isRequested(responseProviderId(provider), quoteSessionId)) return;
     setSelectedProvider(provider);
     setQuoteNotes(post?.description ? `Regarding: ${post.title}\n${post.description}` : 'I would like to request a quote for my service post.');
     setQuoteLocation(
@@ -340,8 +357,8 @@ export default function PostResponsesScreen({ navigation, route }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.quoteButton, (checkingRequests || isRequested(responseProviderId(item), quoteSessionId)) && { opacity: 0.55 }]}
-            disabled={checkingRequests || isRequested(responseProviderId(item), quoteSessionId)}
+            style={[styles.actionButton, styles.quoteButton, (!postReady || checkingRequests || isRequested(responseProviderId(item), quoteSessionId)) && { opacity: 0.55 }]}
+            disabled={!postReady || checkingRequests || isRequested(responseProviderId(item), quoteSessionId)}
             onPress={() => handleOpenQuoteModal(item)}
             activeOpacity={0.8}
           >
@@ -406,6 +423,14 @@ export default function PostResponsesScreen({ navigation, route }) {
         }
         showsVerticalScrollIndicator={false}
       >
+        {postLoadError ? (
+          <View style={{ padding: 16 }}>
+            <Text style={{ color: isDarkMode ? '#FCA5A5' : '#B91C1C' }}>{postLoadError}</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={fetchResponses} style={{ paddingVertical: 12 }}>
+              <Text style={{ color: isDarkMode ? '#A5B4FC' : '#4338CA' }}>Retry loading post</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         {/* ══════════════════════════════════════════════════════════
             1. POST DETAILS CARD AT THE TOP
            ══════════════════════════════════════════════════════════ */}
@@ -529,7 +554,7 @@ export default function PostResponsesScreen({ navigation, route }) {
 
       {/* REQUEST QUOTATION MODAL */}
       <RequestQuotationModal
-        visible={quoteModalVisible}
+        visible={quoteModalVisible && postReady}
         provider={selectedProvider}
         seekerId={currentUserId}
         sessionData={{
@@ -545,6 +570,8 @@ export default function PostResponsesScreen({ navigation, route }) {
           post?.serviceLocation ||
           quoteLocation
         }
+        defaultSchedule={post?.preferredSchedule}
+        defaultCoordinates={post?.location}
         defaultUrgency={post?.urgencyLevel || post?.urgency || 'Normal'}
         onClose={() => setQuoteModalVisible(false)}
         onAlreadyRequested={() => { markRequested(responseProviderId(selectedProvider), quoteSessionId); setQuoteModalVisible(false); }}

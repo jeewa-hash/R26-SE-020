@@ -41,6 +41,7 @@ const providerSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    yearsExperience: { type: Number, min: 0, max: 80, default: null },
     durationTaskProfiles: [{
       serviceCategory: String, serviceType: String, taskName: String,
       yearsExperience: { type: Number, min: 0 },

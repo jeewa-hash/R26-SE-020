@@ -41,3 +41,25 @@ export async function getSeekerProviderDirectory() {
   }).finally(() => { providerDirectoryRequest = null; });
   return providerDirectoryRequest;
 }
+
+export async function getBookingTimeProposals(bookingId) {
+  const result = await read(`${CONFIG.COORDINATION_SERVICE_URL}/reschedules/booking/${bookingId}`, ['data']);
+  return result.rows;
+}
+export async function actOnBookingTimeProposal(rescheduleId, action, body = {}) {
+  const response = await fetchSeekerWithTimeout(`${CONFIG.COORDINATION_SERVICE_URL}/reschedules/${rescheduleId}/${action}`, {
+    method: action === 'check' ? 'POST' : 'PUT', headers: { ...(await buildAuthHeaders()), 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!response.ok) throw Object.assign(new Error(data.message || 'Unable to update the time request.'), { data });
+  return data.data;
+}
+export async function cancelSeekerBooking(bookingId) {
+  const response = await fetchSeekerWithTimeout(`${CONFIG.COORDINATION_SERVICE_URL}/bookings/${bookingId}/cancel`, {
+    method: 'PUT', headers: { ...(await buildAuthHeaders()), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason: 'Customer cancelled after reviewing an alternative service time.' }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || 'Unable to cancel the booking.');
+  return data.data;
+}

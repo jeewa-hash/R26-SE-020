@@ -33,6 +33,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { COLORS, toneColors } from './theme';
 import { getStoredSeekerAuth } from './services/seekerAuthStorage';
 import {
+  getBookingTimeProposals, actOnBookingTimeProposal, cancelSeekerBooking,
   getSeekerProviderDirectory,
   getProviderQuotationsForSeeker,
   getSeekerBookings,
@@ -71,6 +72,7 @@ const formatDateTime = (value) => {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Asia/Colombo',
   });
 };
 
@@ -216,6 +218,9 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   const [openingChat, setOpeningChat] = useState(false);
   const initialSession = route?.params?.session || {};
   const sessionId = route?.params?.sessionId || initialSession?.sessionId;
+  const [providerTimeProposal, setProviderTimeProposal] = useState(null);
+  const [proposalBusy, setProposalBusy] = useState(false);
+  const [proposalError, setProposalError] = useState('');
   const [timeRequest, setTimeRequest] = useState(null);
   const [session, setSession] = useState(initialSession);
   const [selectedQuoteId, setSelectedQuoteId] = useState(null);
@@ -278,8 +283,42 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
   const requests = Array.isArray(session.requests) ? session.requests : [];
   const quotations = Array.isArray(session.quotations) ? session.quotations : [];
   const booking = session.booking || null;
-  const guidance = seekerSessionGuidance(session);
-  const canReschedule = booking && !booking.pendingRescheduleId && !loadError && ['EXPIRED', 'CONFIRMED', 'RESCHEDULED', 'ON_THE_WAY', 'IN_PROGRESS', 'DELAY_REPORTED', 'RESCHEDULING_REQUIRED'].includes(String(booking.bookingStatus || booking.status).toUpperCase());
+  const bookingIdForProposal = booking?._id || booking?.id;
+  useEffect(() => {
+    let active = true;
+    if (!bookingIdForProposal || !booking?.pendingRescheduleId || ['CANCELLED', 'COMPLETED'].includes(booking?.bookingStatus)) { setProviderTimeProposal(null); return; }
+    getBookingTimeProposals(bookingIdForProposal).then(rows => {
+      if (!active) return;
+      setProviderTimeProposal(rows.find(row => String(row._id) === String(booking.pendingRescheduleId) && row.status === 'PENDING_SEEKER_REVIEW') || null);
+    }).catch(error => { if (active) setProposalError(error.message); });
+    return () => { active = false; };
+  }, [bookingIdForProposal, booking?.pendingRescheduleId, booking?.updatedAt, booking?.bookingStatus, session]);
+  useEffect(() => { setProposalError(''); }, [providerTimeProposal?._id, providerTimeProposal?.updatedAt]);
+  const proposalSlot = () => {
+    const start = new Date(providerTimeProposal.requestedStartTime);
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(start);
+    const value = key => parts.find(part => part.type === key).value;
+    return { date: `${value('year')}-${value('month')}-${value('day')}`, startTime: `${value('hour')}:${value('minute')}` };
+  };
+  const proposalAction = async action => {
+    if (proposalBusy) return;
+    setProposalBusy(true); setProposalError('');
+    try {
+      if (action === 'cancel') { await cancelSeekerBooking(bookingIdForProposal); setProviderTimeProposal(null); }
+      else {
+        await actOnBookingTimeProposal(providerTimeProposal._id, action, { selectedSlot: proposalSlot() });
+        setProviderTimeProposal(null);
+      }
+      await loadRelatedData();
+    } catch (error) { setProposalError(error.message); }
+    finally { setProposalBusy(false); }
+  };
+  const confirmCancelProposal = () => {
+    if (Platform.OS === 'web') { if (window.confirm('Cancel this booking? The appointment will be cancelled under the existing booking rules.')) proposalAction('cancel'); }
+    else Alert.alert('Cancel booking?', 'The appointment will be cancelled.', [{ text: 'Keep booking', style: 'cancel' }, { text: 'Cancel booking', style: 'destructive', onPress: () => proposalAction('cancel') }]);
+  };
+  const guidance = providerTimeProposal ? { title: 'Provider suggested another time', owner: 'You', message: 'Review the suggested time, suggest a different one, or cancel under the booking rules. Your current schedule has not changed.' } : seekerSessionGuidance(session);
+  const canReschedule = booking && (!booking.pendingRescheduleId || Boolean(providerTimeProposal)) && !loadError && ['EXPIRED', 'CONFIRMED', 'RESCHEDULED', 'ON_THE_WAY', 'IN_PROGRESS', 'DELAY_REPORTED', 'RESCHEDULING_REQUIRED'].includes(String(booking.bookingStatus || booking.status).toUpperCase());
   const canSelectQuote = quote => !booking && !loadError && !['REJECTED', 'CANCELLED', 'EXPIRED'].includes(String(quote.status).toUpperCase()) && quote.coordinationId && ['CAN_ACCEPT', 'AVAILABLE_WITH_CAUTION'].includes(quote.coordinationStatus || quote.coordinationDecision);
 
   const sortedQuotes = useMemo(() => {
@@ -327,7 +366,7 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
     try {
       setSubmittingReschedule(true);
       const auth = await getStoredSeekerAuth();
-      await createSeekerRescheduleSuggestion({
+      const reschedulePayload = {
         sessionId,
         quotationId: quote?._id || quote?.id || quote?.externalQuotationId,
         bookingId: booking?._id || booking?.id,
@@ -335,7 +374,10 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
         providerId: booking?.providerId || quote?.providerId,
         requestedStartTime: rescheduleDate.toISOString(),
         note: rescheduleNote.trim(),
-      });
+      };
+      if (providerTimeProposal) await actOnBookingTimeProposal(providerTimeProposal._id, 'proposal', reschedulePayload);
+      else await createSeekerRescheduleSuggestion(reschedulePayload);
+      setProviderTimeProposal(null);
       setRescheduleVisible(false);
       setRescheduleNote('');
       Alert.alert('Suggestion sent', 'The provider must review and confirm the new time. Your booking has not been changed yet.');
@@ -684,7 +726,32 @@ export default function SeekerServiceSessionDetailsScreen({ navigation, route })
           </SectionCard>
         ) : null}
 
-        {canReschedule ? <TouchableOpacity style={styles.rescheduleButton} onPress={() => setRescheduleVisible(true)}>
+        {providerTimeProposal ? <View style={[styles.timeProposalCard, isDarkMode && styles.sectionCardDark]}>
+          <View style={styles.timeProposalHeading}>
+            <View style={[styles.timeProposalIcon, { backgroundColor: isDarkMode ? '#2A2A55' : '#EEF2FF' }]}><Ionicons name="calendar-outline" size={22} color={isDarkMode ? '#A5B4FC' : '#4F46E5'} /></View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[styles.timeProposalTitle, isDarkMode && styles.textDark]}>A new time to review</Text>
+              <Text style={[styles.timeProposalBody, isDarkMode && styles.textMutedDark]}>Suggested by your provider</Text>
+            </View>
+          </View>
+          <View style={[styles.timeProposalSchedule, { backgroundColor: isDarkMode ? '#222C49' : '#F4F6FF' }]}>
+            <Text style={[styles.timeProposalLabel, { color: isDarkMode ? '#A5B4FC' : '#4F46E5' }]}>PROPOSED APPOINTMENT</Text>
+            <Text style={[styles.timeProposalDate, isDarkMode && styles.textDark]}>{new Date(providerTimeProposal.requestedStartTime).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Colombo' })}</Text>
+            <Text style={[styles.timeProposalTime, isDarkMode && styles.textDark]}>{new Date(providerTimeProposal.requestedStartTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Colombo' })}</Text>
+            <Text style={[styles.timeProposalBody, isDarkMode && styles.textMutedDark]}>Sri Lanka time</Text>
+          </View>
+          <Text style={[styles.timeProposalBody, isDarkMode && styles.textMutedDark]}>Your current appointment stays unchanged until you accept. You can also suggest another time or cancel the booking.</Text>
+          <TouchableOpacity accessibilityRole="button" disabled={proposalBusy || Boolean(loadError)} onPress={() => proposalAction('accept')} style={[styles.timeProposalPrimary, (proposalBusy || Boolean(loadError)) && { opacity: 0.5 }]}>
+            {proposalBusy ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="checkmark-outline" size={18} color="#fff" />}
+            <Text style={styles.timeProposalButtonText}>{proposalBusy ? 'Updating…' : 'Accept Suggested Time'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" disabled={proposalBusy || Boolean(loadError)} onPress={() => setRescheduleVisible(true)} style={[styles.timeProposalSecondary, { borderColor: isDarkMode ? '#6674B8' : '#C7D2FE' }, (proposalBusy || Boolean(loadError)) && { opacity: 0.5 }]}>
+            <Text style={[styles.timeProposalButtonText, { color: isDarkMode ? '#B9C3FF' : '#4338CA' }]}>Suggest a Different Time</Text>
+          </TouchableOpacity>
+          {!['EXPIRED', 'CANCELLED', 'COMPLETED'].includes(booking?.bookingStatus) ? <TouchableOpacity accessibilityRole="button" disabled={proposalBusy || Boolean(loadError)} onPress={confirmCancelProposal} style={[styles.timeProposalCancel, (proposalBusy || Boolean(loadError)) && { opacity: 0.5 }]}><Text style={{ color: isDarkMode ? '#FCA5A5' : '#B91C1C', fontSize: 13, fontWeight: '600' }}>Cancel Booking</Text></TouchableOpacity> : <Text style={[styles.timeProposalBody, isDarkMode && styles.textMutedDark]}>An expired booking stays expired until a new time is agreed.</Text>}
+          {proposalError ? <Text accessibilityRole="alert" style={{ color: isDarkMode ? '#FCA5A5' : '#B91C1C', lineHeight: 20 }}>{proposalError}</Text> : null}
+        </View> : null}
+        {canReschedule && !providerTimeProposal ? <TouchableOpacity style={styles.rescheduleButton} onPress={() => setRescheduleVisible(true)}>
           <Ionicons name="calendar-outline" size={19} color="#fff" />
           <Text style={styles.compareButtonText}>{booking?.bookingStatus === 'EXPIRED' ? 'Request a New Time' : 'Suggest a Different Time'}</Text>
         </TouchableOpacity> : null}
@@ -795,6 +862,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  timeProposalCard: { width: '100%', alignSelf: 'stretch', flexDirection: 'column', alignItems: 'stretch', borderWidth: 1, borderColor: COLORS.border, borderRadius: 22, padding: 18, marginBottom: 16, gap: 14, backgroundColor: COLORS.card },
+  timeProposalHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  timeProposalIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  timeProposalTitle: { color: COLORS.text, fontSize: 17, lineHeight: 24, fontWeight: '700' },
+  timeProposalBody: { color: COLORS.muted, fontSize: 13, lineHeight: 20, flexShrink: 1 },
+  timeProposalSchedule: { borderRadius: 15, padding: 16, gap: 6 },
+  timeProposalLabel: { fontSize: 10, lineHeight: 16, letterSpacing: 1, fontWeight: '700' },
+  timeProposalDate: { color: COLORS.text, fontSize: 17, lineHeight: 25, fontWeight: '600' },
+  timeProposalTime: { color: COLORS.text, fontSize: 25, lineHeight: 34, fontWeight: '700' },
+  timeProposalPrimary: { width: '100%', minHeight: 48, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 13, backgroundColor: COLORS.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  timeProposalButtonText: { color: '#fff', fontSize: 14, lineHeight: 20, fontWeight: '600', textAlign: 'center', flexShrink: 1 },
+  timeProposalSecondary: { width: '100%', minHeight: 48, borderWidth: 1, borderRadius: 13, paddingHorizontal: 14, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
+  timeProposalCancel: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingVertical: 10 },
   sectionCard: {
     backgroundColor: COLORS.card,
     borderRadius: 22,

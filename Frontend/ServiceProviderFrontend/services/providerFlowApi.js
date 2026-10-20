@@ -209,11 +209,31 @@ export const getBookingReschedules = async (bookingId) => {
   return normalizeArrayResponse(payload);
 };
 
+export const getRescheduleAlternatives = async rescheduleId => {
+  const payload = await requestFirstSuccess({ urls: COORDINATION_URLS, paths: [`/reschedules/${rescheduleId}/alternatives`],
+    options: { method: 'POST', body: '{}' }, label: 'alternative service times' });
+  return payload?.data || payload;
+};
+export const sendRescheduleProposal = async (rescheduleId, requestedStartTime) => {
+  const payload = await requestFirstSuccess({ urls: COORDINATION_URLS, paths: [`/reschedules/${rescheduleId}/proposal`],
+    options: { method: 'PUT', body: JSON.stringify({ requestedStartTime }) }, label: 'new time suggestion' });
+  return payload?.data || payload;
+};
+
+export const checkBookingReschedule = async (rescheduleId, selectedSlot) => {
+  const payload = await requestFirstSuccess({
+    urls: COORDINATION_URLS, paths: [`/reschedules/${rescheduleId}/check`],
+    options: { method: 'POST', body: JSON.stringify({ selectedSlot: { date: selectedSlot.date, startTime: selectedSlot.startTime } }) },
+    label: 'reschedule availability',
+  });
+  return payload?.data || payload;
+};
+
 export const acceptBookingReschedule = async (rescheduleId, selectedSlot) => {
   const payload = await requestFirstSuccess({
     urls: COORDINATION_URLS,
     paths: [`/reschedules/${rescheduleId}/accept`],
-    options: { method: 'PUT', body: JSON.stringify({ selectedSlot }) },
+    options: { method: 'PUT', body: JSON.stringify({ selectedSlot: { date: selectedSlot.date, startTime: selectedSlot.startTime } }) },
     label: 'reschedule acceptance',
   });
   return payload?.data || payload;

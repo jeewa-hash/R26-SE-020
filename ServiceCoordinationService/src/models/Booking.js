@@ -154,6 +154,8 @@ const bookingSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    rescheduleValidation: { type: mongoose.Schema.Types.Mixed, default: null },
+    modelEvidence: { type: mongoose.Schema.Types.Mixed, default: null },
     predictedDurationHours: { type: Number, default: null },
     predictedDurationMins: { type: Number, default: null },
     mlPredictedDurationHours: { type: Number, default: null }, // legacy alias

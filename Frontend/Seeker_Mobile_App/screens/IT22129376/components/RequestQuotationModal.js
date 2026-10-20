@@ -53,6 +53,8 @@ export default function RequestQuotationModal({
   diagnosisData = {},
   defaultLocation = "",
   defaultUrgency = "Normal",
+  defaultSchedule,
+  defaultCoordinates,
   initialDescription = "",
   onClose,
   onSuccess,
@@ -92,18 +94,29 @@ export default function RequestQuotationModal({
     [provider]
   );
 
+  const scheduleDate = defaultSchedule?.date;
+  const scheduleStart = defaultSchedule?.startTime;
+  const latitude = defaultCoordinates?.lat;
+  const longitude = defaultCoordinates?.lng;
   useEffect(() => {
     if (!visible) return;
-    const date = new Date();
+    const candidate = scheduleDate ? new Date(`${scheduleDate}T12:00:00`) : new Date();
+    const date = Number.isNaN(candidate.getTime()) ? new Date() : candidate;
     setPreferredDate(date);
-    setStartTime(atHour(date, 9));
+    const start = atHour(date, 9);
+    if (/^([01]\d|2[0-3]):[0-5]\d$/.test(scheduleStart || '')) {
+      const [hours, minutes] = scheduleStart.split(':').map(Number);
+      start.setHours(hours, minutes, 0, 0);
+    }
+    setStartTime(start);
     setBudget("");
     setLocation(typeof defaultLocation === "string" ? defaultLocation : "");
-    setCoordinates(null);
+    setCoordinates(Number.isFinite(latitude) && Number.isFinite(longitude)
+      ? { latitude, longitude } : null);
     setShowMap(false);
     setUrgency(normalizeUrgency(defaultUrgency));
     setPicker(null);
-  }, [visible, defaultLocation, defaultUrgency, initialDescription]);
+  }, [visible, defaultLocation, defaultUrgency, initialDescription, scheduleDate, scheduleStart, latitude, longitude]);
 
   const handlePickerChange = (event, value) => {
     if (Platform.OS === "android") setPicker(null);

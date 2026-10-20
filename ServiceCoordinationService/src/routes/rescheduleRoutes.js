@@ -1,6 +1,8 @@
+import { getRescheduleAlternatives, sendRescheduleProposal } from '../controllers/rescheduleProposalController.js';
 import express from "express";
 import {
   createRescheduleRequest,
+  checkRescheduleAvailability,
   acceptRescheduleSlot,
   rejectRescheduleRequest,
   getReschedulesByBooking,
@@ -8,6 +10,8 @@ import {
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+router.post("/:rescheduleId/alternatives", protect(["ServiceProvider"]), getRescheduleAlternatives);
+router.put("/:rescheduleId/proposal", protect(["ServiceProvider", "Seeker"]), sendRescheduleProposal);
 
 router.post(
   "/bookings/:bookingId/reschedule",
@@ -15,9 +19,11 @@ router.post(
   createRescheduleRequest
 );
 
+router.post("/:rescheduleId/check", protect(["ServiceProvider", "Seeker"]), checkRescheduleAvailability);
+
 router.put(
   "/:rescheduleId/accept",
-  protect(["ServiceProvider"]),
+  protect(["ServiceProvider", "Seeker"]),
   acceptRescheduleSlot
 );
 

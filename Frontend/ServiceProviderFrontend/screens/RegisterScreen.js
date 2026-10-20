@@ -28,6 +28,7 @@ export default function RegisterScreen({ navigation }) {
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [category, setCategory] = useState('');
+  const [yearsExperience, setYearsExperience] = useState('');
   const [district, setDistrict] = useState(DISTRICTS[0]);
   const [gender, setGender] = useState('Male');
   const [address, setAddress] = useState('');
@@ -209,6 +210,10 @@ export default function RegisterScreen({ navigation }) {
   };
 
   const handleRegister = async () => {
+    if (yearsExperience.trim() === '' || !Number.isFinite(Number(yearsExperience)) || Number(yearsExperience) < 0 || Number(yearsExperience) > 80) {
+      Alert.alert('Invalid experience', 'Enter experience between 0 and 80 years (use 0 if starting out).');
+      return;
+    }
     if (!name || !email || !password || !confirmPassword || !nicNumber || !telephone || !category || !district || !gender || !address || !rawBio) {
       Alert.alert('Error', 'Please fill in all text fields, including your skill description');
       return;
@@ -240,6 +245,7 @@ export default function RegisterScreen({ navigation }) {
     formData.append('telephone', `${countryCode} ${telephone}`);
     formData.append('role', 'ServiceProvider');
     formData.append('category', category);
+    formData.append('yearsExperience', yearsExperience);
     formData.append('district', district);
     formData.append('gender', gender);
     formData.append('address', address);
@@ -391,6 +397,9 @@ export default function RegisterScreen({ navigation }) {
         />
       </View>
 
+      <Text style={styles.label}>Experience (years)</Text>
+      <TextInput style={styles.input} value={yearsExperience} onChangeText={setYearsExperience}
+        keyboardType="decimal-pad" placeholder="e.g. 5 (0 if starting out)" />
       <Text style={styles.label}>Category</Text>
       <View style={styles.pickerContainer}>
         {categoriesLoading ? (

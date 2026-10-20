@@ -1,3 +1,5 @@
+import { predictRescheduleDuration } from '../services/rescheduleDurationService.js';
+import BidScheduleEvaluation from '../models/BidScheduleEvaluation.js';
 import { validateRescheduleTime } from '../services/rescheduleValidationService.js';
 import { toScheduleParts } from '../utils/timeUtils.js';
 import { publishLifecycleNotification } from '../utils/lifecycleNotifications.js';
@@ -89,7 +91,7 @@ export const createRescheduleRequest = async (req, res) => {
     }
     const existingPending = await RescheduleRequest.findOne({
       bookingId,
-      status: { $in: ["PENDING", "PENDING_PROVIDER_REVIEW"] },
+      status: { $in: ["PENDING", "PENDING_PROVIDER_REVIEW", "PENDING_SEEKER_REVIEW"] },
     });
 
     if (existingPending) {
@@ -100,10 +102,11 @@ export const createRescheduleRequest = async (req, res) => {
       });
     }
 
+    const durationEvaluation = await predictRescheduleDuration(booking);
     const suggestedSlots = requestedStartTime ? [] : await suggestRescheduleSlots({
       providerId: booking.providerId,
       currentDate: booking.scheduledDate,
-      estimatedDurationHours: booking.mlPredictedDurationHours || booking.estimatedDurationHours,
+      estimatedDurationHours: durationEvaluation.durationHours,
       booking,
     });
 
@@ -113,7 +116,7 @@ export const createRescheduleRequest = async (req, res) => {
       if (Number.isNaN(start.getTime()) || start <= new Date()) {
         return res.status(400).json({ success: false, message: "requestedStartTime must be a valid future date and time" });
       }
-      const durationHours = Number(booking.mlPredictedDurationHours || booking.estimatedDurationHours);
+      const durationHours = durationEvaluation.durationHours;
       if (!(durationHours > 0)) return res.status(409).json({ message: "A valid service duration is needed before rescheduling." });
       const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
       const date = toScheduleParts(start).date;
@@ -188,6 +191,36 @@ export const createRescheduleRequest = async (req, res) => {
   }
 };
 
+// Preview is read-only. Confirmation reruns the same model and route checks.
+export const checkRescheduleAvailability = async (req, res) => {
+  try {
+    const request = await RescheduleRequest.findById(req.params.rescheduleId);
+    if (!request) return res.status(404).json({ message: 'Reschedule request not found' });
+    if (!['PENDING', 'PENDING_PROVIDER_REVIEW', 'PENDING_SEEKER_REVIEW'].includes(request.status)) return res.status(409).json({ message: 'This request is no longer pending.' });
+    const booking = await Booking.findById(request.bookingId);
+    if (!booking) return res.status(404).json({ message: 'Related booking not found' });
+    const reviewingSeeker = request.status === 'PENDING_SEEKER_REVIEW';
+    if (req.user.role !== (reviewingSeeker ? 'Seeker' : 'ServiceProvider') || String(reviewingSeeker ? booking.seekerId : booking.providerId) !== String(req.user.id)) return res.status(403).json({ message: 'Only the recipient can check this proposal.' });
+    if (['COMPLETED', 'CANCELLED', 'IN_PROGRESS', 'DELAY_REPORTED'].includes(booking.bookingStatus)) return res.status(409).json({ message: 'This booking can no longer be rescheduled.' });
+    const slot = req.body.selectedSlot;
+    if (!slot?.date || !slot?.startTime) return res.status(400).json({ message: 'Choose the proposed date and start time.' });
+    const start = new Date(`${slot.date}T${slot.startTime}:00+05:30`);
+    if (!Number.isFinite(+start) || start <= new Date()) return res.status(400).json({ message: 'Choose a future start time.' });
+    if (request.requestedStartTime && +new Date(request.requestedStartTime) !== +start) return res.status(409).json({ message: 'Check the time proposed by the customer.' });
+    const duration = await predictRescheduleDuration(booking);
+    const end = new Date(+start + duration.durationHours * 3600000);
+    const bufferedEnd = new Date(+end + 15 * 60000);
+    const validation = await validateRescheduleTime({ booking, startTime: start, durationHours: duration.durationHours });
+    return res.status(200).json({ success: true, data: {
+      validation,
+      modelEvidence: { ...duration.evidence, requiredWindowStart: start, requiredWindowEnd: bufferedEnd },
+      selectedSlot: { date: slot.date, startTime: slot.startTime, endTime: toScheduleParts(end).time },
+    } });
+  } catch (error) {
+    return res.status(503).json({ message: 'Unable to check availability. Retry before confirming.', error: error.message });
+  }
+};
+
 export const acceptRescheduleSlot = async (req, res) => {
   try {
     const { rescheduleId } = req.params;
@@ -196,12 +229,11 @@ export const acceptRescheduleSlot = async (req, res) => {
     if (
       !selectedSlot ||
       !selectedSlot.date ||
-      !selectedSlot.startTime ||
-      !selectedSlot.endTime
+      !selectedSlot.startTime
     ) {
       return res.status(400).json({
         success: false,
-        message: "selectedSlot with date, startTime and endTime is required",
+        message: "selectedSlot with date and startTime is required",
       });
     }
 
@@ -214,7 +246,7 @@ export const acceptRescheduleSlot = async (req, res) => {
       });
     }
 
-    if (!["PENDING", "PENDING_PROVIDER_REVIEW"].includes(rescheduleRequest.status)) {
+    if (!["PENDING", "PENDING_PROVIDER_REVIEW", "PENDING_SEEKER_REVIEW"].includes(rescheduleRequest.status)) {
       return res.status(400).json({
         success: false,
         message: "Only pending reschedule requests can be accepted",
@@ -238,13 +270,13 @@ export const acceptRescheduleSlot = async (req, res) => {
       });
     }
 
-    if (String(booking.providerId) !== String(req.user.id)) {
-      return res.status(403).json({ success: false, message: "Only the assigned provider can review a reschedule request" });
+    const seekerApproval = rescheduleRequest.status === 'PENDING_SEEKER_REVIEW';
+    if (req.user.role !== (seekerApproval ? 'Seeker' : 'ServiceProvider') || String(seekerApproval ? booking.seekerId : booking.providerId) !== String(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'Only the recipient can accept this proposal.' });
     }
 
-    const durationHours = Number(booking.mlPredictedDurationHours) > 0
-      ? Number(booking.mlPredictedDurationHours)
-      : Number(booking.estimatedDurationHours);
+    const durationEvaluation = await predictRescheduleDuration(booking);
+    const durationHours = durationEvaluation.durationHours;
     if (!(durationHours > 0)) {
       return res.status(409).json({ success: false, message: "A valid service duration is required before rescheduling" });
     }
@@ -252,7 +284,7 @@ export const acceptRescheduleSlot = async (req, res) => {
     if (Number.isNaN(selectedStart.getTime()) || selectedStart <= new Date()) {
       return res.status(400).json({ success: false, message: "Selected slot date and start time are invalid" });
     }
-    if (rescheduleRequest.requestedStartTime && +new Date(rescheduleRequest.requestedStartTime) !== +selectedStart) return res.status(409).json({ message: 'Approve the time proposed by the customer. A different time needs a new request.' });
+    if (rescheduleRequest.requestedStartTime && +new Date(rescheduleRequest.requestedStartTime) !== +selectedStart) return res.status(409).json({ message: 'Accept the proposed time. A different time must be sent as a new suggestion.' });
     const selectedEnd = new Date(selectedStart.getTime() + durationHours * 60 * 60 * 1000);
     const validationEnd = new Date(selectedEnd.getTime() + 15 * 60 * 1000);
     if (['COMPLETED', 'CANCELLED', 'IN_PROGRESS', 'DELAY_REPORTED'].includes(booking.bookingStatus)) return res.status(409).json({ message: 'This booking can no longer use this reschedule request.' });
@@ -268,6 +300,19 @@ export const acceptRescheduleSlot = async (req, res) => {
       return res.status(409).json({ success: false, code: 'RESCHEDULE_TIME_UNAVAILABLE', message: validation.message, validation, suggestedSlots: alternatives });
     }
 
+    const evidence = { ...durationEvaluation.evidence, requiredWindowStart: selectedStart, requiredWindowEnd: validationEnd };
+    const durationFields = {
+      predictedDurationMins: evidence.predictedDurationMins, predictedDurationHours: durationHours,
+      mlPredictedDurationMins: evidence.predictedDurationMins, mlPredictedDurationHours: durationHours,
+      estimatedDurationHours: durationHours, durationPredictionSource: evidence.source,
+      durationModelVersion: evidence.modelVersion, modelEvidence: evidence,
+      rescheduleValidation: { checkedAt: new Date(), ...validation },
+    };
+    const latestProposal = await RescheduleRequest.findById(rescheduleRequest._id);
+    if (!latestProposal || latestProposal.status !== rescheduleRequest.status ||
+        (latestProposal.requestedStartTime && +new Date(latestProposal.requestedStartTime) !== +selectedStart)) {
+      return res.status(409).json({ message: 'The proposed time changed while checking. Refresh and review it again.' });
+    }
     const originalStart = booking.scheduledStartTime;
     const originalPendingId = booking.pendingRescheduleId;
     booking.acceptedRescheduleRequests.push(rescheduleRequest._id);
@@ -276,7 +321,9 @@ export const acceptRescheduleSlot = async (req, res) => {
     booking.startTime = validatedSlot.startTime;
     booking.endTime = validatedSlot.endTime;
     booking.scheduledStartTime = selectedStart;
-    booking.scheduledEndTime = selectedEnd;
+    booking.scheduledEndTime = validationEnd;
+    booking.endTime = toScheduleParts(validationEnd).time;
+    Object.assign(booking, durationFields);
     booking.pendingRescheduleId = null;
     booking.bookingStatus = "RESCHEDULED";
     booking.expiredAt = null;
@@ -284,7 +331,7 @@ export const acceptRescheduleSlot = async (req, res) => {
     booking.providerReadyConfirmed = false;
     booking.providerReadyConfirmedAt = null;
     booking.onTheWayAt = null;
-    booking.timeline.push({ status: 'RESCHEDULED', message: `Provider approved the new service time. Previous appointment: ${rescheduleRequest.currentSchedule.date} ${rescheduleRequest.currentSchedule.startTime}.`, at: new Date() });
+    booking.timeline.push({ status: 'RESCHEDULED', message: `${seekerApproval ? 'Customer' : 'Provider'} approved the new service time. Previous appointment: ${rescheduleRequest.currentSchedule.date} ${rescheduleRequest.currentSchedule.startTime}.`, at: new Date() });
 
     const approvedBooking = await Booking.findOneAndUpdate({
       _id: booking._id, actualStartTime: null, scheduledStartTime: originalStart,
@@ -292,7 +339,7 @@ export const acceptRescheduleSlot = async (req, res) => {
       ...(originalPendingId ? { pendingRescheduleId: rescheduleRequest._id } : {}),
     }, {
       $set: { scheduledDate: booking.scheduledDate, startTime: booking.startTime, endTime: booking.endTime,
-        scheduledStartTime: selectedStart, scheduledEndTime: selectedEnd, bookingStatus: 'RESCHEDULED',
+        ...durationFields, scheduledStartTime: selectedStart, scheduledEndTime: validationEnd, bookingStatus: 'RESCHEDULED',
         expiredAt: null, actualStartTime: null, pendingRescheduleId: null, providerReadyConfirmed: false,
         providerReadyConfirmedAt: null, onTheWayAt: null },
       $addToSet: { acceptedRescheduleRequests: rescheduleRequest._id },
@@ -311,16 +358,22 @@ export const acceptRescheduleSlot = async (req, res) => {
     if (quotationId) {
       const coordination = await BidCoordination.findOneAndUpdate(
         { externalQuotationId: quotationId },
-        { finalDecision: "CAN_ACCEPT", recommendedAction: "Provider validated and accepted the rescheduled time.", status: "ready_for_seeker_review" },
+        { finalDecision: validation.warnings?.length ? "AVAILABLE_WITH_CAUTION" : "CAN_ACCEPT", recommendedAction: validation.message || "Provider validated and accepted the rescheduled time.", status: "ready_for_seeker_review" },
         { new: true }
       );
+      if (coordination) await BidScheduleEvaluation.findOneAndUpdate({ bidCoordinationId: coordination._id }, { $set: {
+        ...durationFields, proposedStartTime: selectedStart, requiredWindowStart: selectedStart, requiredWindowEnd: validationEnd,
+        finalSchedulingDurationMins: evidence.predictedDurationMins, finalSchedulingDurationHours: durationHours,
+        bufferMinutes: 15, conflictDetected: false, conflictReason: '', availabilityMessage: validation.message,
+        coordinationStatus: validation.warnings?.length ? 'CAUTION' : 'FEASIBLE', coordinationReason: validation.message,
+      } });
       try {
         await updateProviderQuotationCoordination(
           quotationId,
-          "CAN_ACCEPT",
+          validation.warnings?.length ? "AVAILABLE_WITH_CAUTION" : "CAN_ACCEPT",
           coordination?._id?.toString() || booking.bidCoordinationId?.toString() || null,
           selectedStart,
-          selectedEnd
+          validationEnd
         );
       } catch (error) {
         quotationUpdateWarning = error.message;
@@ -334,6 +387,8 @@ export const acceptRescheduleSlot = async (req, res) => {
         rescheduleRequest,
         booking,
         quotationUpdateWarning,
+        validation,
+        modelEvidence: evidence,
       },
     });
   } catch (error) {

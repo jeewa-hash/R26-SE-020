@@ -210,16 +210,16 @@ export const checkBidCoordination = async (req, res) => {
       scheduledStartTime: { $lt: proposedStart },
     }).sort({ scheduledStartTime: -1 }) : null;
     let travelInfo = { distanceKm: 0, estimatedTravelTimeMins: 0, source: "NO_COORDINATES" };
-    const previousEnd = previousBooking?.actualEndTime || previousBooking?.scheduledEndTime;
+    const previousEnd = previousBooking?.actualEndTime || previousBooking?.delayInfo?.expectedEndTime || previousBooking?.scheduledEndTime;
     let gapFromPreviousBookingMins = previousEnd
       ? Math.round((proposedStart.getTime() - new Date(previousEnd).getTime()) / 60000) : null;
     const destinationLat = requestQuotation.serviceLatitude ?? requestQuotation.location?.lat;
     const destinationLng = requestQuotation.serviceLongitude ?? requestQuotation.location?.lng;
     if (previousBooking?.location?.lat != null && previousBooking?.location?.lng != null && destinationLat != null && destinationLng != null) {
-      travelInfo = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, destinationLat, destinationLng);
+      travelInfo = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, destinationLat, destinationLng, { departureTime: previousEnd ? new Date(+new Date(previousEnd) + (previousBooking.actualEndTime || previousBooking.delayInfo?.expectedEndTime ? Number(bufferMinutes) * 60000 : 0)) : undefined });
       const previousEnd = previousBooking.bookingStatus === "EXPIRED"
         ? (previousBooking.expiredAt || previousBooking.scheduledStartTime)
-        : (previousBooking.actualEndTime || previousBooking.scheduledEndTime);
+        : (previousBooking.actualEndTime || previousBooking.delayInfo?.expectedEndTime || previousBooking.scheduledEndTime);
       if (previousEnd) gapFromPreviousBookingMins = Math.round((proposedStart.getTime() - new Date(previousEnd).getTime()) / 60000);
     }
     const feasibility = evaluateCoordinationFeasibility({
@@ -602,14 +602,14 @@ export const selectSuggestedSlot = async (req, res) => {
         scheduledStartTime: { $lt: selectedStart },
       }).sort({ scheduledStartTime: -1 });
       let travelInfo = { distanceKm: 0, estimatedTravelTimeMins: 0, source: "NO_COORDINATES" };
-      const previousEnd = previousBooking?.actualEndTime || previousBooking?.scheduledEndTime;
+      const previousEnd = previousBooking?.actualEndTime || previousBooking?.delayInfo?.expectedEndTime || previousBooking?.scheduledEndTime;
       let gapFromPreviousBookingMins = previousEnd
         ? Math.round((selectedStart.getTime() - new Date(previousEnd).getTime()) / 60000) : null;
       if (previousBooking?.location?.lat != null && previousBooking?.location?.lng != null && coordination.serviceLatitude != null && coordination.serviceLongitude != null) {
-        travelInfo = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, coordination.serviceLatitude, coordination.serviceLongitude);
+        travelInfo = await getRoadDistanceAndTime(previousBooking.location.lat, previousBooking.location.lng, coordination.serviceLatitude, coordination.serviceLongitude, { departureTime: previousEnd ? new Date(+new Date(previousEnd) + (previousBooking.actualEndTime || previousBooking.delayInfo?.expectedEndTime ? Number(scheduleEvaluation.bufferMinutes ?? 15) * 60000 : 0)) : undefined });
         const previousEnd = previousBooking.bookingStatus === "EXPIRED"
           ? (previousBooking.expiredAt || previousBooking.scheduledStartTime)
-          : (previousBooking.actualEndTime || previousBooking.scheduledEndTime);
+          : (previousBooking.actualEndTime || previousBooking.delayInfo?.expectedEndTime || previousBooking.scheduledEndTime);
         if (previousEnd) gapFromPreviousBookingMins = Math.round((selectedStart.getTime() - new Date(previousEnd).getTime()) / 60000);
       }
       const selectedFeasibility = evaluateCoordinationFeasibility({

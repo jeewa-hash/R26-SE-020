@@ -15,6 +15,7 @@ const applicantSchema = new mongoose.Schema(
     profilePicture: { type: String, default: null },
     bidAmount: { type: Number, default: null },
     note: { type: String, default: "" },
+    notificationEventId: { type: String },
   },
   { _id: false, timestamps: { createdAt: true, updatedAt: false } }
 );

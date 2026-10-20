@@ -128,7 +128,7 @@ const rescheduleRequestSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["PENDING", "PENDING_PROVIDER_REVIEW", "ACCEPTED", "REJECTED", "EXPIRED"],
+      enum: ["PENDING", "PENDING_PROVIDER_REVIEW", "PENDING_SEEKER_REVIEW", "ACCEPTED", "REJECTED", "EXPIRED"],
       default: "PENDING",
     },
   },

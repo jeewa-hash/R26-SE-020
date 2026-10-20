@@ -1215,6 +1215,7 @@ export const cancelBooking = async (req, res) => {
     const inquiryStatus = cancelledBy === "PROVIDER" ? "NOT_SUBMITTED" : "NOT_REQUIRED";
 
     booking.bookingStatus = "CANCELLED";
+    booking.pendingRescheduleId = null;
     booking.cancellationInfo = {
       cancelledBy,
       cancellationReason: reason,

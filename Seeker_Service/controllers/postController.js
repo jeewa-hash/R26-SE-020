@@ -1,4 +1,5 @@
 import { publishLifecycleNotification } from '../utils/lifecycleNotifications.js';
+import { randomUUID } from 'node:crypto';
 import { publicImagePath, storedImageFile } from '../utils/uploadPaths.js';
 import Post from "../models/Post.js";
 import { analyzeImageWithGemini, rankRelevantPosts } from "../utils/gemini.js";
@@ -729,7 +730,16 @@ export const applyPost = async (req, res) => {
     const applicantRole =
       role === "Seeker" ? "Seeker" : "ServiceProvider";
 
+    const existingApplicant = (post.appliedBy || []).find(
+      a => String(a.applicantId) === String(applicantId)
+    );
+    // A new application gets a new event; retries retain its identity. Existing
+    // legacy applications keep their old key to avoid replaying delivered alerts.
+    const notificationEventId = existingApplicant
+      ? existingApplicant.notificationEventId || `post:${post._id}:available:${applicantId}`
+      : `post:${post._id}:available:${applicantId}:${randomUUID()}`;
     const newApplicant = {
+      notificationEventId,
       applicantId,
       role: applicantRole,
       name: applicantInfo.name || "Service Provider",
@@ -761,7 +771,7 @@ export const applyPost = async (req, res) => {
     if (recipientId && String(recipientId) !== String(applicantId) && applicantRole === 'ServiceProvider') {
       await publishLifecycleNotification({
         recipientId: String(recipientId), role: 'Seeker',
-        eventId: `post:${post._id}:available:${applicantId}`,
+        eventId: notificationEventId,
         type: 'provider_available', title: 'A provider is available',
         message: `${applicantInfo.name || 'A service provider'} is available for your post. Review their response and request a quotation.`,
         metadata: { postId: String(post._id), providerId: String(applicantId), sessionId: post.sessionId || null },

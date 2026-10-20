@@ -8,7 +8,10 @@ export async function suggestRescheduleSlots({ providerId, currentDate, estimate
   const suggestions = [];
   for (let day = 0; day < 7 && suggestions.length < 3; day++) {
     const date = toScheduleParts(new Date(+anchor + day * 86400000)).date;
-    for (const time of ['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00']) {
+    const rounded = new Date(Math.ceil((+anchor + 1) / 900000) * 900000);
+    const nearestTime = toScheduleParts(rounded).date === date ? toScheduleParts(rounded).time : null;
+    const times = [...new Set([nearestTime, '08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00'].filter(Boolean))].sort();
+    for (const time of times) {
       const start = new Date(`${date}T${time}:00+05:30`);
       if (start <= anchor) continue;
       const validation = await validateRescheduleTime({ booking: context, startTime: start, durationHours: estimatedDurationHours });

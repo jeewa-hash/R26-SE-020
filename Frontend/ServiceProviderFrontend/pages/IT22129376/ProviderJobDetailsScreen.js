@@ -11,7 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   getBookingEndDate, getBookingId, getBookingStartDate, getBookingStatus,
   getHumanLocation, getHumanSeekerName, getHumanServiceTitle,
-  acceptBookingReschedule, getBookingReschedules, getProviderBookingById, openLocationInMaps,
+  getRescheduleAlternatives, sendRescheduleProposal, checkBookingReschedule, acceptBookingReschedule, getBookingReschedules, getProviderBookingById, openLocationInMaps,
   rejectBookingReschedule, requestBookingReschedule, statusLabel, updateBookingLifecycle,
 } from '../../services/providerFlowApi';
 import { getStoredProviderAuth } from './services/providerAuthStorage';
@@ -53,7 +53,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
       if (row && typeof row === 'object') setBooking(row);
       try {
         const reschedules = await getBookingReschedules(bookingId);
-        setPendingReschedule(reschedules.find((item) => ['PENDING', 'PENDING_PROVIDER_REVIEW'].includes(item?.status)) || null);
+        setPendingReschedule(['CANCELLED', 'COMPLETED'].includes(row?.bookingStatus) ? null : reschedules.find((item) => ['PENDING', 'PENDING_PROVIDER_REVIEW', 'PENDING_SEEKER_REVIEW'].includes(item?.status)) || null);
       } catch (e) { setPendingReschedule(null); setError('Booking loaded, but reschedule details could not be checked. Refresh to retry.'); }
     } catch (loadError) {
       console.log('Provider booking details load failed:', loadError?.message);
@@ -64,6 +64,11 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
   }, [bookingId]);
 
   useFocusEffect(useCallback(() => { loadBooking(); }, [loadBooking]));
+  useFocusEffect(useCallback(() => {
+    if (pendingReschedule?.status !== 'PENDING_SEEKER_REVIEW') return;
+    const timer = setInterval(loadBooking, 15000);
+    return () => clearInterval(timer);
+  }, [pendingReschedule?.status, loadBooking]));
 
   const runAction = async (action, body = {}) => {
     if (updating || !bookingId) return;
@@ -89,8 +94,8 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
   const acceptSlot = async (slot) => {
     try {
       setUpdating(true);
-      await acceptBookingReschedule(pendingReschedule?._id, slot);
-      notify('Rescheduled', 'The selected time was validated and applied.');
+      const result = await acceptBookingReschedule(pendingReschedule?._id, slot);
+      notify('Rescheduled', `Duration recalculated: ${result.modelEvidence?.predictedDurationMins ?? '—'} minutes. ${result.validation?.message || 'Availability and travel checked.'}`);
       await loadBooking();
     } catch (actionError) {
       notify('Time Unavailable', actionError?.message || 'This time could not be validated.');
@@ -129,7 +134,7 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
     return <View style={[styles.container, { backgroundColor: C.bg }]}><ProviderPageHeader navigation={navigation} title="Job Details" subtitle="View and manage this booking" /><View style={styles.loading}><ActivityIndicator color="#15803D" /><Text style={[styles.row, { color: C.muted }]}>Loading...</Text></View></View>;
   }
 
-  const guidance = sessionGuidance({ booking });
+  const guidance = pendingReschedule?.status === 'PENDING_SEEKER_REVIEW' ? { ...sessionGuidance({ booking }), title: 'Waiting for customer review', owner: 'Customer', message: 'Your suggested time has been sent. The current appointment stays unchanged until the customer agrees.' } : sessionGuidance({ booking });
   const startWindowOpens = getBookingStartDate(booking);
   const canStartNow = startWindowOpens && clockNow >= startWindowOpens.getTime() - 15 * 60000 && clockNow <= startWindowOpens.getTime() + 45 * 60000;
   const disabled = loading || updating || Boolean(error);
@@ -173,6 +178,13 @@ export default function ProviderJobDetailsScreen({ route, navigation }) {
           expired={status === 'EXPIRED'}
           isDark={isDark}
           busy={updating || loading}
+          onFindAlternatives={() => getRescheduleAlternatives(pendingReschedule._id)}
+          onSuggest={async slot => {
+            await sendRescheduleProposal(pendingReschedule._id, new Date(`${slot.date}T${slot.startTime}:00+05:30`).toISOString());
+            notify('Suggestion sent', 'The customer can accept, suggest another time, or cancel under the booking rules. The current schedule has not changed.');
+            await loadBooking();
+          }}
+          onCheck={slot => checkBookingReschedule(pendingReschedule._id, slot)}
           onApprove={acceptSlot}
           onDecline={keepBooking}
         /> : null}
